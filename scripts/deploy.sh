@@ -33,6 +33,17 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
+if grep -qE '^NEXT_PUBLIC_BASE_PATH=/catalogus' .env 2>/dev/null; then
+  echo "ERROR: .env has NEXT_PUBLIC_BASE_PATH=/catalogus — app must be at / (site root)."
+  echo "Set: NEXT_PUBLIC_BASE_PATH="
+  echo "     NEXT_PUBLIC_APP_URL=https://superclones.cloud"
+  exit 1
+fi
+if grep -qE '^NEXT_PUBLIC_APP_URL=.*superclones\.cloud/catalogus' .env 2>/dev/null; then
+  echo "ERROR: .env has NEXT_PUBLIC_APP_URL with /catalogus — use https://superclones.cloud"
+  exit 1
+fi
+
 export NODE_ENV=production
 
 echo "==> Install dependencies"
@@ -53,3 +64,7 @@ else
 fi
 
 echo "==> Deploy finished OK"
+echo "==> Path: $(pwd)"
+echo "==> Commit: $(git log -1 --oneline)"
+echo "NOTE: This is a Next.js app (npm run start on port 3000). Nginx must proxy to Node."
+echo "      public_html is NOT updated unless VPS_APP_PATH is set to that directory."

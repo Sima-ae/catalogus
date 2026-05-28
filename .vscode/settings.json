@@ -1,13 +1,19 @@
 {
   "files.associations": {
+    ".github/workflows/ci.yml": "yaml",
+    ".github/workflows/deploy.yml": "yaml",
     "**/.github/workflows/*.yml": "yaml",
     "**/.github/workflows/*.yaml": "yaml"
   },
   "yaml.schemas": {
     "https://json.schemastore.org/github-workflow.json": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/deploy.yml",
       ".github/workflows/*.yml",
       ".github/workflows/*.yaml"
     ]
   },
-  "github-actions.use-enterprise": false
+  "yaml.validate": true,
+  "github-actions.use-enterprise": false,
+  "github-actions.workflows.pinned.refresh.enabled": false
 }

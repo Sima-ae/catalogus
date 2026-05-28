@@ -20,7 +20,14 @@ function getBasePath() {
 
   const fromEnv = process.env.NEXT_PUBLIC_BASE_PATH
   if (fromEnv !== undefined && fromEnv !== '') {
-    return normalizeBasePath(fromEnv)
+    const normalized = normalizeBasePath(fromEnv)
+    if (normalized === '/catalogus') {
+      console.warn(
+        '[next.config] NEXT_PUBLIC_BASE_PATH=/catalogus is deprecated; use site root (/). Forcing empty basePath.'
+      )
+      return ''
+    }
+    return normalized
   }
   return ''
 }
@@ -32,9 +39,9 @@ function getAppUrl(basePath) {
 
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL
   if (fromEnv) {
-    return String(fromEnv).replace(/\/$/, '')
+    return String(fromEnv).replace(/\/catalogus\/?$/, '').replace(/\/$/, '')
   }
-  return basePath ? `https://superclones.cloud${basePath}` : 'https://superclones.cloud'
+  return 'https://superclones.cloud'
 }
 
 const basePath = getBasePath()

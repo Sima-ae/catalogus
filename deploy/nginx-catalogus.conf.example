@@ -12,10 +12,10 @@ location / {
     proxy_set_header Connection "upgrade";
 }
 
-# Optional: redirect old /catalogus URLs after migration
-# location /catalogus {
-#     return 301 $scheme://$host$request_uri;
-# }
-# location /catalogus/ {
-#     rewrite ^/catalogus/?(.*)$ /$1 permanent;
-# }
+# Redirect old /catalogus URLs to site root (remove after migration if unused)
+location = /catalogus {
+    return 308 $scheme://$host/;
+}
+location /catalogus/ {
+    rewrite ^/catalogus/?(.*)$ /$1 permanent;
+}

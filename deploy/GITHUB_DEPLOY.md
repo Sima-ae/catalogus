@@ -120,10 +120,61 @@ For a **private** repo, use a deploy key or machine user token on the server.
 
 ---
 
-## 6. Troubleshooting
+## 6. `public_html` vs where GitHub deploys
+
+**GitHub does not update `public_html` by default.**
+
+Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in workflow: `/var/www/superclones.cloud/catalogus`). That is a **git clone + Node.js app**, not your old static/PHP `public_html` folder.
+
+| You are looking at… | What happens |
+|---------------------|--------------|
+| `…/public_html` in cPanel/FTP | Often **unchanged** — old site files |
+| `VPS_APP_PATH` (e.g. `/var/www/.../catalogus`) | **Updated** on every deploy (`git pull` + build) |
+
+**This app is served by** `npm run start` on port **3000**, with **nginx proxying** `/` to Node (`deploy/nginx-catalogus.conf.example`). The live site does not come from dropping files into `public_html` alone.
+
+### Fix: align path + nginx
+
+**Option A — recommended (separate app directory)**
+
+1. Keep the repo at `/var/www/superclones.cloud/catalogus` (or similar).
+2. Set GitHub secret **`VPS_APP_PATH`** to that exact path.
+3. Configure nginx for `superclones.cloud` to **proxy** `/` → `http://127.0.0.1:3000/` (not `root public_html`).
+4. Ignore `public_html` for this Next.js app (or use it only for other sites).
+
+**Option B — repo inside `public_html` (Hostinger-style)**
+
+1. SSH in and find the real path, e.g.  
+   `/home/YOUR_USER/domains/superclones.cloud/public_html`
+2. Clone the app there (once):  
+   `git clone https://github.com/Sima-ae/catalogus.git .`
+3. Set GitHub secret **`VPS_APP_PATH`** to that **full path**.
+4. Still configure the domain to **proxy to port 3000** (or use Hostinger’s Node app feature pointing at this folder).
+
+On the VPS, run:
+
+```bash
+cd /var/www/superclones.cloud/catalogus   # or your VPS_APP_PATH
+bash scripts/vps-diagnose.sh
+```
+
+In GitHub Actions → latest **Deploy over SSH** log, look for:
+
+```text
+==> Deploy directory: /your/actual/path
+==> Git commit on server: …
+```
+
+That path must match where you expect updates.
+
+---
+
+## 7. Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
+| Files not updating in `public_html` | Deploy targets **`VPS_APP_PATH`**, not `public_html` — see section 6 |
+| GitHub deploy green but site unchanged | Nginx still serving `public_html`; switch to proxy → port 3000 |
 | `Permission denied (publickey)` | Check `VPS_SSH_KEY`, `VPS_USER`, `authorized_keys` |
 | `git fetch` fails | Set `origin` URL; for private repos add deploy key on GitHub |
 | Build fails on VPS | Check Node ≥ 18 (`node -v`), RAM (needs ~1GB for build) |
@@ -132,7 +183,7 @@ For a **private** repo, use a deploy key or machine user token on the server.
 
 ---
 
-## 7. What is **not** deployed via git
+## 8. What is **not** deployed via git
 
 - `.env` — stays only on the server
 - `node_modules` / `.next` — rebuilt on each deploy

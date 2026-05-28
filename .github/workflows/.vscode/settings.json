@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "ci.yml": "yaml",
+    "deploy.yml": "yaml",
+    "*.yml": "yaml",
+    "*.yaml": "yaml"
+  }
+}

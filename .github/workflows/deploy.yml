@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Deploy to VPS
 
 on:
@@ -109,13 +110,17 @@ jobs:
           cat > "$REMOTE_SCRIPT" <<SCRIPT
           set -euo pipefail
           cd $(printf '%q' "$APP_DIR")
+          echo "==> Deploy directory: \$(pwd)"
           echo "==> Fetch latest from GitHub (${GIT_REF})"
           git fetch origin main
           git reset --hard origin/main
           git clean -fd
+          echo "==> Git commit on server: \$(git log -1 --oneline)"
           echo "==> Run deploy script"
           chmod +x scripts/deploy.sh
           bash scripts/deploy.sh
+          echo "==> Post-deploy check (this path is what GitHub updates — not public_html unless VPS_APP_PATH points there)"
+          test -f package.json && test -d src && echo "OK: app files present in \$(pwd)"
           SCRIPT
 
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
