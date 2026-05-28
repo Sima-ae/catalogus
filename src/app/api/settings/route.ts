@@ -5,6 +5,7 @@ import {
 } from '@/lib/settings-db'
 import { loadSiteSettings, saveSiteSettings } from '@/lib/settings-persistence'
 import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+import { logDbRouteError } from '@/lib/db-route-log'
 import { getDevSettings, updateDevSettings } from '@/lib/dev-settings'
 
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,7 @@ export async function GET() {
     const { settings, storage } = await loadSiteSettings()
     return NextResponse.json({ ...settings, _storage: storage })
   } catch (error) {
-    console.error('Settings fetch error:', error)
+    logDbRouteError('Settings fetch error', error)
     if (isDevDataFallbackEnabled()) {
       return NextResponse.json({
         ...getDevSettings(),
@@ -48,7 +49,7 @@ export async function PUT(request: NextRequest) {
     const { settings, storage } = await saveSiteSettings(updates)
     return NextResponse.json({ ...settings, _storage: storage })
   } catch (error) {
-    console.error('Settings update error:', error)
+    logDbRouteError('Settings update error', error)
     if (isDevDataFallbackEnabled()) {
       const settings = updateDevSettings(updates)
       return NextResponse.json({ ...settings, _storage: 'file' })

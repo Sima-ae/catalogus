@@ -9,6 +9,7 @@ import { insertProduct, type ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { DEV_PRODUCTS } from '@/lib/dev-seed'
 import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+import { logDbRouteError } from '@/lib/db-route-log'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -18,7 +19,7 @@ export async function GET() {
     const rows = await queryDb('SELECT * FROM products ORDER BY created_at DESC')
     return NextResponse.json(rows)
   } catch (error) {
-    console.error('Products fetch error:', error)
+    logDbRouteError('Products fetch error', error)
     if (isDevDataFallbackEnabled()) {
       return NextResponse.json(listDevProducts())
     }

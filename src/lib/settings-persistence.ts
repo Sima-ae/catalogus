@@ -4,6 +4,7 @@ import {
   type SiteSettings,
 } from '@/lib/settings-db'
 import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+import { isDbConnectionError } from '@/lib/db'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
 import { readSettingsFile, writeSettingsFile } from '@/lib/settings-file-store'
 
@@ -15,19 +16,6 @@ export type SettingsLoadResult = {
 }
 
 export type SettingsSaveResult = SettingsLoadResult
-
-function isDbConnectionError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  return (
-    code === 'ECONNREFUSED' ||
-    code === 'ECONNRESET' ||
-    code === 'ETIMEDOUT' ||
-    code === 'PROTOCOL_CONNECTION_LOST' ||
-    code === 'ER_BAD_DB_ERROR' ||
-    code === 'ENOTFOUND'
-  )
-}
 
 function canUseFileFallback(error: unknown): boolean {
   return isDevDataFallbackEnabled() && isDbConnectionError(error)

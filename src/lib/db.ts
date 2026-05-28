@@ -57,7 +57,7 @@ export function getDbPool() {
   return pool
 }
 
-function isConnectionError(err: unknown): boolean {
+export function isDbConnectionError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false
   const code = (err as { code?: string }).code
   return (
@@ -65,6 +65,8 @@ function isConnectionError(err: unknown): boolean {
     code === 'ECONNREFUSED' ||
     code === 'ETIMEDOUT' ||
     code === 'PROTOCOL_CONNECTION_LOST' ||
+    code === 'ER_BAD_DB_ERROR' ||
+    code === 'ENOTFOUND' ||
     (err as { fatal?: boolean }).fatal === true
   )
 }
@@ -77,7 +79,7 @@ export async function queryDb<T = unknown>(
     const [rows] = await getDbPool().query(sql, params)
     return rows as T
   } catch (err) {
-    if (isConnectionError(err)) {
+    if (isDbConnectionError(err)) {
       resetDbPool()
       const [rows] = await getDbPool().query(sql, params)
       return rows as T

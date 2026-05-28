@@ -4,10 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
+import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import RoleBadge from '@/components/users/RoleBadge'
 import UserStarRating from '@/components/users/UserStarRating'
+import DashboardTopBar from '@/components/dashboard/DashboardTopBar'
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
 type NavItem = { name: string; href: string }
@@ -21,24 +23,37 @@ interface DashboardShellProps {
 export default function DashboardShell({ title, nav, children }: DashboardShellProps) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
+  const { theme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const isDark = theme === 'dark'
+  const shellClass = isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+  const panelClass = isDark ? 'bg-dark-700' : 'bg-gray-100'
+  const borderClass = isDark ? 'border-dark-700' : 'border-gray-200'
+  const navIdle = isDark
+    ? 'text-gray-300 hover:bg-dark-700 hover:text-white'
+    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
 
   const aside = (
     <div className="p-4 sm:p-6 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <BrandLogo size="dashboard" dashboardSidebar priority />
-        <button
-          type="button"
-          className="lg:hidden p-2 hover:bg-dark-700 rounded-lg"
-          onClick={() => setMobileOpen(false)}
-          aria-label="Close menu"
-        >
-          <XMarkIcon className="w-5 h-5 text-white" />
-        </button>
+      <div className="flex items-center justify-between mb-6 gap-2">
+        <BrandLogo size="dashboard" dashboardSidebar={isDark} priority />
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            className={`lg:hidden p-2 rounded-lg ${isDark ? 'hover:bg-dark-700' : 'hover:bg-gray-100'}`}
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+          >
+            <XMarkIcon className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
+          </button>
+        </div>
       </div>
-      <p className="text-sm text-gray-400 mb-4 lg:hidden">{title}</p>
-      <div className="mb-6 p-4 bg-dark-700 rounded-lg">
-        <p className="text-white font-medium truncate">{user?.name || 'User'}</p>
+      <p className={`text-sm mb-4 lg:hidden ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
+      <div className={`mb-6 p-4 rounded-lg ${panelClass}`}>
+        <p className={`font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          {user?.name || 'User'}
+        </p>
         {user && (
           <div className="mt-2">
             <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
@@ -47,30 +62,36 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
         <div className="mt-2">
           <UserStarRating rating={user?.badge_rating} size="sm" showValue={false} />
         </div>
-        <p className="text-gray-500 text-xs mt-2 truncate">{user?.email}</p>
+        <p className={`text-xs mt-2 truncate ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{user?.email}</p>
       </div>
       <nav className="space-y-2 flex-1">
         {nav.map((item) => (
           <Link
             key={item.href}
-            href={item.href}
+            href={appPath(item.href)}
             onClick={() => setMobileOpen(false)}
             className={`block px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
-              pathname === item.href ? 'nav-active' : 'text-gray-300 hover:bg-dark-700 hover:text-white'
+              pathname === appPath(item.href) || pathname === item.href ? 'nav-active' : navIdle
             }`}
           >
             {item.name}
           </Link>
         ))}
       </nav>
-      <div className="mt-6 pt-6 border-t border-dark-700 space-y-2">
-        <Link href={appPath('/')} onClick={() => setMobileOpen(false)} className="block text-sm text-gray-400 hover:text-white">
+      <div className={`mt-6 pt-6 border-t space-y-2 ${borderClass}`}>
+        <Link
+          href={appPath('/')}
+          onClick={() => setMobileOpen(false)}
+          className={`block text-sm transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+        >
           Visit shop
         </Link>
         <button
           type="button"
           onClick={() => signOut().then(() => { window.location.href = appPath('/login') })}
-          className="flex items-center text-sm text-gray-400 hover:text-white"
+          className={`flex items-center text-sm transition-colors ${
+            isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+          }`}
         >
           <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
           Sign out
@@ -80,7 +101,11 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
   )
 
   return (
-    <div className="flex min-h-screen bg-dark-900 overflow-x-hidden">
+    <div
+      className={`flex min-h-screen overflow-x-hidden transition-colors duration-200 ${
+        isDark ? 'bg-dark-900' : 'bg-gray-50'
+      }`}
+    >
       {mobileOpen && (
         <button
           type="button"
@@ -90,7 +115,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
         />
       )}
       <aside
-        className={`sidebar z-50 border-r border-dark-700 bg-dark-800
+        className={`sidebar z-50 border-r ${shellClass}
           fixed inset-y-0 left-0 w-[min(100vw-3rem,16rem)] sm:w-64
           lg:static lg:translate-x-0 lg:w-64
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -99,17 +124,17 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
         {aside}
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="lg:hidden flex items-center gap-2 p-4 border-b border-dark-700">
+        <div className={`lg:hidden flex items-center gap-2 p-4 border-b ${borderClass}`}>
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-lg hover:bg-dark-700 text-white"
+            className={`p-2 rounded-lg ${isDark ? 'hover:bg-dark-700 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
             aria-label="Open menu"
           >
             <Bars3Icon className="w-6 h-6" />
           </button>
-          <span className="text-white font-semibold">{title}</span>
         </div>
+        <DashboardTopBar title={title} />
         <main className="flex-1 p-4 sm:p-6 overflow-auto">{children}</main>
       </div>
     </div>

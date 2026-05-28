@@ -14,8 +14,8 @@ type BrandLogoProps = {
   /** Larger logo for admin / buyer / seller dashboard sidebars */
   size?: BrandLogoSize
   /**
-   * Dashboard sidebars (admin, buyer, seller) use a dark background.
-   * Uses white logo when global theme is dark; black logo in light mode.
+   * Sidebars on a dark background (admin dashboards, shop in dark mode).
+   * Uses /WEBLOGO-TEXT-WHITE.png; otherwise /WEBLOGO-TEXT-BLACK.png.
    */
   dashboardSidebar?: boolean
   className?: string
@@ -40,12 +40,13 @@ export default function BrandLogo({
   const dims = SIZE_PX[size]
   const imgHeight = compact ? 40 : dims.height
 
-  // Admin / buyer / seller sidebars are always on a dark background
+  // Homepage/catalog: white logo in dark mode; admin sidebars always use white on dark UI
   const useWhiteLogo = dashboardSidebar || theme === 'dark'
   const src = useWhiteLogo ? APP_LOGO_PATH_WHITE : APP_LOGO_PATH
 
   const img = (
     <Image
+      key={src}
       src={src}
       alt={APP_NAME}
       width={compact ? 48 : dims.width}

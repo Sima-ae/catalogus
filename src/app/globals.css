@@ -92,8 +92,12 @@ body.app-protected [contenteditable='true'] {
     @apply bg-dark-800 rounded-lg p-6 shadow-lg border border-dark-700;
   }
 
+  html.light .card {
+    @apply bg-white border-gray-200 shadow-sm text-gray-900;
+  }
+
   .sidebar {
-    @apply bg-dark-800 border-r border-dark-700 min-h-screen;
+    @apply border-r min-h-screen;
   }
 
   .text-gradient {
