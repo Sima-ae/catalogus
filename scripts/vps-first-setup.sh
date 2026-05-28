@@ -21,14 +21,30 @@ fi
 echo "==> Clone or update repository at $APP_DIR"
 PARENT_DIR="$(dirname "$APP_DIR")"
 mkdir -p "$PARENT_DIR"
-# Parent is often created as root; deploy cannot mkdir/clone underneath without ownership.
 chown "$DEPLOY_USER:$DEPLOY_USER" "$PARENT_DIR"
-if [[ ! -d "$APP_DIR/.git" ]]; then
+sudo -u "$DEPLOY_USER" git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+
+if [[ -d "$APP_DIR/.git" ]]; then
+  sudo -u "$DEPLOY_USER" bash -c "cd $(printf '%q' "$APP_DIR") && git fetch origin main && git reset --hard origin/main"
+elif [[ ! -d "$APP_DIR" ]] || [[ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]]; then
+  mkdir -p "$APP_DIR"
+  chown "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
   sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$APP_DIR"
 else
-  cd "$APP_DIR"
-  sudo -u "$DEPLOY_USER" git fetch origin main
-  sudo -u "$DEPLOY_USER" git reset --hard origin/main
+  echo "==> Directory exists without git — run scripts/vps-recover.sh or re-clone"
+  sudo -u "$DEPLOY_USER" bash -c "
+    set -euo pipefail
+    APP_DIR=$(printf '%q' "$APP_DIR")
+    REPO_URL=$(printf '%q' "$REPO_URL")
+    ENV_BAK=''
+    [[ -f \"\$APP_DIR/.env\" ]] && ENV_BAK=\$(mktemp) && cp \"\$APP_DIR/.env\" \"\$ENV_BAK\"
+    PARENT=\$(dirname \"\$APP_DIR\")
+    NAME=\$(basename \"\$APP_DIR\")
+    cd \"\$PARENT\"
+    mv \"\$NAME\" \"\${NAME}.bak.\$(date +%s)\"
+    git clone \"\$REPO_URL\" \"\$NAME\"
+    [[ -n \"\$ENV_BAK\" ]] && cp \"\$ENV_BAK\" \"\$APP_DIR/.env\"
+  "
 fi
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
 
@@ -45,6 +61,11 @@ EOF
 chmod 440 /etc/sudoers.d/catalogus-deploy
 
 echo "==> Install systemd unit"
+systemctl unmask catalogus 2>/dev/null || true
+if [[ ! -f "$APP_DIR/deploy/catalogus.service" ]]; then
+  echo "ERROR: $APP_DIR/deploy/catalogus.service not found — git clone incomplete"
+  exit 1
+fi
 sed "s|/var/www/superclones.cloud|$APP_DIR|g; s|^User=deploy|User=$DEPLOY_USER|" \
   "$APP_DIR/deploy/catalogus.service" > /etc/systemd/system/catalogus.service
 systemctl daemon-reload

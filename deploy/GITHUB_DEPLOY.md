@@ -11,11 +11,11 @@ Production URL: **https://superclones.cloud/**
 SSH into the server as root (or sudo user):
 
 ```bash
-# Example: clone and bootstrap
 export APP_DIR=/var/www/superclones.cloud
+# Broken / partial install? Use recover (handles nested catalogus/, no git, masked service):
+curl -fsSL https://raw.githubusercontent.com/Sima-ae/catalogus/main/scripts/vps-recover.sh | sudo bash
+# Fresh server:
 curl -fsSL https://raw.githubusercontent.com/Sima-ae/catalogus/main/scripts/vps-first-setup.sh | sudo bash
-# Or from a local clone:
-sudo bash scripts/vps-first-setup.sh
 ```
 
 Edit production env (never commit this file):
