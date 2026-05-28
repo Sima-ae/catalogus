@@ -178,6 +178,7 @@ That path must match where you expect updates.
 
 | Issue | Fix |
 |-------|-----|
+| `ssh: connect to host … port 22: Connection timed out` | GitHub runners cannot reach SSH. See **SSH timeout** below — firewall, wrong `VPS_HOST`, or SSH not on port 22 |
 | `cd: No such file or directory` on deploy | **`VPS_APP_PATH`** points to a folder that does not exist. Run `vps-first-setup.sh` on the VPS or set the secret to your real clone path |
 | `exists but is not a git repository` | Folder exists (e.g. `/var/www/superclones.cloud`) but was never `git clone`d. On VPS: `export APP_DIR=/var/www/superclones.cloud && bash scripts/vps-fix-git.sh` |
 | Files not updating in `public_html` | Deploy targets **`VPS_APP_PATH`**, not `public_html` — see section 6 |
@@ -188,6 +189,33 @@ That path must match where you expect updates.
 | Build fails on VPS | Check Node ≥ 18 (`node -v`), RAM (needs ~1GB for build) |
 | App 502 after deploy | `sudo systemctl status catalogus` and `journalctl -u catalogus -n 50` |
 | Wrong URL paths | `.env` must have `NEXT_PUBLIC_APP_URL=https://superclones.cloud` and empty `NEXT_PUBLIC_BASE_PATH` before `npm run build` |
+
+### SSH timeout (`Connection timed out` exit 255)
+
+GitHub Actions runs on **GitHub’s network**, not your PC. Your Mac can SSH while Actions times out if the server only allows certain IPs.
+
+1. **Test from your Mac** (replace with your real host/user):
+   ```bash
+   ssh -i ~/.ssh/catalogus_deploy deploy@YOUR_VPS_IP "echo ok"
+   ```
+2. **On the VPS** — SSH must listen and be reachable:
+   ```bash
+   systemctl status sshd --no-pager
+   ss -tlnp | grep ':22'
+   ```
+3. **Secrets** — `VPS_HOST` = server IP or hostname (same as you use in CyberPanel). If SSH uses another port, set secret `VPS_SSH_PORT` (e.g. `2222`).
+4. **Firewall** — allow inbound **TCP 22** (or your SSH port) from the internet, or at least from [GitHub Actions IP ranges](https://api.github.com/meta) (`actions` key). Check:
+   - Cloud panel (DigitalOcean / Hetzner / etc.) **firewall / security group**
+   - `firewall-cmd --list-all` or `ufw status`
+   - CyberPanel / CSF if it blocks unknown IPs
+5. **fail2ban** — unban GitHub if deploy worked before and stopped:
+   ```bash
+   fail2ban-client status sshd
+   ```
+6. **Until SSH from GitHub works** — deploy manually on the VPS:
+   ```bash
+   sudo -u deploy bash -lc 'cd /var/www/superclones.cloud && git fetch origin main && git reset --hard origin/main && bash scripts/deploy.sh'
+   ```
 
 ---
 

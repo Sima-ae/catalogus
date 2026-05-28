@@ -32,18 +32,33 @@ function resolveDatabaseUrl(env) {
 }
 
 const env = loadEnv()
-const url = resolveDatabaseUrl()
+const url = resolveDatabaseUrl(env)
 const safe = url.replace(/:([^:@/]+)@/, ':***@')
 console.log('Testing', safe, '...')
 
 try {
   const conn = await mysql.createConnection({ uri: url, connectTimeout: 10000 })
-  const [rows] = await conn.query('SELECT COUNT(*) AS c FROM users')
-  console.log('OK — connected. Users in DB:', rows[0].c)
+  const [users] = await conn.query('SELECT COUNT(*) AS c FROM users')
+  let productCount = '?'
+  try {
+    const [products] = await conn.query('SELECT COUNT(*) AS c FROM products')
+    productCount = String(products[0].c)
+  } catch {
+    productCount = '(table missing — import db/r_clones_cloud_init.sql)'
+  }
+  console.log('OK — connected. Users:', users[0].c, '| Products:', productCount)
   await conn.end()
   process.exit(0)
 } catch (err) {
   console.error('FAILED:', err.code || err.message)
+  if (err.code === 'ER_ACCESS_DENIED_ERROR') {
+    console.error(`
+Access denied — wrong user or password in .env DATABASE_URL.
+
+• CyberPanel → Databases → List Databases → r_clones_cloud → copy the DB password
+• Update /var/www/superclones.cloud/.env then: sudo systemctl restart catalogus
+`)
+  }
   if (err.code === 'ECONNREFUSED') {
     console.error(`
 Nothing on localhost:3306.
