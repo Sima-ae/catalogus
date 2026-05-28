@@ -104,7 +104,7 @@ export default function Sidebar({
     <div className="p-4 h-full flex flex-col">
       <div className="flex items-center justify-between mb-6 lg:mb-8 gap-2">
         <div className={`min-w-0 flex-1 ${isCollapsed ? 'hidden lg:flex lg:justify-center' : 'flex'}`}>
-          <BrandLogo compact={isCollapsed} priority />
+          <BrandLogo compact={isCollapsed} size="dashboard" priority />
         </div>
         <button
           type="button"

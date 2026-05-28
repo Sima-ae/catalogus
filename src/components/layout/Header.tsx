@@ -23,7 +23,7 @@ export default function Header() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <BrandLogo />
+          <BrandLogo size="dashboard" />
         </div>
 
         <div className="flex-1 max-w-lg mx-8">

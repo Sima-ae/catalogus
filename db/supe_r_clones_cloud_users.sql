@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(320) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(32) NOT NULL DEFAULT 'buyer',
+  is_super_admin TINYINT(1) NOT NULL DEFAULT 0,
+  badge_rating TINYINT UNSIGNED NULL DEFAULT NULL,
   name VARCHAR(255) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -24,13 +26,14 @@ CREATE TABLE IF NOT EXISTS users (
 
 START TRANSACTION;
 
-INSERT INTO users (id, email, password_hash, role, name)
+INSERT INTO users (id, email, password_hash, role, is_super_admin, name)
 VALUES
   (
     'a0000000-0000-0000-0000-000000000001',
     'info@000.it.com',
     '$2b$12$iz2gPv3bl4I5lOQvYXFib.SLiOiXnqYAU8PV3rRJdhzo1p837TWqq',
     'admin',
+    1,
     'Super Admin'
   ),
   (
@@ -38,6 +41,7 @@ VALUES
     'buyer@test.com',
     '$2b$12$Hz1zX52TvRzAgcl/jBhwguLsrFoyA5/eg5T7MAuRyj61mBbTzpxpq',
     'buyer',
+    0,
     'Test Buyer'
   ),
   (
@@ -45,11 +49,13 @@ VALUES
     'seller@test.com',
     '$2b$12$D8NEOUOYWISKCzCUdcgMWewE6TCvgSStTZo1QKhSBjsY4wGwCS6iK',
     'seller',
+    0,
     'Test Seller'
   )
 ON DUPLICATE KEY UPDATE
   password_hash = VALUES(password_hash),
   role = VALUES(role),
+  is_super_admin = VALUES(is_super_admin),
   name = VALUES(name);
 
 INSERT INTO user_profiles (id, email, name, role)

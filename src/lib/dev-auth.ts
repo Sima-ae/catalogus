@@ -1,12 +1,14 @@
 import bcrypt from 'bcryptjs'
 import { isDevFallbackEnabled } from '@/lib/runtime'
+import { SUPER_ADMIN_EMAIL } from '@/lib/user-roles'
 
 /** Dev-only login when MariaDB is not reachable (AUTH_DEV_FALLBACK=true). */
 const DEV_USERS = [
   {
     id: 'a0000000-0000-0000-0000-000000000001',
-    email: 'info@000.it.com',
+    email: SUPER_ADMIN_EMAIL,
     role: 'admin' as const,
+    is_super_admin: true as const,
     name: 'Super Admin',
     password_hashes: [
       '$2b$12$iz2gPv3bl4I5lOQvYXFib.SLiOiXnqYAU8PV3rRJdhzo1p837TWqq',
@@ -50,10 +52,16 @@ export async function tryDevLogin(email: string, password: string) {
   const valid = await passwordMatches(user.password_hashes, password)
   if (!valid) return null
 
+  const is_super_admin =
+    'is_super_admin' in user && user.is_super_admin === true
+      ? true
+      : user.email === SUPER_ADMIN_EMAIL
+
   return {
     id: user.id,
     email: user.email,
     role: user.role,
     name: user.name,
+    is_super_admin,
   }
 }

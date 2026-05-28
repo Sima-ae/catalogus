@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DashboardShell from '@/components/dashboard/DashboardShell'
+import UserBadgeCard from '@/components/users/UserBadgeCard'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
@@ -28,7 +29,8 @@ export default function BuyerDashboard() {
   return (
     <DashboardShell title="Buyer Dashboard" nav={nav}>
       <h2 className="text-2xl font-bold text-white mb-2">Welcome, {user?.name}</h2>
-      <p className="text-gray-400 mb-8">Browse products, manage your cart, and checkout.</p>
+      <p className="text-gray-400 mb-6">Browse products, manage your cart, and checkout.</p>
+      <UserBadgeCard user={user} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Link href="/" className="card p-6 hover:border-primary-500 transition-colors">

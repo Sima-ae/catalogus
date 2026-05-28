@@ -1,12 +1,14 @@
 import bcrypt from 'bcryptjs'
 import { queryDb } from '@/lib/db'
 import { isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
+import { isSuperAdminUser } from '@/lib/user-roles'
 
 type DbUser = {
   id: string
   email: string
   password_hash: string
   role: string
+  is_super_admin?: number | boolean
 }
 
 /** Verify super-admin (role admin) credentials for sensitive API routes. */
@@ -19,18 +21,26 @@ export async function verifySuperAdmin(
 
   if (isDevAuthEnabled()) {
     const devUser = await tryDevLogin(normalized, password)
-    if (devUser?.role === 'admin') {
+    if (devUser && isSuperAdminUser(devUser)) {
       return { ok: true, userId: devUser.id }
     }
     return { ok: false }
   }
 
-  const rows = await queryDb<DbUser[]>(
-    'SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = ? LIMIT 1',
-    [normalized]
-  )
+  let rows: DbUser[]
+  try {
+    rows = await queryDb<DbUser[]>(
+      'SELECT id, email, password_hash, role, is_super_admin FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [normalized]
+    )
+  } catch {
+    rows = await queryDb<DbUser[]>(
+      'SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [normalized]
+    )
+  }
   const user = rows[0]
-  if (!user || user.role !== 'admin') return { ok: false }
+  if (!user || !isSuperAdminUser(user)) return { ok: false }
 
   const valid = await bcrypt.compare(password, user.password_hash)
   if (!valid) return { ok: false }

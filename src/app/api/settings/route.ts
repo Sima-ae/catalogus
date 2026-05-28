@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   SETTING_KEYS,
   type SettingKey,
-  listSettings,
-  upsertSettings,
 } from '@/lib/settings-db'
-import { devSettingsEnabled, getDevSettings, updateDevSettings } from '@/lib/dev-settings'
+import { loadSiteSettings, saveSiteSettings } from '@/lib/settings-persistence'
 import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+import { getDevSettings, updateDevSettings } from '@/lib/dev-settings'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -25,12 +24,15 @@ function parseBody(body: unknown): Partial<Record<SettingKey, string>> {
 
 export async function GET() {
   try {
-    const settings = await listSettings()
-    return NextResponse.json(settings)
+    const { settings, storage } = await loadSiteSettings()
+    return NextResponse.json({ ...settings, _storage: storage })
   } catch (error) {
     console.error('Settings fetch error:', error)
     if (isDevDataFallbackEnabled()) {
-      return NextResponse.json(getDevSettings())
+      return NextResponse.json({
+        ...getDevSettings(),
+        _storage: 'file',
+      })
     }
     return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 })
   }
@@ -43,13 +45,20 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const settings = await upsertSettings(updates)
-    return NextResponse.json(settings)
+    const { settings, storage } = await saveSiteSettings(updates)
+    return NextResponse.json({ ...settings, _storage: storage })
   } catch (error) {
     console.error('Settings update error:', error)
-    if (devSettingsEnabled()) {
-      return NextResponse.json(updateDevSettings(updates))
+    if (isDevDataFallbackEnabled()) {
+      const settings = updateDevSettings(updates)
+      return NextResponse.json({ ...settings, _storage: 'file' })
     }
-    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error:
+          'Failed to save settings. Check DATABASE_URL and that MariaDB is running, or run the settings migration.',
+      },
+      { status: 500 }
+    )
   }
 }

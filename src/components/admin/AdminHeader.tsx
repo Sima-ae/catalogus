@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { MagnifyingGlassIcon, BuildingOfficeIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-local'
+import RoleBadge from '@/components/users/RoleBadge'
 import Link from 'next/link'
 
 export default function AdminHeader() {
@@ -54,7 +55,14 @@ export default function AdminHeader() {
               </div>
               <div className="text-left">
                 <p className="font-medium text-white">{user?.name || 'Admin User'}</p>
-                <p className="text-sm text-gray-400 capitalize">{user?.role || 'admin'}</p>
+                {user && (
+                  <RoleBadge
+                    role={user.role}
+                    email={user.email}
+                    is_super_admin={user.is_super_admin}
+                    className="mt-1"
+                  />
+                )}
               </div>
             </div>
             

@@ -2,35 +2,67 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { APP_LOGO_PATH, APP_NAME } from '@/lib/brand'
+import { APP_LOGO_PATH, APP_LOGO_PATH_WHITE, APP_NAME } from '@/lib/brand'
 import { appPath } from '@/lib/paths'
+import { useTheme } from '@/lib/theme'
+
+type BrandLogoSize = 'default' | 'dashboard'
 
 type BrandLogoProps = {
   /** Collapsed sidebar: icon-only width */
   compact?: boolean
+  /** Larger logo for admin / buyer / seller dashboard sidebars */
+  size?: BrandLogoSize
+  /**
+   * Dashboard sidebars (admin, buyer, seller) use a dark background.
+   * Uses white logo when global theme is dark; black logo in light mode.
+   */
+  dashboardSidebar?: boolean
   className?: string
   href?: string
   priority?: boolean
 }
 
+const SIZE_PX: Record<BrandLogoSize, { height: number; maxWidth: string; width: number }> = {
+  default: { height: 44, maxWidth: '14rem', width: 180 },
+  dashboard: { height: 56, maxWidth: '17rem', width: 220 },
+}
+
 export default function BrandLogo({
   compact = false,
+  size = 'default',
+  dashboardSidebar = false,
   className = '',
   href = '/',
   priority = false,
 }: BrandLogoProps) {
-  const width = compact ? 40 : 160
-  const height = compact ? 40 : 40
+  const { theme } = useTheme()
+  const dims = SIZE_PX[size]
+  const imgHeight = compact ? 40 : dims.height
+
+  // Admin / buyer / seller sidebars are always on a dark background
+  const useWhiteLogo = dashboardSidebar || theme === 'dark'
+  const src = useWhiteLogo ? APP_LOGO_PATH_WHITE : APP_LOGO_PATH
 
   const img = (
     <Image
-      src={APP_LOGO_PATH}
+      src={src}
       alt={APP_NAME}
-      width={width}
-      height={height}
+      width={compact ? 48 : dims.width}
+      height={compact ? 40 : dims.height}
       priority={priority}
-      className={`h-8 w-auto object-contain object-left ${compact ? 'max-w-[2.5rem]' : 'max-w-[10rem] sm:max-w-[12rem]'}`}
-      style={{ width: 'auto', height: compact ? 32 : 36 }}
+      className={`w-auto object-contain object-left ${
+        compact
+          ? 'max-w-[3rem]'
+          : size === 'dashboard'
+            ? 'max-w-[17rem]'
+            : 'max-w-[12rem] sm:max-w-[14rem]'
+      }`}
+      style={{
+        width: 'auto',
+        height: imgHeight,
+        maxWidth: compact ? '3rem' : dims.maxWidth,
+      }}
     />
   )
 
@@ -40,7 +72,10 @@ export default function BrandLogo({
 
   if (href) {
     return (
-      <Link href={appPath(href)} className="inline-flex focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded">
+      <Link
+        href={appPath(href)}
+        className="inline-flex focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+      >
         {inner}
       </Link>
     )

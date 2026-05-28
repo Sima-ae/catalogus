@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import DashboardShell from '@/components/dashboard/DashboardShell'
+import UserBadgeCard from '@/components/users/UserBadgeCard'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
@@ -36,7 +37,8 @@ export default function SellerDashboard() {
   return (
     <DashboardShell title="Seller Dashboard" nav={nav}>
       <h2 className="text-2xl font-bold text-white mb-2">Welcome, {user?.name}</h2>
-      <p className="text-gray-400 mb-8">Manage your listings and track sales.</p>
+      <p className="text-gray-400 mb-6">Manage your listings and track sales.</p>
+      <UserBadgeCard user={user} title="Your seller reputation" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card p-6">
@@ -46,6 +48,9 @@ export default function SellerDashboard() {
         <div className="card p-6">
           <h3 className="text-gray-400 text-sm">Account</h3>
           <p className="text-white mt-2 capitalize">{user?.role}</p>
+          {user?.badge_rating != null && user.badge_rating > 0 && (
+            <p className="text-amber-400 text-sm mt-2">{user.badge_rating}★ marketplace badge</p>
+          )}
         </div>
         <Link href="/" className="card p-6 hover:border-primary-500 transition-colors">
           <h3 className="text-white font-semibold">View storefront</h3>

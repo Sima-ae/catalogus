@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-local'
 import { appPath, isAppPath } from '@/lib/paths'
 import { APP_COPYRIGHT } from '@/lib/brand'
 import BrandLogo from '@/components/brand/BrandLogo'
+import RoleBadge from '@/components/users/RoleBadge'
 import {
   HomeIcon,
   CubeIcon,
@@ -57,7 +58,7 @@ export default function AdminSidebar({
   const sidebar = (
     <div className="p-4 sm:p-6 h-full flex flex-col overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
-        <BrandLogo />
+        <BrandLogo size="dashboard" dashboardSidebar priority />
         {onMobileClose && (
           <button type="button" onClick={onMobileClose} className="lg:hidden p-2 hover:bg-dark-700 rounded-lg" aria-label="Close">
             <XMarkIcon className="w-5 h-5 text-white" />
@@ -74,7 +75,11 @@ export default function AdminSidebar({
           </div>
           <div className="min-w-0">
             <p className="text-white font-medium truncate">{user?.name || 'Admin User'}</p>
-            <p className="text-gray-400 text-sm capitalize">{user?.role || 'admin'}</p>
+            {user && (
+              <div className="mt-1">
+                <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
+              </div>
+            )}
           </div>
         </div>
       </div>

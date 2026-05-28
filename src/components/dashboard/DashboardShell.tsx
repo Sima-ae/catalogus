@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
+import RoleBadge from '@/components/users/RoleBadge'
+import UserStarRating from '@/components/users/UserStarRating'
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
 type NavItem = { name: string; href: string }
@@ -24,7 +26,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
   const aside = (
     <div className="p-4 sm:p-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
-        <BrandLogo />
+        <BrandLogo size="dashboard" dashboardSidebar priority />
         <button
           type="button"
           className="lg:hidden p-2 hover:bg-dark-700 rounded-lg"
@@ -37,8 +39,15 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
       <p className="text-sm text-gray-400 mb-4 lg:hidden">{title}</p>
       <div className="mb-6 p-4 bg-dark-700 rounded-lg">
         <p className="text-white font-medium truncate">{user?.name || 'User'}</p>
-        <p className="text-gray-400 text-sm capitalize">{user?.role}</p>
-        <p className="text-gray-500 text-xs mt-1 truncate">{user?.email}</p>
+        {user && (
+          <div className="mt-2">
+            <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
+          </div>
+        )}
+        <div className="mt-2">
+          <UserStarRating rating={user?.badge_rating} size="sm" showValue={false} />
+        </div>
+        <p className="text-gray-500 text-xs mt-2 truncate">{user?.email}</p>
       </div>
       <nav className="space-y-2 flex-1">
         {nav.map((item) => (

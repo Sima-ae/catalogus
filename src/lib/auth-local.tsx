@@ -9,6 +9,8 @@ export interface AuthUser {
   role: 'admin' | 'buyer' | 'seller'
   name?: string
   avatar_url?: string
+  is_super_admin?: boolean
+  badge_rating?: number | null
 }
 
 interface AuthContextType {
@@ -22,6 +24,7 @@ interface AuthContextType {
   isAdmin: boolean
   isSeller: boolean
   isBuyer: boolean
+  isSuperAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -72,7 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAdmin = user?.role === 'admin'
     const isSeller = user?.role === 'seller'
     const isBuyer = user?.role === 'buyer'
-    return { user, loading, signIn, signOut, isAdmin, isSeller, isBuyer }
+    const isSuperAdmin = Boolean(
+      user?.is_super_admin ||
+        (user?.role === 'admin' && user?.email?.toLowerCase() === 'info@000.it.com')
+    )
+    return { user, loading, signIn, signOut, isAdmin, isSeller, isBuyer, isSuperAdmin }
   }, [user, loading])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
