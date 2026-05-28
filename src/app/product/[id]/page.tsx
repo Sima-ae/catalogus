@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import Sidebar from '@/components/layout/Sidebar'
+import Sidebar, { MobileMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { ArrowLeftIcon, StarIcon, HeartIcon, ShareIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
@@ -80,6 +80,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
   const [activeTab, setActiveTab] = useState('description')
+  const { mobileOpen, open, close } = useMobileSidebar()
 
   // In a real app, fetch product data based on params.id
   const product = mockProduct
@@ -114,17 +115,18 @@ export default function ProductPage() {
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
     } overflow-x-hidden`}>
-      <Sidebar />
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={close} />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header with Search and Actions */}
         <div className={`transition-colors duration-200 ${
           theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
         } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             {/* Breadcrumb Navigation - Left Side */}
-            <div className="flex items-center space-x-4">
-              <Link href="/" className={`transition-colors ${
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+              <MobileMenuButton onClick={open} />
+              <Link href="/" className={`transition-colors shrink-0 ${
                 theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
               }`}>
                 <ArrowLeftIcon className="w-6 h-6" />
@@ -199,9 +201,9 @@ export default function ProductPage() {
               </Link>
               
               {/* Become a Seller Button */}
-              <button className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 hover:shadow-lg" title="Become a Seller">
+              <Link href="/seller" className="btn-primary text-sm px-3 sm:px-4 py-2 hidden sm:inline-flex" title="Become a Seller">
                 Become a Seller
-              </button>
+              </Link>
             </div>
           </div>
         </div>

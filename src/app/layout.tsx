@@ -6,6 +6,8 @@ import { ThemeProvider } from '@/lib/theme'
 import { AuthProvider } from '@/lib/auth-local'
 import { appUrl } from '@/lib/paths'
 import { APP_NAME } from '@/lib/brand'
+import SiteAccessGuard from '@/components/site-access/SiteAccessGuard'
+import ContentProtection from '@/components/ContentProtection'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -22,13 +24,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-white text-gray-900 transition-colors duration-200`}>
+      <body className={`${inter.className} app-protected bg-white text-gray-900 transition-colors duration-200`}>
+        <ContentProtection />
         <AuthProvider>
-          <ThemeProvider>
-            <CartProvider>
-              {children}
-            </CartProvider>
-          </ThemeProvider>
+          <SiteAccessGuard>
+            <ThemeProvider>
+              <CartProvider>
+                {children}
+              </CartProvider>
+            </ThemeProvider>
+          </SiteAccessGuard>
         </AuthProvider>
       </body>
     </html>

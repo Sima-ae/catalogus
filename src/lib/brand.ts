@@ -1,4 +1,6 @@
 export const APP_NAME = 'Super Clones'
+export const APP_LOGO_PATH = '/WEBLOGO-TEXT-BLACK.png'
+/** @deprecated Use BrandLogo / APP_LOGO_PATH */
 export const APP_LOGO_MARK = 'SC'
 export const APP_COPYRIGHT = 'Super Clones © 2026'
 export const APP_DEFAULT_AUTHOR = 'Super Clones'

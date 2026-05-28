@@ -5,13 +5,14 @@ import { useTheme } from '@/lib/theme'
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import Sidebar from '@/components/layout/Sidebar'
+import Sidebar, { MobileMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
 import { TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 
 export default function CartPage() {
   const { state: cartState, removeItem, updateQuantity, clearCart } = useCart()
   const { theme } = useTheme()
   const [isUpdating, setIsUpdating] = useState<string | null>(null)
+  const { mobileOpen, open, close } = useMobileSidebar()
 
   const handleQuantityChange = async (id: string, newQuantity: number) => {
     setIsUpdating(id)
@@ -36,15 +37,16 @@ export default function CartPage() {
       <div className={`flex min-h-screen transition-colors duration-200 ${
         theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
       } overflow-x-hidden`}>
-        <Sidebar />
+        <Sidebar mobileOpen={mobileOpen} onMobileClose={close} />
         
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
           <div className={`transition-colors duration-200 ${
             theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
           } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-            <div className="flex items-center justify-between">
-              <h1 className={`text-2xl font-bold transition-colors ${
+            <div className="flex items-center gap-3">
+              <MobileMenuButton onClick={open} />
+              <h1 className={`text-xl sm:text-2xl font-bold transition-colors ${
                 theme === 'dark' ? 'text-white' : 'text-gray-900'
               }`}>Shopping Cart</h1>
             </div>
@@ -85,16 +87,17 @@ export default function CartPage() {
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
     } overflow-x-hidden`}>
-      <Sidebar />
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={close} />
       
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className={`transition-colors duration-200 ${
           theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
         } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/" className={`transition-colors ${
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+              <MobileMenuButton onClick={open} />
+              <Link href="/" className={`transition-colors shrink-0 ${
                 theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
               }`}>
                 <ArrowLeftIcon className="w-6 h-6" />

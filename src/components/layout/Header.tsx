@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { APP_NAME } from '@/lib/brand'
-import BrandMark from '@/components/brand/BrandMark'
+import BrandLogo from '@/components/brand/BrandLogo'
 import { 
   MagnifyingGlassIcon,
   MoonIcon,
@@ -24,8 +23,7 @@ export default function Header() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <BrandMark className="w-9 h-9" />
-          <h1 className="text-xl font-bold text-gradient">{APP_NAME}</h1>
+          <BrandLogo />
         </div>
 
         <div className="flex-1 max-w-lg mx-8">

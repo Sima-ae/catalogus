@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { appPath } from '@/lib/paths'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
-import AdminSidebar from '@/components/admin/AdminSidebar'
+import AdminSidebar, { AdminMobileMenuButton } from '@/components/admin/AdminSidebar'
 import AdminHeader from '@/components/admin/AdminHeader'
 import StatCard from '@/components/admin/StatCard'
 import { 
@@ -57,6 +57,7 @@ export default function AdminDashboard() {
     totalVendors: 0
   })
   const [loading, setLoading] = useState(true)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const { user, loading: authLoading, isAdmin } = useAuth()
 
   const isDevelopment = process.env.NODE_ENV === 'development'
@@ -248,9 +249,9 @@ export default function AdminDashboard() {
       console.log('🔍 Showing data loading state')
     }
     return (
-      <div className="flex min-h-screen bg-dark-900">
-        <AdminSidebar />
-        <div className="flex-1 flex items-center justify-center">
+      <div className="flex min-h-screen bg-dark-900 overflow-x-hidden">
+        <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
+        <div className="flex-1 flex items-center justify-center min-w-0">
           <div className="text-center text-white">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
             <p className="mt-4">Loading dashboard data...</p>
@@ -265,13 +266,17 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-dark-900">
-      <AdminSidebar />
-      
-      <div className="flex-1 flex flex-col">
+    <div className="flex min-h-screen bg-dark-900 overflow-x-hidden">
+      <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex items-center gap-2 px-4 pt-4 lg:hidden">
+          <AdminMobileMenuButton onClick={() => setMobileNavOpen(true)} />
+          <span className="text-white font-medium">Admin Dashboard</span>
+        </div>
         <AdminHeader />
-        
-        <main className="flex-1 p-6">
+
+        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
           {/* Summary Section */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">Summary</h2>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import SiteAccessSettings from '@/components/admin/SiteAccessSettings'
 import { appPath } from '@/lib/paths'
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
@@ -56,6 +57,8 @@ export default function AdminSettingsPage() {
       title="Settings"
       description="Store branding and customer-facing options. Payment keys stay in server environment variables only."
     >
+      <SiteAccessSettings />
+
       {loading ? (
         <p className="text-gray-400">Loading...</p>
       ) : (
