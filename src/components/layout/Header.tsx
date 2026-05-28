@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { APP_NAME } from '@/lib/brand'
+import BrandMark from '@/components/brand/BrandMark'
 import { 
   MagnifyingGlassIcon,
   MoonIcon,
@@ -16,13 +18,14 @@ export default function Header() {
   return (
     <header className="header px-6 py-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <button className="p-2 rounded-lg hover:bg-dark-700 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-gradient">Pixer</h1>
+          <BrandMark className="w-9 h-9" />
+          <h1 className="text-xl font-bold text-gradient">{APP_NAME}</h1>
         </div>
 
         <div className="flex-1 max-w-lg mx-8">

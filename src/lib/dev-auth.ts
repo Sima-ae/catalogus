@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { useDevFallback } from '@/lib/runtime'
 
 /** Dev-only login when MariaDB is not reachable (AUTH_DEV_FALLBACK=true). */
 const DEV_USERS = [
@@ -7,7 +8,6 @@ const DEV_USERS = [
     email: 'info@000.it.com',
     role: 'admin' as const,
     name: 'Super Admin',
-    // Admin123!.. and Admin123! (common typo)
     password_hashes: [
       '$2b$12$iz2gPv3bl4I5lOQvYXFib.SLiOiXnqYAU8PV3rRJdhzo1p837TWqq',
       '$2b$12$ue2o4T2MAp5vd92OehduqO4bc4AR0vXSfmwX4Do268K9p5YLOeTjy',
@@ -30,9 +30,7 @@ const DEV_USERS = [
 ]
 
 export function isDevAuthEnabled() {
-  if (process.env.AUTH_DEV_FALLBACK === 'false') return false
-  if (process.env.AUTH_DEV_FALLBACK === 'true') return true
-  return process.env.NODE_ENV === 'development'
+  return useDevFallback()
 }
 
 async function passwordMatches(hashes: string[], password: string) {

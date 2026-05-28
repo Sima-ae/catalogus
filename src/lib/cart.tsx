@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react'
+import { CART_STORAGE_KEY, LEGACY_CART_STORAGE_KEY } from '@/lib/brand'
 
 export interface CartItem {
   id: string
@@ -142,7 +143,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Load cart from localStorage on mount
   useEffect(() => {
     try {
-      const savedCart = localStorage.getItem('triplezero-cart')
+      const savedCart =
+        localStorage.getItem(CART_STORAGE_KEY) ?? localStorage.getItem(LEGACY_CART_STORAGE_KEY)
       if (savedCart) {
         const cartData = JSON.parse(savedCart)
         dispatch({ type: 'LOAD_CART', payload: cartData })
@@ -158,7 +160,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isInitialized) {
       try {
-        localStorage.setItem('triplezero-cart', JSON.stringify(state.items))
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.items))
       } catch (error) {
         console.error('Error saving cart to localStorage:', error)
       }
@@ -181,7 +183,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'CLEAR_CART' })
     // Also clear from localStorage
     try {
-      localStorage.removeItem('triplezero-cart')
+      localStorage.removeItem(CART_STORAGE_KEY)
+      localStorage.removeItem(LEGACY_CART_STORAGE_KEY)
     } catch (error) {
       console.error('Error clearing cart from localStorage:', error)
     }

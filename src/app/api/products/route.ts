@@ -6,6 +6,7 @@ import {
   listDevProducts,
 } from '@/lib/dev-store'
 import { insertProduct, type ProductInput } from '@/lib/products-db'
+import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { DEV_PRODUCTS } from '@/lib/dev-seed'
 import { useDevDataFallback } from '@/lib/dev-seed'
 
@@ -74,8 +75,8 @@ function parseProductBody(body: Record<string, unknown>): ProductInput {
     image_url: String(body.image_url || '').trim(),
     category: String(body.category || '').trim(),
     tags,
-    author: String(body.author || 'TripleZero iT').trim(),
-    author_icon: String(body.author_icon || 'i').trim(),
+    author: String(body.author || APP_DEFAULT_AUTHOR).trim(),
+    author_icon: String(body.author_icon || APP_DEFAULT_AUTHOR_ICON).trim(),
     sku: body.sku ? String(body.sku).trim() : null,
     status: String(body.status || 'active'),
     featured: body.featured === true || body.featured === 'true' || body.featured === 1,

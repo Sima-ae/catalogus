@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (isDevAuthEnabled()) {
     const devUser = await tryDevLogin(email, password)
     if (devUser) {
-      return NextResponse.json({ user: devUser, devMode: true })
+      return NextResponse.json({ user: devUser })
     }
   }
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     if (isDevAuthEnabled() && isDbConnectionError(error)) {
       return NextResponse.json(
-        { error: 'Invalid email or password (database offline, dev mode active)' },
+        { error: 'Invalid email or password' },
         { status: 401 }
       )
     }
@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes('not configured')) {
       message = 'Database is not configured. Set DATABASE_URL in .env.'
     } else if (isDbConnectionError(error)) {
-      message =
-        'Database offline. Use AUTH_DEV_FALLBACK=true for local login, or npm run db:tunnel / npm run db:local.'
+      message = 'Unable to connect to the database. Try again later or contact support.'
     }
 
     return NextResponse.json({ error: message }, { status: 500 })

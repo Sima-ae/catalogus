@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import AdminEmptyState from '@/components/admin/AdminEmptyState'
 import { appPath } from '@/lib/paths'
 
 type UserRow = {
@@ -29,10 +30,13 @@ export default function AdminUsersPage() {
   }, [])
 
   return (
-    <AdminPageShell title="Users">
+    <AdminPageShell title="Users" description="Registered accounts.">
       {loading && <p className="text-gray-400">Loading...</p>}
       {error && <p className="text-red-400">{error}</p>}
-      {!loading && !error && (
+      {!loading && !error && users.length === 0 && (
+        <AdminEmptyState title="No users found" description="Users appear when registered in the database." />
+      )}
+      {!loading && !error && users.length > 0 && (
         <div className="card overflow-x-auto">
           <table className="w-full">
             <thead>

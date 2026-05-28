@@ -1,13 +1,13 @@
 # Environment Variables Setup Guide
 
-## 🔐 **Secure Configuration for TripleZero iT**
+## 🔐 **Secure Configuration for Super Clones**
 
 This guide explains how to properly set up your environment variables for secure operation.
 
 ## 📁 **File Structure**
 
 ```
-triplezero-it/
+superclones/
 ├── .env.local          # Your actual credentials (NEVER commit this)
 ├── .env.example        # Example format (safe to commit)
 ├── .gitignore          # Should include .env.local

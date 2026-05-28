@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
+import { APP_COPYRIGHT, APP_NAME } from '@/lib/brand'
+import BrandMark from '@/components/brand/BrandMark'
 import { 
   HomeIcon, 
   MapIcon, 
@@ -51,9 +53,10 @@ export default function Sidebar() {
     }`}>
       <div className="p-4">
         <div className="flex items-center justify-between mb-8">
-          <h1 className={`font-bold text-xl text-gradient ${isCollapsed ? 'hidden' : 'block'}`}>
-            TripleZero iT
-          </h1>
+          <div className={`flex items-center gap-3 min-w-0 ${isCollapsed ? 'hidden' : 'flex'}`}>
+            <BrandMark />
+            <h1 className="font-bold text-xl text-gradient truncate">{APP_NAME}</h1>
+          </div>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={`p-2 rounded-lg transition-colors ${
@@ -134,7 +137,7 @@ export default function Sidebar() {
               }`}>Help</Link>
             </div>
             <div className="mt-4 text-left">
-              <p><b>TripleZero iT © 2026</b></p>
+              <p><b>{APP_COPYRIGHT}</b></p>
             </div>
           </div>
         )}

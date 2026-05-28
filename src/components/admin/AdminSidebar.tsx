@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
+import { appPath, isAppPath } from '@/lib/paths'
+import { APP_COPYRIGHT, APP_NAME } from '@/lib/brand'
+import BrandMark from '@/components/brand/BrandMark'
 import {
   HomeIcon,
   CubeIcon,
@@ -33,10 +36,8 @@ export default function AdminSidebar() {
     <div className="sidebar w-64">
       <div className="p-6">
         <div className="flex items-center mb-8">
-          <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center mr-3">
-            <span className="text-white font-bold text-lg">T</span>
-          </div>
-          <h1 className="text-xl font-bold text-gradient">TripleZero iT</h1>
+          <BrandMark className="w-9 h-9 mr-3" />
+          <h1 className="text-xl font-bold text-gradient">{APP_NAME}</h1>
         </div>
 
         {/* User Info */}
@@ -57,11 +58,11 @@ export default function AdminSidebar() {
         {/* Navigation */}
         <nav className="space-y-2">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = isAppPath(pathname, item.href)
             return (
               <Link
                 key={item.name}
-                href={item.href}
+                href={appPath(item.href)}
                 className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
                   isActive
                     ? 'bg-primary-500 text-white'
@@ -80,14 +81,14 @@ export default function AdminSidebar() {
           <h3 className="text-sm font-medium text-gray-400 mb-3">Quick Actions</h3>
           <div className="space-y-2">
             <Link
-              href="/admin/products/new"
+              href={appPath('/admin/products/new')}
               className="flex items-center px-3 py-2 rounded-lg text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
             >
               <CubeIcon className="w-4 h-4 mr-3" />
               <span className="text-sm">Add Product</span>
             </Link>
             <Link
-              href="/admin/categories/new"
+              href={appPath('/admin/categories/new')}
               className="flex items-center px-3 py-2 rounded-lg text-gray-300 hover:bg-dark-700 hover:text-white transition-colors"
             >
               <TagIcon className="w-4 h-4 mr-3" />
@@ -99,15 +100,15 @@ export default function AdminSidebar() {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-dark-700 text-xs text-gray-400">
           <div className="space-y-2">
-            <Link href="/" className="block hover:text-white transition-colors">
+            <Link href={appPath('/')} className="block hover:text-white transition-colors">
               Visit Site
             </Link>
-            <Link href="/admin/settings" className="block hover:text-white transition-colors">
+            <Link href={appPath('/admin/settings')} className="block hover:text-white transition-colors">
               Settings
             </Link>
           </div>
           <div className="mt-4 text-left">
-            <p><b>TripleZero iT © 2026</b></p>
+            <p><b>{APP_COPYRIGHT}</b></p>
           </div>
         </div>
       </div>

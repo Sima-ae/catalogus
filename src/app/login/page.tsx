@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
 import { getDashboardPath } from '@/lib/dashboard'
+import { appPath } from '@/lib/paths'
 import Link from 'next/link'
 
 export default function LoginPage() {
@@ -16,7 +17,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace(getDashboardPath(user.role))
+      router.replace(appPath(getDashboardPath(user.role)))
     }
   }, [authLoading, user, router])
 
@@ -34,7 +35,7 @@ export default function LoginPage() {
     }
 
     if (result.user) {
-      router.replace(getDashboardPath(result.user.role))
+      router.replace(appPath(getDashboardPath(result.user.role)))
       return
     }
 
@@ -49,9 +50,6 @@ export default function LoginPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Admin: info@000.it.com — password Admin123!.. (or Admin123!)
-          </p>
         </div>
         <form className="mt-8 space-y-6" method="post" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
@@ -104,7 +102,7 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center">
-            <Link href="/" className="font-medium text-primary-600 hover:text-primary-500">
+            <Link href={appPath('/')} className="font-medium text-primary-600 hover:text-primary-500">
               Back to home
             </Link>
           </div>

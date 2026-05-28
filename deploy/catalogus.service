@@ -1,0 +1,29 @@
+# systemd unit — install on VPS:
+#   sudo cp deploy/catalogus.service /etc/systemd/system/catalogus.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable catalogus
+#   sudo systemctl start catalogus
+#
+# Edit User= and WorkingDirectory= to match your server path.
+
+[Unit]
+Description=Catalogus Next.js (superclones.cloud/catalogus)
+After=network.target mariadb.service mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/superclones.cloud/catalogus
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/superclones.cloud/catalogus/.env
+ExecStart=/usr/bin/npm run start -- -p 3000
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=catalogus
+
+[Install]
+WantedBy=multi-user.target

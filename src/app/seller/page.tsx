@@ -25,7 +25,8 @@ export default function SellerDashboard() {
         const mine = list.filter(
           (p: Product) =>
             p.author?.toLowerCase() === user?.name?.toLowerCase() ||
-            p.author?.toLowerCase().includes('triplezero')
+            p.author?.toLowerCase().includes('super clones') ||
+            p.author?.toLowerCase().includes('superclones')
         )
         setProducts(mine.length ? mine : list)
       })

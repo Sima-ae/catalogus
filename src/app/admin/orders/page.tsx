@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import AdminEmptyState from '@/components/admin/AdminEmptyState'
 import { appPath } from '@/lib/paths'
 
 type Order = {
@@ -25,11 +26,11 @@ export default function AdminOrdersPage() {
   }, [])
 
   return (
-    <AdminPageShell title="Orders">
+    <AdminPageShell title="Orders" description="All customer orders.">
       {loading ? (
         <p className="text-gray-400">Loading...</p>
       ) : orders.length === 0 ? (
-        <p className="text-gray-400">No orders yet.</p>
+        <AdminEmptyState title="No orders yet" description="Orders will show here after customers checkout." />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full">

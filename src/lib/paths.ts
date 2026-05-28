@@ -26,3 +26,10 @@ export function appUrl(path: string = ''): string {
   if (!path) return `${appOrigin}${basePath}`
   return `${appOrigin}${appPath(path)}`
 }
+
+/** Match current pathname to an app route (works with production basePath). */
+export function isAppPath(pathname: string | null, path: string): boolean {
+  if (!pathname) return false
+  const target = appPath(path)
+  return pathname === target || pathname === path || pathname.endsWith(path)
+}

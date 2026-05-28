@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
+import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 
 type CategoryOption = { id: string; name: string; slug: string }
 
@@ -17,8 +18,8 @@ const defaultForm = {
   image_url: '',
   category: '',
   tags: '',
-  author: 'TripleZero iT',
-  author_icon: 'i',
+  author: APP_DEFAULT_AUTHOR,
+  author_icon: APP_DEFAULT_AUTHOR_ICON,
   sku: '',
   status: 'active',
   featured: false,
@@ -236,8 +237,8 @@ function mapProductToForm(p: Partial<Product>) {
     image_url: p.image_url || '',
     category: p.category || '',
     tags,
-    author: p.author || 'TripleZero iT',
-    author_icon: p.author_icon || 'i',
+    author: p.author || APP_DEFAULT_AUTHOR,
+    author_icon: p.author_icon || APP_DEFAULT_AUTHOR_ICON,
     sku: p.sku || '',
     status: p.status || 'active',
     featured: !!p.featured,

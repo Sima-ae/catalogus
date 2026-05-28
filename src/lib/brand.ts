@@ -1,0 +1,7 @@
+export const APP_NAME = 'Super Clones'
+export const APP_LOGO_MARK = 'SC'
+export const APP_COPYRIGHT = 'Super Clones © 2026'
+export const APP_DEFAULT_AUTHOR = 'Super Clones'
+export const APP_DEFAULT_AUTHOR_ICON = 'S'
+export const CART_STORAGE_KEY = 'superclones-cart'
+export const LEGACY_CART_STORAGE_KEY = 'triplezero-cart'

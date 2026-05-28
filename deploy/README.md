@@ -4,6 +4,10 @@ The app is built for:
 
 **https://superclones.cloud/catalogus/**
 
+**Auto deploy from GitHub:** see [GITHUB_DEPLOY.md](./GITHUB_DEPLOY.md) (Actions + VPS secrets).
+
+**VPS app directory:** `/var/www/superclones.cloud/catalogus/`
+
 ## Environment (VPS)
 
 ```bash

@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
 import { getDashboardPath } from '@/lib/dashboard'
+import { appPath } from '@/lib/paths'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -23,7 +24,7 @@ export default function ProtectedRoute({
     if (loading) return
 
     if (!user) {
-      router.push(redirectTo)
+      router.push(appPath(redirectTo))
       return
     }
 
@@ -43,7 +44,7 @@ export default function ProtectedRoute({
     }
 
     if (!hasAccess) {
-      router.replace(getDashboardPath(user.role))
+      router.replace(appPath(getDashboardPath(user.role)))
     }
   }, [user, loading, isAdmin, isSeller, isBuyer, requiredRole, router, redirectTo])
 

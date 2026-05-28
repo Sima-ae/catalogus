@@ -1,0 +1,83 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+env:
+  NEXT_PUBLIC_BASE_PATH: /catalogus
+  NEXT_PUBLIC_APP_URL: https://superclones.cloud/catalogus
+
+jobs:
+  build-check:
+    name: Build check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        env:
+          REPO_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          git init
+          git remote add origin "$REPO_URL"
+          git fetch --depth 1 origin "${GITHUB_SHA}"
+          git checkout FETCH_HEAD
+
+      - name: Verify Node.js 20
+        run: |
+          node -v
+          npm -v
+          node -v | grep -qE '^v20\.'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+  deploy:
+    name: Deploy to production VPS
+    needs: build-check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Deploy over SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_APP_PATH: ${{ secrets.VPS_APP_PATH }}
+          GIT_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          PORT="${VPS_SSH_PORT:-22}"
+          APP_DIR="${VPS_APP_PATH:-/var/www/superclones.cloud/catalogus}"
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
+            "${VPS_USER}@${VPS_HOST}" bash -s <<EOF
+          set -euo pipefail
+          cd $(printf '%q' "$APP_DIR")
+
+          echo "==> Fetch latest from GitHub (${GIT_REF})"
+          git fetch origin main
+          git reset --hard origin/main
+          git clean -fd
+
+          echo "==> Run deploy script"
+          chmod +x scripts/deploy.sh
+          bash scripts/deploy.sh
+          EOF

@@ -1,3 +1,5 @@
+import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
+
 /** Sample product when DB is offline in development */
 export const DEV_PRODUCTS = [
   {
@@ -12,8 +14,8 @@ export const DEV_PRODUCTS = [
     gallery_images: ['https://picsum.photos/600/400?random=1'],
     category: 'WordPress Theme',
     tags: ['WooCommerce', 'WordPress'],
-    author: 'TripleZero iT',
-    author_icon: 'i',
+    author: APP_DEFAULT_AUTHOR,
+    author_icon: APP_DEFAULT_AUTHOR_ICON,
     sku: 'TEMP-WC-001',
     status: 'active',
     featured: true,
@@ -25,8 +27,8 @@ export const DEV_PRODUCTS = [
   },
 ]
 
+import { useDevFallback } from '@/lib/runtime'
+
 export function useDevDataFallback() {
-  if (process.env.AUTH_DEV_FALLBACK === 'false') return false
-  if (process.env.AUTH_DEV_FALLBACK === 'true') return true
-  return process.env.NODE_ENV === 'development'
+  return useDevFallback()
 }

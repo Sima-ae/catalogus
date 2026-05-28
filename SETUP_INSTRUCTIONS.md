@@ -1,8 +1,8 @@
-# TripleZero iT Setup Instructions
+# Super Clones Setup Instructions
 
 ## 🚀 **Complete Setup Guide**
 
-This guide will help you set up the complete authentication system, database, and admin functionality for your TripleZero iT application.
+This guide will help you set up the complete authentication system, database, and admin functionality for your Super Clones application.
 
 ## 📋 **Prerequisites**
 

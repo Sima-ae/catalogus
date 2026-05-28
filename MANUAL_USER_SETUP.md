@@ -1,4 +1,4 @@
-# Manual User Setup Guide for TripleZero iT
+# Manual User Setup Guide for Super Clones
 
 ## 🔧 **Step-by-Step User Creation**
 

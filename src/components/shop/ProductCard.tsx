@@ -71,7 +71,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         
         <div className="flex items-center space-x-2">
           <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
-            product.author_icon === 'i' ? 'bg-green-500' :
+            product.author_icon === 'S' || product.author_icon === 'i' ? 'bg-green-500' :
             product.author_icon === 'Q' ? 'bg-green-500' :
             product.author_icon === 'M' ? 'bg-purple-500' :
             'bg-yellow-500'
