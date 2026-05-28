@@ -5,7 +5,7 @@ import {
   listDevCategories,
 } from '@/lib/dev-store'
 import { insertCategory, listCategories } from '@/lib/products-db'
-import { useDevDataFallback } from '@/lib/dev-seed'
+import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -15,7 +15,7 @@ export async function GET() {
     const rows = await listCategories()
     return NextResponse.json(rows)
   } catch (error) {
-    if (useDevDataFallback()) {
+    if (isDevDataFallbackEnabled()) {
       return NextResponse.json(listDevCategories())
     }
     return NextResponse.json({ error: 'Failed to load categories' }, { status: 500 })

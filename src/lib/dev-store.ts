@@ -1,4 +1,4 @@
-import { DEV_PRODUCTS, useDevDataFallback } from '@/lib/dev-seed'
+import { DEV_PRODUCTS, isDevDataFallbackEnabled } from '@/lib/dev-seed'
 import type { Product } from '@/lib/types'
 import type { ProductInput } from '@/lib/products-db'
 import { randomUUID } from 'crypto'
@@ -23,7 +23,7 @@ let devCategories: Category[] = [
 ]
 
 export function devModeEnabled() {
-  return useDevDataFallback()
+  return isDevDataFallbackEnabled()
 }
 
 export function listDevProducts() {

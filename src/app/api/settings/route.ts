@@ -6,7 +6,7 @@ import {
   upsertSettings,
 } from '@/lib/settings-db'
 import { devSettingsEnabled, getDevSettings, updateDevSettings } from '@/lib/dev-settings'
-import { useDevDataFallback } from '@/lib/dev-seed'
+import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -29,7 +29,7 @@ export async function GET() {
     return NextResponse.json(settings)
   } catch (error) {
     console.error('Settings fetch error:', error)
-    if (useDevDataFallback()) {
+    if (isDevDataFallbackEnabled()) {
       return NextResponse.json(getDevSettings())
     }
     return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 })

@@ -8,7 +8,7 @@ import {
 import { insertProduct, type ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { DEV_PRODUCTS } from '@/lib/dev-seed'
-import { useDevDataFallback } from '@/lib/dev-seed'
+import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -19,7 +19,7 @@ export async function GET() {
     return NextResponse.json(rows)
   } catch (error) {
     console.error('Products fetch error:', error)
-    if (useDevDataFallback()) {
+    if (isDevDataFallbackEnabled()) {
       return NextResponse.json(listDevProducts())
     }
     return NextResponse.json({ error: 'Failed to load products' }, { status: 500 })

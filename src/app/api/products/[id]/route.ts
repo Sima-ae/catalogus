@@ -6,7 +6,7 @@ import {
   updateDevProduct,
 } from '@/lib/dev-store'
 import { deleteProductById, getProductById, updateProduct } from '@/lib/products-db'
-import { useDevDataFallback } from '@/lib/dev-seed'
+import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -22,7 +22,7 @@ export async function GET(
     }
     return NextResponse.json(product)
   } catch (error) {
-    if (useDevDataFallback()) {
+    if (isDevDataFallbackEnabled()) {
       const product = getDevProduct(params.id)
       if (!product) {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })

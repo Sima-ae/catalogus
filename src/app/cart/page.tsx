@@ -66,7 +66,7 @@ export default function CartPage() {
               }`}>Your cart is empty</h2>
               <p className={`mb-6 transition-colors ${
                 theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}>Looks like you haven't added any products to your cart yet.</p>
+              }`}>Looks like you haven&apos;t added any products to your cart yet.</p>
               <Link 
                 href="/"
                 className="btn-primary inline-flex items-center space-x-2"

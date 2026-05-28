@@ -3,12 +3,12 @@ import {
   type SiteSettings,
   SETTING_KEYS,
 } from '@/lib/site-settings'
-import { useDevFallback } from '@/lib/runtime'
+import { isDevFallbackEnabled } from '@/lib/runtime'
 
 let devSettings: SiteSettings = { ...DEFAULT_SITE_SETTINGS }
 
 export function devSettingsEnabled() {
-  return useDevFallback()
+  return isDevFallbackEnabled()
 }
 
 export function getDevSettings(): SiteSettings {

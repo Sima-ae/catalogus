@@ -27,8 +27,8 @@ export const DEV_PRODUCTS = [
   },
 ]
 
-import { useDevFallback } from '@/lib/runtime'
+import { isDevFallbackEnabled } from '@/lib/runtime'
 
-export function useDevDataFallback() {
-  return useDevFallback()
+export function isDevDataFallbackEnabled() {
+  return isDevFallbackEnabled()
 }

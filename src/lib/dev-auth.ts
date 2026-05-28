@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { useDevFallback } from '@/lib/runtime'
+import { isDevFallbackEnabled } from '@/lib/runtime'
 
 /** Dev-only login when MariaDB is not reachable (AUTH_DEV_FALLBACK=true). */
 const DEV_USERS = [
@@ -30,7 +30,7 @@ const DEV_USERS = [
 ]
 
 export function isDevAuthEnabled() {
-  return useDevFallback()
+  return isDevFallbackEnabled()
 }
 
 async function passwordMatches(hashes: string[], password: string) {

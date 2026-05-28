@@ -479,7 +479,7 @@ export default function CheckoutPage() {
                         <option value="CD">Congo, Democratic Republic of the</option>
                         <option value="CK">Cook Islands</option>
                         <option value="CR">Costa Rica</option>
-                        <option value="CI">Côte d'Ivoire</option>
+                        <option value="CI">Côte d&apos;Ivoire</option>
                         <option value="HR">Croatia</option>
                         <option value="CU">Cuba</option>
                         <option value="CY">Cyprus</option>
@@ -541,11 +541,11 @@ export default function CheckoutPage() {
                         <option value="KZ">Kazakhstan</option>
                         <option value="KE">Kenya</option>
                         <option value="KI">Kiribati</option>
-                        <option value="KP">Korea, Democratic People's Republic of</option>
+                        <option value="KP">Korea, Democratic People&apos;s Republic of</option>
                         <option value="KR">Korea, Republic of</option>
                         <option value="KW">Kuwait</option>
                         <option value="KG">Kyrgyzstan</option>
-                        <option value="LA">Lao People's Democratic Republic</option>
+                        <option value="LA">Lao People&apos;s Democratic Republic</option>
                         <option value="LV">Latvia</option>
                         <option value="LB">Lebanon</option>
                         <option value="LS">Lesotho</option>
