@@ -115,36 +115,55 @@ jobs:
           : "${APP_DIR:?APP_DIR is not set}"
           : "${REPO_URL:?REPO_URL is not set}"
 
-          ensure_app_dir() {
-            if [[ -d "$APP_DIR" ]]; then
+          ensure_git_repo() {
+            if [[ -d "$APP_DIR/.git" ]]; then
               return 0
             fi
-            echo "::warning::Deploy directory does not exist yet — attempting first-time clone"
+
             PARENT="$(dirname "$APP_DIR")"
-            if ! mkdir -p "$PARENT" 2>/dev/null; then
-              echo "::error::Cannot create parent directory: $PARENT"
-              echo "SSH to the VPS as root and run:"
-              echo "  export APP_DIR='$APP_DIR'"
-              echo "  curl -fsSL https://raw.githubusercontent.com/Sima-ae/catalogus/main/scripts/vps-first-setup.sh | sudo bash"
-              echo "Or set GitHub secret VPS_APP_PATH to an existing folder with a git clone."
-              return 1
+            mkdir -p "$PARENT" 2>/dev/null || true
+
+            if [[ ! -d "$APP_DIR" ]]; then
+              echo "==> First deploy: cloning into new directory"
+              git clone "$REPO_URL" "$APP_DIR"
+              return 0
             fi
-            if [[ ! -w "$PARENT" ]]; then
-              echo "::error::Deploy user cannot write to: $PARENT"
-              echo "Run: sudo chown -R $(whoami):$(whoami) '$PARENT'"
-              return 1
+
+            if [[ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]]; then
+              echo "==> Empty directory: cloning repository"
+              git clone "$REPO_URL" "$APP_DIR"
+              return 0
             fi
-            git clone "$REPO_URL" "$APP_DIR"
+
+            echo "::warning::Directory exists but is not a git repo — syncing from GitHub (preserving .env if present)"
+            ENV_BACKUP=""
+            if [[ -f "$APP_DIR/.env" ]]; then
+              ENV_BACKUP="$(mktemp)"
+              cp "$APP_DIR/.env" "$ENV_BACKUP"
+            fi
+
+            cd "$APP_DIR"
+            git init -b main
+            git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+
+            if [[ -n "$ENV_BACKUP" ]]; then
+              cp "$ENV_BACKUP" .env
+              rm -f "$ENV_BACKUP"
+              echo "==> Restored existing .env"
+            elif [[ ! -f .env ]] && [[ -f .env.vps.example ]]; then
+              cp .env.vps.example .env
+              echo "::warning::Created .env from .env.vps.example — edit secrets on the VPS before production use"
+            fi
           }
 
-          if [[ ! -d "$APP_DIR" ]]; then
-            ensure_app_dir || exit 1
-          fi
-          if [[ ! -d "$APP_DIR/.git" ]]; then
-            echo "::error::$APP_DIR exists but is not a git repository."
-            echo "Remove it or set VPS_APP_PATH to a valid clone path."
+          ensure_git_repo || {
+            echo "::error::Could not set up git at deploy path."
+            echo "SSH to the VPS and run: export APP_DIR='$APP_DIR' && bash scripts/vps-fix-git.sh"
             exit 1
-          fi
+          }
 
           cd "$APP_DIR"
           echo "==> Deploy directory: $(pwd)"

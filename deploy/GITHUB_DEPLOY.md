@@ -173,7 +173,8 @@ That path must match where you expect updates.
 
 | Issue | Fix |
 |-------|-----|
-| `cd: No such file or directory` on deploy | **`VPS_APP_PATH`** points to a folder that does not exist. Run `vps-first-setup.sh` on the VPS or set the secret to your real clone path (e.g. `public_html` after `git clone` there) |
+| `cd: No such file or directory` on deploy | **`VPS_APP_PATH`** points to a folder that does not exist. Run `vps-first-setup.sh` on the VPS or set the secret to your real clone path |
+| `exists but is not a git repository` | Folder exists (e.g. `/var/www/superclones.cloud`) but was never `git clone`d. On VPS: `export APP_DIR=/var/www/superclones.cloud && bash scripts/vps-fix-git.sh` |
 | Files not updating in `public_html` | Deploy targets **`VPS_APP_PATH`**, not `public_html` — see section 6 |
 | GitHub deploy green but site unchanged | Nginx still serving `public_html`; switch to proxy → port 3000 |
 | `Permission denied (publickey)` | Check `VPS_SSH_KEY`, `VPS_USER`, `authorized_keys` |
