@@ -49,7 +49,22 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
+      - name: Check VPS secrets are configured
+        id: vps_secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [[ -n "${VPS_HOST:-}" && -n "${VPS_USER:-}" && -n "${VPS_SSH_KEY:-}" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER, and VPS_SSH_KEY in repo Settings → Secrets."
+          fi
+
       - name: Deploy over SSH
+        if: steps.vps_secrets.outputs.configured == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -60,25 +75,39 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" || -z "${VPS_SSH_KEY:-}" ]]; then
+            echo "::error::Missing GitHub secrets. Set VPS_HOST, VPS_USER, and VPS_SSH_KEY in repo Settings → Secrets."
+            exit 1
+          fi
+
           PORT="${VPS_SSH_PORT:-22}"
+          if [[ -z "$PORT" ]]; then PORT=22; fi
+
           APP_DIR="${VPS_APP_PATH:-/var/www/superclones.cloud/catalogus}"
+          if [[ -z "$APP_DIR" ]]; then
+            APP_DIR=/var/www/superclones.cloud/catalogus
+          fi
 
           mkdir -p ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
-            "${VPS_USER}@${VPS_HOST}" bash -s <<EOF
+          echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
+
+          REMOTE_SCRIPT="$(mktemp)"
+          trap 'rm -f "$REMOTE_SCRIPT"' EXIT
+          cat > "$REMOTE_SCRIPT" <<SCRIPT
           set -euo pipefail
           cd $(printf '%q' "$APP_DIR")
-
           echo "==> Fetch latest from GitHub (${GIT_REF})"
           git fetch origin main
           git reset --hard origin/main
           git clean -fd
-
           echo "==> Run deploy script"
           chmod +x scripts/deploy.sh
           bash scripts/deploy.sh
-          EOF
+          SCRIPT
+
+          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
+            "${VPS_USER}@${VPS_HOST}" "bash -s" < "$REMOTE_SCRIPT"

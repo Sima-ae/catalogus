@@ -75,7 +75,11 @@ ssh -i ~/.ssh/catalogus_deploy deploy@YOUR_VPS_IP "cd /var/www/superclones.cloud
 
 ## 3. GitHub repository secrets
 
-In GitHub: **Settings → Secrets and variables → Actions → New repository secret**
+Until these exist, the **Deploy to production VPS** job is skipped (build still runs).
+
+In GitHub: open your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+(You need **Admin** on the repo to see Settings. Organization repos: secrets may be under the org instead.)
 
 | Secret | Example | Description |
 |--------|---------|-------------|
