@@ -93,35 +93,72 @@ jobs:
           PORT="${VPS_SSH_PORT:-22}"
           if [[ -z "$PORT" ]]; then PORT=22; fi
 
-          APP_DIR="${VPS_APP_PATH:-/var/www/superclones.cloud/catalogus}"
-          if [[ -z "$APP_DIR" ]]; then
-            APP_DIR=/var/www/superclones.cloud/catalogus
+          # Empty VPS_APP_PATH secret must not override the default
+          if [[ -z "${VPS_APP_PATH:-}" ]]; then
+            APP_DIR=/var/www/superclones.cloud
+          else
+            APP_DIR="$VPS_APP_PATH"
           fi
+          REPO_URL="https://github.com/${{ github.repository }}.git"
 
           mkdir -p ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
+          echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} (deploy path from VPS_APP_PATH secret)"
 
           REMOTE_SCRIPT="$(mktemp)"
           trap 'rm -f "$REMOTE_SCRIPT"' EXIT
-          cat > "$REMOTE_SCRIPT" <<SCRIPT
+          cat > "$REMOTE_SCRIPT" <<'REMOTE'
           set -euo pipefail
-          cd $(printf '%q' "$APP_DIR")
-          echo "==> Deploy directory: \$(pwd)"
-          echo "==> Fetch latest from GitHub (${GIT_REF})"
+          : "${APP_DIR:?APP_DIR is not set}"
+          : "${REPO_URL:?REPO_URL is not set}"
+
+          ensure_app_dir() {
+            if [[ -d "$APP_DIR" ]]; then
+              return 0
+            fi
+            echo "::warning::Deploy directory does not exist yet — attempting first-time clone"
+            PARENT="$(dirname "$APP_DIR")"
+            if ! mkdir -p "$PARENT" 2>/dev/null; then
+              echo "::error::Cannot create parent directory: $PARENT"
+              echo "SSH to the VPS as root and run:"
+              echo "  export APP_DIR='$APP_DIR'"
+              echo "  curl -fsSL https://raw.githubusercontent.com/Sima-ae/catalogus/main/scripts/vps-first-setup.sh | sudo bash"
+              echo "Or set GitHub secret VPS_APP_PATH to an existing folder with a git clone."
+              return 1
+            fi
+            if [[ ! -w "$PARENT" ]]; then
+              echo "::error::Deploy user cannot write to: $PARENT"
+              echo "Run: sudo chown -R $(whoami):$(whoami) '$PARENT'"
+              return 1
+            fi
+            git clone "$REPO_URL" "$APP_DIR"
+          }
+
+          if [[ ! -d "$APP_DIR" ]]; then
+            ensure_app_dir || exit 1
+          fi
+          if [[ ! -d "$APP_DIR/.git" ]]; then
+            echo "::error::$APP_DIR exists but is not a git repository."
+            echo "Remove it or set VPS_APP_PATH to a valid clone path."
+            exit 1
+          fi
+
+          cd "$APP_DIR"
+          echo "==> Deploy directory: $(pwd)"
+          echo "==> Fetch latest from GitHub"
           git fetch origin main
           git reset --hard origin/main
           git clean -fd
-          echo "==> Git commit on server: \$(git log -1 --oneline)"
+          echo "==> Git commit on server: $(git log -1 --oneline)"
           echo "==> Run deploy script"
           chmod +x scripts/deploy.sh
           bash scripts/deploy.sh
-          echo "==> Post-deploy check (this path is what GitHub updates — not public_html unless VPS_APP_PATH points there)"
-          test -f package.json && test -d src && echo "OK: app files present in \$(pwd)"
-          SCRIPT
+          test -f package.json && test -d src && echo "OK: app files present in $(pwd)"
+          REMOTE
 
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
-            "${VPS_USER}@${VPS_HOST}" "bash -s" < "$REMOTE_SCRIPT"
+            "${VPS_USER}@${VPS_HOST}" \
+            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") bash -s" < "$REMOTE_SCRIPT"

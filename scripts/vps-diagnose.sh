@@ -22,7 +22,7 @@ fi
 echo ""
 echo "Common paths (check which exists on your server):"
 for p in \
-  "/var/www/superclones.cloud/catalogus" \
+  "/var/www/superclones.cloud" \
   "/home/*/domains/superclones.cloud/public_html" \
   "/home/*/superclones.cloud/public_html" \
   "/var/www/superclones.cloud/public_html"; do

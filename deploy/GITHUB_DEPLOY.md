@@ -12,7 +12,7 @@ SSH into the server as root (or sudo user):
 
 ```bash
 # Example: clone and bootstrap
-export APP_DIR=/var/www/superclones.cloud/catalogus
+export APP_DIR=/var/www/superclones.cloud
 curl -fsSL https://raw.githubusercontent.com/Sima-ae/catalogus/main/scripts/vps-first-setup.sh | sudo bash
 # Or from a local clone:
 sudo bash scripts/vps-first-setup.sh
@@ -21,7 +21,7 @@ sudo bash scripts/vps-first-setup.sh
 Edit production env (never commit this file):
 
 ```bash
-sudo nano /var/www/superclones.cloud/catalogus/.env
+sudo nano /var/www/superclones.cloud/.env
 ```
 
 Use values from `.env.vps.example` (`AUTH_DEV_FALLBACK=false`, MariaDB `DATABASE_URL`, Stripe keys, `NEXT_PUBLIC_*`).
@@ -35,7 +35,7 @@ sudo nginx -t && sudo systemctl reload nginx
 First manual deploy:
 
 ```bash
-cd /var/www/superclones.cloud/catalogus
+cd /var/www/superclones.cloud
 sudo -u deploy bash scripts/deploy.sh
 ```
 
@@ -62,13 +62,13 @@ sudo chmod 600 /home/deploy/.ssh/authorized_keys
 Give `deploy` read access to the app and git:
 
 ```bash
-sudo chown -R deploy:deploy /var/www/superclones.cloud/catalogus
+sudo chown -R deploy:deploy /var/www/superclones.cloud
 ```
 
 Test from your Mac:
 
 ```bash
-ssh -i ~/.ssh/catalogus_deploy deploy@YOUR_VPS_IP "cd /var/www/superclones.cloud/catalogus && git status"
+ssh -i ~/.ssh/catalogus_deploy deploy@YOUR_VPS_IP "cd /var/www/superclones.cloud && git status"
 ```
 
 ---
@@ -86,7 +86,7 @@ In GitHub: open your repo → **Settings** → **Secrets and variables** → **A
 | `VPS_HOST` | `89.116.38.197` or `superclones.cloud` | Server hostname |
 | `VPS_USER` | `deploy` | SSH user |
 | `VPS_SSH_KEY` | *(full private key)* | Contents of `catalogus_deploy` |
-| `VPS_APP_PATH` | `/var/www/superclones.cloud/catalogus` | App directory on server |
+| `VPS_APP_PATH` | `/var/www/superclones.cloud` | **Must exist** on the VPS (git clone). Wrong path → `cd: No such file or directory`. Use `public_html` only if the repo is cloned there. |
 | `VPS_SSH_PORT` | `22` | Optional; omit if default |
 
 Paste the **entire** private key for `VPS_SSH_KEY`, including `-----BEGIN ...-----` lines.
@@ -111,9 +111,9 @@ Trigger manually: **Actions → Deploy to VPS → Run workflow**.
 The VPS clone must use SSH or HTTPS with access to pull from GitHub:
 
 ```bash
-sudo -u deploy bash -c 'cd /var/www/superclones.cloud/catalogus && git remote -v'
+sudo -u deploy bash -c 'cd /var/www/superclones.cloud && git remote -v'
 # HTTPS (public repo):
-sudo -u deploy bash -c 'cd /var/www/superclones.cloud/catalogus && git remote set-url origin https://github.com/Sima-ae/catalogus.git'
+sudo -u deploy bash -c 'cd /var/www/superclones.cloud && git remote set-url origin https://github.com/Sima-ae/catalogus.git'
 ```
 
 For a **private** repo, use a deploy key or machine user token on the server.
@@ -124,12 +124,12 @@ For a **private** repo, use a deploy key or machine user token on the server.
 
 **GitHub does not update `public_html` by default.**
 
-Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in workflow: `/var/www/superclones.cloud/catalogus`). That is a **git clone + Node.js app**, not your old static/PHP `public_html` folder.
+Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in workflow: `/var/www/superclones.cloud`). That is a **git clone + Node.js app**, not your old static/PHP `public_html` folder.
 
 | You are looking at… | What happens |
 |---------------------|--------------|
 | `…/public_html` in cPanel/FTP | Often **unchanged** — old site files |
-| `VPS_APP_PATH` (e.g. `/var/www/.../catalogus`) | **Updated** on every deploy (`git pull` + build) |
+| `VPS_APP_PATH` (e.g. `/var/www/superclones.cloud`) | **Updated** on every deploy (`git pull` + build) |
 
 **This app is served by** `npm run start` on port **3000**, with **nginx proxying** `/` to Node (`deploy/nginx-catalogus.conf.example`). The live site does not come from dropping files into `public_html` alone.
 
@@ -137,7 +137,7 @@ Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in 
 
 **Option A — recommended (separate app directory)**
 
-1. Keep the repo at `/var/www/superclones.cloud/catalogus` (or similar).
+1. Keep the repo at `/var/www/superclones.cloud` (or similar).
 2. Set GitHub secret **`VPS_APP_PATH`** to that exact path.
 3. Configure nginx for `superclones.cloud` to **proxy** `/` → `http://127.0.0.1:3000/` (not `root public_html`).
 4. Ignore `public_html` for this Next.js app (or use it only for other sites).
@@ -154,7 +154,7 @@ Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in 
 On the VPS, run:
 
 ```bash
-cd /var/www/superclones.cloud/catalogus   # or your VPS_APP_PATH
+cd /var/www/superclones.cloud   # or your VPS_APP_PATH
 bash scripts/vps-diagnose.sh
 ```
 
@@ -173,6 +173,7 @@ That path must match where you expect updates.
 
 | Issue | Fix |
 |-------|-----|
+| `cd: No such file or directory` on deploy | **`VPS_APP_PATH`** points to a folder that does not exist. Run `vps-first-setup.sh` on the VPS or set the secret to your real clone path (e.g. `public_html` after `git clone` there) |
 | Files not updating in `public_html` | Deploy targets **`VPS_APP_PATH`**, not `public_html` — see section 6 |
 | GitHub deploy green but site unchanged | Nginx still serving `public_html`; switch to proxy → port 3000 |
 | `Permission denied (publickey)` | Check `VPS_SSH_KEY`, `VPS_USER`, `authorized_keys` |

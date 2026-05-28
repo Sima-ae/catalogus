@@ -3,7 +3,7 @@
 # Usage: sudo bash scripts/vps-first-setup.sh
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/superclones.cloud/catalogus}"
+APP_DIR="${APP_DIR:-/var/www/superclones.cloud}"
 REPO_URL="${REPO_URL:-https://github.com/Sima-ae/catalogus.git}"
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
 
@@ -45,7 +45,7 @@ EOF
 chmod 440 /etc/sudoers.d/catalogus-deploy
 
 echo "==> Install systemd unit"
-sed "s|/var/www/superclones.cloud/catalogus|$APP_DIR|g; s|^User=deploy|User=$DEPLOY_USER|" \
+sed "s|/var/www/superclones.cloud|$APP_DIR|g; s|^User=deploy|User=$DEPLOY_USER|" \
   "$APP_DIR/deploy/catalogus.service" > /etc/systemd/system/catalogus.service
 systemctl daemon-reload
 systemctl enable catalogus

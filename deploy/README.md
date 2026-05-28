@@ -6,7 +6,7 @@
 
 ## VPS app directory
 
-**`/var/www/superclones.cloud/catalogus/`** (filesystem path only — not the public URL)
+**`/var/www/superclones.cloud/`** (filesystem path only — not the public URL)
 
 ## Environment (`.env` on server)
 
