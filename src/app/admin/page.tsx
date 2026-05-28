@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { appPath } from '@/lib/paths'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -82,7 +83,7 @@ export default function AdminDashboard() {
         console.log('🔍 User not admin')
       }
     }
-  }, [authLoading, user, isAdmin])
+  }, [authLoading, user, isAdmin, isDevelopment])
 
   const fetchData = async () => {
     let productsData: Product[] = []
@@ -330,10 +331,13 @@ export default function AdminDashboard() {
                         <tr key={product.id} className="border-b border-dark-700">
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-3">
-                              <img 
-                                src={product.image_url} 
+                              <Image
+                                src={product.image_url}
                                 alt={product.name}
+                                width={40}
+                                height={40}
                                 className="w-10 h-10 rounded object-cover"
+                                unoptimized
                               />
                               <div>
                                 <p className="text-white font-medium">{product.name}</p>

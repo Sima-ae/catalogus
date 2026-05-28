@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
@@ -65,10 +66,13 @@ export default function AdminProductsPage() {
                 <tr key={p.id} className="border-b border-dark-700">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      <img
+                      <Image
                         src={p.image_url}
-                        alt=""
+                        alt={p.name}
+                        width={40}
+                        height={40}
                         className="w-10 h-10 rounded object-cover"
+                        unoptimized
                       />
                       <span className="text-white">{p.name}</span>
                     </div>
