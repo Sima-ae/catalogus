@@ -19,7 +19,10 @@ if ! id "$DEPLOY_USER" &>/dev/null; then
 fi
 
 echo "==> Clone or update repository at $APP_DIR"
-mkdir -p "$(dirname "$APP_DIR")"
+PARENT_DIR="$(dirname "$APP_DIR")"
+mkdir -p "$PARENT_DIR"
+# Parent is often created as root; deploy cannot mkdir/clone underneath without ownership.
+chown "$DEPLOY_USER:$DEPLOY_USER" "$PARENT_DIR"
 if [[ ! -d "$APP_DIR/.git" ]]; then
   sudo -u "$DEPLOY_USER" git clone "$REPO_URL" "$APP_DIR"
 else
@@ -27,7 +30,6 @@ else
   sudo -u "$DEPLOY_USER" git fetch origin main
   sudo -u "$DEPLOY_USER" git reset --hard origin/main
 fi
-
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
 
 echo "==> Environment file"

@@ -66,6 +66,13 @@ jobs:
             echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER, and VPS_SSH_KEY in repo Settings → Secrets."
           fi
 
+      - name: Require VPS secrets (deploy cannot run without them)
+        if: steps.vps_secrets.outputs.configured != 'true'
+        run: |
+          echo "::error::Deploy did not run. Add repository secrets VPS_HOST, VPS_USER, and VPS_SSH_KEY under Settings → Secrets and variables → Actions."
+          echo "See deploy/GITHUB_DEPLOY.md for setup."
+          exit 1
+
       - name: Deploy over SSH
         if: steps.vps_secrets.outputs.configured == 'true'
         env:
