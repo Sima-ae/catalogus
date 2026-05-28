@@ -96,6 +96,16 @@ const nextConfig = {
     }
     return config
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.superclones.cloud' }],
+        destination: 'https://superclones.cloud/:path*',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     const securityHeaders = [
       {

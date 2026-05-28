@@ -1,0 +1,34 @@
+# LiteSpeed — put THIS FILE ONLY in your domain DOCUMENT ROOT (see deploy/WHERE-FILES-GO.md)
+#
+#   (B) Document root / public_html  →  .htaccess  (this file)
+#   (A) Git + Node app               →  /var/www/superclones.cloud  (full repo, NO copy of all src here)
+#
+# CyberPanel (OpenLiteSpeed): docRoot = $VH_ROOT/public_html
+#   superclones.cloud → /home/superclones.cloud/public_html/.htaccess
+#
+# (A) Git deploy stays elsewhere, e.g. /var/www/superclones.cloud — do NOT put the full repo in public_html.
+#
+# GitHub deploy + VPS_APP_PATH = (A). This file does NOT replace the git clone.
+#
+# Requires LiteSpeed proxy [P]. See deploy/LITESPEED.md
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # www → apex FIRST (avoids LiteSpeed 500 when [P] proxy fails on www vhost)
+  RewriteCond %{HTTP_HOST} ^www\.superclones\.cloud$ [NC]
+  RewriteRule ^ https://superclones.cloud%{REQUEST_URI} [R=301,L]
+
+  # Old /catalogus URLs → site root
+  RewriteRule ^catalogus/?$ / [R=301,L]
+  RewriteRule ^catalogus/(.*)$ /$1 [R=301,L]
+
+  # Proxy to Catalogus (port 3001) — port 3000 is inkoop-autos (PM2), unchanged
+  RewriteCond %{HTTP_HOST} ^superclones\.cloud$ [NC]
+  RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
+</IfModule>
+
+# If your host blocks [P], try without IfModule and contact host to enable proxy.
+# Fallback line (some setups):
+# RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]

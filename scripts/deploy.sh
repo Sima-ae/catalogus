@@ -66,5 +66,5 @@ fi
 echo "==> Deploy finished OK"
 echo "==> Path: $(pwd)"
 echo "==> Commit: $(git log -1 --oneline)"
-echo "NOTE: This is a Next.js app (npm run start on port 3000). Nginx must proxy to Node."
+echo "NOTE: Catalogus runs on port 3001 (inkoop-autos uses 3000). LiteSpeed/nginx must proxy to 3001."
 echo "      public_html is NOT updated unless VPS_APP_PATH is set to that directory."

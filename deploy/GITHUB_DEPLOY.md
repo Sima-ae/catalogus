@@ -26,7 +26,9 @@ sudo nano /var/www/superclones.cloud/.env
 
 Use values from `.env.vps.example` (`AUTH_DEV_FALLBACK=false`, MariaDB `DATABASE_URL`, Stripe keys, `NEXT_PUBLIC_*`).
 
-Install nginx snippet from `deploy/nginx-catalogus.conf.example`, then:
+**LiteSpeed (CyberPanel / OpenLiteSpeed):** put `deploy/htaccess.example` as `.htaccess` in the domain **document root** from the panel (often `/home/superclones.cloud/public_html`). See `deploy/CYBERPANEL.md` and `deploy/LITESPEED.md`.
+
+**Nginx:** install snippet from `deploy/nginx-catalogus.conf.example`, then:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -131,7 +133,7 @@ Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in 
 | `…/public_html` in cPanel/FTP | Often **unchanged** — old site files |
 | `VPS_APP_PATH` (e.g. `/var/www/superclones.cloud`) | **Updated** on every deploy (`git pull` + build) |
 
-**This app is served by** `npm run start` on port **3000**, with **nginx proxying** `/` to Node (`deploy/nginx-catalogus.conf.example`). The live site does not come from dropping files into `public_html` alone.
+**This app is served by** `npm run start` on port **3001**, with LiteSpeed/nginx proxying `/` to Node (`deploy/nginx-catalogus.conf.example`). Port **3000** is reserved for `inkoop-autos` on this VPS.
 
 ### Fix: align path + nginx
 
@@ -139,7 +141,7 @@ Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in 
 
 1. Keep the repo at `/var/www/superclones.cloud` (or similar).
 2. Set GitHub secret **`VPS_APP_PATH`** to that exact path.
-3. Configure nginx for `superclones.cloud` to **proxy** `/` → `http://127.0.0.1:3000/` (not `root public_html`).
+3. Configure nginx for `superclones.cloud` to **proxy** `/` → `http://127.0.0.1:3001/` (not `root public_html`).
 4. Ignore `public_html` for this Next.js app (or use it only for other sites).
 
 **Option B — repo inside `public_html` (Hostinger-style)**
@@ -149,7 +151,7 @@ Deploy SSH runs in the directory from the **`VPS_APP_PATH`** secret (default in 
 2. Clone the app there (once):  
    `git clone https://github.com/Sima-ae/catalogus.git .`
 3. Set GitHub secret **`VPS_APP_PATH`** to that **full path**.
-4. Still configure the domain to **proxy to port 3000** (or use Hostinger’s Node app feature pointing at this folder).
+4. Still configure the domain to **proxy to port 3001** (or use Hostinger’s Node app feature pointing at this folder).
 
 On the VPS, run:
 
@@ -176,7 +178,8 @@ That path must match where you expect updates.
 | `cd: No such file or directory` on deploy | **`VPS_APP_PATH`** points to a folder that does not exist. Run `vps-first-setup.sh` on the VPS or set the secret to your real clone path |
 | `exists but is not a git repository` | Folder exists (e.g. `/var/www/superclones.cloud`) but was never `git clone`d. On VPS: `export APP_DIR=/var/www/superclones.cloud && bash scripts/vps-fix-git.sh` |
 | Files not updating in `public_html` | Deploy targets **`VPS_APP_PATH`**, not `public_html` — see section 6 |
-| GitHub deploy green but site unchanged | Nginx still serving `public_html`; switch to proxy → port 3000 |
+| GitHub deploy green but site unchanged | LiteSpeed still serving `public_html` without proxy → **3001** |
+| Wrong app on superclones.cloud | `.htaccess` proxies to **3000** (inkoop-autos) — use **3001** |
 | `Permission denied (publickey)` | Check `VPS_SSH_KEY`, `VPS_USER`, `authorized_keys` |
 | `git fetch` fails | Set `origin` URL; for private repos add deploy key on GitHub |
 | Build fails on VPS | Check Node ≥ 18 (`node -v`), RAM (needs ~1GB for build) |

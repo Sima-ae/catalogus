@@ -20,7 +20,7 @@ If `NEXT_PUBLIC_BASE_PATH` is omitted, production builds serve at `/` when `NODE
 
 ## Nginx
 
-Use `nginx-catalogus.conf.example` on the `superclones.cloud` server. Proxy to `http://127.0.0.1:3000/` (no `/catalogus` prefix).
+Use `nginx-catalogus.conf.example` on the `superclones.cloud` server. Proxy to `http://127.0.0.1:3001/` (port **3000** is `inkoop-autos` on this VPS).
 
 ## Local development
 

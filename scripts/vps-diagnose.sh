@@ -58,7 +58,9 @@ fi
 
 echo ""
 if command -v curl >/dev/null 2>&1; then
-  echo "Local Next.js (port 3000):"
+  echo "Catalogus (port 3001):"
+  curl -s -o /dev/null -w "  HTTP %{http_code}\n" http://127.0.0.1:3001/ 2>/dev/null || echo "  not reachable"
+  echo "inkoop-autos (port 3000, do not use for superclones):"
   curl -s -o /dev/null -w "  HTTP %{http_code}\n" http://127.0.0.1:3000/ 2>/dev/null || echo "  not reachable"
 fi
 

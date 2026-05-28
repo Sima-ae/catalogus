@@ -18,7 +18,8 @@ Group=deploy
 WorkingDirectory=/var/www/superclones.cloud
 Environment=NODE_ENV=production
 EnvironmentFile=/var/www/superclones.cloud/.env
-ExecStart=/usr/bin/npm run start -- -p 3000
+# Port 3001 — port 3000 is used by inkoop-autos (PM2) on this VPS
+ExecStart=/usr/bin/npm run start -- -p 3001
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
