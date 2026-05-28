@@ -1,7 +1,7 @@
 # Local MariaDB for development (no SSH tunnel needed)
 # Start:  npm run db:local
 # Stop:   npm run db:local:down
-# .env:   DATABASE_URL=mysql://r_clones_cloud:localdev@127.0.0.1:3306/r_clones_cloud
+# .env:   DATABASE_URL=mysql://supe_r_clones_cloud:localdev@127.0.0.1:3306/supe_r_clones_cloud
 
 services:
   mariadb:
@@ -12,13 +12,13 @@ services:
       - "3306:3306"
     environment:
       MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: r_clones_cloud
-      MARIADB_USER: r_clones_cloud
+      MARIADB_DATABASE: supe_r_clones_cloud
+      MARIADB_USER: supe_r_clones_cloud
       MARIADB_PASSWORD: localdev
     volumes:
       - catalogus_mariadb_data:/var/lib/mysql
-      - ./db/r_clones_cloud_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
-      - ./db/r_clones_cloud_users.sql:/docker-entrypoint-initdb.d/02_users.sql:ro
+      - ./db/supe_r_clones_cloud_init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./db/supe_r_clones_cloud_users.sql:/docker-entrypoint-initdb.d/02_users.sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s

@@ -7,7 +7,7 @@ On the server `.env`:
 ```env
 NODE_ENV=production
 DATABASE_DRIVER=mariadb
-DATABASE_URL=mysql://r_clones_cloud:YOUR_PASSWORD@127.0.0.1:3306/r_clones_cloud
+DATABASE_URL=mysql://supe_r_clones_cloud:YOUR_PASSWORD@127.0.0.1:3306/supe_r_clones_cloud
 ```
 
 Use **127.0.0.1** (not the public VPS IP). App and MariaDB must run on the **same server**.
@@ -71,8 +71,8 @@ bind-address = 0.0.0.0
 2. User must be allowed from your IP:
 
 ```sql
-CREATE USER IF NOT EXISTS 'r_clones_cloud'@'%' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON r_clones_cloud.* TO 'r_clones_cloud'@'%';
+CREATE USER IF NOT EXISTS 'supe_r_clones_cloud'@'%' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON supe_r_clones_cloud.* TO 'supe_r_clones_cloud'@'%';
 FLUSH PRIVILEGES;
 ```
 

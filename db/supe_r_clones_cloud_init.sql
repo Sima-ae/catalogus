@@ -1,14 +1,14 @@
--- r_clones_cloud bootstrap (MariaDB-friendly)
--- Import this into your MariaDB database `r_clones_cloud` using your SQL importer.
+-- supe_r_clones_cloud bootstrap (MariaDB-friendly)
+-- Import this into your MariaDB database `supe_r_clones_cloud` using your SQL importer.
 -- (DB/user creation handled separately; keep passwords secret.)
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE DATABASE IF NOT EXISTS r_clones_cloud
+CREATE DATABASE IF NOT EXISTS supe_r_clones_cloud
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
-USE r_clones_cloud;
+USE supe_r_clones_cloud;
 
 -- products
 CREATE TABLE IF NOT EXISTS products (

@@ -1,9 +1,9 @@
 ## Local database SQL bootstrap
 
-Import these files into your MariaDB database `r_clones_cloud` (in order):
+Import these files into your MariaDB database `supe_r_clones_cloud` (CyberPanel name; in order):
 
-1. `db/r_clones_cloud_init.sql` — tables + product/category seed
-2. `db/r_clones_cloud_users.sql` — login users (admin, buyer, seller)
+1. `db/supe_r_clones_cloud_init.sql` — tables + product/category seed
+2. `db/supe_r_clones_cloud_users.sql` — login users (admin, buyer, seller)
 
 No real passwords are stored in the repo. The SQL file contains **bcrypt password hashes** only.
 

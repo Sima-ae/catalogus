@@ -1,13 +1,13 @@
 -- Users for login (MariaDB)
--- Import after r_clones_cloud_init.sql (or standalone if user_profiles already exists).
+-- Import after supe_r_clones_cloud_init.sql (or standalone if user_profiles already exists).
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE DATABASE IF NOT EXISTS r_clones_cloud
+CREATE DATABASE IF NOT EXISTS supe_r_clones_cloud
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
-USE r_clones_cloud;
+USE supe_r_clones_cloud;
 
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) NOT NULL,

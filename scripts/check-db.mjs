@@ -44,7 +44,7 @@ try {
     const [products] = await conn.query('SELECT COUNT(*) AS c FROM products')
     productCount = String(products[0].c)
   } catch {
-    productCount = '(table missing — import db/r_clones_cloud_init.sql)'
+    productCount = '(table missing — import db/supe_r_clones_cloud_init.sql)'
   }
   console.log('OK — connected. Users:', users[0].c, '| Products:', productCount)
   await conn.end()
@@ -55,7 +55,7 @@ try {
     console.error(`
 Access denied — wrong user or password in .env DATABASE_URL.
 
-• CyberPanel → Databases → List Databases → r_clones_cloud → copy the DB password
+• CyberPanel → Databases → List Databases → supe_r_clones_cloud → copy the DB password
 • Update /var/www/superclones.cloud/.env then: sudo systemctl restart catalogus
 `)
   }

@@ -189,6 +189,7 @@ That path must match where you expect updates.
 | Build fails on VPS | Check Node ≥ 18 (`node -v`), RAM (needs ~1GB for build) |
 | App 502 after deploy | `sudo systemctl status catalogus` and `journalctl -u catalogus -n 50` |
 | Wrong URL paths | `.env` must have `NEXT_PUBLIC_APP_URL=https://superclones.cloud` and empty `NEXT_PUBLIC_BASE_PATH` before `npm run build` |
+| Products 500 / `ER_ACCESS_DENIED` | `DATABASE_URL` user+database must match CyberPanel (e.g. `supe_r_clones_cloud`, not `r_clones_cloud`) |
 
 ### SSH timeout (`Connection timed out` exit 255)
 
