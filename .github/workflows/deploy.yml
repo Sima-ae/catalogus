@@ -27,11 +27,12 @@ jobs:
           git fetch --depth 1 origin "${GITHUB_SHA}"
           git checkout FETCH_HEAD
 
-      - name: Verify Node.js 20
+      - name: Setup Node.js 20
         run: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
           node -v
           npm -v
-          node -v | grep -qE '^v20\.'
 
       - name: Install dependencies
         run: npm ci
