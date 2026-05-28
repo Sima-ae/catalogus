@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 
+const path = require('path')
+
 function normalizeBasePath(value) {
   if (!value || value === '/') return ''
   return String(value).replace(/\/$/, '')
@@ -79,6 +81,13 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: false,
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.join(__dirname, 'src'),
+    }
+    return config
   },
   async headers() {
     const securityHeaders = [

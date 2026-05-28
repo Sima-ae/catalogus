@@ -7,6 +7,27 @@ cd "$APP_DIR"
 
 echo "==> Deploy catalogus in $APP_DIR"
 
+echo "==> Verify repository checkout"
+if [[ ! -d .git ]]; then
+  echo "ERROR: $APP_DIR is not a git repository. Re-clone from GitHub (see deploy/GITHUB_DEPLOY.md)."
+  exit 1
+fi
+REQUIRED=(
+  tsconfig.json
+  jsconfig.json
+  src/lib/paths.ts
+  src/components/admin/AdminPageShell.tsx
+)
+for f in "${REQUIRED[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo "ERROR: Missing $f after git pull."
+    echo "On the VPS run: git fetch origin main && git reset --hard origin/main && git clean -fd"
+    echo "If still missing, re-clone: sudo -u deploy git clone https://github.com/Sima-ae/catalogus.git $APP_DIR"
+    exit 1
+  fi
+done
+echo "Git: $(git rev-parse --short HEAD) on $(git branch --show-current 2>/dev/null || echo detached)"
+
 if [[ ! -f .env ]]; then
   echo "ERROR: Missing .env — copy .env.vps.example to .env and configure secrets."
   exit 1
