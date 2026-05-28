@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import type { Product } from '@/lib/types'
+import { appPath } from '@/lib/paths'
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -12,7 +13,7 @@ export default function AdminProductsPage() {
 
   const loadProducts = () => {
     setLoading(true)
-    fetch('/api/products')
+    fetch(appPath('/api/products'))
       .then((r) => r.json())
       .then((d) => setProducts(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false))
@@ -24,7 +25,7 @@ export default function AdminProductsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this product?')) return
-    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' })
+    const res = await fetch(appPath(`/api/products/${id}`), { method: 'DELETE' })
     if (res.ok) loadProducts()
   }
 

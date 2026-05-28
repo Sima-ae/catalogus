@@ -5,6 +5,7 @@ import Link from 'next/link'
 import DashboardShell from '@/components/dashboard/DashboardShell'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
+import { appPath } from '@/lib/paths'
 
 const nav = [
   { name: 'Dashboard', href: '/buyer' },
@@ -18,7 +19,7 @@ export default function BuyerDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/products')
+    fetch(appPath('/api/products'))
       .then((r) => r.json())
       .then((data) => setProducts(Array.isArray(data) ? data.slice(0, 6) : []))
       .finally(() => setLoading(false))

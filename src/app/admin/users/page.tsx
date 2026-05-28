@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import { appPath } from '@/lib/paths'
 
 type UserRow = {
   id: string
@@ -17,7 +18,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/users')
+    fetch(appPath('/api/users'))
       .then(async (r) => {
         const d = await r.json()
         if (!r.ok) throw new Error(d.error || 'Failed to load users')

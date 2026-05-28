@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { appPath } from '@/lib/paths'
 
 function slugify(value: string) {
   return value
@@ -32,7 +33,7 @@ export default function CategoryForm() {
     setError(null)
 
     try {
-      const res = await fetch('/api/categories', {
+      const res = await fetch(appPath('/api/categories'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, slug, description }),

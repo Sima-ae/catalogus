@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/types'
+import { appPath } from '@/lib/paths'
 
 type CategoryOption = { id: string; name: string; slug: string }
 
@@ -43,7 +44,7 @@ export default function ProductForm({ mode, productId, initial }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/categories')
+    fetch(appPath('/api/categories'))
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setCategories(data)
@@ -59,7 +60,7 @@ export default function ProductForm({ mode, productId, initial }: Props) {
     }
     if (mode !== 'edit' || !productId) return
 
-    fetch(`/api/products/${productId}`)
+    fetch(appPath(`/api/products/${productId}`))
       .then((r) => {
         if (!r.ok) throw new Error('Product not found')
         return r.json()
@@ -91,7 +92,10 @@ export default function ProductForm({ mode, productId, initial }: Props) {
       original_price: form.original_price ? Number(form.original_price) : null,
     }
 
-    const url = mode === 'create' ? '/api/products' : `/api/products/${productId}`
+    const url =
+      mode === 'create'
+        ? appPath('/api/products')
+        : appPath(`/api/products/${productId}`)
     const method = mode === 'create' ? 'POST' : 'PATCH'
 
     try {

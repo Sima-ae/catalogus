@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { appPath } from '@/lib/paths'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminHeader from '@/components/admin/AdminHeader'
@@ -97,7 +98,7 @@ export default function AdminDashboard() {
       if (isDevelopment) {
         console.log('📦 Fetching products...')
       }
-      const productsResponse = await fetch('/api/products', { method: 'GET' })
+      const productsResponse = await fetch(appPath('/api/products'), { method: 'GET' })
 
       if (!productsResponse.ok) {
         throw new Error(`Products fetch failed: ${productsResponse.status}`)
@@ -127,7 +128,7 @@ export default function AdminDashboard() {
       let ordersData: any[] = []
       try {
         if (isDevelopment) console.log('📦 Fetching orders...')
-        const ordersResponse = await fetch('/api/orders', { method: 'GET' })
+        const ordersResponse = await fetch(appPath('/api/orders'), { method: 'GET' })
         if (ordersResponse.ok) {
           ordersData = await ordersResponse.json()
           if (isDevelopment) console.log('✅ Orders fetched:', ordersData.length, 'orders')
@@ -174,7 +175,7 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' })
+      const res = await fetch(appPath(`/api/products/${productId}`), { method: 'DELETE' })
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`)
 
       // Refresh data
@@ -227,7 +228,7 @@ export default function AdminDashboard() {
             
             <div className="space-y-3">
               <button 
-                onClick={() => window.location.href = '/login'} 
+                onClick={() => { window.location.href = appPath('/login') }} 
                 className="btn-primary w-full"
               >
                 Go to Login

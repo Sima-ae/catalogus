@@ -8,6 +8,7 @@ import { Product } from '@/lib/types'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import Link from 'next/link'
+import { appPath } from '@/lib/paths'
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -35,7 +36,7 @@ export default function HomePage() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/products', { method: 'GET' })
+      const response = await fetch(appPath('/api/products'), { method: 'GET' })
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

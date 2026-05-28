@@ -5,6 +5,7 @@ import Link from 'next/link'
 import DashboardShell from '@/components/dashboard/DashboardShell'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
+import { appPath } from '@/lib/paths'
 
 const nav = [
   { name: 'Dashboard', href: '/seller' },
@@ -17,7 +18,7 @@ export default function SellerDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/products')
+    fetch(appPath('/api/products'))
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : []

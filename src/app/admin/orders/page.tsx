@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import { appPath } from '@/lib/paths'
 
 type Order = {
   id: string
@@ -17,7 +18,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/orders')
+    fetch(appPath('/api/orders'))
       .then((r) => r.json())
       .then((d) => setOrders(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false))

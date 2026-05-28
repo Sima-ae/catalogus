@@ -1,5 +1,34 @@
 /** @type {import('next').NextConfig} */
+
+function normalizeBasePath(value) {
+  if (!value || value === '/') return ''
+  return String(value).replace(/\/$/, '')
+}
+
+function getBasePath() {
+  const fromEnv = process.env.NEXT_PUBLIC_BASE_PATH
+  if (fromEnv !== undefined && fromEnv !== '') {
+    return normalizeBasePath(fromEnv)
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return '/catalogus'
+  }
+  return ''
+}
+
+const basePath = getBasePath()
+
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (basePath ? `https://superclones.cloud${basePath}` : 'http://localhost:3000')
+
+/** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(basePath ? { basePath } : {}),
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+    NEXT_PUBLIC_APP_URL: appUrl.replace(/\/$/, ''),
+  },
   images: {
     remotePatterns: [
       {
@@ -35,7 +64,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
-  // Security headers
   async headers() {
     return [
       {
@@ -43,32 +71,32 @@ const nextConfig = {
         headers: [
           {
             key: 'X-DNS-Prefetch-Control',
-            value: 'on'
+            value: 'on',
           },
           {
             key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload'
+            value: 'max-age=63072000; includeSubDomains; preload',
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
+            value: 'SAMEORIGIN',
           },
           {
             key: 'X-Content-Type-Options',
-            value: 'nosniff'
+            value: 'nosniff',
           },
           {
             key: 'X-XSS-Protection',
-            value: '1; mode=block'
+            value: '1; mode=block',
           },
           {
             key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
+            value: 'origin-when-cross-origin',
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()'
-          }
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
         ],
       },
     ]

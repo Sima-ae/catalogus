@@ -10,6 +10,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import { ArrowLeftIcon, CreditCardIcon, ShieldCheckIcon, TruckIcon } from '@heroicons/react/24/outline'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { appPath } from '@/lib/paths'
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -31,7 +32,7 @@ function CheckoutForm({ cartTotal, cartItems, onSuccess }: CheckoutFormProps) {
     // Create payment intent
     const createPaymentIntent = async () => {
       try {
-        const response = await fetch('/api/create-payment-intent', {
+        const response = await fetch(appPath('/api/create-payment-intent'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

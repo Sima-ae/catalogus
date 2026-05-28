@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
+import { appPath } from '@/lib/paths'
 import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline'
 
 type NavItem = { name: string; href: string }
@@ -47,7 +48,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
               Visit shop
             </Link>
             <button
-              onClick={() => signOut().then(() => { window.location.href = '/login' })}
+              onClick={() => signOut().then(() => { window.location.href = appPath('/login') })}
               className="flex items-center text-sm text-gray-400 hover:text-white"
             >
               <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />

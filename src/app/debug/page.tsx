@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-local'
+import { appPath } from '@/lib/paths'
 import { useEffect, useState } from 'react'
 
 export default function DebugPage() {
@@ -120,13 +121,13 @@ export default function DebugPage() {
                 Reload Page
               </button>
               <button 
-                onClick={() => window.location.href = '/admin'} 
+                onClick={() => { window.location.href = appPath('/admin') }}
                 className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ml-3"
               >
                 Go to Admin Dashboard
               </button>
               <button 
-                onClick={() => window.location.href = '/login'} 
+                onClick={() => { window.location.href = appPath('/login') }}
                 className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 ml-3"
               >
                 Go to Login

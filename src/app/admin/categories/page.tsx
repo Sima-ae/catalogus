@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import { appPath } from '@/lib/paths'
 
 type Category = {
   id: string
@@ -18,7 +19,7 @@ export default function AdminCategoriesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/categories')
+    fetch(appPath('/api/categories'))
       .then((r) => r.json())
       .then((d) => setCategories(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false))
