@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminHeader from '@/components/admin/AdminHeader'
@@ -304,10 +305,10 @@ export default function AdminDashboard() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Products</h2>
-              <button className="btn-primary flex items-center space-x-2">
+              <Link href="/admin/products/new" className="btn-primary flex items-center space-x-2">
                 <PlusIcon className="w-5 h-5" />
                 <span>Add Product</span>
-              </button>
+              </Link>
             </div>
             
             <div className="card">
@@ -349,9 +350,12 @@ export default function AdminDashboard() {
                               <button className="p-2 rounded-lg hover:bg-dark-700 transition-colors">
                                 <EyeIcon className="w-5 h-5 text-gray-400" />
                               </button>
-                              <button className="p-2 rounded-lg hover:bg-dark-700 transition-colors">
-                                <PencilIcon className="w-5 h-5" />
-                              </button>
+                              <Link
+                                href={`/admin/products/${product.id}/edit`}
+                                className="p-2 rounded-lg hover:bg-dark-700 transition-colors inline-flex"
+                              >
+                                <PencilIcon className="w-5 h-5 text-gray-400" />
+                              </Link>
                               <button 
                                 onClick={() => handleDeleteProduct(product.id)}
                                 className="p-2 rounded-lg hover:bg-dark-700 transition-colors text-red-400 hover:text-red-300"
