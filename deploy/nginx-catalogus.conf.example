@@ -1,12 +1,8 @@
-# Nginx: serve Catalogus at https://superclones.cloud/catalogus/
+# Nginx: serve Catalogus at https://superclones.cloud/
 # Place inside your server { } block for superclones.cloud and adjust upstream port.
 
-location /catalogus {
-    return 301 $scheme://$host/catalogus/;
-}
-
-location /catalogus/ {
-    proxy_pass http://127.0.0.1:3000/catalogus/;
+location / {
+    proxy_pass http://127.0.0.1:3000/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -15,3 +11,11 @@ location /catalogus/ {
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
 }
+
+# Optional: redirect old /catalogus URLs after migration
+# location /catalogus {
+#     return 301 $scheme://$host$request_uri;
+# }
+# location /catalogus/ {
+#     rewrite ^/catalogus/?(.*)$ /$1 permanent;
+# }

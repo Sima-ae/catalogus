@@ -1,37 +1,29 @@
-# Production deploy at `/catalogus`
+# Production deploy at site root
 
-The app is built for:
+## Live URL
 
-**https://superclones.cloud/catalogus/**
+**https://superclones.cloud/**
 
-**Auto deploy from GitHub:** see [GITHUB_DEPLOY.md](./GITHUB_DEPLOY.md) (Actions + VPS secrets).
+## VPS app directory
 
-**VPS app directory:** `/var/www/superclones.cloud/catalogus/`
+**`/var/www/superclones.cloud/catalogus/`** (filesystem path only — not the public URL)
 
-## Environment (VPS)
+## Environment (`.env` on server)
 
-```bash
-cp .env.vps.example .env
-# edit secrets, then:
-npm ci
-npm run build
-npm run start
-```
-
-Required variables:
-
-| Variable | Production value |
-|----------|----------------|
-| `NEXT_PUBLIC_BASE_PATH` | `/catalogus` |
-| `NEXT_PUBLIC_APP_URL` | `https://superclones.cloud/catalogus` |
+| Variable | Value |
+|----------|--------|
 | `NODE_ENV` | `production` |
+| `NEXT_PUBLIC_APP_URL` | `https://superclones.cloud` |
+| `NEXT_PUBLIC_BASE_PATH` | *(empty or omit)* |
 
-If `NEXT_PUBLIC_BASE_PATH` is omitted, `npm run build` still defaults to `/catalogus` when `NODE_ENV=production`.
+If `NEXT_PUBLIC_BASE_PATH` is omitted, production builds serve at `/` when `NODE_ENV=production`.
 
 ## Nginx
 
-Use `nginx-catalogus.conf.example` on the `superclones.cloud` server. Next.js must receive requests with the `/catalogus` prefix (proxy to `http://127.0.0.1:3000/catalogus/`).
+Use `nginx-catalogus.conf.example` on the `superclones.cloud` server. Proxy to `http://127.0.0.1:3000/` (no `/catalogus` prefix).
 
 ## Local development
 
-Run without `NEXT_PUBLIC_BASE_PATH` — the app stays at `http://localhost:3000/`.
+Do not set `NEXT_PUBLIC_BASE_PATH` or `NEXT_PUBLIC_APP_URL` — the app stays at `http://localhost:3000/`.
+
+See `deploy/GITHUB_DEPLOY.md` for GitHub Actions → VPS setup.

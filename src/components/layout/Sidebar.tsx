@@ -15,7 +15,6 @@ import {
   PaperAirplaneIcon,
   PhoneIcon,
   Cog6ToothIcon,
-  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline'
 
 // Custom Euro Icon component
@@ -35,7 +34,6 @@ const navigation = [
 const bottomNavigation = [
   { name: 'Contact', href: '/contact', icon: PhoneIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-  { name: 'Help', href: '/help', icon: QuestionMarkCircleIcon },
 ]
 
 export default function Sidebar() {
@@ -125,20 +123,7 @@ export default function Sidebar() {
           <div className={`mt-8 pt-6 border-t text-xs ${
             theme === 'dark' ? 'border-dark-700 text-gray-400' : 'border-gray-200 text-gray-500'
           }`}>
-            <div className="space-y-2">
-              <Link href="/terms" className={`block transition-colors ${
-                theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-700'
-              }`}>Terms</Link>
-              <Link href="/privacy" className={`block transition-colors ${
-                theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-700'
-              }`}>Privacy</Link>
-              <Link href="/help" className={`block transition-colors ${
-                theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-700'
-              }`}>Help</Link>
-            </div>
-            <div className="mt-4 text-left">
-              <p><b>{APP_COPYRIGHT}</b></p>
-            </div>
+            <p><b>{APP_COPYRIGHT}</b></p>
           </div>
         )}
       </div>

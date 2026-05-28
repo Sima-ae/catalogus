@@ -10,8 +10,7 @@ concurrency:
 
 env:
   NODE_ENV: production
-  NEXT_PUBLIC_BASE_PATH: /catalogus
-  NEXT_PUBLIC_APP_URL: https://superclones.cloud/catalogus
+  NEXT_PUBLIC_APP_URL: https://superclones.cloud
 
 permissions:
   contents: read

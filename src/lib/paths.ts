@@ -1,6 +1,6 @@
 /**
- * Production is served at https://superclones.cloud/catalogus/
- * Local dev runs at http://localhost:3000/ (no base path).
+ * Production is served at https://superclones.cloud/
+ * Local dev runs at http://localhost:3000/
  */
 
 function normalizeBasePath(value: string | undefined): string {

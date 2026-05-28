@@ -10,8 +10,8 @@ function normalizeBasePath(value) {
 const isProduction = process.env.NODE_ENV === 'production'
 
 /**
- * Production: https://superclones.cloud/catalogus/
- * Local dev: http://localhost:3000/ (never use /catalogus in development)
+ * Production: https://superclones.cloud/
+ * Local dev: http://localhost:3000/
  */
 function getBasePath() {
   if (!isProduction) {
@@ -22,7 +22,7 @@ function getBasePath() {
   if (fromEnv !== undefined && fromEnv !== '') {
     return normalizeBasePath(fromEnv)
   }
-  return '/catalogus'
+  return ''
 }
 
 function getAppUrl(basePath) {

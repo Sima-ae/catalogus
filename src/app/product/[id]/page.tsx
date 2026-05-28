@@ -9,6 +9,7 @@ import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { ArrowLeftIcon, StarIcon, HeartIcon, ShareIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
+import { appUrl } from '@/lib/paths'
 
 // Mock product data - replace with actual Supabase query
 const mockProduct = {
@@ -65,7 +66,7 @@ Perfect for fashion stores, electronics, home goods, and any other e-commerce bu
   ],
   demo_url: 'https://demo.temprador.com',
   documentation_url: 'https://docs.temprador.com',
-  support_url: 'https://superclones.cloud/catalogus',
+  support_url: appUrl(),
   created_at: '2024-01-01',
   updated_at: '2024-01-15',
 }

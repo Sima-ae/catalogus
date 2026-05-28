@@ -7,7 +7,7 @@
 # Edit User= and WorkingDirectory= to match your server path.
 
 [Unit]
-Description=Catalogus Next.js (superclones.cloud/catalogus)
+Description=Catalogus Next.js (superclones.cloud)
 After=network.target mariadb.service mysql.service
 Wants=network-online.target
 

@@ -2,7 +2,7 @@
 
 Every push to **`main`** runs a build check, then SSHs into your VPS, runs `git pull`, `npm ci`, `npm run build`, and restarts the app.
 
-Production URL: **https://superclones.cloud/catalogus/**
+Production URL: **https://superclones.cloud/**
 
 ---
 
@@ -97,7 +97,7 @@ Paste the **entire** private key for `VPS_SSH_KEY`, including `-----BEGIN ...---
 
 Workflow file: `.github/workflows/deploy.yml`
 
-1. **Build check** on GitHub (same as production: `NODE_ENV=production`, `/catalogus` base path).
+1. **Build check** on GitHub (same as production: `NODE_ENV=production`, site root URL).
 2. **SSH deploy** runs on the VPS:
    - `git fetch` + `git reset --hard origin/main` (keeps `.env` — not in git)
    - `scripts/deploy.sh` → `npm ci` → `npm run build` → `systemctl restart catalogus`
@@ -128,7 +128,7 @@ For a **private** repo, use a deploy key or machine user token on the server.
 | `git fetch` fails | Set `origin` URL; for private repos add deploy key on GitHub |
 | Build fails on VPS | Check Node ≥ 18 (`node -v`), RAM (needs ~1GB for build) |
 | App 502 after deploy | `sudo systemctl status catalogus` and `journalctl -u catalogus -n 50` |
-| Wrong URL paths | `.env` must have `NEXT_PUBLIC_BASE_PATH=/catalogus` before `npm run build` |
+| Wrong URL paths | `.env` must have `NEXT_PUBLIC_APP_URL=https://superclones.cloud` and empty `NEXT_PUBLIC_BASE_PATH` before `npm run build` |
 
 ---
 

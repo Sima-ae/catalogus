@@ -38,7 +38,7 @@ export NODE_ENV=production
 echo "==> Install dependencies"
 npm ci
 
-echo "==> Build Next.js (basePath /catalogus)"
+echo "==> Build Next.js (production)"
 npm run build
 
 echo "==> Restart application"
