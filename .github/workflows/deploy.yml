@@ -81,6 +81,7 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           VPS_APP_PATH: ${{ secrets.VPS_APP_PATH }}
+          VPS_PUBLIC_HTML: ${{ secrets.VPS_PUBLIC_HTML }}
           GIT_REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
@@ -173,11 +174,15 @@ jobs:
           git clean -fd
           echo "==> Git commit on server: $(git log -1 --oneline)"
           echo "==> Run deploy script"
-          chmod +x scripts/deploy.sh
+          chmod +x scripts/deploy.sh scripts/sync-public-html.sh 2>/dev/null || chmod +x scripts/deploy.sh
           bash scripts/deploy.sh
           test -f package.json && test -d src && echo "OK: app files present in $(pwd)"
+          echo "==> Verify Catalogus on :3001"
+          curl -sf -o /dev/null -w "catalogus :3001 HTTP %{http_code}\n" http://127.0.0.1:3001/ || echo "WARN: :3001 not reachable after deploy"
           REMOTE
+
+          PUBLIC_HTML="${VPS_PUBLIC_HTML:-/home/superclones.cloud/public_html}"
 
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
             "${VPS_USER}@${VPS_HOST}" \
-            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") bash -s" < "$REMOTE_SCRIPT"
+            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"

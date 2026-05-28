@@ -57,6 +57,7 @@ fi
 echo "==> Allow deploy user to restart catalogus without password"
 cat > /etc/sudoers.d/catalogus-deploy <<EOF
 $DEPLOY_USER ALL=(ALL) NOPASSWD: /bin/systemctl restart catalogus, /bin/systemctl start catalogus, /bin/systemctl stop catalogus, /bin/systemctl status catalogus
+$DEPLOY_USER ALL=(ALL) NOPASSWD: $APP_DIR/scripts/sync-public-html.sh
 EOF
 chmod 440 /etc/sudoers.d/catalogus-deploy
 

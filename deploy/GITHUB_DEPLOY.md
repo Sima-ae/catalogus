@@ -88,8 +88,11 @@ In GitHub: open your repo → **Settings** → **Secrets and variables** → **A
 | `VPS_HOST` | `89.116.38.197` or `superclones.cloud` | Server hostname |
 | `VPS_USER` | `deploy` | SSH user |
 | `VPS_SSH_KEY` | *(full private key)* | Contents of `catalogus_deploy` |
-| `VPS_APP_PATH` | `/var/www/superclones.cloud` | **Must exist** on the VPS (git clone). Wrong path → `cd: No such file or directory`. Use `public_html` only if the repo is cloned there. |
+| `VPS_APP_PATH` | `/var/www/superclones.cloud` | Git clone path (folder **A**). Wrong path → deploy updates the wrong directory. |
+| `VPS_PUBLIC_HTML` | `/home/superclones.cloud/public_html` | Optional. CyberPanel docRoot (folder **B**) for `.htaccess` sync. |
 | `VPS_SSH_PORT` | `22` | Optional; omit if default |
+
+GitHub updates **`VPS_APP_PATH` only**, not `public_html`. LiteSpeed rules are synced by `scripts/sync-public-html.sh` during deploy.
 
 Paste the **entire** private key for `VPS_SSH_KEY`, including `-----BEGIN ...-----` lines.
 

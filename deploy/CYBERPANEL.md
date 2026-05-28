@@ -4,6 +4,58 @@ CyberPanel uses **OpenLiteSpeed** (or LiteSpeed). The panel serves a **document 
 
 ---
 
+## Fix LiteSpeed **500 Internal Server Error** (browser)
+
+If `curl http://127.0.0.1:3001/` returns **200** but **https://superclones.cloud/** shows a plain **500** page, OpenLiteSpeed is failing on **`[P]` proxy in `.htaccess`**.
+
+**Fix A — vHost proxy (recommended on CyberPanel)**
+
+Use the **`superclones.cloud`** vhost — not `inkoop.autos`. Inkoop already has `inkoop_next` → port **3000**; Catalogus needs **`catalogus_next` → 3001**.
+
+1. CyberPanel → **Websites** → **Manage** → **`superclones.cloud`** → **vHost Conf**
+2. Paste `deploy/vhost-superclones.cloud.snippet` (same style as your inkoop block, port **3001**)
+3. Remove any duplicate `context /` or proxy to **3000** on this vhost
+4. **Save** → graceful restart OpenLiteSpeed
+5. Replace `public_html/.htaccess` with **redirects only** (no `[P]`):
+
+```bash
+cp /var/www/superclones.cloud/deploy/htaccess-redirects-only.example \
+   /home/superclones.cloud/public_html/.htaccess
+```
+
+**Fix B — keep `.htaccess` proxy**
+
+Ensure `public_html/.htaccess` proxies to **3001** (not 3000). Check error log:
+
+```bash
+tail -30 /usr/local/lsws/logs/error.log
+```
+
+---
+
+## GitHub deploy vs `public_html`
+
+| Path | Updated by |
+|------|------------|
+| `/var/www/superclones.cloud` | GitHub Actions (`VPS_APP_PATH`) |
+| `/home/superclones.cloud/public_html/.htaccess` | **Not** git — run `scripts/sync-public-html.sh` or copy manually |
+
+After each deploy, `scripts/deploy.sh` runs `sync-public-html.sh` if the script exists. Add to VPS `.env`:
+
+```env
+CATALOGUS_PUBLIC_HTML=/home/superclones.cloud/public_html
+```
+
+Allow `deploy` to write (once as root):
+
+```bash
+echo 'deploy ALL=(ALL) NOPASSWD: /var/www/superclones.cloud/scripts/sync-public-html.sh' \
+  | sudo tee /etc/sudoers.d/catalogus-sync-htaccess
+sudo chmod 440 /etc/sudoers.d/catalogus-sync-htaccess
+```
+
+---
+
 ## Two folders (CyberPanel default)
 
 OpenLiteSpeed vhost config uses:

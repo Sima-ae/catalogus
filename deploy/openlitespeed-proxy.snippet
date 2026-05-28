@@ -1,0 +1,24 @@
+# CyberPanel / OpenLiteSpeed — fix 500 when .htaccess [P] fails
+#
+# 1. CyberPanel → Websites → List Websites → Manage (superclones.cloud)
+# 2. vHost Conf → paste BEFORE the closing of the vhost (adjust if conflicts)
+# 3. Graceful restart OpenLiteSpeed
+# 4. public_html/.htaccess → use htaccess-redirects-only.example (no [P])
+#
+# Catalogus listens on 127.0.0.1:3001 (inkoop-autos stays on 3000).
+
+extprocessor catalogus3001 {
+  type                    proxy
+  address                 127.0.0.1:3001
+  maxConns                100
+  pcKeepAliveTimeout      60
+  initTimeout             60
+  retryTimeout            0
+  respBuffer              0
+}
+
+context / {
+  type                    proxy
+  handler                 catalogus3001
+  addDefaultCharset       off
+}

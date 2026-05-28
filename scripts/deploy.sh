@@ -57,10 +57,17 @@ if systemctl is-active --quiet catalogus 2>/dev/null; then
   sudo systemctl restart catalogus
   echo "Restarted systemd unit: catalogus"
 elif command -v pm2 >/dev/null 2>&1; then
-  pm2 restart catalogus 2>/dev/null || pm2 start npm --name catalogus -- start
+  pm2 restart catalogus 2>/dev/null || pm2 start npm --name catalogus -- start -- -p 3001
   echo "Restarted PM2 process: catalogus"
 else
-  echo "WARN: No catalogus systemd unit or PM2 process. Start manually: npm run start"
+  echo "WARN: No catalogus systemd unit or PM2 process. Start manually: npm run start -- -p 3001"
+fi
+
+if [[ -f scripts/sync-public-html.sh ]]; then
+  chmod +x scripts/sync-public-html.sh 2>/dev/null || true
+  export APP_DIR
+  bash scripts/sync-public-html.sh || sudo -E bash scripts/sync-public-html.sh || \
+    echo "WARN: public_html .htaccess sync failed — copy deploy/htaccess.example manually"
 fi
 
 echo "==> Deploy finished OK"

@@ -1,0 +1,24 @@
+# superclones.cloud — append to vHost Conf in CyberPanel
+# (Websites → Manage → superclones.cloud → vHost Conf)
+#
+# Same pattern as inkoop.autos, but port 3001 (inkoop_next stays on 3000).
+# Do NOT paste the inkoop.autos block on superclones.cloud.
+#
+# After save: Graceful restart OpenLiteSpeed.
+# public_html: use deploy/htaccess-redirects-only.example (www + /catalogus redirects only).
+
+extprocessor catalogus_next {
+  type                    proxy
+  address                 127.0.0.1:3001
+  maxConns                100
+  pcKeepAliveTimeout      60
+  initTimeout             60
+  retryTimeout            0
+  respBuffer              0
+}
+
+context / {
+  type                    proxy
+  handler                 catalogus_next
+  addDefaultCharset       off
+}

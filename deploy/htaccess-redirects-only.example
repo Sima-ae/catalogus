@@ -1,0 +1,16 @@
+# Use WITH OpenLiteSpeed vhost proxy (deploy/openlitespeed-proxy.snippet).
+# No [P] flag — avoids LiteSpeed 500 when proxy in .htaccess is disabled.
+#
+# CyberPanel: Websites → superclones.cloud → vHost Conf → paste proxy snippet → Save
+# Then copy this file to /home/superclones.cloud/public_html/.htaccess
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  RewriteCond %{HTTP_HOST} ^www\.superclones\.cloud$ [NC]
+  RewriteRule ^ https://superclones.cloud%{REQUEST_URI} [R=301,L]
+
+  RewriteRule ^catalogus/?$ / [R=301,L]
+  RewriteRule ^catalogus/(.*)$ /$1 [R=301,L]
+</IfModule>
