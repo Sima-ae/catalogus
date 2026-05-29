@@ -1,3 +1,8 @@
+import {
+  normalizeProductImageList,
+  normalizeProductImageUrl,
+} from '@/lib/product-image-url'
+
 /** Normalize a product row from MariaDB for API responses (JSON fields + category from join). */
 export function parseProductJsonField(value: unknown): string[] | null {
   if (value == null || value === '') return null
@@ -33,11 +38,12 @@ export function serializeProductRow(row: Record<string, unknown>) {
 
   return {
     ...rest,
+    image_url: normalizeProductImageUrl(String(row.image_url ?? '')),
     category,
     category_id: row.category_id ?? row.resolved_category_id ?? null,
     brand: brand || undefined,
     brand_id: row.brand_id ?? row.resolved_brand_id ?? null,
-    gallery_images: parseProductJsonField(row.gallery_images),
+    gallery_images: normalizeProductImageList(parseProductJsonField(row.gallery_images)),
     tags: parseProductJsonField(row.tags),
     features: parseProductJsonField(row.features) ?? [],
     requirements: parseProductJsonField(row.requirements) ?? [],

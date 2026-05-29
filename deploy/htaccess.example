@@ -24,6 +24,12 @@
   RewriteRule ^catalogus/?$ / [R=301,L]
   RewriteRule ^catalogus/(.*)$ /$1 [R=301,L]
 
+  # Serve uploaded catalog images from document root (public_html/images/...)
+  # Without this, every URL is proxied to Next.js and /images/... returns 404.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
   # Proxy to Catalogus (port 3001) — port 3000 is inkoop-autos (PM2), unchanged
   RewriteCond %{HTTP_HOST} ^superclones\.cloud$ [NC]
   RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]

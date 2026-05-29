@@ -1,5 +1,15 @@
 # Nginx: serve Catalogus at https://superclones.cloud/
 # Place inside your server { } block for superclones.cloud and adjust upstream port.
+# Adjust root to your CyberPanel public_html path.
+
+root /home/superclones.cloud/public_html;
+
+# Product photos on disk: public_html/images/HORLOGES/...
+location /images/ {
+    try_files $uri =404;
+    expires 30d;
+    add_header Cache-Control "public";
+}
 
 location / {
     proxy_pass http://127.0.0.1:3001/;

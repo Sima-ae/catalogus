@@ -1,0 +1,10 @@
+# Paste in CyberPanel → superclones.cloud → vHost Conf (ABOVE the proxy context / block)
+# Serves files from public_html/images/ without sending them to Next.js.
+# Adjust path if your docroot differs.
+
+context /images/ {
+  type                    static
+  location                /home/superclones.cloud/public_html/images/
+  allowBrowse             1
+  addDefaultCharset       off
+}

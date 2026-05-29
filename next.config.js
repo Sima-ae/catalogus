@@ -81,6 +81,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'picsum.photos',
       },
+      {
+        protocol: 'https',
+        hostname: 'superclones.cloud',
+        pathname: '/images/**',
+      },
     ],
   },
   typescript: {
