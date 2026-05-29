@@ -4,6 +4,7 @@ import {
   SITE_ACCESS_COOKIE,
   SITE_ACCESS_META_REQUIRED,
   SITE_ACCESS_META_VERSION,
+  getCookieSecret,
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 
@@ -32,6 +33,11 @@ async function siteAccessFromCookies(request: NextRequest): Promise<{
     return { required: false, allowed: true }
   }
   if (requiredFlag !== '1') {
+    return null
+  }
+
+  // Edge middleware cannot read .env at runtime — verify via /api/site-access/check (Node) instead.
+  if (!getCookieSecret()) {
     return null
   }
 

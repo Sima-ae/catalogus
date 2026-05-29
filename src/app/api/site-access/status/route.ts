@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { ensureEnvLoaded } from '@/lib/ensure-env'
 import {
   applySiteAccessCookies,
   readUnlockCookie,
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
+  ensureEnvLoaded()
   try {
     const config = await getSiteAccessConfig()
     const cookie = readUnlockCookie(request.headers.get('cookie'))

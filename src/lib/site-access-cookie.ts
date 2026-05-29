@@ -12,15 +12,37 @@ const textEncoder = new TextEncoder()
 
 let missingSecretLogged = false
 
+const MIN_SECRET_LENGTH = 16
+
+/** Why site-access signing is unavailable (for API error messages; never returns the secret). */
+export function siteAccessSecretDiagnostics():
+  | { ok: true }
+  | { ok: false; reason: string } {
+  const raw = process.env.SITE_ACCESS_COOKIE_SECRET
+  const secret = raw?.trim()
+  if (!secret) {
+    return {
+      ok: false,
+      reason:
+        'SITE_ACCESS_COOKIE_SECRET is not loaded. Add it to .env on the server (16+ characters), then run: sudo systemctl restart catalogus',
+    }
+  }
+  if (secret.length < MIN_SECRET_LENGTH) {
+    return {
+      ok: false,
+      reason: `SITE_ACCESS_COOKIE_SECRET must be at least ${MIN_SECRET_LENGTH} characters (current length: ${secret.length}).`,
+    }
+  }
+  return { ok: true }
+}
+
 /** Returns null when production secret is missing (site stays up; site-access lock is disabled). */
 export function getCookieSecret(): string | null {
-  const secret = process.env.SITE_ACCESS_COOKIE_SECRET?.trim()
-  if (secret && secret.length >= 16) return secret
+  const diag = siteAccessSecretDiagnostics()
+  if (diag.ok) return process.env.SITE_ACCESS_COOKIE_SECRET!.trim()
   if (process.env.NODE_ENV === 'production' && !missingSecretLogged) {
     missingSecretLogged = true
-    console.error(
-      '[site-access] SITE_ACCESS_COOKIE_SECRET is missing or too short — site access cookies disabled until set in .env'
-    )
+    console.error(`[site-access] ${diag.reason}`)
   }
   if (process.env.NODE_ENV === 'production') return null
   return 'dev-only-site-access-secret-not-for-production'

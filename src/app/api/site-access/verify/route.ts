@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ensureEnvLoaded } from '@/lib/ensure-env'
 import {
   applySiteAccessCookies,
   createUnlockToken,
+  siteAccessSecretDiagnostics,
 } from '@/lib/site-access-cookie'
 import { getSiteAccessConfig, verifySiteAccessPassword } from '@/lib/site-access'
 
@@ -9,6 +11,7 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  ensureEnvLoaded()
   try {
     const body = await request.json()
     const password = String(body?.password ?? '')
@@ -30,13 +33,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Incorrect password' }, { status: 401 })
     }
 
+    const secretDiag = siteAccessSecretDiagnostics()
+    if (!secretDiag.ok) {
+      return NextResponse.json({ error: secretDiag.reason }, { status: 503 })
+    }
+
     const unlock = await createUnlockToken(config.version, remember)
     if (!unlock) {
       return NextResponse.json(
-        {
-          error:
-            'Site access is not configured on the server (SITE_ACCESS_COOKIE_SECRET missing).',
-        },
+        { error: 'Could not create site access session. Restart the app after updating .env.' },
         { status: 503 }
       )
     }

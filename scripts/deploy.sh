@@ -51,6 +51,12 @@ if grep -qE '^NEXT_PUBLIC_APP_URL=.*superclones\.cloud/catalogus' .env 2>/dev/nu
   exit 1
 fi
 
+echo "==> Check required environment variables"
+if ! node scripts/check-env.mjs; then
+  echo "ERROR: Fix .env (see messages above). SITE_ACCESS_COOKIE_SECRET must be 16+ random characters."
+  exit 1
+fi
+
 echo "==> Install dependencies (include devDependencies for build)"
 npm ci
 
