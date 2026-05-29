@@ -83,8 +83,14 @@ export function deleteDevProduct(id: string) {
   return devProducts.length < before
 }
 
-export function listDevCategories() {
-  return [...devCategories]
+export function listDevCategories(activeOnly = false) {
+  const list = [...devCategories]
+  if (!activeOnly) return list
+  return list.filter((c) => c.active !== false)
+}
+
+export function replaceDevCategories(next: Category[]) {
+  devCategories = [...next]
 }
 
 export function createDevCategory(input: { name: string; slug: string; description?: string }) {
@@ -97,4 +103,30 @@ export function createDevCategory(input: { name: string; slug: string; descripti
   }
   devCategories = [cat, ...devCategories]
   return cat
+}
+
+export function getDevCategory(id: string) {
+  return devCategories.find((c) => c.id === id) ?? null
+}
+
+export function updateDevCategory(
+  id: string,
+  input: { name: string; slug: string; description?: string; active?: boolean }
+) {
+  const idx = devCategories.findIndex((c) => c.id === id)
+  if (idx === -1) return null
+  devCategories[idx] = {
+    ...devCategories[idx],
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+    active: input.active !== false,
+  }
+  return devCategories[idx]
+}
+
+export function deleteDevCategory(id: string) {
+  const before = devCategories.length
+  devCategories = devCategories.filter((c) => c.id !== id)
+  return devCategories.length < before
 }

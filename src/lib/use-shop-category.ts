@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { appPath, isAppPath } from '@/lib/paths'
 
 const CATALOG_PATHS = ['/', '/new', '/popular']
@@ -15,12 +16,13 @@ export function useShopCategory() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const categoryMenu = useShopCategoryList()
 
   const selectedCategory = useMemo(() => {
     const raw = searchParams.get('category')?.trim()
     if (!raw) return 'All'
-    return raw
-  }, [searchParams])
+    return categoryMenu.includes(raw) ? raw : 'All'
+  }, [searchParams, categoryMenu])
 
   const setSelectedCategory = useCallback(
     (category: string) => {

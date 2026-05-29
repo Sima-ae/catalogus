@@ -1,4 +1,7 @@
-/** Product category labels used in filters and the shop sidebar. */
+/**
+ * Legacy reference list — shop UI loads categories from the database only.
+ * @see useShopCategoryList, /api/categories
+ */
 export const SHOP_CATEGORIES = [
   'All',
   'Free',

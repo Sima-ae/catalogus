@@ -40,6 +40,23 @@ async function passwordMatches(hashes: string[], password: string) {
   return false
 }
 
+export function getDevUserByIdAndEmail(id: string, email: string) {
+  const normalized = email.trim().toLowerCase()
+  const user = DEV_USERS.find((u) => u.id === id && u.email === normalized)
+  if (!user) return null
+  const is_super_admin =
+    'is_super_admin' in user && user.is_super_admin === true
+      ? true
+      : user.email === SUPER_ADMIN_EMAIL
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    name: user.name,
+    is_super_admin,
+  }
+}
+
 export async function tryDevLogin(email: string, password: string) {
   if (!isDevAuthEnabled()) return null
 

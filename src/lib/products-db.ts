@@ -114,7 +114,12 @@ export async function deleteProductById(id: string) {
   await queryDb('DELETE FROM products WHERE id = ?', [id])
 }
 
-export async function listCategories() {
+export async function listCategories(activeOnly = false) {
+  if (activeOnly) {
+    return queryDb<any[]>(
+      'SELECT * FROM categories WHERE active = 1 ORDER BY COALESCE(sort_order, 9999), name ASC'
+    )
+  }
   return queryDb<any[]>('SELECT * FROM categories ORDER BY name ASC')
 }
 
@@ -126,4 +131,31 @@ export async function insertCategory(input: { name: string; slug: string; descri
   )
   const rows = await queryDb<any[]>('SELECT * FROM categories WHERE id = ? LIMIT 1', [id])
   return rows[0]
+}
+
+export async function getCategoryById(id: string) {
+  const rows = await queryDb<any[]>('SELECT * FROM categories WHERE id = ? LIMIT 1', [id])
+  return rows[0] ?? null
+}
+
+export async function updateCategoryById(
+  id: string,
+  input: { name: string; slug: string; description?: string; active?: boolean }
+) {
+  await queryDb(
+    'UPDATE categories SET name = ?, slug = ?, description = ?, active = ? WHERE id = ?',
+    [
+      input.name,
+      input.slug,
+      input.description || null,
+      input.active === false ? 0 : 1,
+      id,
+    ]
+  )
+  // Always re-read: MySQL reports affectedRows=0 when values are unchanged.
+  return getCategoryById(id)
+}
+
+export async function deleteCategoryById(id: string) {
+  await queryDb('DELETE FROM categories WHERE id = ?', [id])
 }
