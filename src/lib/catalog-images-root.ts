@@ -1,7 +1,6 @@
 import path from 'path'
-import { existsSync } from 'fs'
 
-/** VPS: /home/.../public_html/images — local dev: public/images if present */
+/** VPS: /home/.../public_html/images — local dev: public/images symlink */
 export function getCatalogImagesRoots(): string[] {
   const roots: string[] = []
 
@@ -17,6 +16,5 @@ export function getCatalogImagesRoots(): string[] {
 
   roots.push(path.join(process.cwd(), 'public', 'images'))
 
-  const unique = Array.from(new Set(roots.map((r) => path.resolve(r)).filter((r) => existsSync(r))))
-  return unique
+  return Array.from(new Set(roots.map((r) => path.resolve(r))))
 }

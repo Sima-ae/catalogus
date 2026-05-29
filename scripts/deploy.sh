@@ -85,6 +85,12 @@ if [[ -f scripts/sync-public-html.sh ]]; then
     echo "WARN: public_html .htaccess sync failed — copy deploy/htaccess.example manually"
 fi
 
+if [[ -f scripts/ensure-catalog-images-access.sh ]]; then
+  chmod +x scripts/ensure-catalog-images-access.sh 2>/dev/null || true
+  export APP_DIR
+  bash scripts/ensure-catalog-images-access.sh || sudo -E bash scripts/ensure-catalog-images-access.sh || true
+fi
+
 if [[ -f scripts/link-public-images.sh ]]; then
   chmod +x scripts/link-public-images.sh 2>/dev/null || true
   export APP_DIR

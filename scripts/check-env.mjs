@@ -55,4 +55,10 @@ if (process.env.AUTH_DEV_FALLBACK === 'true') {
   console.warn('WARN: AUTH_DEV_FALLBACK=true — should be false on production')
 }
 
+if (!process.env.CATALOGUS_PUBLIC_HTML?.trim()) {
+  console.warn(
+    'WARN: CATALOGUS_PUBLIC_HTML is not set — product images under public_html/images may 404'
+  )
+}
+
 process.exit(ok ? 0 : 1)
