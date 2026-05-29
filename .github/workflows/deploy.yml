@@ -109,6 +109,17 @@ jobs:
 
           echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} (deploy path from VPS_APP_PATH secret)"
 
+          if ! timeout 15 bash -c "echo >/dev/tcp/${VPS_HOST}/${PORT}" 2>/dev/null; then
+            echo "::error::Cannot reach ${VPS_HOST}:${PORT} from GitHub Actions (TCP timeout)."
+            echo "Fix on the VPS / panel:"
+            echo "  1. Firewall (CSF/UFW): allow inbound TCP ${PORT} from GitHub Actions IPs"
+            echo "     https://api.github.com/meta (json.actions[])"
+            echo "  2. Or use a self-hosted GitHub runner on the VPS"
+            echo "  3. If SSH uses another port, set repo secret VPS_SSH_PORT (e.g. 2222)"
+            echo "  4. Confirm VPS_HOST secret is the server hostname/IP you use for ssh"
+            exit 1
+          fi
+
           REMOTE_SCRIPT="$(mktemp)"
           trap 'rm -f "$REMOTE_SCRIPT"' EXIT
           cat > "$REMOTE_SCRIPT" <<'REMOTE'
@@ -183,6 +194,9 @@ jobs:
 
           PUBLIC_HTML="${VPS_PUBLIC_HTML:-/home/superclones.cloud/public_html}"
 
-          ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
+          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
             "${VPS_USER}@${VPS_HOST}" \
-            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"
+            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"; then
+            echo "::error::SSH deploy failed (auth, firewall, or wrong VPS_USER/VPS_SSH_KEY)."
+            exit 1
+          fi
