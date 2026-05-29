@@ -278,16 +278,20 @@ export default function ProductPageClient() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Left Column - Image Gallery */}
           <div className="space-y-4">
-            {/* Main Image */}
-            <div className={`relative aspect-video rounded-lg overflow-hidden ${
-              theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
-            }`}>
+            {/* Main Image — portrait-friendly (most product photos are vertical) */}
+            <div
+              className={`relative w-full aspect-[3/4] max-h-[min(75vh,720px)] mx-auto lg:mx-0 rounded-lg overflow-hidden ${
+                theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
+              }`}
+            >
               {product.gallery[selectedImage] ? (
               <Image
                 src={product.gallery[selectedImage]}
                 alt={product.name}
                 fill
-                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-contain"
+                priority
               />
               ) : (
                 <div className={`flex h-full w-full items-center justify-center text-sm ${
@@ -316,12 +320,12 @@ export default function ProductPageClient() {
 
             {/* Thumbnail Gallery */}
             {product.gallery.length > 0 ? (
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
               {product.gallery.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`relative aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all ${
                     theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
                   } ${
                     selectedImage === index 
@@ -335,7 +339,8 @@ export default function ProductPageClient() {
                     src={image}
                     alt={`${product.name} - Image ${index + 1}`}
                     fill
-                    className="object-cover"
+                    sizes="120px"
+                    className="object-contain"
                   />
                 </button>
               ))}

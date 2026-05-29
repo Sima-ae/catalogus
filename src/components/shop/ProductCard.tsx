@@ -44,12 +44,15 @@ export default function ProductCard({ product }: ProductCardProps) {
         : 'bg-white border-gray-200'
     }`}>
       <Link href={`/product/${product.id}`} className="block">
-        <div className="relative aspect-video mb-3 overflow-hidden rounded-lg">
+        <div className={`relative aspect-[3/4] mb-3 overflow-hidden rounded-lg ${
+          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-100'
+        }`}>
           <Image
             src={product.image_url}
             alt={product.name}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-contain group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300" />
         </div>
