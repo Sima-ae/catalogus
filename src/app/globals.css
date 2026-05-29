@@ -305,6 +305,37 @@ body.app-protected [contenteditable='true'] {
     @apply relative w-full aspect-[3/4] max-h-[min(75vh,720px)] bg-gray-100 rounded-lg overflow-hidden;
   }
 
+  /* ~5 portrait thumbnails visible; scroll for the rest (width matches w-[4.25rem] / sm:w-20) */
+  .product-gallery-thumbs {
+    --thumb-w: 4.25rem;
+    --thumb-visible: 5;
+    --thumb-gap: 0.5rem;
+    max-height: calc(
+      var(--thumb-visible) * (var(--thumb-w) * 4 / 3) +
+        (var(--thumb-visible) - 1) * var(--thumb-gap)
+    );
+    scrollbar-width: thin;
+    scrollbar-color: rgb(156 163 175) transparent;
+  }
+
+  @media (min-width: 640px) {
+    .product-gallery-thumbs {
+      --thumb-w: 5rem;
+    }
+  }
+
+  .product-gallery-thumbs::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .product-gallery-thumbs::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gray-400;
+  }
+
+  html.dark .product-gallery-thumbs::-webkit-scrollbar-thumb {
+    @apply bg-gray-600;
+  }
+
   .product-gallery-thumbnail-active {
     @apply border-primary-500;
   }

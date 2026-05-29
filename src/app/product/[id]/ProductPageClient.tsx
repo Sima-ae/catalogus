@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -26,6 +26,9 @@ type ProductReview = {
   created_at: string
 }
 
+/** Thumbnails shown before the side column scrolls */
+const GALLERY_THUMBS_VISIBLE = 5
+
 export default function ProductPageClient() {
   const params = useParams()
   const productId = typeof params.id === 'string' ? params.id : ''
@@ -41,6 +44,14 @@ export default function ProductPageClient() {
   const [reviews, setReviews] = useState<ProductReview[]>([])
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
+  const thumbListRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const list = thumbListRef.current
+    if (!list) return
+    const active = list.querySelector<HTMLElement>('[aria-selected="true"]')
+    active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedImage, product?.gallery.length])
 
   useEffect(() => {
     if (!productId) {
@@ -276,76 +287,97 @@ export default function ProductPageClient() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left Column - Image Gallery */}
-          <div className="space-y-4">
-            {/* Main Image — portrait-friendly (most product photos are vertical) */}
-            <div
-              className={`relative w-full aspect-[3/4] max-h-[min(75vh,720px)] mx-auto lg:mx-0 rounded-lg overflow-hidden ${
-                theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
-              }`}
-            >
-              {product.gallery[selectedImage] ? (
-              <Image
-                src={product.gallery[selectedImage]}
-                alt={product.name}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-contain"
-                priority
-              />
-              ) : (
-                <div className={`flex h-full w-full items-center justify-center text-sm ${
-                  theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                }`}>
-                  No image
+          {/* Left Column - Image Gallery (thumbs left, main image right) */}
+          <div className="flex gap-3 sm:gap-4 min-w-0">
+            {product.gallery.length > 1 ? (
+              <div
+                ref={thumbListRef}
+                className={`product-gallery-thumbs flex flex-col gap-2 w-[4.25rem] sm:w-20 shrink-0 overscroll-y-contain ${
+                  product.gallery.length > GALLERY_THUMBS_VISIBLE
+                    ? 'overflow-y-auto'
+                    : 'overflow-hidden'
+                }`}
+                role="tablist"
+                aria-label="Product images"
+              >
+                {product.gallery.map((image, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedImage === index}
+                    aria-label={`Image ${index + 1} of ${product.gallery.length}`}
+                    onClick={() => setSelectedImage(index)}
+                    className={`relative aspect-[3/4] w-full shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                      theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
+                    } ${
+                      selectedImage === index
+                        ? 'border-primary-500 ring-1 ring-primary-500/30'
+                        : theme === 'dark'
+                          ? 'border-transparent hover:border-gray-600'
+                          : 'border-transparent hover:border-gray-400'
+                    }`}
+                  >
+                    <Image
+                      src={image}
+                      alt=""
+                      fill
+                      sizes="80px"
+                      className="object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex-1 min-w-0">
+              <div
+                className={`relative w-full aspect-[3/4] max-h-[min(75vh,720px)] rounded-lg overflow-hidden ${
+                  theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
+                }`}
+              >
+                {product.gallery[selectedImage] ? (
+                  <Image
+                    src={product.gallery[selectedImage]}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 1024px) 85vw, 45vw"
+                    className="object-contain"
+                    priority
+                  />
+                ) : (
+                  <div
+                    className={`flex h-full w-full items-center justify-center text-sm ${
+                      theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                    }`}
+                  >
+                    No image
+                  </div>
+                )}
+                <div className="absolute top-4 right-4 flex space-x-2">
+                  <button
+                    type="button"
+                    className={`p-2 rounded-lg transition-colors ${
+                      theme === 'dark'
+                        ? 'bg-dark-800 bg-opacity-80 text-gray-300 hover:text-white'
+                        : 'bg-white bg-opacity-90 text-gray-600 hover:text-gray-900 shadow-lg'
+                    }`}
+                  >
+                    <HeartIcon className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    className={`p-2 rounded-lg transition-colors ${
+                      theme === 'dark'
+                        ? 'bg-dark-800 bg-opacity-80 text-gray-300 hover:text-white'
+                        : 'bg-white bg-opacity-90 text-gray-600 hover:text-gray-900 shadow-lg'
+                    }`}
+                  >
+                    <ShareIcon className="w-5 h-5" />
+                  </button>
                 </div>
-              )}
-              <div className="absolute top-4 right-4 flex space-x-2">
-                <button className={`p-2 rounded-lg transition-colors ${
-                  theme === 'dark' 
-                    ? 'bg-dark-800 bg-opacity-80 text-gray-300 hover:text-white' 
-                    : 'bg-white bg-opacity-90 text-gray-600 hover:text-gray-900 shadow-lg'
-                }`}>
-                  <HeartIcon className="w-5 h-5" />
-                </button>
-                <button className={`p-2 rounded-lg transition-colors ${
-                  theme === 'dark' 
-                    ? 'bg-dark-800 bg-opacity-80 text-gray-300 hover:text-white' 
-                    : 'bg-white bg-opacity-90 text-gray-600 hover:text-gray-900 shadow-lg'
-                }`}>
-                  <ShareIcon className="w-5 h-5" />
-                </button>
               </div>
             </div>
-
-            {/* Thumbnail Gallery */}
-            {product.gallery.length > 0 ? (
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-              {product.gallery.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`relative aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all ${
-                    theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
-                  } ${
-                    selectedImage === index 
-                      ? 'border-primary-500' 
-                      : theme === 'dark' 
-                        ? 'border-transparent hover:border-gray-600' 
-                        : 'border-transparent hover:border-gray-400'
-                  }`}
-                >
-                  <Image
-                    src={image}
-                    alt={`${product.name} - Image ${index + 1}`}
-                    fill
-                    sizes="120px"
-                    className="object-contain"
-                  />
-                </button>
-              ))}
-            </div>
-            ) : null}
           </div>
 
           {/* Right Column - Product Details */}
