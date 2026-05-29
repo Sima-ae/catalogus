@@ -277,7 +277,7 @@ export function formatMinutesAgo(minutes: number): string {
   return `${days} days ago`
 }
 
-function startOfLocalDayMs(date = new Date()): number {
+function startOfLocalDayMs(date: Date | number = Date.now()): number {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
   return d.getTime()
@@ -392,7 +392,9 @@ export function buildDailySocialProofNotifications(
   recentSignatures: RecentSignature[],
   count = DEFAULT_COUNT
 ): StoredSocialProofNotification[] {
-  const products = [...new Set(productNames.map((n) => n.trim()).filter(Boolean))]
+  const products = Array.from(
+    new Set(productNames.map((n) => n.trim()).filter(Boolean))
+  )
   if (products.length === 0 || count < 1) return []
 
   const shuffledProducts = shuffle(products)

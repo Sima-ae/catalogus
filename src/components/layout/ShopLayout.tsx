@@ -1,7 +1,11 @@
 'use client'
 
 import { ReactNode } from 'react'
-import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/Sidebar'
+import Sidebar, {
+  MobileMenuButton,
+  SidebarMenuButton,
+  useShopSidebar,
+} from '@/components/layout/Sidebar'
 
 export default function ShopLayout({
   children,

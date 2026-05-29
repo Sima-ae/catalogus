@@ -14,7 +14,9 @@ export async function GET() {
        ORDER BY RAND()
        LIMIT 120`
     )
-    const productNames = [...new Set(rows.map((r) => r.name.trim()).filter(Boolean))]
+    const productNames = Array.from(
+      new Set(rows.map((r) => r.name.trim()).filter(Boolean))
+    )
     return NextResponse.json({ productNames })
   } catch (error) {
     console.error('Social proof fetch error:', error)
