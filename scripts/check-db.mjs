@@ -64,7 +64,7 @@ Access denied — wrong user or password in .env DATABASE_URL.
 Nothing on localhost:3306.
 
 • On VPS: app and MariaDB must run on the SAME server, then DATABASE_URL with 127.0.0.1 works.
-• On your Mac: use local DB —  npm run dev:local  (Docker MariaDB).
+• On your Mac: run  npm run db:tunnel  in another terminal first (SSH as root).
 `)
   }
   process.exit(1)

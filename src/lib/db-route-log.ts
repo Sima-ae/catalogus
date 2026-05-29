@@ -8,7 +8,7 @@ export function warnDbOfflineOnce() {
   offlineHintShown = true
   console.warn(
     '[catalogus] MariaDB is not reachable. All catalog data requires the database. ' +
-      'Start MariaDB with npm run dev:local (local) or check DATABASE_URL on the VPS.'
+      'Start MariaDB on the VPS, or run npm run db:tunnel locally.'
   )
 }
 

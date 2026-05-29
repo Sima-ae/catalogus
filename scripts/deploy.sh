@@ -70,6 +70,14 @@ npm ci
 echo "==> Build Next.js (production)"
 NODE_ENV=production npm run build
 
+echo "==> Test MariaDB before restart"
+if ! node scripts/check-db.mjs; then
+  echo "ERROR: Cannot connect to MariaDB with .env on this server."
+  echo "Fix DATABASE_URL in $APP_DIR/.env (CyberPanel → Databases → copy password)."
+  echo "Example: DATABASE_URL=mysql://supe_r_clones_cloud:PASSWORD@127.0.0.1:3306/supe_r_clones_cloud"
+  exit 1
+fi
+
 echo "==> Restart application"
 if systemctl is-active --quiet catalogus 2>/dev/null; then
   systemctl restart catalogus
@@ -79,6 +87,14 @@ elif command -v pm2 >/dev/null 2>&1; then
   echo "Restarted PM2 process: catalogus"
 else
   echo "WARN: No catalogus systemd unit or PM2 process. Start manually: npm run start -- -p 3001"
+fi
+
+sleep 2
+echo "==> Health check (app + DB)"
+if curl -sf http://127.0.0.1:3001/api/health/db | grep -q '"ok":true'; then
+  echo "OK: /api/health/db"
+else
+  echo "WARN: /api/health/db failed (check catalogus logs: journalctl -u catalogus -n 50)"
 fi
 
 if [[ -f scripts/sync-public-html.sh ]]; then

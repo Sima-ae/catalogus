@@ -2,15 +2,26 @@
 
 Next.js marketplace for [superclones.cloud](https://superclones.cloud).
 
-## Local development (Docker MariaDB — no SSH tunnel)
+## Local development
 
 ```bash
-cp .env.local.example .env
+cp .env.local.example .env   # set DATABASE_URL password (same as VPS .env)
 npm install
-npm run dev:local
 ```
 
-Starts MariaDB in Docker and `next dev`. Data is local; production uses the VPS database.
+**Terminal 1** — SSH tunnel to VPS MariaDB (root):
+
+```bash
+npm run db:tunnel
+```
+
+**Terminal 2** — app:
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000
 
 ## Production (VPS)
 
@@ -41,6 +52,22 @@ bash /var/www/superclones.cloud/scripts/setup-github-deploy-ssh.sh
 Paste the printed private key into GitHub → **VPS_SSH_KEY**. Your personal SSH key and passphrase stay on your Mac only.
 
 Manual deploy on VPS: `bash /var/www/superclones.cloud/scripts/deploy.sh`
+
+### “Database is not available” on the live site
+
+On the VPS as root:
+
+```bash
+cd /var/www/superclones.cloud
+bash scripts/vps-db-diagnose.sh
+```
+
+Usually `DATABASE_URL` in `.env` has the wrong password or database name. Copy from **CyberPanel → Databases** (user/db: `supe_r_clones_cloud`), then:
+
+```bash
+nano .env   # fix DATABASE_URL=mysql://supe_r_clones_cloud:PASSWORD@127.0.0.1:3306/supe_r_clones_cloud
+systemctl restart catalogus
+```
 
 ## Database (MariaDB)
 

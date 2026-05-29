@@ -1,5 +1,6 @@
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
+import { normalizeProductImageList, normalizeProductImageUrl } from '@/lib/product-image-url'
 import { normalizeProductSku } from '@/lib/product-sku'
 
 /** One item per line (or comma-separated tags). */
@@ -50,13 +51,13 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
       body.original_price != null && body.original_price !== ''
         ? Number(body.original_price)
         : null,
-    image_url: String(body.image_url || '').trim(),
+    image_url: normalizeProductImageUrl(String(body.image_url || '').trim()),
     category: String(body.category || '').trim(),
     brand:
       body.brand !== undefined && body.brand !== null
         ? String(body.brand).trim() || null
         : undefined,
-    gallery_images: linesToStringArray(body.gallery_images),
+    gallery_images: normalizeProductImageList(linesToStringArray(body.gallery_images)),
     tags,
     features: linesToStringArray(body.features),
     requirements: linesToStringArray(body.requirements),

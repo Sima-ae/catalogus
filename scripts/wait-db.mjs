@@ -30,5 +30,5 @@ for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 2000))
   }
 }
-console.error('Database did not become ready in time. Run: npm run db:local')
+console.error('Database did not become ready in time. Run: npm run db:tunnel')
 process.exit(1)

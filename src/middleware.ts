@@ -26,6 +26,11 @@ function isSiteAccessApi(pathname: string): boolean {
   return pathname.startsWith('/api/site-access/')
 }
 
+/** Deploy/diagnostics only — must not require the site-access cookie. */
+function isPublicApi(pathname: string): boolean {
+  return pathname === '/api/health/db'
+}
+
 /** Edge-safe check using cookies set by verify/status/check (no self-fetch). */
 async function siteAccessFromCookies(request: NextRequest): Promise<{
   required: boolean
@@ -95,7 +100,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308)
   }
 
-  if (isStaticAsset(pathname) || isSiteAccessApi(pathname)) {
+  if (isStaticAsset(pathname) || isSiteAccessApi(pathname) || isPublicApi(pathname)) {
     return NextResponse.next()
   }
 

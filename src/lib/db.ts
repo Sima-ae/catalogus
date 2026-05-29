@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise'
+import { ensureEnvLoaded } from '@/lib/ensure-env'
 
 const POOL_KEY = '__catalogusMysqlPool'
 const POOL_RESET_KEY = '__catalogusMysqlPoolReset'
@@ -42,6 +43,7 @@ export function resolveDatabaseUrl(): string {
 }
 
 function createPool() {
+  ensureEnvLoaded()
   const limit = defaultConnectionLimit()
   return mysql.createPool({
     uri: resolveDatabaseUrl(),

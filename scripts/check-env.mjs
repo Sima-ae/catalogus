@@ -51,6 +51,34 @@ for (const key of required) {
   console.log(`OK: ${key} is set (${val.length} chars)`)
 }
 
+const dbUrl = process.env.DATABASE_URL?.trim()
+if (dbUrl) {
+  try {
+    const normalized = dbUrl.replace(/^mariadb:\/\//, 'mysql://')
+    const u = new URL(normalized)
+    const host = u.hostname
+    const db = u.pathname.replace(/^\//, '') || '(none)'
+    console.log(`OK: DATABASE_URL host=${host} database=${db} user=${decodeURIComponent(u.username || '')}`)
+    if (host !== '127.0.0.1' && host !== 'localhost') {
+      console.warn(
+        `WARN: DATABASE_URL host is "${host}" — on the VPS use 127.0.0.1 (MariaDB on same server)`
+      )
+    }
+    if (!db || db === '(none)') {
+      console.error('FAIL: DATABASE_URL has no database name')
+      ok = false
+    }
+    if (db.includes('r_clones_cloud') && !db.includes('supe_r_clones_cloud')) {
+      console.warn(
+        'WARN: database name may be wrong — CyberPanel often uses supe_r_clones_cloud (with supe_ prefix)'
+      )
+    }
+  } catch {
+    console.error('FAIL: DATABASE_URL is not a valid mysql:// URL')
+    ok = false
+  }
+}
+
 if (process.env.AUTH_DEV_FALLBACK === 'true') {
   console.warn('WARN: AUTH_DEV_FALLBACK=true — should be false on production')
 }
