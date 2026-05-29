@@ -50,7 +50,7 @@ function GateForm() {
         aria-labelledby="site-access-title"
       >
         <div id="site-access-title" className="flex justify-center">
-          <BrandLogo href="/" size="dashboard" priority />
+          <BrandLogo href="/" size="dashboard" priority centered />
         </div>
         <p className="mt-2 text-sm text-gray-400 text-center">
           Enter the site access password to continue.

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { APP_LOGO_PATH, APP_LOGO_PATH_WHITE, APP_NAME } from '@/lib/brand'
+import { APP_LOGO_PATH, APP_LOGO_PATH_WHITE, APP_LOGO_PATH_WHITE_CENTERED, APP_NAME } from '@/lib/brand'
 import { appPath } from '@/lib/paths'
 import { useTheme } from '@/lib/theme'
 
@@ -18,6 +18,8 @@ type BrandLogoProps = {
    * Uses /WEBLOGO-TEXT-WHITE.png; otherwise /WEBLOGO-TEXT-BLACK.png.
    */
   dashboardSidebar?: boolean
+  /** Site access gate only — centered white logo asset */
+  centered?: boolean
   className?: string
   href?: string
   priority?: boolean
@@ -32,6 +34,7 @@ export default function BrandLogo({
   compact = false,
   size = 'default',
   dashboardSidebar = false,
+  centered = false,
   className = '',
   href = '/',
   priority = false,
@@ -42,7 +45,11 @@ export default function BrandLogo({
 
   // Homepage/catalog: white logo in dark mode; admin sidebars always use white on dark UI
   const useWhiteLogo = dashboardSidebar || theme === 'dark'
-  const src = useWhiteLogo ? APP_LOGO_PATH_WHITE : APP_LOGO_PATH
+  const src = centered
+    ? APP_LOGO_PATH_WHITE_CENTERED
+    : useWhiteLogo
+      ? APP_LOGO_PATH_WHITE
+      : APP_LOGO_PATH
 
   const img = (
     <Image
@@ -52,7 +59,7 @@ export default function BrandLogo({
       width={compact ? 48 : dims.width}
       height={compact ? 40 : dims.height}
       priority={priority}
-      className={`w-auto object-contain object-left ${
+      className={`w-auto object-contain ${centered ? 'object-center' : 'object-left'} ${
         compact
           ? 'max-w-[3rem]'
           : size === 'dashboard'
