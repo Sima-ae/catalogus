@@ -4,6 +4,7 @@ import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
 import ShopPageShell from '@/components/shop/ShopPageShell'
 import { useTheme } from '@/lib/theme'
+import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { appPath } from '@/lib/paths'
 import { APP_NAME, APP_COPYRIGHT, CART_STORAGE_KEY } from '@/lib/brand'
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from '@/lib/site-settings'
@@ -18,6 +19,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function ShopSettingsPage() {
+  const { catalogMode } = useCatalogMode()
   const { theme, setTheme, toggleTheme } = useTheme()
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [loading, setLoading] = useState(true)
@@ -131,16 +133,18 @@ export default function ShopSettingsPage() {
           </nav>
         </SettingBlock>
 
-        <SettingBlock title="Cart" description="Local cart stored on this browser" isDark={isDark}>
-          <SettingsLink href={appPath('/cart')} icon={ShoppingCartIcon} label="Open cart" isDark={isDark} />
-          <button
-            type="button"
-            onClick={clearCart}
-            className={`mt-4 text-sm text-red-600 dark:text-red-400 hover:underline`}
-          >
-            Clear saved cart on this device
-          </button>
-        </SettingBlock>
+        {!catalogMode && (
+          <SettingBlock title="Cart" description="Local cart stored on this browser" isDark={isDark}>
+            <SettingsLink href={appPath('/cart')} icon={ShoppingCartIcon} label="Open cart" isDark={isDark} />
+            <button
+              type="button"
+              onClick={clearCart}
+              className={`mt-4 text-sm text-red-600 dark:text-red-400 hover:underline`}
+            >
+              Clear saved cart on this device
+            </button>
+          </SettingBlock>
+        )}
       </div>
 
       <p className={`mt-10 text-center text-xs ${muted}`}>

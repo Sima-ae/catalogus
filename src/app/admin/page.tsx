@@ -19,6 +19,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-local'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { useAppTheme } from '@/lib/theme-classes'
 import { formatPrice } from '@/lib/format-price'
 
@@ -103,7 +104,10 @@ export default function AdminDashboard() {
       if (isDevelopment) {
         console.log('📦 Fetching products...')
       }
-      const productsResponse = await fetch(appPath('/api/products'), { method: 'GET' })
+      const productsResponse = await fetch(appPath('/api/products'), {
+        method: 'GET',
+        headers: adminAuthHeaders(user),
+      })
 
       if (!productsResponse.ok) {
         throw new Error(`Products fetch failed: ${productsResponse.status}`)
@@ -180,7 +184,10 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      const res = await fetch(appPath(`/api/products/${productId}`), { method: 'DELETE' })
+      const res = await fetch(appPath(`/api/products/${productId}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`)
 
       // Refresh data
@@ -204,7 +211,7 @@ export default function AdminDashboard() {
           <div className={`text-center ${t.heading}`}>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
             <p className="mt-4">Authenticating...</p>
-            <p className="text-sm text-gray-400 mt-2">This may take a few seconds</p>
+            <p className={`text-sm mt-2 ${t.muted}`}>This may take a few seconds</p>
             <button 
               onClick={() => window.location.reload()} 
               className="mt-4 text-primary-400 hover:text-primary-300 underline"
@@ -281,7 +288,7 @@ export default function AdminDashboard() {
         </div>
         <AdminHeader />
 
-        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">
           {/* Summary Section */}
           <div className="mb-8">
             <h2 className={`text-xl font-semibold mb-4 ${t.heading}`}>Summary</h2>

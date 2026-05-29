@@ -13,14 +13,22 @@ export type ProductInput = {
   gallery_images?: string[] | null
   category: string
   tags?: string[] | null
+  features?: string[] | null
+  requirements?: string[] | null
+  compatibility?: string | null
   author: string
   author_icon: string
+  author_id?: string | null
   sku?: string | null
   download_url?: string | null
   demo_url?: string | null
   documentation_url?: string | null
+  support_url?: string | null
   version?: string | null
   license_type?: string | null
+  rating?: number | null
+  review_count?: number | null
+  download_count?: number | null
   status?: string
   featured?: boolean
 }
@@ -32,20 +40,52 @@ export class UnknownCategoryError extends Error {
   }
 }
 
-let categoryIdColumn: boolean | null = null
+type ProductSchemaFlags = {
+  categoryId: boolean
+  authorId: boolean
+  compatibility: boolean
+  support_url: boolean
+}
 
-async function productsHaveCategoryIdColumn(): Promise<boolean> {
-  if (categoryIdColumn !== null) return categoryIdColumn
+const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
+
+type GlobalSchema = typeof globalThis & { [SCHEMA_CACHE_KEY]?: ProductSchemaFlags }
+
+async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
+  const g = globalThis as GlobalSchema
+  if (g[SCHEMA_CACHE_KEY]) return g[SCHEMA_CACHE_KEY]
+
   try {
-    const rows = await queryDb<{ n: number }[]>(
-      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'category_id'`
+    const rows = await queryDb<{ COLUMN_NAME: string }[]>(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+         AND COLUMN_NAME IN ('category_id', 'author_id', 'compatibility', 'support_url')`
     )
-    categoryIdColumn = Number(rows[0]?.n) > 0
+    const names = new Set(rows.map((r) => r.COLUMN_NAME))
+    g[SCHEMA_CACHE_KEY] = {
+      categoryId: names.has('category_id'),
+      authorId: names.has('author_id'),
+      compatibility: names.has('compatibility'),
+      support_url: names.has('support_url'),
+    }
   } catch {
-    categoryIdColumn = false
+    g[SCHEMA_CACHE_KEY] = {
+      categoryId: false,
+      authorId: false,
+      compatibility: false,
+      support_url: false,
+    }
   }
-  return categoryIdColumn
+  return g[SCHEMA_CACHE_KEY]
+}
+
+async function productsContentColumns() {
+  const s = await getProductSchemaFlags()
+  return { compatibility: s.compatibility, support_url: s.support_url }
+}
+
+async function productsHaveCategoryIdColumn() {
+  return (await getProductSchemaFlags()).categoryId
 }
 
 function jsonCol(value: unknown) {
@@ -108,70 +148,48 @@ async function fetchProductRow(id: string) {
 export async function insertProduct(input: ProductInput) {
   const category = await resolveProductCategoryInput(input.category)
   const id = randomUUID()
-  const hasCategoryId = await productsHaveCategoryIdColumn()
+  const schema = await getProductSchemaFlags()
+  const hasCategoryId = schema.categoryId
+  const contentCols = await productsContentColumns()
 
-  if (hasCategoryId) {
-    await queryDb(
-      `INSERT INTO products (
-        id, name, description, short_description, price, original_price, image_url,
-        gallery_images, category, category_id, tags, author, author_icon, sku, download_url,
-        demo_url, documentation_url, version, license_type, status, featured
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.name,
-        input.description,
-        input.short_description || null,
-        input.price,
-        input.original_price ?? null,
-        input.image_url,
-        jsonCol(input.gallery_images),
-        category.name,
-        category.id,
-        jsonCol(input.tags),
-        input.author,
-        input.author_icon,
-        input.sku || null,
-        input.download_url || null,
-        input.demo_url || null,
-        input.documentation_url || null,
-        input.version || null,
-        input.license_type || null,
-        input.status || 'active',
-        input.featured ? 1 : 0,
-      ]
-    )
-  } else {
-    await queryDb(
-      `INSERT INTO products (
-        id, name, description, short_description, price, original_price, image_url,
-        gallery_images, category, tags, author, author_icon, sku, download_url,
-        demo_url, documentation_url, version, license_type, status, featured
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.name,
-        input.description,
-        input.short_description || null,
-        input.price,
-        input.original_price ?? null,
-        input.image_url,
-        jsonCol(input.gallery_images),
-        category.name,
-        jsonCol(input.tags),
-        input.author,
-        input.author_icon,
-        input.sku || null,
-        input.download_url || null,
-        input.demo_url || null,
-        input.documentation_url || null,
-        input.version || null,
-        input.license_type || null,
-        input.status || 'active',
-        input.featured ? 1 : 0,
-      ]
-    )
+  const insertMap: Record<string, unknown> = {
+    id,
+    name: input.name,
+    description: input.description,
+    short_description: input.short_description || null,
+    price: input.price,
+    original_price: input.original_price ?? null,
+    image_url: input.image_url,
+    gallery_images: jsonCol(input.gallery_images),
+    category: category.name,
+    ...(hasCategoryId ? { category_id: category.id } : {}),
+    tags: jsonCol(input.tags),
+    features: jsonCol(input.features),
+    requirements: jsonCol(input.requirements),
+    ...(contentCols.compatibility ? { compatibility: input.compatibility || null } : {}),
+    author: input.author,
+    author_icon: input.author_icon,
+    ...(schema.authorId && input.author_id ? { author_id: input.author_id } : {}),
+    sku: input.sku || null,
+    download_url: input.download_url || null,
+    demo_url: input.demo_url || null,
+    documentation_url: input.documentation_url || null,
+    ...(contentCols.support_url ? { support_url: input.support_url || null } : {}),
+    version: input.version || null,
+    license_type: input.license_type || null,
+    rating: input.rating ?? null,
+    review_count: input.review_count ?? null,
+    download_count: input.download_count ?? null,
+    status: input.status || 'active',
+    featured: input.featured ? 1 : 0,
   }
+
+  const columns = Object.keys(insertMap)
+  const placeholders = columns.map(() => '?').join(', ')
+  await queryDb(
+    `INSERT INTO products (${columns.map((c) => `\`${c}\``).join(', ')}) VALUES (${placeholders})`,
+    columns.map((c) => insertMap[c])
+  )
 
   return fetchProductRow(id)
 }
@@ -189,6 +207,10 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     categoryId = resolved.id
   }
 
+  const schema = await getProductSchemaFlags()
+  const contentCols = await productsContentColumns()
+  const hasCategoryId = schema.categoryId
+
   const map: Record<string, unknown> = {
     name: input.name,
     description: input.description,
@@ -196,23 +218,36 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     price: input.price,
     original_price: input.original_price,
     image_url: input.image_url,
-    gallery_images: input.gallery_images != null ? jsonCol(input.gallery_images) : undefined,
+    gallery_images: input.gallery_images !== undefined ? jsonCol(input.gallery_images) : undefined,
     category: categoryName,
     category_id: categoryId,
-    tags: input.tags != null ? jsonCol(input.tags) : undefined,
+    tags: input.tags !== undefined ? jsonCol(input.tags) : undefined,
+    features: input.features !== undefined ? jsonCol(input.features) : undefined,
+    requirements: input.requirements !== undefined ? jsonCol(input.requirements) : undefined,
+    compatibility:
+      contentCols.compatibility && input.compatibility !== undefined
+        ? input.compatibility || null
+        : undefined,
     author: input.author,
     author_icon: input.author_icon,
+    author_id: schema.authorId && input.author_id !== undefined ? input.author_id : undefined,
     sku: input.sku,
     download_url: input.download_url,
     demo_url: input.demo_url,
     documentation_url: input.documentation_url,
+    support_url:
+      contentCols.support_url && input.support_url !== undefined
+        ? input.support_url || null
+        : undefined,
     version: input.version,
     license_type: input.license_type,
+    rating: input.rating,
+    review_count: input.review_count,
+    download_count: input.download_count,
     status: input.status,
     featured: input.featured != null ? (input.featured ? 1 : 0) : undefined,
   }
 
-  const hasCategoryId = await productsHaveCategoryIdColumn()
   if (!hasCategoryId) {
     delete map.category_id
   }
@@ -235,6 +270,30 @@ export async function listProducts() {
   const select = await productSelectSql()
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} ORDER BY p.created_at DESC`
+  )
+  return rows.map(serializeProductRow)
+}
+
+/** Products owned by a seller (author_id or legacy author name match). */
+export async function listProductsForSeller(sellerId: string, sellerName: string) {
+  const select = await productSelectSql()
+  const schema = await getProductSchemaFlags()
+  const name = sellerName.trim()
+
+  if (schema.authorId) {
+    const rows = await queryDb<Record<string, unknown>[]>(
+      `${select}
+       WHERE p.author_id = ?
+          OR (p.author_id IS NULL AND LOWER(TRIM(p.author)) = LOWER(TRIM(?)))
+       ORDER BY p.created_at DESC`,
+      [sellerId, name]
+    )
+    return rows.map(serializeProductRow)
+  }
+
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `${select} WHERE LOWER(TRIM(p.author)) = LOWER(TRIM(?)) ORDER BY p.created_at DESC`,
+    [name]
   )
   return rows.map(serializeProductRow)
 }

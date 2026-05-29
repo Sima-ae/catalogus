@@ -14,6 +14,17 @@ import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
+import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
+import { useCatalogMode } from '@/lib/catalog-mode-context'
+
+type ProductReview = {
+  id: string
+  user_name: string
+  rating: number
+  title: string | null
+  comment: string | null
+  created_at: string
+}
 
 export default function ProductPageClient() {
   const params = useParams()
@@ -27,8 +38,9 @@ export default function ProductPageClient() {
   const [selectedLicense, setSelectedLicense] = useState('standard')
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
-  const [activeTab, setActiveTab] = useState('description')
+  const [reviews, setReviews] = useState<ProductReview[]>([])
   const { mobileOpen, open, close } = useMobileSidebar()
+  const { catalogMode } = useCatalogMode()
 
   useEffect(() => {
     if (!productId) {
@@ -64,6 +76,27 @@ export default function ProductPageClient() {
         if (!controller.signal.aborted) setLoading(false)
       })
 
+    return () => controller.abort()
+  }, [productId])
+
+  useEffect(() => {
+    if (!productId) return
+    const controller = new AbortController()
+    fetch(appPath(`/api/reviews?product_id=${encodeURIComponent(productId)}`), {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok || !Array.isArray(data)) {
+          setReviews([])
+          return
+        }
+        setReviews(data as ProductReview[])
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setReviews([])
+      })
     return () => controller.abort()
   }, [productId])
 
@@ -179,8 +212,9 @@ export default function ProductPageClient() {
                     </Link>
                     <span>/</span>
                   </>
-                ) : null}
-                <span>/</span>
+                ) : (
+                  <span>/</span>
+                )}
                 <span className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
                   {product.name}
                 </span>
@@ -221,30 +255,25 @@ export default function ProductPageClient() {
                 </svg>
               </button>
               
-              {/* Cart Icon with Notification Badge */}
-              <Link href={appPath('/cart')} className={`relative p-2 rounded-lg transition-colors duration-200 ${
-                theme === 'dark' 
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-700' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-              }`} title="Shopping Cart">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-                {quantityInCart > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full w-5 h-6 flex items-center justify-center font-medium">
-                    {quantityInCart > 99 ? '99+' : quantityInCart}
-                  </span>
-                )}
-              </Link>
+              <ShopCartHeaderButton
+                badgeCount={quantityInCart}
+                className={`relative p-2 rounded-lg transition-colors duration-200 ${
+                  theme === 'dark'
+                    ? 'text-gray-400 hover:text-white hover:bg-dark-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                }`}
+              />
               
               <ShopRegisterHeaderButtons />
             </div>
           </div>
         </div>
 
-        <main className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-        }`}>
+        <main
+          className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${
+            theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
+          }`}
+        >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Left Column - Image Gallery */}
@@ -331,13 +360,17 @@ export default function ProductPageClient() {
                     {product.category}
                   </Link>
                 ) : null}
-                <span className={`text-sm px-2 py-1 rounded ${
-                  theme === 'dark' 
-                    ? 'text-gray-400 bg-dark-700' 
-                    : 'text-gray-600 bg-gray-200'
-                }`}>
-                  v{product.version}
-                </span>
+                {product.version && product.version !== '—' ? (
+                  <span
+                    className={`text-sm px-2 py-1 rounded ${
+                      theme === 'dark'
+                        ? 'text-gray-400 bg-dark-700'
+                        : 'text-gray-600 bg-gray-200'
+                    }`}
+                  >
+                    v{product.version}
+                  </span>
+                ) : null}
               </div>
               
               <h1 className={`text-3xl font-bold mb-3 ${
@@ -365,10 +398,14 @@ export default function ProductPageClient() {
                 <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
                   ({product.reviewCount} reviews)
                 </span>
-                <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>•</span>
-                <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                  {product.downloads} downloads
-                </span>
+                {!catalogMode && (
+                  <>
+                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>•</span>
+                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                      {product.downloads} downloads
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -395,109 +432,132 @@ export default function ProductPageClient() {
                 <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>EUR</span>
               </div>
 
-              {/* License Options */}
-              <div className="space-y-3 mb-6">
-                <label className={`text-sm font-medium ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                }`}>License Type:</label>
-                {licenseOptions.map((option) => (
-                  <label key={option.id} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="license"
-                      value={option.id}
-                      checked={selectedLicense === option.id}
-                      onChange={(e) => setSelectedLicense(e.target.value)}
-                      className="text-primary-500 focus:ring-primary-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className={`font-medium ${
-                          theme === 'dark' ? 'text-white' : 'text-gray-900'
-                        }`}>{option.name}</span>
-                        <span className="text-primary-500 font-bold">
-                          {formatPrice(option.price)}
-                        </span>
-                      </div>
-                      <p className={`text-sm ${
-                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                      }`}>{option.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-
-              {/* Add to Cart Section */}
-              <div className="space-y-4">
-                {inCart ? (
-                  <div className="text-center">
-                    <div className="text-green-400 mb-2">✓ Added to Cart</div>
-                    <div className={`text-sm ${
-                      theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      Quantity in cart: {quantityInCart}
-                    </div>
-                    <Link 
-                      href={appPath('/cart')}
-                      className="btn-primary w-full mt-3"
-                    >
-                      View Cart
-                    </Link>
+              {!catalogMode && (
+                <>
+                  <div className="space-y-3 mb-6">
+                    <label className={`text-sm font-medium ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>License Type:</label>
+                    {licenseOptions.map((option) => (
+                      <label key={option.id} className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="license"
+                          value={option.id}
+                          checked={selectedLicense === option.id}
+                          onChange={(e) => setSelectedLicense(e.target.value)}
+                          className="text-primary-500 focus:ring-primary-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className={`font-medium ${
+                              theme === 'dark' ? 'text-white' : 'text-gray-900'
+                            }`}>{option.name}</span>
+                            <span className="text-primary-500 font-bold">
+                              {formatPrice(option.price)}
+                            </span>
+                          </div>
+                          <p className={`text-sm ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                          }`}>{option.description}</p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center space-x-3">
-                      <label className={`text-sm font-medium ${
-                        theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                      }`}>Quantity:</label>
-                      <div className={`flex items-center border rounded-lg ${
-                        theme === 'dark' ? 'border-dark-600' : 'border-gray-300'
-                      }`}>
-                        <button
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className={`px-3 py-2 transition-colors ${
-                            theme === 'dark' 
-                              ? 'text-gray-400 hover:text-white' 
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
-                        >
-                          -
-                        </button>
-                        <span className={`px-3 py-2 min-w-[3rem] text-center ${
-                          theme === 'dark' ? 'text-white' : 'text-gray-900'
+
+                  <div className="space-y-4">
+                    {inCart ? (
+                      <div className="text-center">
+                        <div className="text-green-400 mb-2">✓ Added to Cart</div>
+                        <div className={`text-sm ${
+                          theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                         }`}>
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() => setQuantity(quantity + 1)}
-                          className={`px-3 py-2 transition-colors ${
-                            theme === 'dark' 
-                              ? 'text-gray-400 hover:text-white' 
-                              : 'text-gray-600 hover:text-gray-900'
-                          }`}
+                          Quantity in cart: {quantityInCart}
+                        </div>
+                        <Link
+                          href={appPath('/cart')}
+                          className="btn-primary w-full mt-3"
                         >
-                          +
-                        </button>
+                          View Cart
+                        </Link>
                       </div>
-                    </div>
-                    
-                    <button
-                      onClick={handleAddToCart}
-                      disabled={isAdding}
-                      className="btn-primary w-full py-3 text-lg font-medium"
-                    >
-                      {isAdding ? 'Adding to Cart...' : 'Add to Cart'}
-                    </button>
-                  </>
-                )}
-              </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-3">
+                          <label className={`text-sm font-medium ${
+                            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                          }`}>Quantity:</label>
+                          <div className={`flex items-center border rounded-lg ${
+                            theme === 'dark' ? 'border-dark-600' : 'border-gray-300'
+                          }`}>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                              className={`px-3 py-2 transition-colors ${
+                                theme === 'dark'
+                                  ? 'text-gray-400 hover:text-white'
+                                  : 'text-gray-600 hover:text-gray-900'
+                              }`}
+                            >
+                              -
+                            </button>
+                            <span className={`px-3 py-2 min-w-[3rem] text-center ${
+                              theme === 'dark' ? 'text-white' : 'text-gray-900'
+                            }`}>
+                              {quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(quantity + 1)}
+                              className={`px-3 py-2 transition-colors ${
+                                theme === 'dark'
+                                  ? 'text-gray-400 hover:text-white'
+                                  : 'text-gray-600 hover:text-gray-900'
+                              }`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleAddToCart}
+                          disabled={isAdding}
+                          className="btn-primary w-full py-3 text-lg font-medium"
+                        >
+                          {isAdding ? 'Adding to Cart...' : 'Add to Cart'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Quick Info */}
+            {product.shortDescription ? (
+              <div
+                className={`rounded-lg p-4 border ${
+                  theme === 'dark'
+                    ? 'bg-dark-800 border-dark-700'
+                    : 'bg-white border-gray-200 shadow-lg'
+                }`}
+              >
+                <p
+                  className={`leading-relaxed whitespace-pre-line ${
+                    theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
+                  }`}
+                >
+                  {product.shortDescription}
+                </p>
+              </div>
+            ) : null}
+
+            {!catalogMode && (
             <div className="grid grid-cols-2 gap-4">
               <div className={`rounded-lg p-4 border ${
-                theme === 'dark' 
-                  ? 'bg-dark-800 border-dark-700' 
+                theme === 'dark'
+                  ? 'bg-dark-800 border-dark-700'
                   : 'bg-white border-gray-200 shadow-lg'
               }`}>
                 <div className="flex items-center space-x-2 mb-2">
@@ -510,10 +570,10 @@ export default function ProductPageClient() {
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                 }`}>Get your files immediately after purchase</p>
               </div>
-              
+
               <div className={`rounded-lg p-4 border ${
-                theme === 'dark' 
-                  ? 'bg-dark-800 border-dark-700' 
+                theme === 'dark'
+                  ? 'bg-dark-800 border-dark-700'
                   : 'bg-white border-gray-200 shadow-lg'
               }`}>
                 <div className="flex items-center space-x-2 mb-2">
@@ -527,6 +587,7 @@ export default function ProductPageClient() {
                 }`}>SSL encrypted, secure checkout</p>
               </div>
             </div>
+            )}
 
             {/* Product Meta */}
             <div className={`rounded-lg p-4 border ${
@@ -542,206 +603,80 @@ export default function ProductPageClient() {
                   }`}>{product.sku}</span>
                 </div>
                 <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Category:</span>
-                  {product.category ? (
-                    <Link
-                      href={product.categoryHref}
-                      className={`ml-2 underline-offset-2 hover:underline ${
-                        theme === 'dark' ? 'text-white' : 'text-gray-900'
-                      }`}
-                    >
-                      {product.category}
-                    </Link>
-                  ) : (
-                    <span className={`ml-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>—</span>
-                  )}
-                </div>
-                <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Author:</span>
-                  <span className={`ml-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>{product.author}</span>
-                </div>
-                <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Last Updated:</span>
-                  <span className={`ml-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>{product.lastUpdated}</span>
-                </div>
-                <div>
                   <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Version:</span>
                   <span className={`ml-2 ${
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}>{product.version}</span>
-                </div>
-                <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>License:</span>
-                  <span className={`ml-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>{product.license}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs Section */}
-        <div className="mt-16">
-          <div className={`border-b ${
-            theme === 'dark' ? 'border-dark-700' : 'border-gray-200'
-          }`}>
-            <nav className="flex space-x-8">
-              {[
-                { id: 'description', name: 'Description' },
-                { id: 'features', name: 'Features' },
-                { id: 'requirements', name: 'Requirements' },
-                { id: 'reviews', name: 'Reviews' },
-                { id: 'support', name: 'Support' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-primary-500 text-primary-500'
-                      : theme === 'dark'
-                        ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-400'
+        {/* Reviews */}
+        <section className="mt-16">
+          <h2
+            className={`text-xl font-semibold mb-6 pb-3 border-b ${
+              theme === 'dark' ? 'text-white border-dark-700' : 'text-gray-900 border-gray-200'
+            }`}
+          >
+            Reviews
+          </h2>
+
+          {reviews.length > 0 ? (
+            <div className="space-y-6 max-w-3xl">
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className={`rounded-lg border p-4 ${
+                    theme === 'dark'
+                      ? 'border-dark-700 bg-dark-800'
+                      : 'border-gray-200 bg-white'
                   }`}
                 >
-                  {tab.name}
-                </button>
+                  <div className="flex items-center justify-between gap-4 mb-2">
+                    <span className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      {review.user_name}
+                    </span>
+                    <span className="text-amber-500 text-sm">
+                      {'★'.repeat(Math.min(5, Math.max(0, Math.round(review.rating))))}
+                      <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}>
+                        {'☆'.repeat(5 - Math.min(5, Math.max(0, Math.round(review.rating))))}
+                      </span>
+                    </span>
+                  </div>
+                  {review.title ? (
+                    <p className={`font-medium mb-1 ${theme === 'dark' ? 'text-gray-200' : 'text-gray-800'}`}>
+                      {review.title}
+                    </p>
+                  ) : null}
+                  {review.comment ? (
+                    <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                      {review.comment}
+                    </p>
+                  ) : null}
+                  <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </p>
+                </div>
               ))}
-            </nav>
-          </div>
-
-          <div className="py-8">
-            {activeTab === 'description' && (
-              <div className="prose max-w-none">
-                <p className={`leading-relaxed ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                }`}>{product.longDescription}</p>
-              </div>
-            )}
-
-            {activeTab === 'features' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {product.features.map((feature, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                    <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{feature}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === 'requirements' && (
-              <div className="space-y-4">
-                <div className={`rounded-lg p-4 border ${
-                  theme === 'dark' 
-                    ? 'bg-dark-800 border-dark-700' 
-                    : 'bg-white border-gray-200 shadow-lg'
-                }`}>
-                  <h4 className={`font-medium mb-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>System Requirements</h4>
-                  <div className="space-y-2">
-                    {product.requirements.map((req, index) => (
-                      <div key={index} className="flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                        <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{req}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className={`rounded-lg p-4 border ${
-                  theme === 'dark' 
-                    ? 'bg-dark-800 border-dark-700' 
-                    : 'bg-white border-gray-200 shadow-lg'
-                }`}>
-                  <h4 className={`font-medium mb-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Compatibility</h4>
-                  <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}>{product.compatibility}</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'reviews' && (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">⭐</div>
-                <h3 className={`text-2xl font-bold mb-2 ${
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">⭐</div>
+              <h3
+                className={`text-2xl font-bold mb-2 ${
                   theme === 'dark' ? 'text-white' : 'text-gray-900'
-                }`}>Customer Reviews</h3>
-                <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Reviews coming soon!</p>
-              </div>
-            )}
-
-            {activeTab === 'support' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Link 
-                  href={product.demo_url}
-                  target="_blank"
-                  className={`rounded-lg p-6 border transition-colors text-center ${
-                    theme === 'dark' 
-                      ? 'bg-dark-800 border-dark-700 hover:border-primary-500' 
-                      : 'bg-white border-gray-200 hover:border-primary-500 shadow-lg'
-                  }`}
-                >
-                  <div className="w-12 h-12 bg-primary-500 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">🎯</span>
-                  </div>
-                  <h4 className={`font-medium mb-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Live Demo</h4>
-                  <p className={`text-sm ${
-                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                  }`}>See the template in action</p>
-                </Link>
-                
-                <Link 
-                  href={product.documentation_url}
-                  target="_blank"
-                  className={`rounded-lg p-6 border transition-colors text-center ${
-                    theme === 'dark' 
-                      ? 'bg-dark-800 border-dark-700 hover:border-primary-500' 
-                      : 'bg-white border-gray-200 hover:border-primary-500 shadow-lg'
-                  }`}
-                >
-                  <div className="w-12 h-12 bg-primary-500 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">📚</span>
-                  </div>
-                  <h4 className={`font-medium mb-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Documentation</h4>
-                  <p className={`text-sm ${
-                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                  }`}>Complete setup guide</p>
-                </Link>
-                
-                <Link 
-                  href={product.support_url}
-                  target="_blank"
-                  className={`rounded-lg p-6 border transition-colors text-center ${
-                    theme === 'dark' 
-                      ? 'bg-dark-800 border-dark-700 hover:border-primary-500' 
-                      : 'bg-white border-gray-200 hover:border-primary-500 shadow-lg'
-                  }`}
-                >
-                  <div className="w-12 h-12 bg-primary-500 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                    <span className="text-white font-bold text-xl">🆘</span>
-                  </div>
-                  <h4 className={`font-medium mb-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Support</h4>
-                  <p className={`text-sm ${
-                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                  }`}>Get help when you need it</p>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+                }`}
+              >
+                Customer Reviews
+              </h3>
+              <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                No reviews for this product yet.
+              </p>
+            </div>
+          )}
+        </section>
           </div>
         </main>
       </div>

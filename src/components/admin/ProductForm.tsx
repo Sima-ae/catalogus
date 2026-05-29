@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
+import { arrayToLines, parseProductBody } from '@/lib/product-body'
+import { useAppTheme } from '@/lib/theme-classes'
+import { useAuth } from '@/lib/auth-local'
+import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 
 type CategoryOption = { id: string; name: string; slug: string }
 
@@ -28,21 +32,41 @@ const defaultForm = {
   demo_url: '',
   documentation_url: '',
   download_url: '',
+  support_url: '',
+  gallery_images: '',
+  features: '',
+  requirements: '',
+  compatibility: '',
+  rating: '',
+  review_count: '',
+  download_count: '',
 }
 
 type Props = {
   mode: 'create' | 'edit'
   productId?: string
   initial?: Partial<Product>
+  portal?: 'admin' | 'seller'
 }
 
-export default function ProductForm({ mode, productId, initial }: Props) {
+export default function ProductForm({
+  mode,
+  productId,
+  initial,
+  portal = 'admin',
+}: Props) {
   const router = useRouter()
+  const t = useAppTheme()
+  const { user } = useAuth()
+  const isSeller = portal === 'seller'
+  const productsPath = isSeller ? '/seller/products' : '/admin/products'
+  const authHeaders = catalogAuthHeaders(user)
   const [form, setForm] = useState(defaultForm)
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     fetch(appPath('/api/categories'))
@@ -61,15 +85,30 @@ export default function ProductForm({ mode, productId, initial }: Props) {
     }
     if (mode !== 'edit' || !productId) return
 
-    fetch(appPath(`/api/products/${productId}`))
+    const controller = new AbortController()
+    fetch(appPath(`/api/products/${productId}`), {
+      cache: 'no-store',
+      signal: controller.signal,
+      headers: authHeaders,
+    })
       .then((r) => {
         if (!r.ok) throw new Error('Product not found')
         return r.json()
       })
-      .then((p: Product) => setForm(mapProductToForm(p)))
-      .catch(() => setError('Could not load product'))
-      .finally(() => setLoading(false))
-  }, [mode, productId, initial])
+      .then((p: Product) => {
+        setForm(mapProductToForm(p))
+        setSaved(false)
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setError('Could not load product')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [mode, productId, initial, user?.id, user?.email])
 
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -86,12 +125,13 @@ export default function ProductForm({ mode, productId, initial }: Props) {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    setSaved(false)
 
-    const payload = {
+    const payload = parseProductBody({
       ...form,
-      price: Number(form.price),
-      original_price: form.original_price ? Number(form.original_price) : null,
-    }
+      price: form.price,
+      original_price: form.original_price,
+    } as Record<string, unknown>)
 
     const url =
       mode === 'create'
@@ -102,16 +142,21 @@ export default function ProductForm({ mode, productId, initial }: Props) {
     try {
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Save failed')
+        setError(typeof data.error === 'string' ? data.error : 'Save failed')
         return
       }
-      router.push('/admin/products')
-      router.refresh()
+      const updated = data as Product
+      setForm(mapProductToForm(updated))
+      setSaved(true)
+      if (mode === 'create') {
+        router.push(appPath(productsPath))
+        router.refresh()
+      }
     } catch {
       setError('Network error — could not save product')
     } finally {
@@ -120,32 +165,51 @@ export default function ProductForm({ mode, productId, initial }: Props) {
   }
 
   if (loading) {
-    return <p className="text-gray-400">Loading product...</p>
+    return <p className={t.muted}>Loading product...</p>
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
       {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 text-sm">
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            t.isDark
+              ? 'border-red-500/40 bg-red-500/10 text-red-300'
+              : 'border-red-300 bg-red-50 text-red-800'
+          }`}
+          role="alert"
+        >
           {error}
+        </div>
+      )}
+      {saved && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            t.isDark
+              ? 'border-green-500/40 bg-green-500/10 text-green-300'
+              : 'border-green-300 bg-green-50 text-green-800'
+          }`}
+          role="status"
+        >
+          Product saved. Tab content and stats are stored in the database.
         </div>
       )}
 
       <section className="card space-y-4">
-        <h2 className="text-lg font-semibold text-white">Basic info</h2>
+        <h2 className="card-section-title">Basic info</h2>
         <Field label="Name *" name="name" value={form.name} onChange={onChange} required />
         <Field
-          label="Description *"
-          name="description"
-          value={form.description}
+          label="Short description *"
+          name="short_description"
+          value={form.short_description}
           onChange={onChange}
           multiline
           required
         />
         <Field
-          label="Short description"
-          name="short_description"
-          value={form.short_description}
+          label="Description"
+          name="description"
+          value={form.description}
           onChange={onChange}
           multiline
         />
@@ -153,9 +217,8 @@ export default function ProductForm({ mode, productId, initial }: Props) {
           <Field label="Price (€) *" name="price" type="number" step="0.01" value={form.price} onChange={onChange} required />
           <Field label="Original price (€)" name="original_price" type="number" step="0.01" value={form.original_price} onChange={onChange} />
         </div>
-        <Field label="Image URL *" name="image_url" value={form.image_url} onChange={onChange} required />
         <div>
-          <label className="block text-sm text-gray-400 mb-1">Category *</label>
+          <label className="form-label">Category *</label>
           <select
             name="category"
             value={form.category}
@@ -173,44 +236,159 @@ export default function ProductForm({ mode, productId, initial }: Props) {
               <option value={form.category}>{form.category}</option>
             )}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
-            <Link href="/admin/categories/new" className="text-primary-400 hover:underline">
-              Add a new category
-            </Link>
-          </p>
+          {!isSeller && (
+            <p className="text-xs mt-1 form-hint">
+              <Link href="/admin/categories/new" className={t.link}>
+                Add a new category
+              </Link>
+            </p>
+          )}
         </div>
         <Field label="Tags (comma-separated)" name="tags" value={form.tags} onChange={onChange} />
       </section>
 
       <section className="card space-y-4">
-        <h2 className="text-lg font-semibold text-white">Author & catalog</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Author" name="author" value={form.author} onChange={onChange} />
-          <Field label="Author icon (1 char)" name="author_icon" maxLength={1} value={form.author_icon} onChange={onChange} />
-        </div>
+        <h2 className="card-section-title">Images</h2>
+        <p className="form-hint">
+          Main image is used in the shop grid and as the first slide on the product page. Add more URLs
+          below for the thumbnail gallery (one URL per line).
+        </p>
+        <Field
+          label="Main image URL *"
+          name="image_url"
+          value={form.image_url}
+          onChange={onChange}
+          required
+        />
+        <Field
+          label="Additional gallery image URLs"
+          name="gallery_images"
+          value={form.gallery_images}
+          onChange={onChange}
+          multiline
+          rows={5}
+          placeholder={'https://example.com/image-2.jpg\nhttps://example.com/image-3.jpg'}
+        />
+      </section>
+
+      <section className="card space-y-4">
+        <h2 className="card-section-title">{isSeller ? 'Catalog' : 'Author & catalog'}</h2>
+        {!isSeller && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Author" name="author" value={form.author} onChange={onChange} />
+            <Field
+              label="Author icon (1 char)"
+              name="author_icon"
+              maxLength={1}
+              value={form.author_icon}
+              onChange={onChange}
+            />
+          </div>
+        )}
         <Field label="SKU" name="sku" value={form.sku} onChange={onChange} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Status</label>
+            <label className="form-label">Status</label>
             <select name="status" value={form.status} onChange={onChange} className="input w-full">
               <option value="active">Active</option>
               <option value="draft">Draft</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          <label className="flex items-center gap-2 pt-8 text-gray-300">
-            <input type="checkbox" name="featured" checked={form.featured} onChange={onChange} className="rounded" />
-            Featured product
-          </label>
+          {!isSeller && (
+            <label className="flex items-center gap-2 pt-8 form-check-label cursor-pointer">
+              <input
+                type="checkbox"
+                name="featured"
+                checked={form.featured}
+                onChange={onChange}
+                className="rounded"
+              />
+              Featured product
+            </label>
+          )}
         </div>
       </section>
 
       <section className="card space-y-4">
-        <h2 className="text-lg font-semibold text-white">Links & version</h2>
+        <h2 className="card-section-title">Product page tabs</h2>
+        <p className="form-hint">
+          Content shown under Features, Requirements, and Support on the public product page.
+        </p>
+        <Field
+          label="Features (one per line)"
+          name="features"
+          value={form.features}
+          onChange={onChange}
+          multiline
+          rows={6}
+        />
+        <Field
+          label="Requirements (one per line)"
+          name="requirements"
+          value={form.requirements}
+          onChange={onChange}
+          multiline
+          rows={5}
+        />
+        <Field
+          label="Compatibility note"
+          name="compatibility"
+          value={form.compatibility}
+          onChange={onChange}
+          multiline
+          rows={2}
+        />
+      </section>
+
+      {!isSeller && (
+        <section className="card space-y-4">
+          <h2 className="card-section-title">Stats & reviews</h2>
+          <p className="form-hint">
+            Shown in the product header. Individual customer reviews are managed under{' '}
+            <Link href="/admin/reviews" className={t.link}>
+              Admin → Reviews
+            </Link>
+            .
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Field
+              label="Rating (0–5)"
+              name="rating"
+              type="number"
+              step="0.1"
+              min="0"
+              max="5"
+              value={form.rating}
+              onChange={onChange}
+            />
+            <Field
+              label="Review count"
+              name="review_count"
+              type="number"
+              min="0"
+              value={form.review_count}
+              onChange={onChange}
+            />
+            <Field
+              label="Download count"
+              name="download_count"
+              type="number"
+              min="0"
+              value={form.download_count}
+              onChange={onChange}
+            />
+          </div>
+        </section>
+      )}
+
+      <section className="card space-y-4">
+        <h2 className="card-section-title">Links & version</h2>
         <Field label="Version" name="version" value={form.version} onChange={onChange} />
         <Field label="License type" name="license_type" value={form.license_type} onChange={onChange} />
-        <Field label="Demo URL" name="demo_url" value={form.demo_url} onChange={onChange} />
-        <Field label="Documentation URL" name="documentation_url" value={form.documentation_url} onChange={onChange} />
+        <Field label="Demo URL (Support tab)" name="demo_url" value={form.demo_url} onChange={onChange} />
+        <Field label="Documentation URL (Support tab)" name="documentation_url" value={form.documentation_url} onChange={onChange} />
+        <Field label="Support URL (Support tab)" name="support_url" value={form.support_url} onChange={onChange} />
         <Field label="Download URL" name="download_url" value={form.download_url} onChange={onChange} />
       </section>
 
@@ -218,8 +396,8 @@ export default function ProductForm({ mode, productId, initial }: Props) {
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? 'Saving...' : mode === 'create' ? 'Create product' : 'Save changes'}
         </button>
-        <Link href="/admin/products" className="btn-secondary">
-          Cancel
+        <Link href={appPath(productsPath)} className="btn-secondary">
+          {mode === 'edit' ? 'Back to products' : 'Cancel'}
         </Link>
       </div>
     </form>
@@ -247,6 +425,14 @@ function mapProductToForm(p: Partial<Product>) {
     demo_url: p.demo_url || '',
     documentation_url: p.documentation_url || '',
     download_url: p.download_url || '',
+    support_url: p.support_url || '',
+    gallery_images: arrayToLines(p.gallery_images),
+    features: arrayToLines(p.features),
+    requirements: arrayToLines(p.requirements),
+    compatibility: p.compatibility || '',
+    rating: p.rating != null ? String(p.rating) : '',
+    review_count: p.review_count != null ? String(p.review_count) : '',
+    download_count: p.download_count != null ? String(p.download_count) : '',
   }
 }
 
@@ -259,6 +445,10 @@ function Field({
   step,
   maxLength,
   multiline,
+  rows = 4,
+  min,
+  max,
+  placeholder,
   required,
 }: {
   label: string
@@ -269,6 +459,10 @@ function Field({
   step?: string
   maxLength?: number
   multiline?: boolean
+  rows?: number
+  min?: string
+  max?: string
+  placeholder?: string
   required?: boolean
 }) {
   const common = {
@@ -277,18 +471,19 @@ function Field({
     value: typeof value === 'boolean' ? '' : value,
     onChange,
     required,
+    placeholder,
     className: 'input w-full',
   }
 
   return (
     <div>
-      <label htmlFor={name} className="block text-sm text-gray-400 mb-1">
+      <label htmlFor={name} className="form-label">
         {label}
       </label>
       {multiline ? (
-        <textarea {...common} rows={4} />
+        <textarea {...common} rows={rows} />
       ) : (
-        <input {...common} type={type} step={step} maxLength={maxLength} />
+        <input {...common} type={type} step={step} min={min} max={max} maxLength={maxLength} />
       )}
     </div>
   )

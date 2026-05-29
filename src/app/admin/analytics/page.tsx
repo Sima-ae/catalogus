@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import { useAppTheme } from '@/lib/theme-classes'
 import StatCard from '@/components/admin/StatCard'
 import { appPath } from '@/lib/paths'
 import {
@@ -16,6 +17,7 @@ type Order = { id: string; total: number; status: string }
 type UserRow = { id: string; role: string }
 
 export default function AdminAnalyticsPage() {
+  const t = useAppTheme()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [stats, setStats] = useState({
@@ -61,8 +63,8 @@ export default function AdminAnalyticsPage() {
 
   return (
     <AdminPageShell title="Analytics" description="Overview from your store data.">
-      {loading && <p className="text-gray-400">Loading...</p>}
-      {error && <p className="text-red-400">{error}</p>}
+      {loading && <p className={t.muted}>Loading...</p>}
+      {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
       {!loading && !error && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -93,12 +95,12 @@ export default function AdminAnalyticsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="card">
-              <h3 className="text-white font-semibold mb-2">Completed orders</h3>
-              <p className="text-3xl font-bold text-primary-400">{stats.completedOrders}</p>
+              <h3 className="card-subtitle">Completed orders</h3>
+              <p className={`text-3xl font-bold ${t.heading}`}>{stats.completedOrders}</p>
             </div>
             <div className="card">
-              <h3 className="text-white font-semibold mb-2">Unique vendors</h3>
-              <p className="text-3xl font-bold text-primary-400">{stats.vendors}</p>
+              <h3 className="card-subtitle">Unique vendors</h3>
+              <p className={`text-3xl font-bold ${t.heading}`}>{stats.vendors}</p>
             </div>
           </div>
         </>

@@ -5,13 +5,28 @@ import {
   UnknownCategoryError,
   updateProduct,
 } from '@/lib/products-db'
+import { parseProductBody } from '@/lib/product-body'
 import { getDbErrorMessage } from '@/lib/db-errors'
+import {
+  applySellerProductInput,
+  type ProductOwnershipRow,
+  requireProductWrite,
+  resolveCatalogAccess,
+  sellerOwnsProductOrForbidden,
+} from '@/lib/product-api-auth'
+
+function ownershipOf(product: Record<string, unknown>): ProductOwnershipRow {
+  return {
+    author_id: product.author_id != null ? String(product.author_id) : undefined,
+    author: product.author != null ? String(product.author) : undefined,
+  }
+}
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(
-  _req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -19,6 +34,15 @@ export async function GET(
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
+
+    const access = await resolveCatalogAccess(request)
+    if (access.kind === 'seller') {
+      const allowed = sellerOwnsProductOrForbidden(access, ownershipOf(product))
+      if (!allowed.ok) {
+        return NextResponse.json({ error: allowed.error }, { status: allowed.status })
+      }
+    }
+
     return NextResponse.json(product)
   } catch (error) {
     return NextResponse.json(
@@ -32,9 +56,31 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireProductWrite(request)
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+
   try {
+    const existing = await getProductById(params.id)
+    if (!existing) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+
+    if (auth.access.kind === 'seller') {
+      const allowed = sellerOwnsProductOrForbidden(auth.access, ownershipOf(existing))
+      if (!allowed.ok) {
+        return NextResponse.json({ error: allowed.error }, { status: allowed.status })
+      }
+    }
+
     const body = await request.json()
-    const product = await updateProduct(params.id, body)
+    let input = parseProductBody(body as Record<string, unknown>)
+    if (auth.access.kind === 'seller') {
+      input = applySellerProductInput(input, auth.access.actor)
+    }
+
+    const product = await updateProduct(params.id, input)
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
@@ -52,14 +98,27 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireProductWrite(request)
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+
   try {
     const existing = await getProductById(params.id)
     if (!existing) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
+
+    if (auth.access.kind === 'seller') {
+      const allowed = sellerOwnsProductOrForbidden(auth.access, ownershipOf(existing))
+      if (!allowed.ok) {
+        return NextResponse.json({ error: allowed.error }, { status: allowed.status })
+      }
+    }
+
     await deleteProductById(params.id)
     return NextResponse.json({ ok: true })
   } catch (error) {

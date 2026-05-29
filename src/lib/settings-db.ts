@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { queryDb } from '@/lib/db'
+import { getDbPool, queryDb } from '@/lib/db'
 import {
   DEFAULT_SITE_SETTINGS,
   SETTING_KEYS,
@@ -29,15 +29,31 @@ export async function listSettings(): Promise<SiteSettings> {
 }
 
 export async function upsertSettings(updates: Partial<SiteSettings>) {
-  for (const key of SETTING_KEYS) {
-    if (updates[key] === undefined) continue
-    const value = String(updates[key] ?? '').trim()
-    await queryDb(
-      `INSERT INTO settings (id, \`key\`, value, description)
-       VALUES (?, ?, ?, NULL)
-       ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = CURRENT_TIMESTAMP`,
-      [randomUUID(), key, value]
-    )
+  const entries = SETTING_KEYS.filter((key) => updates[key] !== undefined).map((key) => ({
+    key,
+    value: String(updates[key] ?? '').trim(),
+  }))
+
+  if (!entries.length) return listSettings()
+
+  const conn = await getDbPool().getConnection()
+  try {
+    await conn.beginTransaction()
+    for (const { key, value } of entries) {
+      await conn.execute(
+        `INSERT INTO settings (id, \`key\`, value, description)
+         VALUES (?, ?, ?, NULL)
+         ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = CURRENT_TIMESTAMP`,
+        [randomUUID(), key, value]
+      )
+    }
+    await conn.commit()
+    const [rows] = await conn.query('SELECT `key`, value FROM settings ORDER BY `key` ASC')
+    return rowsToSettings(rows as SettingRow[])
+  } catch (err) {
+    await conn.rollback()
+    throw err
+  } finally {
+    conn.release()
   }
-  return listSettings()
 }

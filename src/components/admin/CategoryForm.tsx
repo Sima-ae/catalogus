@@ -144,18 +144,18 @@ export default function CategoryForm({
         </div>
       )}
       <div>
-        <label className={`block text-sm font-medium mb-1 ${t.body}`}>Name *</label>
+        <label className="form-label">Name *</label>
         <input
-          className={`w-full rounded-lg border px-3 py-2 ${t.input}`}
+          className="input w-full"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           required
         />
       </div>
       <div>
-        <label className={`block text-sm font-medium mb-1 ${t.body}`}>Slug *</label>
+        <label className="form-label">Slug *</label>
         <input
-          className={`w-full rounded-lg border px-3 py-2 ${t.input}`}
+          className="input w-full"
           value={slug}
           onChange={(e) => {
             setSlugManual(true)
@@ -165,16 +165,16 @@ export default function CategoryForm({
         />
       </div>
       <div>
-        <label className={`block text-sm font-medium mb-1 ${t.body}`}>Description</label>
+        <label className="form-label">Description</label>
         <textarea
-          className={`w-full rounded-lg border px-3 py-2 ${t.input}`}
+          className="input w-full"
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
       {isEdit && (
-        <label className={`flex items-center gap-2 text-sm cursor-pointer ${t.body}`}>
+        <label className="flex items-center gap-2 form-check-label cursor-pointer">
           <input
             type="checkbox"
             checked={active}

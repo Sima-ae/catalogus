@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import BrandLogo from '@/components/brand/BrandLogo'
+import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { 
   MagnifyingGlassIcon,
   MoonIcon,
   Squares2X2Icon,
-  ShoppingCartIcon,
   UserCircleIcon
 } from '@heroicons/react/24/outline'
 
@@ -48,12 +48,7 @@ export default function Header() {
             <Squares2X2Icon className="w-6 h-6" />
           </button>
           
-          <Link href="/cart" className="relative p-2 rounded-lg hover:bg-dark-700 transition-colors">
-            <ShoppingCartIcon className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              0
-            </span>
-          </Link>
+          <ShopCartHeaderButton className="relative p-2 rounded-lg hover:bg-dark-700 transition-colors text-gray-100" />
           
           <Link href="/seller" className="btn-primary">
             Become a seller

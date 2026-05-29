@@ -135,7 +135,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
           </button>
         </div>
         <DashboardTopBar title={title} />
-        <main className="flex-1 p-4 sm:p-6 overflow-auto">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 overflow-auto app-readable">{children}</main>
       </div>
     </div>
   )

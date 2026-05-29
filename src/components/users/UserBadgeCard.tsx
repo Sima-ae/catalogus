@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import RoleBadge from '@/components/users/RoleBadge'
 import UserStarRating from '@/components/users/UserStarRating'
 import { appPath } from '@/lib/paths'
+import { useAppTheme } from '@/lib/theme-classes'
 import type { AuthUser } from '@/lib/auth-local'
 
 type Profile = {
@@ -19,6 +20,7 @@ type UserBadgeCardProps = {
 
 /** Shows role label + marketplace badge stars for the signed-in user. */
 export default function UserBadgeCard({ user, title = 'Your marketplace badge' }: UserBadgeCardProps) {
+  const t = useAppTheme()
   const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
@@ -39,8 +41,8 @@ export default function UserBadgeCard({ user, title = 'Your marketplace badge' }
     <div className="card p-6 mb-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h3 className="text-white font-semibold">{title}</h3>
-          <p className="text-gray-400 text-sm mt-1">
+          <h3 className={`font-semibold ${t.heading}`}>{title}</h3>
+          <p className={`text-sm mt-1 ${t.muted}`}>
             Badges are assigned by Super Admin and visible to all buyers and sellers.
           </p>
         </div>
@@ -50,8 +52,8 @@ export default function UserBadgeCard({ user, title = 'Your marketplace badge' }
           is_super_admin={user.is_super_admin ?? profile?.is_super_admin}
         />
       </div>
-      <div className="mt-4 pt-4 border-t border-dark-700">
-        <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Reputation</p>
+      <div className={`mt-4 pt-4 border-t ${t.border}`}>
+        <p className={`text-xs uppercase tracking-wide mb-2 ${t.muted}`}>Reputation</p>
         <UserStarRating rating={rating} size="lg" />
       </div>
     </div>

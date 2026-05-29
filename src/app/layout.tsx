@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { CatalogModeProvider } from '@/lib/catalog-mode-context'
 import { CartProvider } from '@/lib/cart'
 import { ThemeProvider } from '@/lib/theme'
 import { AuthProvider } from '@/lib/auth-local'
@@ -37,9 +38,11 @@ export default function RootLayout({
           >
             <SiteAccessGuard>
               <ThemeProvider>
-                <CartProvider>
-                  {children}
-                </CartProvider>
+                <CatalogModeProvider>
+                  <CartProvider>
+                    {children}
+                  </CartProvider>
+                </CatalogModeProvider>
               </ThemeProvider>
             </SiteAccessGuard>
           </Suspense>

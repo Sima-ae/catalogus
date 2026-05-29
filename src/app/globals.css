@@ -40,7 +40,14 @@ html.dark body {
 }
 
 html.light body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-gray-50 text-gray-900 antialiased;
+}
+
+html.light h1,
+html.light h2,
+html.light h3,
+html.light h4 {
+  @apply text-gray-900;
 }
 
 /* Content protection — no text selection except form fields */
@@ -136,6 +143,80 @@ body.app-protected [contenteditable='true'] {
 
   html.light .card {
     @apply bg-white border-gray-200 shadow-sm text-gray-900;
+  }
+
+  /* Readable copy in dashboards / main content (light mode) */
+  html.light .app-readable {
+    @apply text-gray-900;
+  }
+
+  html.light .app-readable .text-white:not(.nav-active):not(.role-badge):not(.btn-primary):not(
+      [class*='bg-primary']
+    ):not([class*='bg-green']):not([class*='bg-red']):not([class*='bg-yellow']):not(
+      [class*='bg-blue']
+    ):not([class*='bg-purple']):not([class*='bg-pink']):not([class*='bg-black']) {
+    @apply text-gray-900;
+  }
+
+  html.light .app-readable .text-gray-400 {
+    @apply text-gray-600;
+  }
+
+  html.light .app-readable .text-gray-300 {
+    @apply text-gray-700;
+  }
+
+  html.light .app-readable .text-gray-500 {
+    @apply text-gray-600;
+  }
+
+  /* Admin form typography inside cards */
+  html.light .card .card-section-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  html.dark .card .card-section-title {
+    @apply text-lg font-semibold text-gray-50;
+  }
+
+  html.light .card .card-subtitle {
+    @apply font-semibold text-gray-900 mb-2;
+  }
+
+  html.dark .card .card-subtitle {
+    @apply font-semibold text-gray-50 mb-2;
+  }
+
+  html.light .card .form-label {
+    @apply block text-sm font-medium text-gray-900 mb-1;
+  }
+
+  html.dark .card .form-label {
+    @apply block text-sm font-medium text-gray-200 mb-1;
+  }
+
+  html.light .card .form-hint {
+    @apply text-sm text-gray-600;
+  }
+
+  html.dark .card .form-hint {
+    @apply text-sm text-gray-400;
+  }
+
+  html.light .card .form-check-label {
+    @apply text-sm text-gray-900;
+  }
+
+  html.dark .card .form-check-label {
+    @apply text-sm text-gray-200;
+  }
+
+  html.light .input {
+    @apply rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400;
+  }
+
+  html.dark .input {
+    @apply rounded-lg border border-dark-700 bg-dark-800 px-3 py-2 text-gray-100 placeholder-gray-500;
   }
 
   /* Readable data tables inside cards (admin + seller) */

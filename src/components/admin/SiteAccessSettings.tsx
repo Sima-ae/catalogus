@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { appPath } from '@/lib/paths'
+import { useAppTheme } from '@/lib/theme-classes'
 
 type AccessStatus = {
   lockActive: boolean
@@ -11,6 +12,7 @@ type AccessStatus = {
 }
 
 export default function SiteAccessSettings() {
+  const t = useAppTheme()
   const { user, isAdmin } = useAuth()
   const [adminPassword, setAdminPassword] = useState('')
   const [status, setStatus] = useState<AccessStatus | null>(null)
@@ -133,8 +135,8 @@ export default function SiteAccessSettings() {
   return (
     <div className="card max-w-2xl space-y-6 border border-amber-500/30">
       <div>
-        <h2 className="text-lg font-semibold text-white">Site access password</h2>
-        <p className="text-sm text-gray-400 mt-1">
+        <h2 className="card-section-title">Site access password</h2>
+        <p className="form-hint mt-1">
           Hides the entire storefront for visitors who are not logged in (and for logged-in users
           until they enter this password once per session). Super admin only.
         </p>
@@ -144,14 +146,14 @@ export default function SiteAccessSettings() {
       {saved && <p className="text-primary-400 text-sm">Site access settings saved.</p>}
 
       <form onSubmit={loadStatus} className="space-y-3">
-        <label className="block text-sm font-medium text-gray-300">
+        <label className="form-label">
           Your super admin password (to manage this section)
         </label>
         <input
           type="password"
           value={adminPassword}
           onChange={(e) => setAdminPassword(e.target.value)}
-          className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+          className="input w-full"
           autoComplete="current-password"
         />
         <button type="submit" disabled={loading} className="btn-secondary text-sm disabled:opacity-50">
@@ -160,10 +162,10 @@ export default function SiteAccessSettings() {
       </form>
 
       {status && (
-        <form onSubmit={handleSave} className="space-y-4 border-t border-dark-600 pt-4">
-          <p className="text-sm text-gray-400">
+        <form onSubmit={handleSave} className={`space-y-4 border-t pt-4 ${t.border}`}>
+          <p className="form-hint">
             Lock status:{' '}
-            <span className={status.lockActive ? 'text-amber-400' : 'text-gray-300'}>
+            <span className={status.lockActive ? 'text-amber-600 dark:text-amber-400' : t.body}>
               {status.lockActive ? 'Active — site is protected' : 'Off'}
             </span>
             {status.hasPassword && (
@@ -171,7 +173,7 @@ export default function SiteAccessSettings() {
             )}
           </p>
 
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+          <label className="flex items-center gap-2 form-check-label cursor-pointer">
             <input
               type="checkbox"
               checked={lockEnabled}
@@ -182,7 +184,7 @@ export default function SiteAccessSettings() {
           </label>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="form-label">
               {status.hasPassword ? 'Set new site password' : 'Site access password'}
             </label>
             <input
@@ -190,18 +192,18 @@ export default function SiteAccessSettings() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder={status.hasPassword ? 'Leave blank to keep current' : 'Min. 4 characters'}
-              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+              className="input w-full"
               autoComplete="new-password"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Confirm site password</label>
+            <label className="form-label">Confirm site password</label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+              className="input w-full"
               autoComplete="new-password"
             />
           </div>

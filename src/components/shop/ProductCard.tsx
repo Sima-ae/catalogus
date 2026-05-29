@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/types'
+import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
@@ -15,6 +16,7 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
+  const { catalogMode } = useCatalogMode()
   const [isAdding, setIsAdding] = useState(false)
   
   const handleAddToCart = async () => {
@@ -107,28 +109,31 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
           
-          <div className="flex items-center space-x-2">
-            {inCart ? (
-              <div className="flex items-center space-x-1">
+          {!catalogMode && (
+            <div className="flex items-center space-x-2">
+              {inCart ? (
+                <div className="flex items-center space-x-1">
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={isAdding}
+                    className="btn-primary text-xs py-1 px-2 flex-shrink-0 bg-green-600 hover:bg-green-700"
+                  >
+                    {isAdding ? 'Adding...' : `In Cart (${quantity})`}
+                  </button>
+                </div>
+              ) : (
                 <button
+                  type="button"
                   onClick={handleAddToCart}
                   disabled={isAdding}
-                  className="btn-primary text-xs py-1 px-2 flex-shrink-0 bg-green-600 hover:bg-green-700"
+                  className="btn-primary text-xs py-1 px-2 flex-shrink-0"
                 >
-                  {isAdding ? 'Adding...' : `In Cart (${quantity})`}
+                  {isAdding ? 'Adding...' : 'Add to Cart'}
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleAddToCart}
-                disabled={isAdding}
-                className="btn-primary text-xs py-1 px-2 flex-shrink-0"
-              >
-                {isAdding ? 'Adding...' : 'Add to Cart'}
-              </button>
-            )}
-            
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

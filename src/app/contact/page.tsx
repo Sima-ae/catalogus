@@ -16,20 +16,20 @@ import {
 
 const FAQ = [
   {
-    q: 'How do I download a product after purchase?',
-    a: 'After checkout, open your buyer dashboard. Each order includes download links and license details for your files.',
+    q: 'How and when do I receive a product after purchase?',
+    a: 'After you have placed your order we will send you a payment link. After you have made the payment you will receive your product(s) within the mentioned standard delivery time.',
   },
   {
     q: 'Can I get a refund?',
-    a: 'Digital products are generally non-refundable once downloaded. Contact support with your order number if something is wrong with your purchase.',
+    a: 'Products are generally non-refundable once purchased. Contact our sales support team with your order number if something is wrong with your purchase.',
   },
   {
     q: 'How do I become a seller?',
-    a: 'Use “Become a Seller” in the sidebar to register. Once approved, you can list themes, plugins, and other digital assets.',
+    a: 'Use “Become a Seller” in the sidebar to register. Once approved, you can list your products for sale.',
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We support secure checkout for major cards and common payment methods shown at checkout. All prices use the store currency configured by the site.',
+    a: 'We support online checkout for common european payment methods and we also accept BitCoin.',
   },
 ]
 
@@ -87,40 +87,39 @@ export default function ContactPage() {
         <h2 className={`text-2xl sm:text-3xl font-bold mb-2 ${heading}`}>Get in touch</h2>
         <p className={`max-w-2xl ${muted}`}>
           Reach the {settings.site_name || APP_NAME} team for support, partnerships, or account help.
-          We aim to respond within one business day.
         </p>
         <div className="grid sm:grid-cols-3 gap-4 mt-6">
           <InfoCard
             icon={EnvelopeIcon}
-            title="Email"
-            value={supportEmail || 'Set in admin settings'}
+            title="E-mail"
+            value={supportEmail || 'info@superclones.cloud'}
             isDark={isDark}
           />
-          <InfoCard icon={ClockIcon} title="Hours" value="Mon–Fri, 9:00–18:00 CET" isDark={isDark} />
-          <InfoCard icon={ShieldCheckIcon} title="Secure" value="Encrypted checkout & downloads" isDark={isDark} />
+          <InfoCard icon={ClockIcon} title="Daily Opening Hours" value="08:00 – 20:00 CET" isDark={isDark} />
+          <InfoCard icon={ShieldCheckIcon} title="Secure" value="Encrypted orders and payments" isDark={isDark} />
         </div>
       </section>
 
-      <div className="grid lg:grid-cols-5 gap-8">
+      <div className="grid lg:grid-cols-2 gap-8 items-stretch">
         <form
           onSubmit={handleSubmit}
-          className={`lg:col-span-3 rounded-xl border p-6 sm:p-8 ${card}`}
+          className={`rounded-xl border p-6 sm:p-8 h-full flex flex-col ${card}`}
         >
-          <h3 className={`text-lg font-semibold mb-6 flex items-center gap-2 ${heading}`}>
+          <h3 className={`text-lg font-semibold mb-6 flex items-center gap-2 shrink-0 ${heading}`}>
             <ChatBubbleLeftRightIcon className="w-5 h-5" />
             Send a message
           </h3>
           {submitted && !supportEmail && (
-            <p className="mb-4 text-amber-600 dark:text-amber-400 text-sm">
+            <p className="mb-4 text-amber-600 dark:text-amber-400 text-sm shrink-0">
               Your message was noted. Support email is not configured yet — an administrator can add it under Admin → Settings.
             </p>
           )}
           {submitted && supportEmail && (
-            <p className="mb-4 text-green-600 dark:text-green-400 text-sm">
+            <p className="mb-4 text-green-600 dark:text-green-400 text-sm shrink-0">
               Your email client should open with your message ready to send.
             </p>
           )}
-          <div className="space-y-4">
+          <div className="flex-1 flex flex-col space-y-4 min-h-0">
             <div className="grid sm:grid-cols-2 gap-4">
               <label className="block">
                 <span className={`text-sm font-medium ${muted}`}>Name</span>
@@ -151,57 +150,38 @@ export default function ContactPage() {
                 className={`mt-1 w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:outline-none ${inputClass}`}
               />
             </label>
-            <label className="block">
-              <span className={`text-sm font-medium ${muted}`}>Message</span>
+            <label className="flex flex-1 flex-col min-h-[8rem]">
+              <span className={`text-sm font-medium shrink-0 ${muted}`}>Message</span>
               <textarea
                 required
-                rows={5}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className={`mt-1 w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:outline-none resize-y ${inputClass}`}
+                className={`mt-1 w-full flex-1 min-h-[8rem] px-3 py-2 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:outline-none resize-y ${inputClass}`}
               />
             </label>
-            <button type="submit" className="btn-primary w-full sm:w-auto px-8 py-2.5">
+            <button type="submit" className="btn-primary w-full sm:w-auto px-8 py-2.5 shrink-0 mt-auto">
               {supportEmail ? 'Open in email' : 'Submit'}
             </button>
           </div>
         </form>
 
-        <div className="lg:col-span-2 space-y-4">
-          <div className={`rounded-xl border p-6 ${card}`}>
-            <h3 className={`font-semibold mb-4 ${heading}`}>Quick links</h3>
-            <ul className={`space-y-2 text-sm ${muted}`}>
-              <li>
-                <a href={appPath('/buyer')} className="hover:text-primary-500 transition-colors">
-                  Buyer dashboard →
-                </a>
-              </li>
-              <li>
-                <a href={appPath('/seller')} className="hover:text-primary-500 transition-colors">
-                  Seller portal →
-                </a>
-              </li>
-              <li>
-                <a href={appPath('/cart')} className="hover:text-primary-500 transition-colors">
-                  View cart →
-                </a>
-              </li>
-            </ul>
+        <section className={`rounded-xl border p-6 sm:p-8 h-full flex flex-col ${card}`}>
+          <h3 className={`text-lg font-semibold mb-6 shrink-0 ${heading}`}>Frequently asked questions</h3>
+          <div className="flex-1 flex flex-col gap-4 min-h-0">
+            {FAQ.map((item) => (
+              <article
+                key={item.q}
+                className={`rounded-lg border p-4 ${
+                  isDark ? 'border-dark-600 bg-dark-900/50' : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <h4 className={`font-semibold mb-2 text-sm ${heading}`}>{item.q}</h4>
+                <p className={`text-sm leading-relaxed ${muted}`}>{item.a}</p>
+              </article>
+            ))}
           </div>
-        </div>
+        </section>
       </div>
-
-      <section className="mt-12">
-        <h3 className={`text-xl font-bold mb-6 ${heading}`}>Frequently asked questions</h3>
-        <div className="grid md:grid-cols-2 gap-4">
-          {FAQ.map((item) => (
-            <article key={item.q} className={`rounded-xl border p-5 ${card}`}>
-              <h4 className={`font-semibold mb-2 ${heading}`}>{item.q}</h4>
-              <p className={`text-sm leading-relaxed ${muted}`}>{item.a}</p>
-            </article>
-          ))}
-        </div>
-      </section>
 
       <p className={`mt-10 text-center text-xs ${muted}`}>{APP_COPYRIGHT}</p>
     </ShopPageShell>

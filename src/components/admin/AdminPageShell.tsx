@@ -35,7 +35,7 @@ export default function AdminPageShell({
           <span className={`font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{title}</span>
         </div>
         <AdminHeader />
-        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">
           <div className="mb-4 sm:mb-6">
             <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
               {title}

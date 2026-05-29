@@ -16,6 +16,8 @@ export interface Product {
   download_url?: string
   demo_url?: string
   documentation_url?: string
+  support_url?: string
+  compatibility?: string
   version?: string
   license_type?: string
   file_size?: string

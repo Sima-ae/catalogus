@@ -7,7 +7,8 @@ VALUES
   (UUID(), 'site_tagline', 'Digital marketplace for templates and digital assets', 'Store tagline'),
   (UUID(), 'support_email', '', 'Support contact email'),
   (UUID(), 'currency', 'EUR', 'Checkout currency code'),
-  (UUID(), 'tax_rate', '0', 'Tax rate percentage')
+  (UUID(), 'tax_rate', '0', 'Tax rate percentage'),
+  (UUID(), 'catalog_mode', 'false', 'Browse-only storefront when true')
 ON DUPLICATE KEY UPDATE
   value = IF(VALUES(value) <> '', VALUES(value), value),
   updated_at = CURRENT_TIMESTAMP;

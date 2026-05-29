@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import type { NextRequest } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { isDbConnectionError } from '@/lib/db'
+import { getDbErrorMessage } from '@/lib/db-errors'
 import { getDevUserByIdAndEmail, isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
 import { isSuperAdminUser } from '@/lib/user-roles'
 
@@ -111,7 +112,7 @@ export async function verifyAdminActor(
         },
       }
     }
-    return { ok: false, status: 503, error: 'Database unavailable' }
+    return { ok: false, status: 503, error: getDbErrorMessage(error, 'Database unavailable') }
   }
 }
 

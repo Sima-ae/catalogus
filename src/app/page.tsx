@@ -7,11 +7,10 @@ import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import { Product } from '@/lib/types'
-import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
+import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
-import Link from 'next/link'
 import { appPath } from '@/lib/paths'
 import { useShopCategory } from '@/lib/use-shop-category'
 
@@ -21,7 +20,6 @@ function HomePageContent() {
   const { selectedCategory, setSelectedCategory } = useShopCategory()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { state: cartState } = useCart()
   const { theme } = useTheme()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -132,30 +130,18 @@ function HomePageContent() {
                 </svg>
               </button>
               
-              {/* Cart Icon with Notification Badge */}
-              <Link href="/cart" className={`relative p-2 rounded-lg transition-colors duration-200 ${
-                theme === 'dark' 
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-800' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-              }`} title="Shopping Cart">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-                {cartState.itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full w-5 h-6 flex items-center justify-center font-medium">
-                    {cartState.itemCount > 99 ? '99+' : cartState.itemCount}
-                  </span>
-                )}
-              </Link>
+              <ShopCartHeaderButton />
               
               <ShopRegisterHeaderButtons />
             </div>
           </div>
         </div>
 
-        <main className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-950' : 'bg-gray-50'
-        }`}>
+        <main
+          className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${
+            theme === 'dark' ? 'bg-dark-950' : 'bg-gray-50'
+          }`}
+        >
           <div className="max-w-full">
             <ShopHeroBanner
               badge="Just added"

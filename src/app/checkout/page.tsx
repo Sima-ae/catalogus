@@ -12,6 +12,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { appPath } from '@/lib/paths'
 import { formatPrice } from '@/lib/format-price'
+import { useCatalogModeRedirect } from '@/lib/use-catalog-mode-redirect'
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -130,11 +131,14 @@ function CheckoutForm({ cartTotal, cartItems, onSuccess }: CheckoutFormProps) {
 }
 
 export default function CheckoutPage() {
+  const { blocked } = useCatalogModeRedirect()
   const { state: cartState, clearCart } = useCart()
   const { theme } = useTheme()
   const { user } = useAuth()
   const [isSuccess, setIsSuccess] = useState(false)
   const { mobileOpen, open, close } = useMobileSidebar()
+
+  if (blocked) return null
   const [customerInfo, setCustomerInfo] = useState({
     email: user?.email || '',
     firstName: '',

@@ -6,9 +6,9 @@ import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import { Product } from '@/lib/types'
-import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
+import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import { appPath } from '@/lib/paths'
 import { useShopCategory } from '@/lib/use-shop-category'
@@ -51,7 +51,6 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { state: cartState } = useCart()
   const { theme } = useTheme()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
@@ -144,30 +143,17 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
             </div>
             <div className="flex items-center flex-wrap justify-end gap-2 sm:gap-3 shrink-0">
               <ThemeToggleButton />
-              <Link
-                href={appPath('/cart')}
+              <ShopCartHeaderButton
                 className={`relative p-2 rounded-lg transition-colors ${
                   isDark ? 'hover:bg-dark-700' : 'hover:bg-gray-200'
                 }`}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                  />
-                </svg>
-                {cartState.itemCount > 0 && (
-                  <span className="cart-badge">{cartState.itemCount > 99 ? '99+' : cartState.itemCount}</span>
-                )}
-              </Link>
+              />
               <ShopRegisterHeaderButtons buttonClassName="btn-primary text-sm px-3 py-2 hidden sm:inline-flex" />
             </div>
           </div>
         </header>
 
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden ${shellBg}`}>
+        <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden app-readable ${shellBg}`}>
           {showHero && (
             <ShopHeroBanner
               badge={config.badge}

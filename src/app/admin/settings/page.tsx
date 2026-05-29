@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import CatalogModeSettings from '@/components/admin/CatalogModeSettings'
 import SiteAccessSettings from '@/components/admin/SiteAccessSettings'
 import { appPath } from '@/lib/paths'
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
+import { useAppTheme } from '@/lib/theme-classes'
 
 export default function AdminSettingsPage() {
+  const t = useAppTheme()
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -61,20 +64,22 @@ export default function AdminSettingsPage() {
       description="Store branding and customer-facing options. Payment keys stay in server environment variables only."
     >
       <SiteAccessSettings />
+      <CatalogModeSettings />
 
       {loading ? (
-        <p className="text-gray-400">Loading...</p>
+        <p className={t.muted}>Loading...</p>
       ) : (
         <form onSubmit={handleSubmit} className="card max-w-2xl space-y-6">
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <h2 className="card-section-title">Store settings</h2>
+          {error && <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>}
           {saved && (
-            <p className="text-primary-400 text-sm">
+            <p className="text-gray-900 dark:text-primary-400 text-sm font-medium">
               Settings saved to database.
             </p>
           )}
 
           <div>
-            <label htmlFor="site_name" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="site_name" className="form-label">
               Site name
             </label>
             <input
@@ -82,13 +87,13 @@ export default function AdminSettingsPage() {
               type="text"
               value={settings.site_name}
               onChange={(e) => updateField('site_name', e.target.value)}
-              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+              className="input w-full"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="site_tagline" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="site_tagline" className="form-label">
               Tagline
             </label>
             <input
@@ -96,12 +101,12 @@ export default function AdminSettingsPage() {
               type="text"
               value={settings.site_tagline}
               onChange={(e) => updateField('site_tagline', e.target.value)}
-              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+              className="input w-full"
             />
           </div>
 
           <div>
-            <label htmlFor="support_email" className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="support_email" className="form-label">
               Support email
             </label>
             <input
@@ -109,14 +114,14 @@ export default function AdminSettingsPage() {
               type="email"
               value={settings.support_email}
               onChange={(e) => updateField('support_email', e.target.value)}
-              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+              className="input w-full"
               placeholder="support@example.com"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="currency" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="currency" className="form-label">
                 Currency
               </label>
               <input
@@ -124,12 +129,12 @@ export default function AdminSettingsPage() {
                 type="text"
                 value={settings.currency}
                 onChange={(e) => updateField('currency', e.target.value)}
-                className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+                className="input w-full"
                 maxLength={8}
               />
             </div>
             <div>
-              <label htmlFor="tax_rate" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="tax_rate" className="form-label">
                 Tax rate (%)
               </label>
               <input
@@ -138,13 +143,13 @@ export default function AdminSettingsPage() {
                 inputMode="decimal"
                 value={settings.tax_rate}
                 onChange={(e) => updateField('tax_rate', e.target.value)}
-                className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white"
+                className="input w-full"
               />
             </div>
           </div>
 
-          <p className="text-gray-500 text-xs">
-            Stripe and database credentials are configured in <code className="text-gray-400">.env</code> on the
+          <p className="form-hint text-xs">
+            Stripe and database credentials are configured in <code className={t.body}>.env</code> on the
             server, not in this form.
           </p>
 

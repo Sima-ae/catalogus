@@ -2,6 +2,7 @@
 
 import { StarIcon } from '@heroicons/react/24/solid'
 import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline'
+import { useTheme } from '@/lib/theme'
 
 type UserStarRatingProps = {
   rating: number | null | undefined
@@ -25,12 +26,17 @@ export default function UserStarRating({
   emptyLabel = 'No rating yet',
   className = '',
 }: UserStarRatingProps) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const stars = clampBadgeRating(rating)
   const iconClass = SIZES[size]
+  const emptyClass = isDark ? 'text-gray-500' : 'text-gray-600'
+  const valueClass = isDark ? 'text-gray-300' : 'text-gray-800'
+  const outlineClass = isDark ? 'text-gray-600' : 'text-gray-400'
 
   if (stars === null) {
     return (
-      <span className={`inline-flex items-center gap-1 text-gray-500 text-sm ${className}`}>
+      <span className={`inline-flex items-center gap-1 text-sm ${emptyClass} ${className}`}>
         {emptyLabel}
       </span>
     )
@@ -42,11 +48,11 @@ export default function UserStarRating({
         i <= stars ? (
           <StarIcon key={i} className={`${iconClass} text-amber-400`} aria-hidden />
         ) : (
-          <StarOutlineIcon key={i} className={`${iconClass} text-gray-600`} aria-hidden />
+          <StarOutlineIcon key={i} className={`${iconClass} ${outlineClass}`} aria-hidden />
         )
       )}
       {showValue && (
-        <span className="ml-1.5 text-sm text-gray-300 tabular-nums">
+        <span className={`ml-1.5 text-sm tabular-nums ${valueClass}`}>
           {stars.toFixed(1).replace(/\.0$/, '')}/5
         </span>
       )}

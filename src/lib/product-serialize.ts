@@ -33,8 +33,9 @@ export function serializeProductRow(row: Record<string, unknown>) {
     category_id: row.category_id ?? row.resolved_category_id ?? null,
     gallery_images: parseProductJsonField(row.gallery_images),
     tags: parseProductJsonField(row.tags),
-    features: parseProductJsonField(row.features),
-    requirements: parseProductJsonField(row.requirements),
+    features: parseProductJsonField(row.features) ?? [],
+    requirements: parseProductJsonField(row.requirements) ?? [],
+    compatibility: row.compatibility != null ? String(row.compatibility) : '',
     price: Number(row.price) || 0,
     original_price:
       row.original_price != null && row.original_price !== ''

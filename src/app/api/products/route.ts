@@ -1,16 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { insertProduct, UnknownCategoryError, type ProductInput } from '@/lib/products-db'
-import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
+import {
+  insertProduct,
+  listProducts,
+  listProductsForSeller,
+  UnknownCategoryError,
+} from '@/lib/products-db'
+import { parseProductBody } from '@/lib/product-body'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { logDbRouteError } from '@/lib/db-route-log'
-import { listProducts } from '@/lib/products-db'
+import {
+  applySellerProductInput,
+  requireProductWrite,
+  resolveCatalogAccess,
+} from '@/lib/product-api-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const rows = await listProducts()
+    const access = await resolveCatalogAccess(request)
+    const rows =
+      access.kind === 'seller'
+        ? await listProductsForSeller(access.actor.userId, access.actor.name)
+        : await listProducts()
     return NextResponse.json(rows)
   } catch (error) {
     logDbRouteError('Products fetch error', error)
@@ -22,11 +35,19 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireProductWrite(request)
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+
   try {
     const body = await request.json()
-    const input = parseProductBody(body)
+    let input = parseProductBody(body as Record<string, unknown>)
+    if (auth.access.kind === 'seller') {
+      input = applySellerProductInput(input, auth.access.actor)
+    }
 
-    if (!input.name || !input.description || !input.image_url || !input.category) {
+    if (!input.name || !input.short_description || !input.image_url || !input.category) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -41,36 +62,5 @@ export async function POST(request: NextRequest) {
       { error: getDbErrorMessage(error, 'Failed to create product') },
       { status: 503 }
     )
-  }
-}
-
-function parseProductBody(body: Record<string, unknown>): ProductInput {
-  const tagsRaw = body.tags
-  let tags: string[] | null = null
-  if (typeof tagsRaw === 'string' && tagsRaw.trim()) {
-    tags = tagsRaw.split(',').map((t) => t.trim()).filter(Boolean)
-  } else if (Array.isArray(tagsRaw)) {
-    tags = tagsRaw.map(String)
-  }
-
-  return {
-    name: String(body.name || '').trim(),
-    description: String(body.description || '').trim(),
-    short_description: body.short_description ? String(body.short_description).trim() : undefined,
-    price: Number(body.price) || 0,
-    original_price: body.original_price != null && body.original_price !== '' ? Number(body.original_price) : null,
-    image_url: String(body.image_url || '').trim(),
-    category: String(body.category || '').trim(),
-    tags,
-    author: String(body.author || APP_DEFAULT_AUTHOR).trim(),
-    author_icon: String(body.author_icon || APP_DEFAULT_AUTHOR_ICON).trim(),
-    sku: body.sku ? String(body.sku).trim() : null,
-    status: String(body.status || 'active'),
-    featured: body.featured === true || body.featured === 'true' || body.featured === 1,
-    version: body.version ? String(body.version) : null,
-    license_type: body.license_type ? String(body.license_type) : null,
-    demo_url: body.demo_url ? String(body.demo_url) : null,
-    documentation_url: body.documentation_url ? String(body.documentation_url) : null,
-    download_url: body.download_url ? String(body.download_url) : null,
   }
 }

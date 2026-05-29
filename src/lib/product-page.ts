@@ -5,6 +5,7 @@ export type ProductPageView = {
   id: string
   name: string
   description: string
+  shortDescription: string
   longDescription: string
   price: number
   original_price?: number
@@ -55,13 +56,14 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []
-  const description = String(raw.description || '')
-  const shortDescription = raw.short_description ? String(raw.short_description) : ''
+  const description = String(raw.description || '').trim()
+  const shortDescription = String(raw.short_description ?? '').trim()
 
   return {
     id: String(raw.id ?? ''),
     name: String(raw.name || 'Product'),
     description,
+    shortDescription,
     longDescription: description || shortDescription,
     price: Number(raw.price) || 0,
     original_price:
@@ -78,7 +80,8 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     downloads: Number(raw.download_count) || 0,
     lastUpdated: formatDate(raw.updated_at || raw.created_at),
     version: String(raw.version || '—'),
-    compatibility: requirements[0] || '—',
+    compatibility:
+      String(raw.compatibility || '').trim() || requirements[0] || '—',
     license: String(raw.license_type || '—'),
     tags,
     features,
@@ -87,6 +90,6 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     gallery,
     demo_url: String(raw.demo_url || '').trim() || appPath('/contact'),
     documentation_url: String(raw.documentation_url || '').trim() || appPath('/contact'),
-    support_url: appUrl('/contact'),
+    support_url: String(raw.support_url || '').trim() || appUrl('/contact'),
   }
 }

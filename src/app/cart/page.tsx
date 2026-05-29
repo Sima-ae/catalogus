@@ -1,6 +1,7 @@
 'use client'
 
 import { useCart } from '@/lib/cart'
+import { useCatalogModeRedirect } from '@/lib/use-catalog-mode-redirect'
 import { useTheme } from '@/lib/theme'
 import { useState } from 'react'
 import Image from 'next/image'
@@ -10,10 +11,13 @@ import { TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 
 export default function CartPage() {
+  const { blocked } = useCatalogModeRedirect()
   const { state: cartState, removeItem, updateQuantity, clearCart } = useCart()
   const { theme } = useTheme()
   const [isUpdating, setIsUpdating] = useState<string | null>(null)
   const { mobileOpen, open, close } = useMobileSidebar()
+
+  if (blocked) return null
 
   const handleQuantityChange = async (id: string, newQuantity: number) => {
     setIsUpdating(id)

@@ -10,7 +10,7 @@ export default function EditProductPage() {
 
   return (
     <AdminPageShell title="Edit product" description="Update product details">
-      <ProductForm mode="edit" productId={id} />
+      <ProductForm mode="edit" productId={id} portal="admin" />
     </AdminPageShell>
   )
 }
