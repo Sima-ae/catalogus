@@ -14,6 +14,9 @@ function isStaticAsset(pathname: string): boolean {
   if (pathname.startsWith('/_next/static') || pathname.startsWith('/_next/image')) {
     return true
   }
+  if (pathname.startsWith('/images/')) {
+    return true
+  }
   if (pathname === '/favicon.ico') return true
   const publicExt = ['.ico', '.png', '.svg', '.webp', '.jpg', '.jpeg', '.gif', '.woff2', '.woff']
   return publicExt.some((ext) => pathname.endsWith(ext))

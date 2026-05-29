@@ -85,6 +85,13 @@ if [[ -f scripts/sync-public-html.sh ]]; then
     echo "WARN: public_html .htaccess sync failed — copy deploy/htaccess.example manually"
 fi
 
+if [[ -f scripts/link-public-images.sh ]]; then
+  chmod +x scripts/link-public-images.sh 2>/dev/null || true
+  export APP_DIR
+  bash scripts/link-public-images.sh || sudo -E bash scripts/link-public-images.sh || \
+    echo "WARN: public/images symlink skipped — /images still works via Next.js route if CATALOGUS_PUBLIC_HTML is set"
+fi
+
 echo "==> Deploy finished OK"
 echo "==> Path: $(pwd)"
 echo "==> Commit: $(git log -1 --oneline)"
