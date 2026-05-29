@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { appPath } from '@/lib/paths'
@@ -70,27 +70,7 @@ export default function AdminDashboard() {
     console.log('🔍 AdminDashboard render:', { hasUser: !!user, authLoading, isAdmin, loading })
   }
 
-  useEffect(() => {
-    if (isDevelopment) {
-      console.log('🔍 AdminDashboard useEffect triggered')
-    }
-    if (!authLoading && user && isAdmin) {
-      if (isDevelopment) {
-        console.log('🔍 User authenticated and is admin, fetching data...')
-      }
-      fetchData()
-    } else if (!authLoading && !user) {
-      if (isDevelopment) {
-        console.log('🔍 User not authenticated')
-      }
-    } else if (!authLoading && !isAdmin) {
-      if (isDevelopment) {
-        console.log('🔍 User not admin')
-      }
-    }
-  }, [authLoading, user, isAdmin, isDevelopment])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     let productsData: Product[] = []
     
     const isDevelopment = process.env.NODE_ENV === 'development'
@@ -178,7 +158,27 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user])
+
+  useEffect(() => {
+    if (isDevelopment) {
+      console.log('🔍 AdminDashboard useEffect triggered')
+    }
+    if (!authLoading && user && isAdmin) {
+      if (isDevelopment) {
+        console.log('🔍 User authenticated and is admin, fetching data...')
+      }
+      fetchData()
+    } else if (!authLoading && !user) {
+      if (isDevelopment) {
+        console.log('🔍 User not authenticated')
+      }
+    } else if (!authLoading && !isAdmin) {
+      if (isDevelopment) {
+        console.log('🔍 User not admin')
+      }
+    }
+  }, [authLoading, user, isAdmin, isDevelopment, fetchData])
 
   const handleDeleteProduct = async (productId: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return

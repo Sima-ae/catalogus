@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/types'
@@ -60,7 +60,7 @@ export default function ProductForm({
   const { user } = useAuth()
   const isSeller = portal === 'seller'
   const productsPath = isSeller ? '/seller/products' : '/admin/products'
-  const authHeaders = catalogAuthHeaders(user)
+  const authHeaders = useMemo(() => catalogAuthHeaders(user), [user])
   const [form, setForm] = useState(defaultForm)
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(mode === 'edit')
@@ -108,7 +108,7 @@ export default function ProductForm({
       })
 
     return () => controller.abort()
-  }, [mode, productId, initial, user?.id, user?.email])
+  }, [mode, productId, initial, authHeaders])
 
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>

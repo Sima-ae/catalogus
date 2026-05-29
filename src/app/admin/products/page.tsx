@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -26,18 +26,18 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
-  const loadProducts = () => {
+  const loadProducts = useCallback(() => {
     if (!user) return
     setLoading(true)
     fetch(appPath('/api/products'), { headers: adminAuthHeaders(user) })
       .then((r) => r.json())
       .then((d) => setProducts(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false))
-  }
+  }, [user])
 
   useEffect(() => {
     loadProducts()
-  }, [user])
+  }, [loadProducts])
 
   const handleDelete = async (id: string) => {
     if (!user || !confirm('Delete this product?')) return

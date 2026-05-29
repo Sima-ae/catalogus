@@ -137,8 +137,6 @@ export default function CheckoutPage() {
   const { user } = useAuth()
   const [isSuccess, setIsSuccess] = useState(false)
   const { mobileOpen, open, close } = useMobileSidebar()
-
-  if (blocked) return null
   const [customerInfo, setCustomerInfo] = useState({
     email: user?.email || '',
     firstName: '',
@@ -147,8 +145,16 @@ export default function CheckoutPage() {
     city: '',
     postalCode: '',
     country: 'AE', // United Arab Emirates as default
-    phone: ''
+    phone: '',
   })
+
+  useEffect(() => {
+    if (user?.email) {
+      setCustomerInfo((prev) => ({ ...prev, email: user.email }))
+    }
+  }, [user?.email])
+
+  if (blocked) return null
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
