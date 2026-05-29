@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useMemo } from 'react'
+import ShopHeroBanner from '@/components/shop/ShopHeroBanner'
+import { productsAddedThisMonth } from '@/lib/catalog'
 import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
 import CategoryFilter from '@/components/shop/CategoryFilter'
@@ -8,13 +10,15 @@ import { Product } from '@/lib/types'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
+import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import Link from 'next/link'
 import { appPath } from '@/lib/paths'
+import { useShopCategory } from '@/lib/use-shop-category'
 
-export default function HomePage() {
+function HomePageContent() {
   const [products, setProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
-  const [selectedCategory, setSelectedCategory] = useState('All')
+  const { selectedCategory, setSelectedCategory } = useShopCategory()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { state: cartState } = useCart()
@@ -29,7 +33,7 @@ export default function HomePage() {
     if (selectedCategory === 'All') {
       setFilteredProducts(products)
     } else {
-      setFilteredProducts(products.filter(product => product.category === selectedCategory))
+      setFilteredProducts(products.filter((product) => product.category === selectedCategory))
     }
   }, [selectedCategory, products])
 
@@ -72,16 +76,25 @@ export default function HomePage() {
     fetchProducts()
   }
 
+  const heroStats = useMemo(
+    () => ({
+      total: products.length,
+      newThisMonth: productsAddedThisMonth(products),
+      showing: filteredProducts.length,
+    }),
+    [products, filteredProducts.length]
+  )
+
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${
-      theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
+      theme === 'dark' ? 'bg-dark-950' : 'bg-gray-50'
     } overflow-x-hidden`}>
       <Sidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header with Search and Actions */}
         <div className={`transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+          theme === 'dark' ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
         } border-b px-4 sm:px-6 lg:px-8 py-4`}>
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -111,7 +124,7 @@ export default function HomePage() {
               {/* Overview/Grid Icon */}
               <button className={`p-2 rounded-lg transition-colors duration-200 ${
                 theme === 'dark' 
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-700' 
+                  ? 'text-gray-400 hover:text-white hover:bg-dark-800' 
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`} title="Grid View">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +135,7 @@ export default function HomePage() {
               {/* Cart Icon with Notification Badge */}
               <Link href="/cart" className={`relative p-2 rounded-lg transition-colors duration-200 ${
                 theme === 'dark' 
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-700' 
+                  ? 'text-gray-400 hover:text-white hover:bg-dark-800' 
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`} title="Shopping Cart">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,18 +148,24 @@ export default function HomePage() {
                 )}
               </Link>
               
-              {/* Become a Seller Button */}
-              <Link href={appPath('/seller')} className="btn-primary text-sm sm:text-base px-3 sm:px-4 py-2 hidden sm:inline-flex" title="Become a Seller">
-                Become a Seller
-              </Link>
+              <ShopRegisterHeaderButtons />
             </div>
           </div>
         </div>
 
         <main className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
+          theme === 'dark' ? 'bg-dark-950' : 'bg-gray-50'
         }`}>
           <div className="max-w-full">
+            <ShopHeroBanner
+              badge="Just added"
+              title="New Arrivals"
+              subtitle="Fresh templates and assets, added first here"
+              description="Discover the newest WordPress themes, plugins, and digital products in our catalog. Sorted by release date so you always see what landed latest."
+              icon="sparkles"
+              stats={heroStats}
+            />
+
             <CategoryFilter
               selectedCategory={selectedCategory}
               onCategoryChange={handleCategoryChange}
@@ -196,5 +215,13 @@ export default function HomePage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomePageContent />
+    </Suspense>
   )
 }

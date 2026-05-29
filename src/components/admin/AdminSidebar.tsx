@@ -62,14 +62,14 @@ export default function AdminSidebar({
   const isDark = theme === 'dark'
 
   const shellClass = isDark
-    ? 'bg-dark-800 border-dark-700'
+    ? 'bg-dark-900 border-dark-800'
     : 'bg-white border-gray-200'
-  const panelClass = isDark ? 'bg-dark-700' : 'bg-gray-100'
+  const panelClass = isDark ? 'bg-dark-800' : 'bg-gray-100'
   const mutedText = isDark ? 'text-gray-400' : 'text-gray-600'
   const navIdle = isDark
-    ? 'text-gray-300 hover:bg-dark-700 hover:text-white'
+    ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-  const borderClass = isDark ? 'border-dark-700' : 'border-gray-200'
+  const borderClass = isDark ? 'border-dark-800' : 'border-gray-200'
 
   const sidebar = (
     <div className="p-4 sm:p-6 h-full flex flex-col overflow-y-auto">

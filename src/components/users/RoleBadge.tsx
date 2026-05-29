@@ -13,7 +13,8 @@ export default function RoleBadge({ role, email, is_super_admin, className = '' 
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${style} ${className}`}
+      className={`role-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${style} ${className}`}
+      data-role={key}
     >
       {label}
     </span>

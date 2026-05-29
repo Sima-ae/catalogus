@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useAppTheme } from '@/lib/theme-classes'
 
 interface StatCardProps {
   title: string
@@ -11,15 +12,15 @@ interface StatCardProps {
 }
 
 export default function StatCard({ title, value, icon, accentColor, change }: StatCardProps) {
+  const t = useAppTheme()
+
   return (
     <div className="card">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-400 text-sm font-medium">{title}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}</p>
-          {change && (
-            <p className="text-sm text-gray-400 mt-1">{change}</p>
-          )}
+          <p className={`text-sm font-medium ${t.muted}`}>{title}</p>
+          <p className={`text-2xl font-bold mt-1 ${t.heading}`}>{value}</p>
+          {change && <p className={`text-sm mt-1 ${t.muted}`}>{change}</p>}
         </div>
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${accentColor}`}>
           {icon}

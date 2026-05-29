@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
@@ -9,8 +9,16 @@ import { Product } from '@/lib/types'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
+import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import { appPath } from '@/lib/paths'
+import { useShopCategory } from '@/lib/use-shop-category'
 import { APP_NAME } from '@/lib/brand'
+import ShopHeroBanner from '@/components/shop/ShopHeroBanner'
+import {
+  SparklesIcon,
+  FireIcon,
+  ShoppingBagIcon,
+} from '@heroicons/react/24/outline'
 import {
   type CatalogMode,
   filterByCategory,
@@ -18,12 +26,12 @@ import {
   productsAddedThisMonth,
   sortProducts,
 } from '@/lib/catalog'
-import {
-  SparklesIcon,
-  FireIcon,
-  ArrowTrendingUpIcon,
-  ShoppingBagIcon,
-} from '@heroicons/react/24/outline'
+
+const EMPTY_ICONS = {
+  sparkles: SparklesIcon,
+  fire: FireIcon,
+  bag: ShoppingBagIcon,
+}
 
 export type ShopCatalogConfig = {
   mode: CatalogMode
@@ -34,17 +42,12 @@ export type ShopCatalogConfig = {
   icon: 'sparkles' | 'fire' | 'bag'
   emptyTitle: string
   emptyMessage: string
+  showHero?: boolean
 }
 
-const ICONS = {
-  sparkles: SparklesIcon,
-  fire: FireIcon,
-  bag: ShoppingBagIcon,
-}
-
-export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig }) {
+function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [products, setProducts] = useState<Product[]>([])
-  const [selectedCategory, setSelectedCategory] = useState('All')
+  const { selectedCategory, setSelectedCategory } = useShopCategory()
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +55,8 @@ export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig 
   const { theme } = useTheme()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
-  const Icon = ICONS[config.icon]
+  const showHero =
+    config.showHero !== false && config.mode !== 'new' && config.mode !== 'popular'
 
   useEffect(() => {
     fetchProducts()
@@ -98,13 +102,10 @@ export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig 
   }, [products, displayedProducts.length])
 
   const isDark = theme === 'dark'
-  const shellBg = isDark ? 'bg-dark-900' : 'bg-gray-50'
-  const headerBg = isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+  const EmptyIcon = EMPTY_ICONS[config.icon]
+  const shellBg = isDark ? 'bg-dark-950' : 'bg-gray-50'
+  const headerBg = isDark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const heroBg = isDark
-    ? 'bg-gradient-to-br from-dark-800 via-dark-900 to-black border-dark-700'
-    : 'bg-gradient-to-br from-gray-100 via-white to-gray-50 border-gray-200'
-
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
       <Sidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
@@ -161,47 +162,29 @@ export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig 
                   <span className="cart-badge">{cartState.itemCount > 99 ? '99+' : cartState.itemCount}</span>
                 )}
               </Link>
-              <Link href={appPath('/seller')} className="btn-primary text-sm px-3 py-2 hidden sm:inline-flex">
-                Become a Seller
-              </Link>
+              <ShopRegisterHeaderButtons buttonClassName="btn-primary text-sm px-3 py-2 hidden sm:inline-flex" />
             </div>
           </div>
         </header>
 
         <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden ${shellBg}`}>
-          <section className={`rounded-2xl border p-6 sm:p-8 mb-8 ${heroBg}`}>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div className="max-w-2xl">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-primary-500 text-white mb-4">
-                  <Icon className="w-4 h-4" />
-                  {config.badge}
-                </span>
-                <h1 className={`text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {config.title}
-                </h1>
-                <p className={`text-lg font-medium mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                  {config.subtitle}
-                </p>
-                <p className={`text-sm sm:text-base leading-relaxed ${muted}`}>{config.description}</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0 w-full lg:w-auto">
-                <StatPill label="In catalog" value={String(stats.total)} isDark={isDark} />
-                <StatPill label="This month" value={String(stats.newThisMonth)} isDark={isDark} />
-                <StatPill
-                  label="Showing"
-                  value={String(stats.showing)}
-                  isDark={isDark}
-                  className="col-span-2 sm:col-span-1"
-                />
-              </div>
-            </div>
-            {config.mode === 'popular' && stats.topName && (
-              <p className={`mt-4 text-sm flex items-center gap-2 ${muted}`}>
-                <ArrowTrendingUpIcon className="w-4 h-4 shrink-0" />
-                Trending now: <span className="font-medium text-inherit">{stats.topName}</span>
-              </p>
-            )}
-          </section>
+          {showHero && (
+            <ShopHeroBanner
+              badge={config.badge}
+              title={config.title}
+              subtitle={config.subtitle}
+              description={config.description}
+              icon={config.icon}
+              stats={stats}
+              trendingLabel={config.mode === 'popular'}
+            />
+          )}
+
+          {!showHero && (
+            <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {config.title}
+            </h1>
+          )}
 
           <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
 
@@ -218,8 +201,8 @@ export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig 
               </button>
             </div>
           ) : displayedProducts.length === 0 ? (
-            <div className={`text-center py-16 rounded-xl border ${isDark ? 'border-dark-700 bg-dark-800' : 'border-gray-200 bg-white'}`}>
-              <Icon className={`w-12 h-12 mx-auto mb-4 ${muted}`} />
+            <div className={`text-center py-16 rounded-xl border ${isDark ? 'border-dark-800 bg-dark-900' : 'border-gray-200 bg-white'}`}>
+              <EmptyIcon className={`w-12 h-12 mx-auto mb-4 ${muted}`} />
               <h2 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {config.emptyTitle}
               </h2>
@@ -245,25 +228,10 @@ export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig 
   )
 }
 
-function StatPill({
-  label,
-  value,
-  isDark,
-  className = '',
-}: {
-  label: string
-  value: string
-  isDark: boolean
-  className?: string
-}) {
+export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig }) {
   return (
-    <div
-      className={`rounded-xl px-4 py-3 text-center border ${className} ${
-        isDark ? 'bg-dark-800/80 border-dark-600' : 'bg-white border-gray-200 shadow-sm'
-      }`}
-    >
-      <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-      <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{label}</p>
-    </div>
+    <Suspense fallback={null}>
+      <ShopCatalogPageContent config={config} />
+    </Suspense>
   )
 }

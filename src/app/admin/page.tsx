@@ -19,6 +19,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-local'
+import { useAppTheme } from '@/lib/theme-classes'
 
 const timeFilters = ['Today', 'Weekly', 'Monthly', 'Yearly']
 
@@ -59,6 +60,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const { user, loading: authLoading, isAdmin } = useAuth()
+  const t = useAppTheme()
 
   const isDevelopment = process.env.NODE_ENV === 'development'
   
@@ -196,9 +198,9 @@ export default function AdminDashboard() {
       console.log('🔍 Showing auth loading state')
     }
     return (
-      <div className="flex min-h-screen bg-dark-900">
+      <div className={`flex min-h-screen ${t.page}`}>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-white">
+          <div className={`text-center ${t.heading}`}>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
             <p className="mt-4">Authenticating...</p>
             <p className="text-sm text-gray-400 mt-2">This may take a few seconds</p>
@@ -220,11 +222,11 @@ export default function AdminDashboard() {
       console.log('🔍 User not authenticated or not admin, showing error')
     }
     return (
-      <div className="flex min-h-screen bg-dark-900">
+      <div className={`flex min-h-screen ${t.page}`}>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-white max-w-md mx-auto">
+          <div className={`text-center max-w-md mx-auto ${t.heading}`}>
             <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-            <p className="text-gray-400 mb-6">
+            <p className={`mb-6 ${t.muted}`}>
               {!user ? 'Please log in to access the admin dashboard.' : 'You do not have permission to access this page.'}
             </p>
             
@@ -249,10 +251,10 @@ export default function AdminDashboard() {
       console.log('🔍 Showing data loading state')
     }
     return (
-      <div className="flex min-h-screen bg-dark-900 overflow-x-hidden">
+      <div className={`flex min-h-screen overflow-x-hidden ${t.page}`}>
         <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
         <div className="flex-1 flex items-center justify-center min-w-0">
-          <div className="text-center text-white">
+          <div className={`text-center ${t.heading}`}>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
             <p className="mt-4">Loading dashboard data...</p>
           </div>
@@ -266,20 +268,22 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen bg-dark-900 overflow-x-hidden">
+    <div className={`flex min-h-screen overflow-x-hidden ${t.page}`}>
       <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center gap-2 px-4 pt-4 lg:hidden">
+        <div
+          className={`flex items-center gap-2 px-4 pt-4 lg:hidden border-b ${t.border}`}
+        >
           <AdminMobileMenuButton onClick={() => setMobileNavOpen(true)} />
-          <span className="text-white font-medium">Admin Dashboard</span>
+          <span className={`font-medium ${t.heading}`}>Admin Dashboard</span>
         </div>
         <AdminHeader />
 
         <main className="flex-1 p-4 sm:p-6 overflow-x-hidden">
           {/* Summary Section */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-white mb-4">Summary</h2>
+            <h2 className={`text-xl font-semibold mb-4 ${t.heading}`}>Summary</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <StatCard
                 title="Total Revenue"
@@ -311,7 +315,7 @@ export default function AdminDashboard() {
           {/* Products Section */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-white">Products</h2>
+              <h2 className={`text-xl font-semibold ${t.heading}`}>Products</h2>
               <Link href="/admin/products/new" className="btn-primary flex items-center space-x-2">
                 <PlusIcon className="w-5 h-5" />
                 <span>Add Product</span>
@@ -322,18 +326,18 @@ export default function AdminDashboard() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-dark-700">
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Product</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Category</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Price</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Author</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Actions</th>
+                    <tr className={`border-b ${t.rowBorder}`}>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Product</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Category</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Price</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Author</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {products.length > 0 ? (
                       products.map((product) => (
-                        <tr key={product.id} className="border-b border-dark-700">
+                        <tr key={product.id} className={`border-b ${t.rowBorder}`}>
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-3">
                               <Image
@@ -345,30 +349,30 @@ export default function AdminDashboard() {
                                 unoptimized
                               />
                               <div>
-                                <p className="text-white font-medium">{product.name}</p>
-                                <p className="text-gray-400 text-sm line-clamp-1">{product.description}</p>
+                                <p className={`font-medium ${t.tableCell}`}>{product.name}</p>
+                                <p className={`text-sm line-clamp-1 ${t.muted}`}>{product.description}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-white">{product.category}</td>
-                          <td className="py-3 px-4 text-white">
+                          <td className={`py-3 px-4 ${t.tableCell}`}>{product.category}</td>
+                          <td className={`py-3 px-4 ${t.tableCell}`}>
                             € {product.price.toFixed(2).replace('.', ',')}
                           </td>
-                          <td className="py-3 px-4 text-white">{product.author}</td>
+                          <td className={`py-3 px-4 ${t.tableCell}`}>{product.author}</td>
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-2">
-                              <button className="p-2 rounded-lg hover:bg-dark-700 transition-colors">
-                                <EyeIcon className="w-5 h-5 text-gray-400" />
+                              <button className={`p-2 rounded-lg transition-colors ${t.iconBtn}`}>
+                                <EyeIcon className="w-5 h-5" />
                               </button>
                               <Link
                                 href={`/admin/products/${product.id}/edit`}
-                                className="p-2 rounded-lg hover:bg-dark-700 transition-colors inline-flex"
+                                className={`p-2 rounded-lg transition-colors inline-flex ${t.iconBtn}`}
                               >
-                                <PencilIcon className="w-5 h-5 text-gray-400" />
+                                <PencilIcon className="w-5 h-5" />
                               </Link>
                               <button 
                                 onClick={() => handleDeleteProduct(product.id)}
-                                className="p-2 rounded-lg hover:bg-dark-700 transition-colors text-red-400 hover:text-red-300"
+                                className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-red-500 hover:text-red-400"
                               >
                                 <TrashIcon className="w-5 h-5" />
                               </button>
@@ -378,7 +382,7 @@ export default function AdminDashboard() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="py-8 text-center text-gray-400">
+                        <td colSpan={5} className={`py-8 text-center ${t.muted}`}>
                           No products found. Add your first product to get started.
                         </td>
                       </tr>
@@ -391,32 +395,32 @@ export default function AdminDashboard() {
 
           {/* Recent Orders Section */}
           <div>
-            <h2 className="text-xl font-semibold text-white mb-4">Recent Orders</h2>
+            <h2 className={`text-xl font-semibold mb-4 ${t.heading}`}>Recent Orders</h2>
             <div className="card">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-dark-700">
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Order ID</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Customer</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Total</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Status</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Date</th>
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Actions</th>
+                    <tr className={`border-b ${t.rowBorder}`}>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Order ID</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Customer</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Total</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Status</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Date</th>
+                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.length > 0 ? (
                       orders.map((order) => (
-                        <tr key={order.id} className="border-b border-dark-700">
-                          <td className="py-3 px-4 text-white">{order.id}</td>
+                        <tr key={order.id} className={`border-b ${t.rowBorder}`}>
+                          <td className={`py-3 px-4 ${t.tableCell}`}>{order.id}</td>
                           <td className="py-3 px-4">
                             <div>
-                              <p className="text-white">{order.customer_name}</p>
-                              <p className="text-gray-400 text-sm">{order.customer_email}</p>
+                              <p className={t.tableCell}>{order.customer_name}</p>
+                              <p className={`text-sm ${t.muted}`}>{order.customer_email}</p>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-white">
+                          <td className={`py-3 px-4 ${t.tableCell}`}>
                             € {order.total.toFixed(2).replace('.', ',')}
                           </td>
                           <td className="py-3 px-4">
@@ -432,19 +436,19 @@ export default function AdminDashboard() {
                               {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-gray-400">
+                          <td className={`py-3 px-4 ${t.muted}`}>
                             {new Date(order.created_at).toLocaleDateString()}
                           </td>
                           <td className="py-3 px-4">
-                            <button className="p-2 rounded-lg hover:bg-dark-700 transition-colors">
-                              <EyeIcon className="w-5 h-5 text-gray-400" />
+                            <button className={`p-2 rounded-lg transition-colors ${t.iconBtn}`}>
+                              <EyeIcon className="w-5 h-5" />
                             </button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-gray-400">
+                        <td colSpan={6} className={`py-8 text-center ${t.muted}`}>
                           No orders found yet.
                         </td>
                       </tr>

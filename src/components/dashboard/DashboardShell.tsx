@@ -27,11 +27,11 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const isDark = theme === 'dark'
-  const shellClass = isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
-  const panelClass = isDark ? 'bg-dark-700' : 'bg-gray-100'
-  const borderClass = isDark ? 'border-dark-700' : 'border-gray-200'
+  const shellClass = isDark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
+  const panelClass = isDark ? 'bg-dark-800' : 'bg-gray-100'
+  const borderClass = isDark ? 'border-dark-800' : 'border-gray-200'
   const navIdle = isDark
-    ? 'text-gray-300 hover:bg-dark-700 hover:text-white'
+    ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
 
   const aside = (
@@ -103,7 +103,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
   return (
     <div
       className={`flex min-h-screen overflow-x-hidden transition-colors duration-200 ${
-        isDark ? 'bg-dark-900' : 'bg-gray-50'
+        isDark ? 'bg-dark-950' : 'bg-gray-50'
       }`}
     >
       {mobileOpen && (

@@ -51,7 +51,7 @@ export const ROLE_BADGE_STYLES: Record<
   },
   buyer: {
     label: 'Buyer',
-    className: 'bg-green-900 text-white',
+    className: 'bg-green-950 text-white border border-green-900',
   },
   seller: {
     label: 'Seller',

@@ -4,6 +4,8 @@ import { queryDb } from '@/lib/db'
 import { isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
 import { getDevBadgeRating } from '@/lib/dev-user-badges'
 import { isSuperAdminUser } from '@/lib/user-roles'
+import { isDbConnectionError } from '@/lib/db'
+import { logDbRouteError } from '@/lib/db-route-log'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -16,17 +18,6 @@ type DbUser = {
   name: string | null
   is_super_admin?: number | boolean
   badge_rating?: number | null
-}
-
-function isDbConnectionError(error: unknown) {
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  return (
-    code === 'ECONNREFUSED' ||
-    code === 'ECONNRESET' ||
-    code === 'ETIMEDOUT' ||
-    code === 'PROTOCOL_CONNECTION_LOST'
-  )
 }
 
 export async function POST(request: NextRequest) {
@@ -90,12 +81,15 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Login error:', error)
+    logDbRouteError('Login error', error)
 
     if (isDevAuthEnabled() && isDbConnectionError(error)) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
+        {
+          error:
+            'Database is offline. Use dev accounts (e.g. info@000.it.com / Admin123!) or start MariaDB.',
+        },
+        { status: 503 }
       )
     }
 

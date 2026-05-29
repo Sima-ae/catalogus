@@ -21,14 +21,14 @@ export default function AdminPageShell({
   return (
     <div
       className={`flex min-h-screen overflow-x-hidden transition-colors duration-200 ${
-        isDark ? 'bg-dark-900' : 'bg-gray-50'
+        isDark ? 'bg-dark-950' : 'bg-gray-50'
       }`}
     >
       <AdminSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 w-full lg:ml-0">
         <div
           className={`flex items-center gap-2 px-4 pt-4 lg:hidden border-b ${
-            isDark ? 'border-dark-700' : 'border-gray-200'
+            isDark ? 'border-dark-800' : 'border-gray-200'
           }`}
         >
           <AdminMobileMenuButton onClick={() => setMobileOpen(true)} />

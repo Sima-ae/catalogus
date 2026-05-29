@@ -17,7 +17,7 @@ export default function ThemeToggleButton({ className = '' }: ThemeToggleButtonP
       onClick={toggleTheme}
       className={`p-2 rounded-lg transition-colors duration-200 ${
         isDark
-          ? 'text-gray-400 hover:text-white hover:bg-dark-700'
+          ? 'text-gray-400 hover:text-white hover:bg-dark-800'
           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
       } ${className}`}
       title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}

@@ -22,7 +22,7 @@ export default function AdminHeader() {
   return (
     <header
       className={`px-4 sm:px-6 py-4 border-b transition-colors duration-200 ${
-        isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+        isDark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
       }`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
@@ -35,7 +35,7 @@ export default function AdminHeader() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`w-full rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                 isDark
-                  ? 'bg-dark-700 text-white placeholder-gray-400'
+                  ? 'bg-dark-800 border-dark-700 text-gray-100 placeholder-gray-500'
                   : 'bg-gray-100 border border-gray-300 text-gray-900 placeholder-gray-500'
               }`}
             />
@@ -86,7 +86,7 @@ export default function AdminHeader() {
               onClick={handleLogout}
               className={`p-2 rounded-lg transition-colors ${
                 isDark
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-700'
+                  ? 'text-gray-400 hover:text-white hover:bg-dark-800'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
               }`}
               title="Logout"

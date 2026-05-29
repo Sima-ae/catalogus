@@ -24,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} app-protected bg-white text-gray-900 transition-colors duration-200`}>
+      <body className={`${inter.className} app-protected transition-colors duration-200`}>
         <ContentProtection />
         <AuthProvider>
           <SiteAccessGuard>

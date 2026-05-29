@@ -16,7 +16,7 @@ export default function DashboardTopBar({ title, children }: DashboardTopBarProp
   return (
     <header
       className={`border-b px-4 sm:px-6 py-4 transition-colors duration-200 ${
-        isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
+        isDark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
       }`}
     >
       <div className="flex items-center justify-between gap-3">

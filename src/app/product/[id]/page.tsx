@@ -9,7 +9,8 @@ import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { ArrowLeftIcon, StarIcon, HeartIcon, ShareIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
-import { appUrl } from '@/lib/paths'
+import { appPath, appUrl } from '@/lib/paths'
+import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 
 // Mock product data - replace with actual Supabase query
 const mockProduct = {
@@ -200,10 +201,7 @@ export default function ProductPage() {
                 )}
               </Link>
               
-              {/* Become a Seller Button */}
-              <Link href="/seller" className="btn-primary text-sm px-3 sm:px-4 py-2 hidden sm:inline-flex" title="Become a Seller">
-                Become a Seller
-              </Link>
+              <ShopRegisterHeaderButtons />
             </div>
           </div>
         </div>

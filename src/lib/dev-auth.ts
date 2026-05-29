@@ -10,10 +10,8 @@ const DEV_USERS = [
     role: 'admin' as const,
     is_super_admin: true as const,
     name: 'Super Admin',
-    password_hashes: [
-      '$2b$12$iz2gPv3bl4I5lOQvYXFib.SLiOiXnqYAU8PV3rRJdhzo1p837TWqq',
-      '$2b$12$ue2o4T2MAp5vd92OehduqO4bc4AR0vXSfmwX4Do268K9p5YLOeTjy',
-    ],
+  /** bcrypt for Admin123! */
+    password_hashes: ['$2b$12$ue2o4T2MAp5vd92OehduqO4bc4AR0vXSfmwX4Do268K9p5YLOeTjy'],
   },
   {
     id: 'a0000000-0000-0000-0000-000000000002',

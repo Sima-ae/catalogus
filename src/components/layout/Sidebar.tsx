@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { Suspense, useState, useCallback } from 'react'
 
 export function useMobileSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -12,12 +12,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
 import { APP_COPYRIGHT } from '@/lib/brand'
+import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
+import SidebarCategories from '@/components/layout/SidebarCategories'
 import {
   HomeIcon,
   MapIcon,
   CubeIcon,
   UserGroupIcon,
+  ShoppingBagIcon,
   PhoneIcon,
   Cog6ToothIcon,
   XMarkIcon,
@@ -28,12 +31,13 @@ const navigation = [
   { name: 'Home', href: '/', icon: HomeIcon },
   { name: 'New', href: '/new', icon: MapIcon },
   { name: 'Most Popular', href: '/popular', icon: CubeIcon },
-  { name: 'Become a Seller', href: '/seller', icon: UserGroupIcon },
 ]
 
 const bottomNavigation = [
-  { name: 'Contact', href: '/contact', icon: PhoneIcon },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+  { name: 'Become a Buyer', href: '/buyer', icon: ShoppingBagIcon },
+  { name: 'Become a Seller', href: '/seller', icon: UserGroupIcon },
+  { name: 'Contact', href: '/contact', icon: PhoneIcon },
 ]
 
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {
@@ -67,13 +71,13 @@ function NavLink({
 }) {
   return (
     <Link
-      href={item.href}
+      href={appPath(item.href)}
       onClick={onNavigate}
       className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
         isActive
           ? 'nav-active'
           : theme === 'dark'
-            ? 'text-gray-300 hover:bg-dark-700 hover:text-white'
+            ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
             : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
       } ${isCollapsed ? 'justify-center' : ''}`}
       title={isCollapsed ? item.name : undefined}
@@ -97,11 +101,11 @@ export default function Sidebar({
 
   const shellClass =
     theme === 'dark'
-      ? 'bg-dark-800 border-r border-dark-700'
+      ? 'bg-dark-900 border-r border-dark-800'
       : 'bg-white border-r border-gray-200'
 
   const sidebarContent = (
-    <div className="p-4 h-full flex flex-col">
+    <div className="p-4 h-full min-h-0 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between mb-6 lg:mb-8 gap-2">
         <div className={`min-w-0 flex-1 ${isCollapsed ? 'hidden lg:flex lg:justify-center' : 'flex'}`}>
           <BrandLogo compact={isCollapsed} size="dashboard" priority />
@@ -110,7 +114,7 @@ export default function Sidebar({
           type="button"
           onClick={() => (onMobileClose ? onMobileClose() : setIsCollapsed(!isCollapsed))}
           className={`p-2 rounded-lg transition-colors shrink-0 ${
-            theme === 'dark' ? 'hover:bg-dark-700' : 'hover:bg-gray-100'
+            theme === 'dark' ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
           }`}
           aria-label={onMobileClose ? 'Close menu' : 'Toggle sidebar'}
         >
@@ -124,12 +128,12 @@ export default function Sidebar({
         </button>
       </div>
 
-      <nav className="space-y-2 flex-1 overflow-y-auto">
+      <nav className="space-y-2 shrink-0">
         {navigation.map((item) => (
           <NavLink
             key={item.name}
             item={item}
-            isActive={pathname === item.href}
+            isActive={pathname === item.href || pathname === appPath(item.href)}
             isCollapsed={isCollapsed && !onMobileClose}
             theme={theme}
             onNavigate={onMobileClose}
@@ -137,13 +141,24 @@ export default function Sidebar({
         ))}
       </nav>
 
-      <div className={`pt-4 mt-4 border-t ${theme === 'dark' ? 'border-dark-700' : 'border-gray-200'}`}>
+      <div className={`my-3 border-t shrink-0 ${theme === 'dark' ? 'border-dark-800' : 'border-gray-200'}`} />
+
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <Suspense fallback={null}>
+          <SidebarCategories
+            isCollapsed={isCollapsed && !onMobileClose}
+            onNavigate={onMobileClose}
+          />
+        </Suspense>
+      </div>
+
+      <div className={`pt-4 mt-auto shrink-0 border-t ${theme === 'dark' ? 'border-dark-800' : 'border-gray-200'}`}>
         <nav className="space-y-2">
           {bottomNavigation.map((item) => (
             <NavLink
               key={item.name}
               item={item}
-              isActive={pathname === item.href}
+              isActive={pathname === item.href || pathname === appPath(item.href)}
               isCollapsed={isCollapsed && !onMobileClose}
               theme={theme}
               onNavigate={onMobileClose}
@@ -155,7 +170,7 @@ export default function Sidebar({
       {!isCollapsed && (
         <div
           className={`mt-4 pt-4 border-t text-xs ${
-            theme === 'dark' ? 'border-dark-700 text-gray-400' : 'border-gray-200 text-gray-500'
+            theme === 'dark' ? 'border-dark-800 text-gray-400' : 'border-gray-200 text-gray-500'
           }`}
         >
           <p>
@@ -180,7 +195,7 @@ export default function Sidebar({
       <aside
         className={`sidebar transition-transform duration-300 z-50
           fixed inset-y-0 left-0 w-[min(100vw-3rem,16rem)] sm:w-64
-          lg:static lg:translate-x-0 lg:w-64
+          lg:static lg:translate-x-0 lg:w-64 lg:h-screen lg:overflow-hidden
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
           ${shellClass}`}
