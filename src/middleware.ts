@@ -65,6 +65,13 @@ async function siteAccessFromApi(request: NextRequest): Promise<{
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
+  if (process.env.NODE_ENV === 'production' && pathname === '/debug') {
+    const home = request.nextUrl.clone()
+    home.pathname = '/'
+    home.search = ''
+    return NextResponse.redirect(home)
+  }
+
   if (pathname === '/catalogus' || pathname.startsWith('/catalogus/')) {
     const stripped = pathname.replace(/^\/catalogus/, '') || '/'
     const url = request.nextUrl.clone()

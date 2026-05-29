@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const creds = parseAdminCredentials(body)
   if (!creds) {
     return NextResponse.json(
-      { error: 'adminEmail and adminPassword are required' },
+      { error: 'Authentication required' },
       { status: 400 }
     )
   }
@@ -40,7 +40,7 @@ export async function PUT(request: NextRequest) {
   const creds = parseAdminCredentials(body)
   if (!creds) {
     return NextResponse.json(
-      { error: 'adminEmail and adminPassword are required' },
+      { error: 'Authentication required' },
       { status: 400 }
     )
   }

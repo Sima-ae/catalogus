@@ -75,10 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAdmin = user?.role === 'admin'
     const isSeller = user?.role === 'seller'
     const isBuyer = user?.role === 'buyer'
-    const isSuperAdmin = Boolean(
-      user?.is_super_admin ||
-        (user?.role === 'admin' && user?.email?.toLowerCase() === 'info@000.it.com')
-    )
+    const isSuperAdmin = Boolean(user?.is_super_admin)
     return { user, loading, signIn, signOut, isAdmin, isSeller, isBuyer, isSuperAdmin }
   }, [user, loading])
 

@@ -14,11 +14,11 @@ export function getCookieSecret(): string {
   const secret = process.env.SITE_ACCESS_COOKIE_SECRET?.trim()
   if (secret && secret.length >= 16) return secret
   if (process.env.NODE_ENV === 'production') {
-    console.warn(
-      '[site-access] Set SITE_ACCESS_COOKIE_SECRET (16+ chars) in production .env'
+    throw new Error(
+      'SITE_ACCESS_COOKIE_SECRET must be set in production (16+ random characters).'
     )
   }
-  return 'dev-site-access-secret-change-me'
+  return 'dev-only-site-access-secret-not-for-production'
 }
 
 function bytesToBase64Url(bytes: ArrayBuffer): string {

@@ -2,9 +2,9 @@
 /**
  * Reset super admin password in MariaDB (production VPS).
  * Usage:
- *   node scripts/reset-admin-password.mjs
  *   node scripts/reset-admin-password.mjs 'YourNewPassword'
  *
+ * Optional env: SUPER_ADMIN_EMAIL (default info@superclones.cloud)
  * Requires DATABASE_URL in environment (load from .env on VPS).
  */
 import bcrypt from 'bcryptjs'
@@ -12,8 +12,9 @@ import mysql from 'mysql2/promise'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 
-const SUPER_ADMIN_EMAIL = 'info@000.it.com'
-const DEFAULT_PASSWORD = 'Admin123!'
+const SUPER_ADMIN_EMAIL = (
+  process.env.SUPER_ADMIN_EMAIL || 'info@superclones.cloud'
+).trim().toLowerCase()
 
 function loadEnv() {
   const envPath = resolve(process.cwd(), '.env')
@@ -40,7 +41,11 @@ function resolveDatabaseUrl() {
 
 async function main() {
   loadEnv()
-  const plain = process.argv[2] || DEFAULT_PASSWORD
+  const plain = process.argv[2]
+  if (!plain) {
+    console.error('Usage: node scripts/reset-admin-password.mjs <new-password>')
+    process.exit(1)
+  }
   if (plain.length < 8) {
     console.error('Password must be at least 8 characters')
     process.exit(1)
@@ -53,7 +58,7 @@ async function main() {
     const [result] = await pool.query(
       `UPDATE users SET password_hash = ?, role = 'admin', is_super_admin = 1
        WHERE LOWER(email) = ?`,
-      [hash, SUPER_ADMIN_EMAIL.toLowerCase()]
+      [hash, SUPER_ADMIN_EMAIL]
     )
     const affected = result.affectedRows ?? 0
     if (affected === 0) {

@@ -11,7 +11,7 @@ export type UserListRow = {
   updated_at?: string
 }
 
-export const SUPER_ADMIN_EMAIL = 'info@000.it.com'
+export const SUPER_ADMIN_EMAIL = 'info@superclones.cloud'
 
 export function isSuperAdminUser(user: {
   email?: string

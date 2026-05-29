@@ -30,7 +30,7 @@ INSERT INTO users (id, email, password_hash, role, is_super_admin, name)
 VALUES
   (
     'a0000000-0000-0000-0000-000000000001',
-    'info@000.it.com',
+    'info@superclones.cloud',
     '$2b$12$ue2o4T2MAp5vd92OehduqO4bc4AR0vXSfmwX4Do268K9p5YLOeTjy',
     'admin',
     1,
@@ -60,7 +60,7 @@ ON DUPLICATE KEY UPDATE
 
 INSERT INTO user_profiles (id, email, name, role)
 VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'info@000.it.com', 'Super Admin', 'admin'),
+  ('a0000000-0000-0000-0000-000000000001', 'info@superclones.cloud', 'Super Admin', 'admin'),
   ('a0000000-0000-0000-0000-000000000002', 'buyer@test.com', 'Test Buyer', 'buyer'),
   ('a0000000-0000-0000-0000-000000000003', 'seller@test.com', 'Test Seller', 'seller')
 ON DUPLICATE KEY UPDATE

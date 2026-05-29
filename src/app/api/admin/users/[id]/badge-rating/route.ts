@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const body = await request.json()
   const creds = parseAdminCredentials(body)
   if (!creds) {
-    return NextResponse.json({ error: 'Super admin email and password required' }, { status: 400 })
+    return NextResponse.json({ error: 'Authentication required' }, { status: 400 })
   }
 
   const admin = await verifySuperAdmin(creds.email, creds.password)

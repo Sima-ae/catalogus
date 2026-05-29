@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS products (
   image_url TEXT NOT NULL,
   gallery_images LONGTEXT NULL,
   category VARCHAR(255) NOT NULL,
+  category_id VARCHAR(36) NULL,
   tags LONGTEXT NULL,
   author_id VARCHAR(36) NULL,
   author VARCHAR(255) NOT NULL,
@@ -34,6 +35,8 @@ CREATE TABLE IF NOT EXISTS products (
   file_size VARCHAR(255) NULL,
   requirements LONGTEXT NULL,
   features LONGTEXT NULL,
+  compatibility TEXT NULL,
+  support_url TEXT NULL,
   changelog TEXT NULL,
   rating DECIMAL(3,2) NULL,
   review_count INT NULL,
@@ -42,7 +45,8 @@ CREATE TABLE IF NOT EXISTS products (
   featured TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  KEY idx_products_category_id (category_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- categories

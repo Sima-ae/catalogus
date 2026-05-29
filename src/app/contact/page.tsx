@@ -92,7 +92,7 @@ export default function ContactPage() {
           <InfoCard
             icon={EnvelopeIcon}
             title="E-mail"
-            value={supportEmail || 'info@superclones.cloud'}
+            value={supportEmail || '—'}
             isDark={isDark}
           />
           <InfoCard icon={ClockIcon} title="Daily Opening Hours" value="08:00 – 20:00 CET" isDark={isDark} />

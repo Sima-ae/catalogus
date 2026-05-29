@@ -9,7 +9,7 @@ echo "==> Deploy catalogus in $APP_DIR"
 
 echo "==> Verify repository checkout"
 if [[ ! -d .git ]]; then
-  echo "ERROR: $APP_DIR is not a git repository. Re-clone from GitHub (see deploy/GITHUB_DEPLOY.md)."
+  echo "ERROR: $APP_DIR is not a git repository. Re-clone from GitHub (see README.md)."
   exit 1
 fi
 REQUIRED=(

@@ -82,17 +82,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Database is offline. Use dev accounts (e.g. info@000.it.com / Admin123!) or start MariaDB.',
+            'Sign-in service is temporarily unavailable. If you are developing locally, ensure MariaDB is running or enable dev auth in your environment.',
         },
         { status: 503 }
       )
     }
 
-    let message = 'Database connection failed.'
+    let message = 'Sign-in service is temporarily unavailable.'
     if (error instanceof Error && error.message.includes('not configured')) {
-      message = 'Database is not configured. Set DATABASE_URL in .env.'
+      message = 'Sign-in service is not configured. Contact the site administrator.'
     } else if (isDbConnectionError(error)) {
-      message = 'Unable to connect to the database. Try again later or contact support.'
+      message = 'Unable to connect to the sign-in service. Try again later or contact support.'
     }
 
     return NextResponse.json({ error: message }, { status: 500 })

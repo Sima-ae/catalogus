@@ -80,7 +80,7 @@ export async function updateUserBadgeRating(
     const message = error instanceof Error ? error.message : ''
     if (message.includes('Unknown column')) {
       throw new Error(
-        'badge_rating column missing — run db/migrations/001_user_badges.sql on your database'
+        'badge_rating column missing — run db/upgrade.sql on your database'
       )
     }
     throw error

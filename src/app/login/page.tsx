@@ -105,13 +105,6 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <p className="text-center text-xs text-gray-500">
-            Super admin: <span className="font-mono">info@000.it.com</span>
-            {process.env.NODE_ENV === 'development' && (
-              <> — default password documented in MANUAL_USER_SETUP.md</>
-            )}
-          </p>
-
           <div className="text-center">
             <Link href={appPath('/')} className="font-medium text-primary-600 hover:text-primary-500">
               Back to home

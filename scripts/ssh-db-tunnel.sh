@@ -8,11 +8,11 @@
 #   ./scripts/ssh-db-tunnel.sh --background
 #
 # Env overrides:
-#   VPS_HOST=89.116.38.197  SSH_USER=root  LOCAL_PORT=3306
+#   VPS_HOST=superclones.cloud  SSH_USER=root  LOCAL_PORT=3306
 
 set -e
 
-VPS_HOST="${VPS_HOST:-89.116.38.197}"
+VPS_HOST="${VPS_HOST:-superclones.cloud}"
 SSH_USER="${SSH_USER:-root}"
 LOCAL_PORT="${LOCAL_PORT:-3306}"
 REMOTE_PORT="${REMOTE_PORT:-3306}"

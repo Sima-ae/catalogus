@@ -10,12 +10,6 @@ export async function GET() {
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('DB health check failed:', error)
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    )
+    return NextResponse.json({ ok: false, error: 'Database unavailable' }, { status: 500 })
   }
 }

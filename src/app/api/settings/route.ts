@@ -55,10 +55,7 @@ export async function PUT(request: NextRequest) {
     logDbRouteError('Settings update error', error)
     return NextResponse.json(
       {
-        error: getDbErrorMessage(
-          error,
-          'Failed to save settings. Check DATABASE_URL and that MariaDB is running.'
-        ),
+        error: getDbErrorMessage(error, 'Failed to save settings'),
       },
       { status: 503 }
     )
