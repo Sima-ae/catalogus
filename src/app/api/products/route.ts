@@ -5,6 +5,7 @@ import {
   listProducts,
   listProductsForSeller,
   MissingSkuError,
+  UnknownBrandError,
   UnknownCategoryError,
 } from '@/lib/products-db'
 import { parseProductBody } from '@/lib/product-body'
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     const product = await insertProduct(input)
     return NextResponse.json(product, { status: 201 })
   } catch (error) {
-    if (error instanceof UnknownCategoryError) {
+    if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error instanceof MissingSkuError) {

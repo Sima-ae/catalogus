@@ -3,11 +3,20 @@ import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
 import { serializeProductRow } from '@/lib/product-serialize'
 import {
+  brandsTableExists,
+  productsHaveBrandColumn,
+  productsHaveBrandIdColumn,
+  resolveProductBrandInput,
+  UnknownBrandError,
+} from '@/lib/brands-db'
+import {
   DuplicateSkuError,
   MissingSkuError,
   normalizeProductSku,
   requireProductSku,
 } from '@/lib/product-sku'
+
+export { UnknownBrandError } from '@/lib/brands-db'
 
 export type ProductInput = {
   name: string
@@ -18,6 +27,7 @@ export type ProductInput = {
   image_url: string
   gallery_images?: string[] | null
   category: string
+  brand?: string | null
   tags?: string[] | null
   features?: string[] | null
   requirements?: string[] | null
@@ -126,21 +136,39 @@ function jsonCol(value: unknown) {
 
 async function productSelectSql() {
   const hasCategoryId = await productsHaveCategoryIdColumn()
-  const join = hasCategoryId
+  const hasBrandsTable = await brandsTableExists()
+  const hasBrandId = hasBrandsTable && (await productsHaveBrandIdColumn())
+  const categoryJoin = hasCategoryId
     ? `LEFT JOIN categories c ON c.active = 1 AND (
          (p.category_id IS NOT NULL AND c.id = p.category_id)
          OR (c.name = p.category)
        )`
     : `LEFT JOIN categories c ON c.active = 1 AND c.name = p.category`
+  const brandJoin = hasBrandsTable
+    ? hasBrandId
+      ? `LEFT JOIN brands b ON b.active = 1 AND (
+           (p.brand_id IS NOT NULL AND b.id = p.brand_id)
+           OR (b.name = p.brand)
+         )`
+      : `LEFT JOIN brands b ON b.active = 1 AND b.name = p.brand`
+    : ''
+
+  const brandSelect = hasBrandsTable
+    ? `,
+      b.id AS resolved_brand_id,
+      b.name AS resolved_brand_name,
+      b.slug AS resolved_brand_slug`
+    : ''
 
   return `
     SELECT
       p.*,
       c.id AS resolved_category_id,
       c.name AS resolved_category_name,
-      c.slug AS resolved_category_slug
+      c.slug AS resolved_category_slug${brandSelect}
     FROM products p
-    ${join}
+    ${categoryJoin}
+    ${brandJoin}
   `
 }
 
@@ -177,12 +205,16 @@ async function fetchProductRow(id: string) {
 
 export async function insertProduct(input: ProductInput) {
   const category = await resolveProductCategoryInput(input.category)
+  const brand =
+    (await brandsTableExists()) ? await resolveProductBrandInput(input.brand) : { name: null, id: undefined }
   const sku = requireProductSku(input.sku)
   await assertSkuIsUnique(sku)
 
   const id = randomUUID()
   const schema = await getProductSchemaFlags()
   const hasCategoryId = schema.categoryId
+  const hasBrandCol = await productsHaveBrandColumn()
+  const hasBrandId = await productsHaveBrandIdColumn()
   const contentCols = await productsContentColumns()
 
   const insertMap: Record<string, unknown> = {
@@ -196,6 +228,8 @@ export async function insertProduct(input: ProductInput) {
     gallery_images: jsonCol(input.gallery_images),
     category: category.name,
     ...(hasCategoryId ? { category_id: category.id } : {}),
+    ...(hasBrandCol && brand.name ? { brand: brand.name } : {}),
+    ...(hasBrandId && brand.id ? { brand_id: brand.id } : {}),
     tags: jsonCol(input.tags),
     features: jsonCol(input.features),
     requirements: jsonCol(input.requirements),
@@ -233,6 +267,8 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 
   let categoryId: string | undefined
   let categoryName: string | undefined
+  let brandId: string | undefined
+  let brandName: string | null | undefined
 
   if (input.category !== undefined) {
     const resolved = await resolveProductCategoryInput(input.category)
@@ -240,9 +276,17 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     categoryId = resolved.id
   }
 
+  if (input.brand !== undefined && (await brandsTableExists())) {
+    const resolved = await resolveProductBrandInput(input.brand)
+    brandName = resolved.name
+    brandId = resolved.id
+  }
+
   const schema = await getProductSchemaFlags()
   const contentCols = await productsContentColumns()
   const hasCategoryId = schema.categoryId
+  const hasBrandCol = await productsHaveBrandColumn()
+  const hasBrandId = await productsHaveBrandIdColumn()
 
   const map: Record<string, unknown> = {
     name: input.name,
@@ -254,6 +298,8 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     gallery_images: input.gallery_images !== undefined ? jsonCol(input.gallery_images) : undefined,
     category: categoryName,
     category_id: categoryId,
+    brand: hasBrandCol ? brandName : undefined,
+    brand_id: hasBrandId ? brandId : undefined,
     tags: input.tags !== undefined ? jsonCol(input.tags) : undefined,
     features: input.features !== undefined ? jsonCol(input.features) : undefined,
     requirements: input.requirements !== undefined ? jsonCol(input.requirements) : undefined,
@@ -283,6 +329,9 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 
   if (!hasCategoryId) {
     delete map.category_id
+  }
+  if (!hasBrandId) {
+    delete map.brand_id
   }
 
   for (const [key, val] of Object.entries(map)) {

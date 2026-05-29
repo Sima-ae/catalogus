@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS products (
   gallery_images LONGTEXT NULL,
   category VARCHAR(255) NOT NULL,
   category_id VARCHAR(36) NULL,
+  brand VARCHAR(255) NULL,
+  brand_id VARCHAR(36) NULL,
   tags LONGTEXT NULL,
   author_id VARCHAR(36) NULL,
   author VARCHAR(255) NOT NULL,
@@ -47,7 +49,23 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_products_category_id (category_id),
+  KEY idx_products_brand_id (brand_id),
   UNIQUE KEY uq_products_sku (sku)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- brands
+CREATE TABLE IF NOT EXISTS brands (
+  id VARCHAR(36) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  image_url TEXT NULL,
+  sort_order INT NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_brands_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- categories

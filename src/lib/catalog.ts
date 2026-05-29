@@ -35,6 +35,11 @@ export function filterByCategory(products: Product[], category: string): Product
   return products.filter((p) => p.category === category)
 }
 
+export function filterByBrand(products: Product[], brand: string): Product[] {
+  if (brand === 'All') return products
+  return products.filter((p) => (p.brand || '') === brand)
+}
+
 export function filterBySearch(products: Product[], query: string): Product[] {
   const q = query.trim().toLowerCase()
   if (!q) return products

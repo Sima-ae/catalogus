@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 
 type CategoryOption = { id: string; name: string; slug: string }
+type BrandOption = { id: string; name: string; slug: string }
 
 const defaultForm = {
   name: '',
@@ -21,6 +22,7 @@ const defaultForm = {
   original_price: '',
   image_url: '',
   category: '',
+  brand: '',
   tags: '',
   author: APP_DEFAULT_AUTHOR,
   author_icon: APP_DEFAULT_AUTHOR_ICON,
@@ -63,6 +65,7 @@ export default function ProductForm({
   const authHeaders = useMemo(() => catalogAuthHeaders(user), [user])
   const [form, setForm] = useState(defaultForm)
   const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [brands, setBrands] = useState<BrandOption[]>([])
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,6 +76,12 @@ export default function ProductForm({
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setCategories(data)
+      })
+      .catch(() => {})
+    fetch(appPath('/api/brands'))
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setBrands(data)
       })
       .catch(() => {})
   }, [])
@@ -246,6 +255,32 @@ export default function ProductForm({
             <p className="text-xs mt-1 form-hint">
               <Link href="/admin/categories/new" className={t.link}>
                 Add a new category
+              </Link>
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="form-label">Brand</label>
+          <select
+            name="brand"
+            value={form.brand}
+            onChange={onChange}
+            className="input w-full"
+          >
+            <option value="">No brand</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.name}>
+                {b.name}
+              </option>
+            ))}
+            {form.brand && !brands.some((b) => b.name === form.brand) && (
+              <option value={form.brand}>{form.brand}</option>
+            )}
+          </select>
+          {!isSeller && (
+            <p className="text-xs mt-1 form-hint">
+              <Link href="/admin/brands/new" className={t.link}>
+                Add a new brand
               </Link>
             </p>
           )}
@@ -425,6 +460,7 @@ function mapProductToForm(p: Partial<Product>) {
     original_price: p.original_price != null ? String(p.original_price) : '',
     image_url: p.image_url || '',
     category: p.category || '',
+    brand: p.brand || '',
     tags,
     author: p.author || APP_DEFAULT_AUTHOR,
     author_icon: p.author_icon || APP_DEFAULT_AUTHOR_ICON,

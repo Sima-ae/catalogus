@@ -8,6 +8,8 @@ export interface Product {
   image_url: string
   gallery_images?: string[]
   category: string
+  brand?: string
+  brand_id?: string | null
   tags?: string[]
   author_id?: string
   author: string

@@ -5,6 +5,7 @@ import ShopHeroBanner from '@/components/shop/ShopHeroBanner'
 import { productsAddedThisMonth } from '@/lib/catalog'
 import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
+import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
@@ -12,12 +13,15 @@ import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import { appPath } from '@/lib/paths'
+import { filterByBrand } from '@/lib/catalog'
+import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 
 function HomePageContent() {
   const [products, setProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const { selectedCategory, setSelectedCategory } = useShopCategory()
+  const { selectedBrand, setSelectedBrand } = useShopBrand()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { theme } = useTheme()
@@ -28,12 +32,13 @@ function HomePageContent() {
   }, [])
 
   useEffect(() => {
-    if (selectedCategory === 'All') {
-      setFilteredProducts(products)
-    } else {
-      setFilteredProducts(products.filter((product) => product.category === selectedCategory))
+    let list = products
+    if (selectedCategory !== 'All') {
+      list = list.filter((product) => product.category === selectedCategory)
     }
-  }, [selectedCategory, products])
+    list = filterByBrand(list, selectedBrand)
+    setFilteredProducts(list)
+  }, [selectedCategory, selectedBrand, products])
 
   const fetchProducts = async () => {
     try {
@@ -156,6 +161,7 @@ function HomePageContent() {
               selectedCategory={selectedCategory}
               onCategoryChange={handleCategoryChange}
             />
+            <BrandFilter selectedBrand={selectedBrand} onBrandChange={setSelectedBrand} />
 
             {loading ? (
               <div className="text-center py-12">

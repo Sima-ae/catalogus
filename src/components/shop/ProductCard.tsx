@@ -74,21 +74,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         }`}>
           {product.description}
         </p>
-        
-        <div className="flex items-center space-x-2">
-          <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${
-            product.author_icon === 'S' || product.author_icon === 'i' ? 'bg-green-500' :
-            product.author_icon === 'Q' ? 'bg-green-500' :
-            product.author_icon === 'M' ? 'bg-purple-500' :
-            'bg-yellow-500'
-          }`}>
-            {product.author_icon}
-          </div>
-          <span className={`text-xs truncate transition-colors ${
-            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-          }`}>{product.author}</span>
-        </div>
-        
+
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-2 min-w-0">
             {product.original_price &&

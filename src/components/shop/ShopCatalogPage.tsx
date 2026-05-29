@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
+import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
@@ -11,6 +12,7 @@ import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import { appPath } from '@/lib/paths'
+import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { APP_NAME } from '@/lib/brand'
 import ShopHeroBanner from '@/components/shop/ShopHeroBanner'
@@ -21,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline'
 import {
   type CatalogMode,
+  filterByBrand,
   filterByCategory,
   filterBySearch,
   productsAddedThisMonth,
@@ -48,6 +51,7 @@ export type ShopCatalogConfig = {
 function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [products, setProducts] = useState<Product[]>([])
   const { selectedCategory, setSelectedCategory } = useShopCategory()
+  const { selectedBrand, setSelectedBrand } = useShopBrand()
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,9 +89,10 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
   const displayedProducts = useMemo(() => {
     let list = filterByCategory(sortedProducts, selectedCategory)
+    list = filterByBrand(list, selectedBrand)
     list = filterBySearch(list, searchQuery)
     return list
-  }, [sortedProducts, selectedCategory, searchQuery])
+  }, [sortedProducts, selectedCategory, selectedBrand, searchQuery])
 
   const stats = useMemo(() => {
     const active = sortProducts(products, 'all')
@@ -173,6 +178,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           )}
 
           <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
+          <BrandFilter selectedBrand={selectedBrand} onBrandChange={setSelectedBrand} />
 
           {loading ? (
             <div className="text-center py-16">

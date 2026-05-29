@@ -4,6 +4,7 @@ import {
   DuplicateSkuError,
   getProductById,
   MissingSkuError,
+  UnknownBrandError,
   UnknownCategoryError,
   updateProduct,
 } from '@/lib/products-db'
@@ -88,7 +89,7 @@ export async function PATCH(
     }
     return NextResponse.json(product)
   } catch (error) {
-    if (error instanceof UnknownCategoryError) {
+    if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error instanceof MissingSkuError) {

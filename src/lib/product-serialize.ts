@@ -17,13 +17,17 @@ export function parseProductJsonField(value: unknown): string[] | null {
 }
 
 export function serializeProductRow(row: Record<string, unknown>) {
-  /** Only expose category names that exist in the categories table (keeps shop in sync). */
+  /** Only expose names that exist in categories/brands tables (keeps shop in sync). */
   const category = String(row.resolved_category_name ?? '').trim()
+  const brand = String(row.resolved_brand_name ?? row.brand ?? '').trim()
 
   const {
     resolved_category_name: _rn,
     resolved_category_id: _ri,
     resolved_category_slug: _rs,
+    resolved_brand_name: _bn,
+    resolved_brand_id: _bi,
+    resolved_brand_slug: _bs,
     ...rest
   } = row
 
@@ -31,6 +35,8 @@ export function serializeProductRow(row: Record<string, unknown>) {
     ...rest,
     category,
     category_id: row.category_id ?? row.resolved_category_id ?? null,
+    brand: brand || undefined,
+    brand_id: row.brand_id ?? row.resolved_brand_id ?? null,
     gallery_images: parseProductJsonField(row.gallery_images),
     tags: parseProductJsonField(row.tags),
     features: parseProductJsonField(row.features) ?? [],

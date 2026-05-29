@@ -52,6 +52,10 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
         : null,
     image_url: String(body.image_url || '').trim(),
     category: String(body.category || '').trim(),
+    brand:
+      body.brand !== undefined && body.brand !== null
+        ? String(body.brand).trim() || null
+        : undefined,
     gallery_images: linesToStringArray(body.gallery_images),
     tags,
     features: linesToStringArray(body.features),
