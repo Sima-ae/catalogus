@@ -15,9 +15,9 @@ export async function loadAllBrands(): Promise<BrandRecord[]> {
   }
 }
 
-export async function loadActiveBrands(): Promise<BrandRecord[]> {
+export async function loadActiveBrands(categoryName?: string): Promise<BrandRecord[]> {
   try {
-    return (await listBrands(true)) as BrandRecord[]
+    return (await listBrands(true, categoryName)) as BrandRecord[]
   } catch {
     return []
   }
@@ -32,13 +32,20 @@ export async function createBrand(input: {
   name: string
   slug: string
   description?: string
+  categoryIds?: string[]
 }): Promise<BrandRecord> {
   return (await insertBrand(input)) as BrandRecord
 }
 
 export async function saveBrand(
   id: string,
-  input: { name: string; slug: string; description?: string; active?: boolean }
+  input: {
+    name: string
+    slug: string
+    description?: string
+    active?: boolean
+    categoryIds?: string[]
+  }
 ): Promise<
   | { ok: true; row: BrandRecord }
   | { ok: false; status: number; error: string }

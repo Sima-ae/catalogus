@@ -178,7 +178,11 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           )}
 
           <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
-          <BrandFilter selectedBrand={selectedBrand} onBrandChange={setSelectedBrand} />
+          <BrandFilter
+            selectedCategory={selectedCategory}
+            selectedBrand={selectedBrand}
+            onBrandChange={setSelectedBrand}
+          />
 
           {loading ? (
             <div className="text-center py-16">

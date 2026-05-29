@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { mapDbBrandsToAdminRows, parseBrandBody } from '@/lib/admin-brands'
-import { serializeBrand } from '@/lib/brand-serialize'
-import { createBrand, loadAllBrands } from '@/lib/brands-persistence'
+import { serializeBrandWithCategories } from '@/lib/brand-serialize'
+import { listBrandsWithCategoryLinks } from '@/lib/brands-db'
+import { createBrand } from '@/lib/brands-persistence'
 import { getDbErrorMessage } from '@/lib/db-errors'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const rows = await loadAllBrands()
+    const rows = await listBrandsWithCategoryLinks()
     return NextResponse.json(mapDbBrandsToAdminRows(rows))
   } catch (error) {
     console.error('Admin brands fetch error:', error)
@@ -44,9 +45,10 @@ export async function POST(request: NextRequest) {
       name: input.name,
       slug: input.slug,
       description: input.description,
+      categoryIds: input.categoryIds,
     })
 
-    return NextResponse.json(serializeBrand(row as Record<string, unknown>), {
+    return NextResponse.json(await serializeBrandWithCategories(row as Record<string, unknown>), {
       status: 201,
     })
   } catch (error) {

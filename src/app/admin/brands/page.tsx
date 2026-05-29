@@ -124,6 +124,7 @@ export default function AdminBrandsPage() {
               <tr className={`border-b ${t.rowBorder}`}>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Name</th>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Slug</th>
+                <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Categories</th>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Status</th>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Description</th>
                 <th className={`text-right py-3 px-4 font-medium ${t.tableHead}`}>Actions</th>
@@ -134,6 +135,9 @@ export default function AdminBrandsPage() {
                 <tr key={b.id} className={`border-b ${t.rowBorder}`}>
                   <td className={`py-3 px-4 font-semibold ${t.tableCell}`}>{b.name}</td>
                   <td className={`py-3 px-4 font-mono text-sm ${t.body}`}>{b.slug}</td>
+                  <td className={`py-3 px-4 text-sm ${t.body}`}>
+                    {b.categories?.length ? b.categories.join(', ') : '—'}
+                  </td>
                   <td className={`py-3 px-4 ${t.body}`}>{b.active ? 'Active' : 'Inactive'}</td>
                   <td className={`py-3 px-4 max-w-xs truncate ${t.muted}`}>{b.description || '—'}</td>
                   <td className="py-3 px-4">

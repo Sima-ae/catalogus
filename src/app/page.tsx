@@ -161,7 +161,11 @@ function HomePageContent() {
               selectedCategory={selectedCategory}
               onCategoryChange={handleCategoryChange}
             />
-            <BrandFilter selectedBrand={selectedBrand} onBrandChange={setSelectedBrand} />
+            <BrandFilter
+              selectedCategory={selectedCategory}
+              selectedBrand={selectedBrand}
+              onBrandChange={setSelectedBrand}
+            />
 
             {loading ? (
               <div className="text-center py-12">

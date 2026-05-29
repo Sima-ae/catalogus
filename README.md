@@ -19,7 +19,9 @@ Import in order via phpMyAdmin or `mysql`:
 
 1. `db/supe_r_clones_cloud_init.sql` — schema
 2. `db/supe_r_clones_cloud_users.sql` — seed users (bcrypt hashes only)
-3. `db/upgrade.sql` — only if upgrading an older database
+3. `db/upgrade.sql` — only if upgrading an older database  
+4. `db/brands.sql` — brands table + product `brand` columns (if missing after deploy)  
+5. `db/brand_categories.sql` — link brands to categories (many-to-many)
 
 Reset super-admin password on the server:
 

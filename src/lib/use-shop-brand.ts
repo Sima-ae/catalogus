@@ -16,7 +16,12 @@ export function useShopBrand() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const brandMenu = useShopBrandList()
+  const selectedCategory = useMemo(() => {
+    const raw = searchParams.get('category')?.trim()
+    return raw || 'All'
+  }, [searchParams])
+
+  const brandMenu = useShopBrandList(selectedCategory)
 
   const selectedBrand = useMemo(() => {
     const raw = searchParams.get('brand')?.trim()

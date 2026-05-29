@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { parseBrandBody } from '@/lib/admin-brands'
-import { serializeBrand } from '@/lib/brand-serialize'
+import { serializeBrandWithCategories } from '@/lib/brand-serialize'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { loadBrandById, removeBrand, saveBrand } from '@/lib/brands-persistence'
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     if (!row) {
       return jsonError('Brand not found', 404)
     }
-    return NextResponse.json(serializeBrand(row as Record<string, unknown>))
+    return NextResponse.json(await serializeBrandWithCategories(row as Record<string, unknown>))
   } catch (error) {
     console.error('Brand GET error:', error)
     return jsonError(getDbErrorMessage(error, 'Failed to load brand'), 503)
@@ -56,7 +56,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       return jsonError(result.error, result.status)
     }
 
-    return NextResponse.json(serializeBrand(result.row as Record<string, unknown>))
+    return NextResponse.json(
+      await serializeBrandWithCategories(result.row as Record<string, unknown>)
+    )
   } catch (error) {
     console.error('Brand PATCH error:', error)
     return jsonError(getDbErrorMessage(error, 'Failed to save brand'), 503)

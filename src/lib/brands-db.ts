@@ -9,13 +9,98 @@ export class UnknownBrandError extends Error {
   }
 }
 
-export async function listBrands(activeOnly = false) {
+export async function brandCategoriesTableExists(): Promise<boolean> {
+  try {
+    const rows = await queryDb<{ TABLE_NAME: string }[]>(
+      `SELECT TABLE_NAME FROM information_schema.TABLES
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'brand_categories'`
+    )
+    return rows.length > 0
+  } catch {
+    return false
+  }
+}
+
+/** Active brands for shop; optional category name filters linked brands (unlinked brands show everywhere). */
+export async function listBrands(activeOnly = false, categoryName?: string) {
+  const category = categoryName?.trim()
+  const hasLinks = await brandCategoriesTableExists()
+
+  if (activeOnly && category && category !== 'All' && hasLinks) {
+    return queryDb<Record<string, unknown>[]>(
+      `SELECT DISTINCT b.*
+       FROM brands b
+       WHERE b.active = 1
+         AND (
+           NOT EXISTS (SELECT 1 FROM brand_categories bc WHERE bc.brand_id = b.id)
+           OR EXISTS (
+             SELECT 1 FROM brand_categories bc
+             INNER JOIN categories c ON c.id = bc.category_id AND c.active = 1
+             WHERE bc.brand_id = b.id AND (c.name = ? OR c.slug = ?)
+           )
+         )
+       ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
+      [category, slugifyCategory(category)]
+    )
+  }
+
   if (activeOnly) {
     return queryDb<Record<string, unknown>[]>(
       'SELECT * FROM brands WHERE active = 1 ORDER BY COALESCE(sort_order, 9999), name ASC'
     )
   }
   return queryDb<Record<string, unknown>[]>('SELECT * FROM brands ORDER BY name ASC')
+}
+
+export async function getBrandCategoryIds(brandId: string): Promise<string[]> {
+  if (!(await brandCategoriesTableExists())) return []
+  const rows = await queryDb<{ category_id: string }[]>(
+    'SELECT category_id FROM brand_categories WHERE brand_id = ?',
+    [brandId]
+  )
+  return rows.map((r) => r.category_id)
+}
+
+export async function getBrandCategories(brandId: string) {
+  if (!(await brandCategoriesTableExists())) return []
+  return queryDb<{ id: string; name: string }[]>(
+    `SELECT c.id, c.name
+     FROM brand_categories bc
+     INNER JOIN categories c ON c.id = bc.category_id
+     WHERE bc.brand_id = ?
+     ORDER BY c.name ASC`,
+    [brandId]
+  )
+}
+
+export async function setBrandCategories(brandId: string, categoryIds: string[]) {
+  if (!(await brandCategoriesTableExists())) return
+  const unique = Array.from(new Set(categoryIds.map((id) => id.trim()).filter(Boolean)))
+  await queryDb('DELETE FROM brand_categories WHERE brand_id = ?', [brandId])
+  for (const categoryId of unique) {
+    await queryDb(
+      'INSERT INTO brand_categories (brand_id, category_id) VALUES (?, ?)',
+      [brandId, categoryId]
+    )
+  }
+}
+
+/** Admin list: all brands with linked category names. */
+export async function listBrandsWithCategoryLinks() {
+  const brands = await listBrands(false)
+  if (!(await brandCategoriesTableExists())) {
+    return brands.map((b) => ({
+      ...b,
+      categories: [] as { id: string; name: string }[],
+    }))
+  }
+  const withCats = await Promise.all(
+    brands.map(async (b) => ({
+      ...b,
+      categories: await getBrandCategories(String(b.id)),
+    }))
+  )
+  return withCats
 }
 
 export async function getBrandById(id: string) {
@@ -26,12 +111,20 @@ export async function getBrandById(id: string) {
   return rows[0] ?? null
 }
 
-export async function insertBrand(input: { name: string; slug: string; description?: string }) {
+export async function insertBrand(input: {
+  name: string
+  slug: string
+  description?: string
+  categoryIds?: string[]
+}) {
   const id = randomUUID()
   await queryDb(
     'INSERT INTO brands (id, name, slug, description, active) VALUES (?, ?, ?, ?, 1)',
     [id, input.name, input.slug, input.description || null]
   )
+  if (input.categoryIds?.length) {
+    await setBrandCategories(id, input.categoryIds)
+  }
   const rows = await queryDb<Record<string, unknown>[]>(
     'SELECT * FROM brands WHERE id = ? LIMIT 1',
     [id]
@@ -41,7 +134,13 @@ export async function insertBrand(input: { name: string; slug: string; descripti
 
 export async function updateBrandById(
   id: string,
-  input: { name: string; slug: string; description?: string; active?: boolean }
+  input: {
+    name: string
+    slug: string
+    description?: string
+    active?: boolean
+    categoryIds?: string[]
+  }
 ) {
   const prev = await getBrandById(id)
 
@@ -63,10 +162,17 @@ export async function updateBrandById(
     await queryDb('UPDATE products SET brand = ? WHERE brand = ?', [input.name, prev.name])
   }
 
+  if (input.categoryIds !== undefined) {
+    await setBrandCategories(id, input.categoryIds)
+  }
+
   return getBrandById(id)
 }
 
 export async function deleteBrandById(id: string) {
+  if (await brandCategoriesTableExists()) {
+    await queryDb('DELETE FROM brand_categories WHERE brand_id = ?', [id])
+  }
   await queryDb('DELETE FROM brands WHERE id = ?', [id])
 }
 
