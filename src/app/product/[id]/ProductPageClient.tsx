@@ -9,7 +9,7 @@ import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
-import { ArrowLeftIcon, StarIcon, HeartIcon, ShareIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
@@ -42,9 +42,13 @@ export default function ProductPageClient() {
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
   const [reviews, setReviews] = useState<ProductReview[]>([])
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
   const thumbListRef = useRef<HTMLDivElement>(null)
+  const lightboxRef = useRef<HTMLDivElement>(null)
+  const lightboxTouchStart = useRef<{ x: number; y: number } | null>(null)
+  const lightboxDidSwipe = useRef(false)
 
   useEffect(() => {
     const list = thumbListRef.current
@@ -110,6 +114,73 @@ export default function ProductPageClient() {
       })
     return () => controller.abort()
   }, [productId])
+
+  useEffect(() => {
+    if (!lightboxOpen || !product) return
+    const count = product.gallery.length
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setLightboxOpen(false)
+        return
+      }
+      if (count <= 1) return
+      if (e.key === 'ArrowLeft' || e.key === 'Left') {
+        e.preventDefault()
+        setSelectedImage((i) => (i - 1 + count) % count)
+      }
+      if (e.key === 'ArrowRight' || e.key === 'Right') {
+        e.preventDefault()
+        setSelectedImage((i) => (i + 1) % count)
+      }
+    }
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', onKeyDown, true)
+    requestAnimationFrame(() => lightboxRef.current?.focus())
+    return () => {
+      document.body.style.overflow = ''
+      document.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [lightboxOpen, product])
+
+  const goToPreviousImage = () => {
+    if (!product || product.gallery.length <= 1) return
+    setSelectedImage((i) => (i - 1 + product.gallery.length) % product.gallery.length)
+  }
+
+  const goToNextImage = () => {
+    if (!product || product.gallery.length <= 1) return
+    setSelectedImage((i) => (i + 1) % product.gallery.length)
+  }
+
+  const handleLightboxTouchStart = (e: React.TouchEvent) => {
+    lightboxDidSwipe.current = false
+    const t = e.touches[0]
+    if (!t) return
+    lightboxTouchStart.current = { x: t.clientX, y: t.clientY }
+  }
+
+  const handleLightboxTouchEnd = (e: React.TouchEvent) => {
+    const start = lightboxTouchStart.current
+    lightboxTouchStart.current = null
+    if (!start || !product || product.gallery.length <= 1) return
+    const t = e.changedTouches[0]
+    if (!t) return
+    const dx = t.clientX - start.x
+    const dy = t.clientY - start.y
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return
+    lightboxDidSwipe.current = true
+    if (dx > 0) goToPreviousImage()
+    else goToNextImage()
+  }
+
+  const closeLightbox = () => {
+    if (lightboxDidSwipe.current) {
+      lightboxDidSwipe.current = false
+      return
+    }
+    setLightboxOpen(false)
+  }
 
   const handleAddToCart = async () => {
     if (!product) return
@@ -250,54 +321,97 @@ export default function ProductPageClient() {
             ) : null}
 
             <div className="flex-1 min-w-0">
-              <div
-                className={`relative w-full aspect-[3/4] max-h-[min(75vh,720px)] rounded-lg overflow-hidden ${
-                  theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
-                }`}
-              >
-                {product.gallery[selectedImage] ? (
+              {product.gallery[selectedImage] ? (
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className={`relative block w-full aspect-[3/4] max-h-[min(75vh,720px)] rounded-lg overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
+                  }`}
+                  aria-label={`View ${product.name} image full size`}
+                >
                   <Image
                     src={product.gallery[selectedImage]}
                     alt={product.name}
                     fill
                     sizes="(max-width: 1024px) 85vw, 45vw"
-                    className="object-contain"
+                    className="object-contain pointer-events-none"
                     priority
                   />
-                ) : (
-                  <div
-                    className={`flex h-full w-full items-center justify-center text-sm ${
-                      theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                    }`}
-                  >
-                    No image
-                  </div>
-                )}
-                <div className="absolute top-4 right-4 flex space-x-2">
-                  <button
-                    type="button"
-                    className={`p-2 rounded-lg transition-colors ${
-                      theme === 'dark'
-                        ? 'bg-dark-800 bg-opacity-80 text-gray-300 hover:text-white'
-                        : 'bg-white bg-opacity-90 text-gray-600 hover:text-gray-900 shadow-lg'
-                    }`}
-                  >
-                    <HeartIcon className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`p-2 rounded-lg transition-colors ${
-                      theme === 'dark'
-                        ? 'bg-dark-800 bg-opacity-80 text-gray-300 hover:text-white'
-                        : 'bg-white bg-opacity-90 text-gray-600 hover:text-gray-900 shadow-lg'
-                    }`}
-                  >
-                    <ShareIcon className="w-5 h-5" />
-                  </button>
+                </button>
+              ) : (
+                <div
+                  className={`relative flex w-full aspect-[3/4] max-h-[min(75vh,720px)] items-center justify-center rounded-lg text-sm ${
+                    theme === 'dark' ? 'bg-dark-800 text-gray-500' : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  No image
                 </div>
-              </div>
+              )}
             </div>
           </div>
+
+          {lightboxOpen && product.gallery[selectedImage] ? (
+            <div
+              ref={lightboxRef}
+              tabIndex={-1}
+              className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 outline-none touch-none"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${product.name} — image ${selectedImage + 1} of ${product.gallery.length}`}
+              onTouchStart={handleLightboxTouchStart}
+              onTouchEnd={handleLightboxTouchEnd}
+            >
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/85 backdrop-blur-sm"
+                aria-label="Close image"
+                onClick={closeLightbox}
+              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                className="absolute top-4 right-4 z-20 rounded-lg bg-black/60 p-2 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+              {product.gallery.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      goToPreviousImage()
+                    }}
+                    className="absolute left-2 sm:left-6 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeftIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      goToNextImage()
+                    }}
+                    className="absolute right-2 sm:right-6 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
+                    aria-label="Next image"
+                  >
+                    <ChevronRightIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </button>
+                </>
+              ) : null}
+              {/* eslint-disable-next-line @next/next/no-img-element -- full-resolution lightbox */}
+              <img
+                key={product.gallery[selectedImage]}
+                src={product.gallery[selectedImage]}
+                alt={`${product.name} — image ${selectedImage + 1}`}
+                className="relative z-10 max-h-[92vh] max-w-[min(calc(96vw-5rem),1400px)] w-auto h-auto object-contain select-none pointer-events-none"
+                draggable={false}
+              />
+            </div>
+          ) : null}
 
           {/* Right Column - Product Details */}
           <div className="space-y-6">
