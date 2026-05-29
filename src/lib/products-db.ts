@@ -2,6 +2,12 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
 import { serializeProductRow } from '@/lib/product-serialize'
+import {
+  DuplicateSkuError,
+  MissingSkuError,
+  normalizeProductSku,
+  requireProductSku,
+} from '@/lib/product-sku'
 
 export type ProductInput = {
   name: string
@@ -37,6 +43,30 @@ export class UnknownCategoryError extends Error {
   constructor(name: string) {
     super(`Category "${name}" does not exist. Add it under Admin → Categories first.`)
     this.name = 'UnknownCategoryError'
+  }
+}
+
+export { DuplicateSkuError, MissingSkuError } from '@/lib/product-sku'
+
+async function assertSkuIsUnique(sku: string, excludeProductId?: string) {
+  const normalized = normalizeProductSku(sku)
+  if (!normalized) throw new MissingSkuError()
+
+  const params: unknown[] = [normalized]
+  let sql = `SELECT id FROM products
+    WHERE sku IS NOT NULL AND LOWER(TRIM(sku)) = LOWER(?)
+    LIMIT 1`
+
+  if (excludeProductId) {
+    sql = `SELECT id FROM products
+      WHERE sku IS NOT NULL AND LOWER(TRIM(sku)) = LOWER(?) AND id <> ?
+      LIMIT 1`
+    params.push(excludeProductId)
+  }
+
+  const rows = await queryDb<{ id: string }[]>(sql, params)
+  if (rows[0]) {
+    throw new DuplicateSkuError(normalized)
   }
 }
 
@@ -147,6 +177,9 @@ async function fetchProductRow(id: string) {
 
 export async function insertProduct(input: ProductInput) {
   const category = await resolveProductCategoryInput(input.category)
+  const sku = requireProductSku(input.sku)
+  await assertSkuIsUnique(sku)
+
   const id = randomUUID()
   const schema = await getProductSchemaFlags()
   const hasCategoryId = schema.categoryId
@@ -170,7 +203,7 @@ export async function insertProduct(input: ProductInput) {
     author: input.author,
     author_icon: input.author_icon,
     ...(schema.authorId && input.author_id ? { author_id: input.author_id } : {}),
-    sku: input.sku || null,
+    sku,
     download_url: input.download_url || null,
     demo_url: input.demo_url || null,
     documentation_url: input.documentation_url || null,
@@ -231,7 +264,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     author: input.author,
     author_icon: input.author_icon,
     author_id: schema.authorId && input.author_id !== undefined ? input.author_id : undefined,
-    sku: input.sku,
+    sku: input.sku !== undefined ? normalizeProductSku(input.sku) : undefined,
     download_url: input.download_url,
     demo_url: input.demo_url,
     documentation_url: input.documentation_url,
@@ -260,6 +293,15 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   }
 
   if (!fields.length) return fetchProductRow(id)
+
+  if (input.sku !== undefined) {
+    const sku = requireProductSku(input.sku)
+    await assertSkuIsUnique(sku, id)
+    const skuIdx = fields.findIndex((f) => f.startsWith('sku = '))
+    if (skuIdx !== -1) {
+      values[skuIdx] = sku
+    }
+  }
 
   values.push(id)
   await queryDb(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, values)

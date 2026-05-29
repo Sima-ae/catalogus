@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  DuplicateSkuError,
   insertProduct,
   listProducts,
   listProductsForSeller,
+  MissingSkuError,
   UnknownCategoryError,
 } from '@/lib/products-db'
 import { parseProductBody } from '@/lib/product-body'
@@ -50,12 +52,21 @@ export async function POST(request: NextRequest) {
     if (!input.name || !input.short_description || !input.image_url || !input.category) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+    if (!input.sku?.trim()) {
+      return NextResponse.json({ error: 'SKU is required' }, { status: 400 })
+    }
 
     const product = await insertProduct(input)
     return NextResponse.json(product, { status: 201 })
   } catch (error) {
     if (error instanceof UnknownCategoryError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error instanceof MissingSkuError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error instanceof DuplicateSkuError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
     }
     console.error('Product create error:', error)
     return NextResponse.json(

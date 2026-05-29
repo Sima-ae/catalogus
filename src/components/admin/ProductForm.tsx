@@ -127,6 +127,12 @@ export default function ProductForm({
     setError(null)
     setSaved(false)
 
+    if (!form.sku.trim()) {
+      setError('SKU is required')
+      setSaving(false)
+      return
+    }
+
     const payload = parseProductBody({
       ...form,
       price: form.price,
@@ -285,7 +291,12 @@ export default function ProductForm({
             />
           </div>
         )}
-        <Field label="SKU" name="sku" value={form.sku} onChange={onChange} />
+        <div>
+          <Field label="SKU" name="sku" value={form.sku} onChange={onChange} required />
+          <p className={`mt-1 text-xs ${t.muted}`}>
+            Required. Must be unique across all products (not case-sensitive).
+          </p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="form-label">Status</label>

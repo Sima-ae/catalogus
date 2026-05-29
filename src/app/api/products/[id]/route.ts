@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   deleteProductById,
+  DuplicateSkuError,
   getProductById,
+  MissingSkuError,
   UnknownCategoryError,
   updateProduct,
 } from '@/lib/products-db'
@@ -88,6 +90,12 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof UnknownCategoryError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error instanceof MissingSkuError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error instanceof DuplicateSkuError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
     }
     console.error('Product update error:', error)
     return NextResponse.json(

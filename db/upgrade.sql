@@ -66,6 +66,36 @@ SET
   role = 'admin'
 WHERE LOWER(email) = 'info@000.it.com';
 
+-- Required, unique SKUs (case-insensitive via utf8mb4_unicode_ci)
+UPDATE products SET sku = NULL WHERE sku IS NOT NULL AND TRIM(sku) = '';
+
+UPDATE products p
+INNER JOIN (
+  SELECT id
+  FROM (
+    SELECT
+      id,
+      ROW_NUMBER() OVER (
+        PARTITION BY LOWER(TRIM(sku))
+        ORDER BY created_at ASC, id ASC
+      ) AS rn
+    FROM products
+    WHERE sku IS NOT NULL AND TRIM(sku) <> ''
+  ) ranked
+  WHERE ranked.rn > 1
+) dup ON dup.id = p.id
+SET p.sku = CONCAT(TRIM(p.sku), '-', LEFT(p.id, 8));
+
+UPDATE products
+SET sku = CONCAT('LEGACY-', LEFT(id, 8))
+WHERE sku IS NULL OR TRIM(sku) = '';
+
+ALTER TABLE products
+  ADD UNIQUE KEY IF NOT EXISTS uq_products_sku (sku);
+
+ALTER TABLE products
+  MODIFY COLUMN sku VARCHAR(255) NOT NULL;
+
 INSERT INTO user_profiles (id, email, name, role)
 SELECT
   'a0000000-0000-0000-0000-000000000001',

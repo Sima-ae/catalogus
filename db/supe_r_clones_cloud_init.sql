@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS products (
   author_id VARCHAR(36) NULL,
   author VARCHAR(255) NOT NULL,
   author_icon VARCHAR(64) NOT NULL,
-  sku VARCHAR(255) NULL,
+  sku VARCHAR(255) NOT NULL,
   download_url TEXT NULL,
   demo_url TEXT NULL,
   documentation_url TEXT NULL,
@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS products (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  KEY idx_products_category_id (category_id)
+  KEY idx_products_category_id (category_id),
+  UNIQUE KEY uq_products_sku (sku)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- categories

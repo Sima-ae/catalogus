@@ -1,5 +1,6 @@
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
+import { normalizeProductSku } from '@/lib/product-sku'
 
 /** One item per line (or comma-separated tags). */
 export function linesToStringArray(value: unknown): string[] | null {
@@ -61,7 +62,7 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
         : undefined,
     author: String(body.author || APP_DEFAULT_AUTHOR).trim(),
     author_icon: String(body.author_icon || APP_DEFAULT_AUTHOR_ICON).trim(),
-    sku: body.sku ? String(body.sku).trim() : null,
+    sku: normalizeProductSku(body.sku),
     status: String(body.status || 'active'),
     featured: body.featured === true || body.featured === 'true' || body.featured === 1,
     version: body.version ? String(body.version) : null,
