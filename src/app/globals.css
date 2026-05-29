@@ -369,6 +369,11 @@ body.app-protected [contenteditable='true'] {
   .margin-responsive {
     @apply m-4 sm:m-6 lg:m-8;
   }
+
+  /* Header activity — SVG speech outline (see ActivitySpeechBubble) */
+  .activity-speech-bubble-wrap {
+    @apply pb-1;
+  }
 }
 
 @media (max-width: 640px) {

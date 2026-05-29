@@ -6,17 +6,14 @@ import { CatalogModeProvider } from '@/lib/catalog-mode-context'
 import { CartProvider } from '@/lib/cart'
 import { ThemeProvider } from '@/lib/theme'
 import { AuthProvider } from '@/lib/auth-local'
-import { appUrl } from '@/lib/paths'
-import { APP_NAME } from '@/lib/brand'
 import SiteAccessGuard from '@/components/site-access/SiteAccessGuard'
 import ContentProtection from '@/components/ContentProtection'
+import { buildRootMetadata } from '@/lib/site-metadata'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
-  metadataBase: new URL(appUrl()),
-  title: `${APP_NAME} - Digital Marketplace`,
-  description: 'Digital marketplace for web templates, applications, and digital assets',
+export async function generateMetadata(): Promise<Metadata> {
+  return buildRootMetadata()
 }
 
 export default function RootLayout({

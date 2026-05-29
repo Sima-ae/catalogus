@@ -1,9 +1,34 @@
 'use client'
 
-import { Suspense, useState, useCallback } from 'react'
+import { Suspense, useState, useCallback, useEffect } from 'react'
 
+/** Sidebar open/close — closed by default on viewports below lg. */
+export function useShopSidebar() {
+  const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      setOpen(false)
+    }
+  }, [])
+
+  const openSidebar = useCallback(() => setOpen(true), [])
+  const closeSidebar = useCallback(() => setOpen(false), [])
+  return { open, openSidebar, closeSidebar }
+}
+
+/** @deprecated Use useShopSidebar */
 export function useMobileSidebar() {
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(true)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      setMobileOpen(false)
+    }
+  }, [])
+
   const open = useCallback(() => setMobileOpen(true), [])
   const close = useCallback(() => setMobileOpen(false), [])
   return { mobileOpen, open, close }
@@ -15,6 +40,7 @@ import { useAuth } from '@/lib/auth-local'
 import { APP_COPYRIGHT } from '@/lib/brand'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
+import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import SidebarCategories from '@/components/layout/SidebarCategories'
 import {
   HomeIcon,
@@ -47,7 +73,7 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className={`lg:hidden p-2 rounded-lg transition-colors ${
+      className={`p-2 rounded-lg transition-colors shrink-0 ${
         theme === 'dark' ? 'hover:bg-dark-700 text-white' : 'hover:bg-gray-100 text-gray-900'
       }`}
       aria-label="Open menu"
@@ -55,6 +81,18 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
       <Bars3Icon className="w-6 h-6" />
     </button>
   )
+}
+
+/** Header hamburger — only visible while the shop sidebar is closed. */
+export function SidebarMenuButton({
+  open,
+  onOpen,
+}: {
+  open: boolean
+  onOpen: () => void
+}) {
+  if (open) return null
+  return <MobileMenuButton onClick={onOpen} />
 }
 
 function NavLink({
@@ -90,14 +128,21 @@ function NavLink({
 }
 
 export default function Sidebar({
+  open = true,
+  onClose,
+  /** @deprecated Use `open` */
   mobileOpen,
+  /** @deprecated Use `onClose` */
   onMobileClose,
 }: {
+  open?: boolean
+  onClose?: () => void
   mobileOpen?: boolean
   onMobileClose?: () => void
 }) {
   const pathname = usePathname()
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const isOpen = open ?? mobileOpen ?? true
+  const close = onClose ?? onMobileClose
   const { theme } = useTheme()
   const { isSuperAdmin, loading: authLoading } = useAuth()
 
@@ -112,26 +157,26 @@ export default function Sidebar({
 
   const sidebarContent = (
     <div className="p-4 h-full min-h-0 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between mb-6 lg:mb-8 gap-2">
-        <div className={`min-w-0 flex-1 ${isCollapsed ? 'hidden lg:flex lg:justify-center' : 'flex'}`}>
-          <BrandLogo compact={isCollapsed} size="dashboard" priority />
-        </div>
-        <button
-          type="button"
-          onClick={() => (onMobileClose ? onMobileClose() : setIsCollapsed(!isCollapsed))}
-          className={`p-2 rounded-lg transition-colors shrink-0 ${
-            theme === 'dark' ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
-          }`}
-          aria-label={onMobileClose ? 'Close menu' : 'Toggle sidebar'}
-        >
-          {onMobileClose ? (
+      <div className="mb-4 shrink-0 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1 flex">
+            <BrandLogo size="dashboard" priority />
+          </div>
+          <button
+            type="button"
+            onClick={() => close?.()}
+            className={`p-2 rounded-lg transition-colors shrink-0 ${
+              theme === 'dark' ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
+            }`}
+            aria-label="Close menu"
+          >
             <XMarkIcon className="w-5 h-5" />
-          ) : (
-            <svg className="w-5 h-5 hidden lg:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
+          </button>
+        </div>
+
+        <div>
+          <ShopCatalogBadge label="Catalogus 2026" />
+        </div>
       </div>
 
       <nav className="space-y-2 shrink-0">
@@ -140,9 +185,9 @@ export default function Sidebar({
             key={item.name}
             item={item}
             isActive={pathname === item.href || pathname === appPath(item.href)}
-            isCollapsed={isCollapsed && !onMobileClose}
+            isCollapsed={false}
             theme={theme}
-            onNavigate={onMobileClose}
+            onNavigate={close}
           />
         ))}
       </nav>
@@ -151,10 +196,7 @@ export default function Sidebar({
 
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <Suspense fallback={null}>
-          <SidebarCategories
-            isCollapsed={isCollapsed && !onMobileClose}
-            onNavigate={onMobileClose}
-          />
+          <SidebarCategories isCollapsed={false} onNavigate={close} />
         </Suspense>
       </div>
 
@@ -165,45 +207,47 @@ export default function Sidebar({
               key={item.name}
               item={item}
               isActive={pathname === item.href || pathname === appPath(item.href)}
-              isCollapsed={isCollapsed && !onMobileClose}
+              isCollapsed={false}
               theme={theme}
-              onNavigate={onMobileClose}
+              onNavigate={close}
             />
           ))}
         </nav>
       </div>
 
-      {!isCollapsed && (
-        <div
-          className={`mt-4 pt-4 border-t text-xs ${
-            theme === 'dark' ? 'border-dark-800 text-gray-400' : 'border-gray-200 text-gray-500'
-          }`}
-        >
-          <p>
-            <b>{APP_COPYRIGHT}</b>
-          </p>
-        </div>
-      )}
+      <div
+        className={`mt-4 pt-4 border-t text-xs ${
+          theme === 'dark' ? 'border-dark-800 text-gray-400' : 'border-gray-200 text-gray-500'
+        }`}
+      >
+        <p>
+          <b>{APP_COPYRIGHT}</b>
+        </p>
+      </div>
     </div>
   )
 
   return (
     <>
-      {mobileOpen && (
+      {isOpen && (
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           aria-label="Close menu overlay"
-          onClick={onMobileClose}
+          onClick={close}
         />
       )}
 
       <aside
-        className={`sidebar transition-transform duration-300 z-50
-          fixed inset-y-0 left-0 w-[min(100vw-3rem,16rem)] sm:w-64
-          lg:static lg:translate-x-0 lg:w-64 lg:h-screen lg:overflow-hidden
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
+        className={`sidebar z-50 h-screen overflow-hidden border-r
+          w-[min(100vw-3rem,16rem)] sm:w-64
+          fixed inset-y-0 left-0 transition-transform duration-300
+          lg:transition-none
+          ${
+            isOpen
+              ? 'translate-x-0 lg:static lg:translate-x-0 lg:shrink-0'
+              : '-translate-x-full lg:hidden'
+          }
           ${shellClass}`}
       >
         {sidebarContent}

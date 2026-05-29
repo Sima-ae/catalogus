@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import { APP_NAME } from '@/lib/brand'
 import { getProductById } from '@/lib/products-db'
+import { formatPageTitle, getSiteSeo } from '@/lib/site-metadata'
 import ProductPageClient from './ProductPageClient'
 
 export const dynamic = 'force-dynamic'
@@ -9,12 +9,13 @@ export const runtime = 'nodejs'
 type PageProps = { params: { id: string } }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const seo = await getSiteSeo()
   try {
     const product = (await getProductById(params.id)) as Record<string, unknown> | null
     if (!product) {
       return {
-        title: `Product not found | ${APP_NAME}`,
-        description: `This product is not available on ${APP_NAME}.`,
+        title: formatPageTitle('Product not found', seo.siteName),
+        description: `This product is not available on ${seo.siteName}.`,
       }
     }
 
@@ -25,15 +26,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       .replace(/\s+/g, ' ')
       .trim()
     const description =
-      rawDescription.slice(0, 160) || `${name} — available on ${APP_NAME}.`
+      rawDescription.slice(0, 160) || `${name} — available on ${seo.siteName}.`
 
     const imageUrl = product.image_url ? String(product.image_url) : undefined
 
     return {
-      title: `${name} | ${APP_NAME}`,
+      title: name,
       description,
       openGraph: {
-        title: name,
+        title: formatPageTitle(name, seo.siteName),
         description,
         type: 'website',
         ...(imageUrl ? { images: [{ url: imageUrl, alt: name }] } : {}),
@@ -47,8 +48,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
   } catch {
     return {
-      title: APP_NAME,
-      description: `Browse digital products on ${APP_NAME}.`,
+      title: seo.siteName,
+      description: seo.tagline,
     }
   }
 }

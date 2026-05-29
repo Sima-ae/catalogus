@@ -57,7 +57,7 @@ export default function ShopSettingsPage() {
   })()
 
   return (
-    <ShopPageShell title="Settings" subtitle="Appearance, store preferences, and account shortcuts">
+    <ShopPageShell title="Settings">
       <section
         className={`rounded-2xl border p-6 sm:p-8 mb-8 ${
           isDark

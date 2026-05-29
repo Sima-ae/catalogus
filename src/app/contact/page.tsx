@@ -76,7 +76,7 @@ export default function ContactPage() {
   }
 
   return (
-    <ShopPageShell title="Contact" subtitle="We're here to help with orders, licensing, and seller questions">
+    <ShopPageShell title="Contact">
       <section
         className={`rounded-2xl border p-6 sm:p-8 mb-8 ${
           isDark

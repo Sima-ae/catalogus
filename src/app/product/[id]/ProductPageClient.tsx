@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import Sidebar, { MobileMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
+import Sidebar, { SidebarMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
+import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { ArrowLeftIcon, StarIcon, HeartIcon, ShareIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
@@ -13,8 +15,6 @@ import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
-import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
-import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 
 type ProductReview = {
@@ -33,7 +33,7 @@ export default function ProductPageClient() {
   const params = useParams()
   const productId = typeof params.id === 'string' ? params.id : ''
   const { addItem, isInCart, getItemQuantity } = useCart()
-  const { theme, toggleTheme } = useTheme()
+  const { theme } = useTheme()
   const [product, setProduct] = useState<ProductPageView | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -188,97 +188,16 @@ export default function ProductPageClient() {
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
     } overflow-x-hidden`}>
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={close} />
+      <Sidebar open={mobileOpen} onClose={close} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header with Search and Actions */}
-        <div className={`transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
-        } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Breadcrumb Navigation - Left Side */}
-            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
-              <MobileMenuButton onClick={open} />
-              <Link href={appPath('/')} className={`transition-colors shrink-0 ${
-                theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-              }`}>
-                <ArrowLeftIcon className="w-6 h-6" />
-              </Link>
-              <div className={`flex items-center flex-wrap gap-x-2 gap-y-1 text-sm transition-colors ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}>
-                <Link href={appPath('/')} className={`transition-colors ${
-                  theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'
-                }`}>Home</Link>
-                <span>/</span>
-                {product.category ? (
-                  <>
-                    <Link
-                      href={product.categoryHref}
-                      className={`transition-colors ${
-                        theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'
-                      }`}
-                    >
-                      {product.category}
-                    </Link>
-                    <span>/</span>
-                  </>
-                ) : (
-                  <span>/</span>
-                )}
-                <span className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
-                  {product.name}
-                </span>
-              </div>
-            </div>
-
-            {/* Action Icons - Right Side */}
-            <div className="flex items-center space-x-4">
-              {/* Light/Dark Mode Toggle */}
-              <button 
-                onClick={toggleTheme}
-                className={`p-2 rounded-lg transition-colors duration-200 ${
-                  theme === 'dark' 
-                    ? 'text-gray-400 hover:text-white hover:bg-dark-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-                }`} 
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              >
-                {theme === 'dark' ? (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
-              
-              {/* Overview/Grid Icon */}
-              <button className={`p-2 rounded-lg transition-colors duration-200 ${
-                theme === 'dark' 
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-700' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-              }`} title="Grid View">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-              </button>
-              
-              <ShopCartHeaderButton
-                badgeCount={quantityInCart}
-                className={`relative p-2 rounded-lg transition-colors duration-200 ${
-                  theme === 'dark'
-                    ? 'text-gray-400 hover:text-white hover:bg-dark-700'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-                }`}
-              />
-              
-              <ShopRegisterHeaderButtons />
-            </div>
-          </div>
-        </div>
+        <AppStickyHeader
+          title="WELCOME"
+          showSocialProof
+          searchPlaceholder="Search products..."
+          leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
+          actions={<ShopHeroHeaderActions cartBadgeCount={quantityInCart} />}
+        />
 
         <main
           className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${
@@ -646,6 +565,44 @@ export default function ProductPageClient() {
                   }`}>{product.version}</span>
                 </div>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3 pt-1">
+              <Link
+                href={appPath('/')}
+                className={`transition-colors shrink-0 ${
+                  theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+                aria-label="Back to shop"
+              >
+                <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              </Link>
+              <nav
+                className={`flex items-center flex-wrap gap-x-2 gap-y-1 text-sm min-w-0 ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}
+                aria-label="Breadcrumb"
+              >
+                <Link
+                  href={appPath('/')}
+                  className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
+                >
+                  Home
+                </Link>
+                {product.category.trim() ? (
+                  <>
+                    <span className="text-gray-400" aria-hidden>
+                      /
+                    </span>
+                    <Link
+                      href={product.categoryHref}
+                      className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
+                    >
+                      {product.category}
+                    </Link>
+                  </>
+                ) : null}
+              </nav>
             </div>
           </div>
         </div>

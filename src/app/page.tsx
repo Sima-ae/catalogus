@@ -1,19 +1,17 @@
 'use client'
 
-import { Suspense, useState, useEffect, useMemo } from 'react'
-import ShopHeroBanner from '@/components/shop/ShopHeroBanner'
-import { productsAddedThisMonth } from '@/lib/catalog'
-import Sidebar, { MobileMenuButton } from '@/components/layout/Sidebar'
+import { Suspense, useState, useEffect } from 'react'
+import CatalogProductCount from '@/components/shop/CatalogProductCount'
+import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/Sidebar'
 import ProductCard from '@/components/shop/ProductCard'
 import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
-import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
-import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
-import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
+import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
 import { appPath } from '@/lib/paths'
-import { filterByBrand, filterByCategory } from '@/lib/catalog'
+import { filterByBrand, filterByCategory, filterBySearch } from '@/lib/catalog'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 
@@ -22,10 +20,11 @@ function HomePageContent() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const { selectedCategory, setSelectedCategory } = useShopCategory()
   const { selectedBrand, setSelectedBrand } = useShopBrand()
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { theme } = useTheme()
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const { open: sidebarOpen, openSidebar, closeSidebar } = useShopSidebar()
 
   useEffect(() => {
     fetchProducts()
@@ -39,8 +38,9 @@ function HomePageContent() {
       list = list.filter((product) => product.category === selectedCategory)
       list = filterByBrand(list, selectedBrand)
     }
+    list = filterBySearch(list, searchQuery)
     setFilteredProducts(list)
-  }, [selectedCategory, selectedBrand, products])
+  }, [selectedCategory, selectedBrand, products, searchQuery])
 
   const fetchProducts = async () => {
     try {
@@ -81,68 +81,22 @@ function HomePageContent() {
     fetchProducts()
   }
 
-  const heroStats = useMemo(
-    () => ({
-      total: products.length,
-      newThisMonth: productsAddedThisMonth(products),
-      showing: filteredProducts.length,
-    }),
-    [products, filteredProducts.length]
-  )
-
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-950' : 'bg-gray-50'
     } overflow-x-hidden`}>
-      <Sidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header with Search and Actions */}
-        <div className={`transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
-        } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <MobileMenuButton onClick={() => setMobileNavOpen(true)} />
-            <div className="relative flex-1 max-w-lg min-w-0">
-              <div className="relative">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  className={`w-full pl-10 pr-4 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                    theme === 'dark' 
-                      ? 'bg-dark-700 border-dark-600 text-white placeholder-gray-400' 
-                      : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
-                />
-              </div>
-            </div>
-            </div>
-
-            {/* Action Icons - Right Side */}
-            <div className="flex items-center flex-wrap justify-end gap-2 sm:gap-4 shrink-0">
-              <ThemeToggleButton />
-              
-              {/* Overview/Grid Icon */}
-              <button className={`p-2 rounded-lg transition-colors duration-200 ${
-                theme === 'dark' 
-                  ? 'text-gray-400 hover:text-white hover:bg-dark-800' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-              }`} title="Grid View">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-              </button>
-              
-              <ShopCartHeaderButton />
-              
-              <ShopRegisterHeaderButtons />
-            </div>
-          </div>
-        </div>
+        <AppStickyHeader
+          title="WELCOME"
+          showSocialProof
+          searchPlaceholder="Search products..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          leading={<SidebarMenuButton open={sidebarOpen} onOpen={openSidebar} />}
+          actions={<ShopHeroHeaderActions />}
+        />
 
         <main
           className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${
@@ -150,15 +104,6 @@ function HomePageContent() {
           }`}
         >
           <div className="max-w-full">
-            <ShopHeroBanner
-              badge="Just added"
-              title="New Arrivals"
-              subtitle="Fresh templates and assets, added first here"
-              description="Discover the newest WordPress themes, plugins, and digital products in our catalog. Sorted by release date so you always see what landed latest."
-              icon="sparkles"
-              stats={heroStats}
-            />
-
             <CategoryFilter
               selectedCategory={selectedCategory}
               onCategoryChange={handleCategoryChange}
@@ -195,11 +140,14 @@ function HomePageContent() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 mt-6">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+              <>
+                <CatalogProductCount count={filteredProducts.length} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+                  {filteredProducts.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              </>
             )}
 
             {filteredProducts.length === 0 && !loading && !error && (

@@ -1,8 +1,12 @@
+import type { Metadata } from 'next'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
+import { buildPageMetadata } from '@/lib/site-metadata'
 
-export const metadata = {
-  title: 'Most Popular',
-  description: 'Top-rated and best-selling digital products on Super Clones',
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPageMetadata(
+    'Most Popular',
+    'Top-rated and best-selling digital products in the catalog.'
+  )
 }
 
 export default function PopularProductsPage() {
@@ -12,9 +16,6 @@ export default function PopularProductsPage() {
         mode: 'popular',
         title: 'Most Popular',
         subtitle: 'Best sellers and community favorites',
-        description:
-          'These products lead the marketplace by downloads, ratings, and reviews. A trusted starting point when you want proven quality.',
-        badge: 'Trending',
         icon: 'fire',
         emptyTitle: 'No popular products yet',
         emptyMessage:

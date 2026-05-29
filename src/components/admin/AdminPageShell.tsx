@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import AdminSidebar, { AdminMobileMenuButton } from '@/components/admin/AdminSidebar'
-import AdminHeader from '@/components/admin/AdminHeader'
+import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import AdminHeaderActions from '@/components/admin/AdminHeaderActions'
 import { useTheme } from '@/lib/theme'
 
 export default function AdminPageShell({
@@ -15,6 +16,7 @@ export default function AdminPageShell({
   children: React.ReactNode
 }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -26,26 +28,21 @@ export default function AdminPageShell({
     >
       <AdminSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 w-full lg:ml-0">
-        <div
-          className={`flex items-center gap-2 px-4 pt-4 lg:hidden border-b ${
-            isDark ? 'border-dark-800' : 'border-gray-200'
-          }`}
-        >
-          <AdminMobileMenuButton onClick={() => setMobileOpen(true)} />
-          <span className={`font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{title}</span>
-        </div>
-        <AdminHeader />
+        <AppStickyHeader
+          title={title}
+          showSocialProof
+          searchPlaceholder="Search your route..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          leading={<AdminMobileMenuButton onClick={() => setMobileOpen(true)} />}
+          actions={<AdminHeaderActions />}
+        />
         <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">
-          <div className="mb-4 sm:mb-6">
-            <h1 className={`text-xl sm:text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {title}
-            </h1>
-            {description && (
-              <p className={`mt-1 text-sm sm:text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                {description}
-              </p>
-            )}
-          </div>
+          {description ? (
+            <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              {description}
+            </p>
+          ) : null}
           {children}
         </main>
       </div>

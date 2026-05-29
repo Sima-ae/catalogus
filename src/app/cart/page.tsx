@@ -6,7 +6,9 @@ import { useTheme } from '@/lib/theme'
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import Sidebar, { MobileMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
+import Sidebar, { SidebarMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
+import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
 import { TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 
@@ -42,20 +44,15 @@ export default function CartPage() {
       <div className={`flex min-h-screen transition-colors duration-200 ${
         theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
       } overflow-x-hidden`}>
-        <Sidebar mobileOpen={mobileOpen} onMobileClose={close} />
+        <Sidebar open={mobileOpen} onClose={close} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
-          <div className={`transition-colors duration-200 ${
-            theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
-          } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-            <div className="flex items-center gap-3">
-              <MobileMenuButton onClick={open} />
-              <h1 className={`text-xl sm:text-2xl font-bold transition-colors ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>Shopping Cart</h1>
-            </div>
-          </div>
+          <AppStickyHeader
+            title="Shopping Cart"
+            showSocialProof
+            leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
+            actions={<ShopHeroHeaderActions />}
+          />
 
           <main className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
             theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
@@ -92,36 +89,38 @@ export default function CartPage() {
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
     } overflow-x-hidden`}>
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={close} />
+      <Sidebar open={mobileOpen} onClose={close} />
       
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className={`transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'
-        } border-b px-4 sm:px-6 lg:px-8 py-4`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
-              <MobileMenuButton onClick={open} />
-              <Link href="/" className={`transition-colors shrink-0 ${
-                theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-              }`}>
+        <AppStickyHeader
+          title="Shopping Cart"
+          showSocialProof
+          leading={
+            <>
+              <SidebarMenuButton open={mobileOpen} onOpen={open} />
+              <Link
+                href="/"
+                className={`transition-colors shrink-0 ${
+                  theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
                 <ArrowLeftIcon className="w-6 h-6" />
               </Link>
-              <h1 className={`text-2xl font-bold transition-colors ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>Shopping Cart</h1>
-              <span className={`transition-colors ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}>({cartState.itemCount} items)</span>
+            </>
+          }
+          actions={
+            <div className="flex flex-nowrap items-center justify-end gap-2 w-full min-w-0">
+              <button
+                type="button"
+                onClick={clearCart}
+                className="text-red-400 hover:text-red-300 transition-colors text-xs sm:text-sm whitespace-nowrap shrink-0"
+              >
+                Clear Cart
+              </button>
+              <ShopHeroHeaderActions />
             </div>
-            <button
-              onClick={clearCart}
-              className="text-red-400 hover:text-red-300 transition-colors text-sm"
-            >
-              Clear Cart
-            </button>
-          </div>
-        </div>
+          }
+        />
 
         <main className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 ${
           theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
@@ -220,7 +219,7 @@ export default function CartPage() {
 
               {/* Order Summary */}
               <div className="lg:col-span-1">
-                <div className={`rounded-lg p-6 border sticky top-8 transition-colors ${
+                <div className={`rounded-lg p-6 border sticky top-28 lg:top-32 transition-colors ${
                   theme === 'dark' 
                     ? 'bg-dark-800 border-dark-700' 
                     : 'bg-white border-gray-200'

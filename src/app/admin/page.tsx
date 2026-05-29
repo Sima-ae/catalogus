@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { appPath } from '@/lib/paths'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import AdminSidebar, { AdminMobileMenuButton } from '@/components/admin/AdminSidebar'
-import AdminHeader from '@/components/admin/AdminHeader'
+import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import AdminHeaderActions from '@/components/admin/AdminHeaderActions'
 import StatCard from '@/components/admin/StatCard'
 import { 
   BanknotesIcon, 
@@ -61,6 +62,7 @@ export default function AdminDashboard() {
   })
   const [loading, setLoading] = useState(true)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const { user, loading: authLoading, isAdmin } = useAuth()
   const t = useAppTheme()
 
@@ -280,13 +282,15 @@ export default function AdminDashboard() {
       <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div
-          className={`flex items-center gap-2 px-4 pt-4 lg:hidden border-b ${t.border}`}
-        >
-          <AdminMobileMenuButton onClick={() => setMobileNavOpen(true)} />
-          <span className={`font-medium ${t.heading}`}>Admin Dashboard</span>
-        </div>
-        <AdminHeader />
+        <AppStickyHeader
+          title="Admin Dashboard"
+          showSocialProof
+          searchPlaceholder="Search your route..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          leading={<AdminMobileMenuButton onClick={() => setMobileNavOpen(true)} />}
+          actions={<AdminHeaderActions />}
+        />
 
         <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">
           {/* Summary Section */}

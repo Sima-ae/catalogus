@@ -1,44 +1,48 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useTheme } from '@/lib/theme'
-import {
-  SparklesIcon,
-  FireIcon,
-  ShoppingBagIcon,
-  ArrowTrendingUpIcon,
-} from '@heroicons/react/24/outline'
-import type { ComponentType } from 'react'
+import { ArrowTrendingUpIcon } from '@heroicons/react/24/outline'
+import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
+import ShopHeroSearch from '@/components/shop/ShopHeroSearch'
+import RecentPurchaseActivity from '@/components/shop/RecentPurchaseActivity'
 
 export type ShopHeroIcon = 'sparkles' | 'fire' | 'bag'
 
+/** Right column — page copy only (not admin site tagline). */
+export type ShopHeroAside = {
+  heading?: string
+  text?: string
+  badge?: string
+  badgeIcon?: ShopHeroIcon
+}
+
 export type ShopHeroBannerProps = {
-  badge: string
   title: string
   subtitle: string
-  description: string
-  icon?: ShopHeroIcon
-  stats: {
-    total: number
-    newThisMonth: number
-    showing: number
-    topName?: string | null
-  }
+  aside?: ShopHeroAside
+  showSocialProof?: boolean
+  showSearch?: boolean
+  searchPlaceholder?: string
+  searchValue?: string
+  onSearchChange?: (value: string) => void
+  /** Third column — header actions (theme, cart, register, etc.) */
+  actions?: ReactNode
+  topProductName?: string | null
   trendingLabel?: boolean
 }
 
-const ICONS: Record<ShopHeroIcon, ComponentType<{ className?: string }>> = {
-  sparkles: SparklesIcon,
-  fire: FireIcon,
-  bag: ShoppingBagIcon,
-}
-
 export default function ShopHeroBanner({
-  badge,
   title,
   subtitle,
-  description,
-  icon = 'sparkles',
-  stats,
+  aside = {},
+  showSocialProof = false,
+  showSearch = false,
+  searchPlaceholder,
+  searchValue,
+  onSearchChange,
+  actions,
+  topProductName,
   trendingLabel = false,
 }: ShopHeroBannerProps) {
   const { theme } = useTheme()
@@ -47,82 +51,121 @@ export default function ShopHeroBanner({
   const heroBg = isDark
     ? 'bg-dark-900/80 border-dark-800'
     : 'bg-white border-gray-200'
-  const Icon = ICONS[icon]
+  const asideText = aside.text?.trim()
+  const badgeText = aside.badge?.trim()
+  const borderClass = isDark ? 'border-dark-700' : 'border-gray-200'
+  const threeColumn = Boolean(showSearch && actions)
+
+  const titleBlock = (
+    <>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-1">
+        <h1
+          className={`text-lg sm:text-xl font-semibold tracking-tight shrink-0 ${
+            isDark ? 'text-white' : 'text-gray-900'
+          }`}
+        >
+          {title}
+        </h1>
+        {showSocialProof ? (
+          <div className="min-w-0 flex-1 max-w-md">
+            <RecentPurchaseActivity variant="header" />
+          </div>
+        ) : null}
+      </div>
+      {subtitle.trim() ? (
+        <p
+          className={`text-sm font-medium leading-snug ${
+            isDark ? 'text-gray-300' : 'text-gray-700'
+          }`}
+        >
+          {subtitle}
+        </p>
+      ) : null}
+    </>
+  )
+
+  if (threeColumn) {
+    return (
+      <section className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-4 mb-4 ${heroBg}`}>
+        <div
+          className={`grid grid-cols-1 gap-4 min-w-0 items-center
+            lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1.28fr)_minmax(0,1.12fr)] lg:gap-5`}
+        >
+          <div className="min-w-0">{titleBlock}</div>
+
+          <div className={`min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}>
+            <ShopHeroSearch
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={onSearchChange}
+            />
+          </div>
+
+          <div className={`min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}>
+            {actions}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const hasRightColumn = Boolean(
+    showSearch ||
+      aside.heading?.trim() ||
+      asideText ||
+      badgeText ||
+      (trendingLabel && topProductName)
+  )
 
   return (
-    <section className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-3.5 mb-4 ${heroBg}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${
-                isDark
-                  ? 'border-gray-600 text-gray-300 bg-dark-950'
-                  : 'border-gray-300 text-gray-700 bg-gray-50'
-              }`}
-            >
-              <Icon className="w-3 h-3 shrink-0" />
-              {badge}
-            </span>
-            <h1
-              className={`text-lg sm:text-xl font-semibold tracking-tight ${
-                isDark ? 'text-white' : 'text-gray-900'
-              }`}
-            >
-              {title}
-            </h1>
-          </div>
-          <p
-            className={`text-sm font-medium leading-snug ${
-              isDark ? 'text-gray-300' : 'text-gray-700'
-            }`}
-          >
-            {subtitle}
-          </p>
-          <p className={`mt-0.5 text-xs leading-snug line-clamp-2 sm:line-clamp-1 ${muted}`}>
-            {description}
-          </p>
-          {trendingLabel && stats.topName && (
-            <p className={`mt-1.5 text-xs flex items-center gap-1.5 ${muted}`}>
-              <ArrowTrendingUpIcon className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">
-                Trending: <span className="font-medium text-gray-400">{stats.topName}</span>
-              </span>
-            </p>
-          )}
-        </div>
+    <section className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-4 mb-4 ${heroBg}`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 md:items-start min-w-0">
+        <div className="min-w-0">{titleBlock}</div>
 
-        <div className="flex gap-2 shrink-0 sm:pl-2">
-          <StatPill label="In catalog" value={String(stats.total)} isDark={isDark} />
-          <StatPill label="This month" value={String(stats.newThisMonth)} isDark={isDark} />
-          <StatPill label="Showing" value={String(stats.showing)} isDark={isDark} />
-        </div>
+        {hasRightColumn && (
+          <aside
+            className={`min-w-0 md:border-l md:pl-6 flex flex-col justify-center ${borderClass}`}
+          >
+            {showSearch ? (
+              <ShopHeroSearch
+                placeholder={searchPlaceholder}
+                value={searchValue}
+                onChange={onSearchChange}
+              />
+            ) : null}
+            {badgeText ? (
+              <ShopCatalogBadge
+                label={badgeText}
+                icon={aside.badgeIcon ?? 'sparkles'}
+                className="mb-0"
+              />
+            ) : null}
+            {aside.heading?.trim() ? (
+              <p
+                className={`text-sm font-semibold ${badgeText ? 'mt-2' : ''} mb-1 ${
+                  isDark ? 'text-gray-200' : 'text-gray-800'
+                }`}
+              >
+                {aside.heading.trim()}
+              </p>
+            ) : null}
+            {asideText ? (
+              <p className={`text-xs sm:text-sm leading-relaxed ${muted}`}>{asideText}</p>
+            ) : null}
+            {trendingLabel && topProductName && (
+              <p className={`mt-2 text-xs flex items-center gap-1.5 ${muted}`}>
+                <ArrowTrendingUpIcon className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">
+                  Trending:{' '}
+                  <span className={`font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {topProductName}
+                  </span>
+                </span>
+              </p>
+            )}
+          </aside>
+        )}
       </div>
     </section>
-  )
-}
-
-function StatPill({
-  label,
-  value,
-  isDark,
-}: {
-  label: string
-  value: string
-  isDark: boolean
-}) {
-  return (
-    <div
-      className={`rounded-lg px-2.5 py-1.5 text-center border min-w-[4.25rem] ${
-        isDark ? 'bg-dark-800/90 border-dark-700' : 'bg-gray-50 border-gray-200'
-      }`}
-    >
-      <p className={`text-base font-semibold leading-none tabular-nums ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        {value}
-      </p>
-      <p className={`text-[10px] mt-0.5 leading-tight ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-        {label}
-      </p>
-    </div>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
+import HeaderSocialProof from '@/components/layout/HeaderSocialProof'
 import { useTheme } from '@/lib/theme'
 
 type DashboardTopBarProps = {
@@ -19,15 +20,16 @@ export default function DashboardTopBar({ title, children }: DashboardTopBarProp
         isDark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <HeaderSocialProof className="shrink-0 max-w-[11rem] sm:max-w-xs md:max-w-sm" />
         <h1
-          className={`text-lg sm:text-xl font-semibold truncate ${
+          className={`text-lg sm:text-xl font-semibold truncate flex-1 min-w-0 text-center sm:text-left ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}
         >
           {title}
         </h1>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
           {children}
           <ThemeToggleButton />
         </div>

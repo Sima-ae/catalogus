@@ -9,7 +9,8 @@ import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import RoleBadge from '@/components/users/RoleBadge'
 import UserStarRating from '@/components/users/UserStarRating'
-import DashboardTopBar from '@/components/dashboard/DashboardTopBar'
+import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import DashboardHeaderActions from '@/components/dashboard/DashboardHeaderActions'
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
 type NavItem = { name: string; href: string }
@@ -124,17 +125,22 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
         {aside}
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
-        <div className={`lg:hidden flex items-center gap-2 p-4 border-b ${borderClass}`}>
-          <button
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            className={`p-2 rounded-lg ${isDark ? 'hover:bg-dark-700 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
-            aria-label="Open menu"
-          >
-            <Bars3Icon className="w-6 h-6" />
-          </button>
-        </div>
-        <DashboardTopBar title={title} />
+        <AppStickyHeader
+          title={title}
+          showSocialProof
+          showSearch={false}
+          leading={
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-dark-700 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
+              aria-label="Open menu"
+            >
+              <Bars3Icon className="w-6 h-6" />
+            </button>
+          }
+          actions={<DashboardHeaderActions />}
+        />
         <main className="flex-1 p-4 sm:p-6 overflow-auto app-readable">{children}</main>
       </div>
     </div>
