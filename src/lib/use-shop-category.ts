@@ -32,6 +32,7 @@ export function useShopCategory() {
       )
       if (category === 'All') {
         params.delete('category')
+        params.delete('brand')
       } else {
         params.set('category', category)
       }

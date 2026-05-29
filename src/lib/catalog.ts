@@ -30,8 +30,14 @@ function popularityScore(product: Product): number {
   return downloads * 3 + reviews * 2 + rating * 15 + featured
 }
 
+export function sortByNewestFirst(products: Product[]): Product[] {
+  return [...products].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
+}
+
 export function filterByCategory(products: Product[], category: string): Product[] {
-  if (category === 'All') return products
+  if (category === 'All') return sortByNewestFirst(products)
   return products.filter((p) => p.category === category)
 }
 

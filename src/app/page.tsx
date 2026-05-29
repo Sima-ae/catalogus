@@ -13,7 +13,7 @@ import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import { appPath } from '@/lib/paths'
-import { filterByBrand } from '@/lib/catalog'
+import { filterByBrand, filterByCategory } from '@/lib/catalog'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 
@@ -33,10 +33,12 @@ function HomePageContent() {
 
   useEffect(() => {
     let list = products
-    if (selectedCategory !== 'All') {
+    if (selectedCategory === 'All') {
+      list = filterByCategory(list, 'All')
+    } else {
       list = list.filter((product) => product.category === selectedCategory)
+      list = filterByBrand(list, selectedBrand)
     }
-    list = filterByBrand(list, selectedBrand)
     setFilteredProducts(list)
   }, [selectedCategory, selectedBrand, products])
 

@@ -16,7 +16,7 @@ export default function BrandFilter({
 }: BrandFilterProps) {
   const brands = useShopBrandList(selectedCategory)
 
-  if (brands.length <= 1) return null
+  if (selectedCategory === 'All' || brands.length <= 1) return null
 
   return (
     <div className="mt-4">

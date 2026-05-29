@@ -89,7 +89,9 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
   const displayedProducts = useMemo(() => {
     let list = filterByCategory(sortedProducts, selectedCategory)
-    list = filterByBrand(list, selectedBrand)
+    if (selectedCategory !== 'All') {
+      list = filterByBrand(list, selectedBrand)
+    }
     list = filterBySearch(list, searchQuery)
     return list
   }, [sortedProducts, selectedCategory, selectedBrand, searchQuery])
