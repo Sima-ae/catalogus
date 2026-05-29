@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+import { getDbErrorMessage } from '@/lib/db-errors'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -30,9 +30,9 @@ export async function GET() {
     return NextResponse.json(rows)
   } catch (error) {
     console.error('Reviews fetch error:', error)
-    if (isDevDataFallbackEnabled()) {
-      return NextResponse.json([])
-    }
-    return NextResponse.json({ error: 'Failed to load reviews' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to load reviews') },
+      { status: 503 }
+    )
   }
 }

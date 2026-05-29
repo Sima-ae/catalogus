@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 
 type Status = { required: boolean; unlocked: boolean }
@@ -13,16 +13,14 @@ type Status = { required: boolean; unlocked: boolean }
 export default function SiteAccessGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [status, setStatus] = useState<Status | null>(null)
 
   const gatePath = appPath('/site-access-gate')
+  const onGate =
+    pathname === gatePath || pathname?.endsWith('/site-access-gate')
 
   useEffect(() => {
-    if (pathname === gatePath || pathname?.endsWith('/site-access-gate')) {
-      setStatus({ required: true, unlocked: false })
-      return
-    }
-
     let cancelled = false
     fetch(appPath('/api/site-access/status'), { credentials: 'include', cache: 'no-store' })
       .then(async (res) => {
@@ -36,14 +34,25 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     return () => {
       cancelled = true
     }
-  }, [pathname, gatePath])
+  }, [pathname])
 
   useEffect(() => {
-    if (!status?.required || status.unlocked) return
-    if (pathname === gatePath || pathname?.endsWith('/site-access-gate')) return
-    const from = pathname || '/'
-    router.replace(`${gatePath}?from=${encodeURIComponent(from)}`)
-  }, [status, pathname, router, gatePath])
+    if (!status) return
+
+    if (onGate) {
+      if (!status.required || status.unlocked) {
+        const from = searchParams.get('from') || '/'
+        const target = from.startsWith('/') ? from : '/'
+        router.replace(target)
+      }
+      return
+    }
+
+    if (status.required && !status.unlocked) {
+      const from = pathname || '/'
+      router.replace(`${gatePath}?from=${encodeURIComponent(from)}`)
+    }
+  }, [status, onGate, pathname, router, gatePath, searchParams])
 
   if (!status) {
     return (
@@ -53,10 +62,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     )
   }
 
-  if (status.required && !status.unlocked) {
-    if (pathname === gatePath || pathname?.endsWith('/site-access-gate')) {
-      return <>{children}</>
-    }
+  if (status.required && !status.unlocked && !onGate) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
         Redirecting...

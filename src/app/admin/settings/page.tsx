@@ -6,7 +6,7 @@ import SiteAccessSettings from '@/components/admin/SiteAccessSettings'
 import { appPath } from '@/lib/paths'
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
-import { parseSettingsResponse, type SettingsStorage } from '@/lib/parse-settings-response'
+import { parseSettingsResponse } from '@/lib/parse-settings-response'
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
@@ -14,7 +14,6 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
-  const [storage, setStorage] = useState<SettingsStorage | undefined>()
 
   useEffect(() => {
     fetch(appPath('/api/settings'))
@@ -23,7 +22,6 @@ export default function AdminSettingsPage() {
         if (!r.ok) throw new Error(d.error || 'Failed to load settings')
         const parsed = parseSettingsResponse(d)
         setSettings(parsed.settings)
-        setStorage(parsed.storage)
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
@@ -49,7 +47,6 @@ export default function AdminSettingsPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to save settings')
       const parsed = parseSettingsResponse(data)
       setSettings(parsed.settings)
-      setStorage(parsed.storage)
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings')
@@ -65,18 +62,6 @@ export default function AdminSettingsPage() {
     >
       <SiteAccessSettings />
 
-      {storage && storage !== 'database' && (
-        <div className="card max-w-2xl mb-6 p-4 border border-amber-500/40 bg-amber-500/10">
-          <p className="text-amber-200 text-sm font-medium">Database not connected</p>
-          <p className="text-gray-400 text-sm mt-1">
-            Settings are saved locally in <code className="text-gray-300">.data/site-settings.json</code> until
-            MariaDB is running. Start your database or run{' '}
-            <code className="text-gray-300">db/migrations/002_site_settings_seed.sql</code> on the server for
-            production persistence.
-          </p>
-        </div>
-      )}
-
       {loading ? (
         <p className="text-gray-400">Loading...</p>
       ) : (
@@ -84,7 +69,7 @@ export default function AdminSettingsPage() {
           {error && <p className="text-red-400 text-sm">{error}</p>}
           {saved && (
             <p className="text-primary-400 text-sm">
-              Settings saved{storage === 'database' ? ' to database' : ' locally'}.
+              Settings saved to database.
             </p>
           )}
 

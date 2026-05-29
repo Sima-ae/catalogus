@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import {
-  getSiteAccessConfig,
+  applySiteAccessCookies,
   readUnlockCookie,
   verifyUnlockToken,
-} from '@/lib/site-access'
+} from '@/lib/site-access-cookie'
+import { getSiteAccessConfig } from '@/lib/site-access'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -13,18 +14,21 @@ export async function GET(request: Request) {
     const config = await getSiteAccessConfig()
     const cookie = readUnlockCookie(request.headers.get('cookie'))
     const unlocked =
-      !config.required ||
-      verifyUnlockToken(cookie, config.version)
+      !config.required || (await verifyUnlockToken(cookie, config.version))
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       required: config.required,
       unlocked,
     })
+    applySiteAccessCookies(res, {
+      required: config.required,
+      version: config.version,
+    })
+    return res
   } catch (error) {
     console.error('Site access status error:', error)
-    return NextResponse.json(
-      { required: false, unlocked: true },
-      { status: 200 }
-    )
+    const res = NextResponse.json({ required: false, unlocked: true })
+    applySiteAccessCookies(res, { required: false, version: 0 })
+    return res
   }
 }

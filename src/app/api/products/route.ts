@@ -1,29 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { queryDb } from '@/lib/db'
-import {
-  createDevProduct,
-  devModeEnabled,
-  listDevProducts,
-} from '@/lib/dev-store'
-import { insertProduct, type ProductInput } from '@/lib/products-db'
+import { insertProduct, UnknownCategoryError, type ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
-import { DEV_PRODUCTS } from '@/lib/dev-seed'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+import { getDbErrorMessage } from '@/lib/db-errors'
 import { logDbRouteError } from '@/lib/db-route-log'
+import { listProducts } from '@/lib/products-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    const rows = await queryDb('SELECT * FROM products ORDER BY created_at DESC')
+    const rows = await listProducts()
     return NextResponse.json(rows)
   } catch (error) {
     logDbRouteError('Products fetch error', error)
-    if (isDevDataFallbackEnabled()) {
-      return NextResponse.json(listDevProducts())
-    }
-    return NextResponse.json({ error: 'Failed to load products' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to load products') },
+      { status: 503 }
+    )
   }
 }
 
@@ -36,25 +30,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    try {
-      const product = await insertProduct(input)
-      return NextResponse.json(product, { status: 201 })
-    } catch (dbError) {
-      if (devModeEnabled()) {
-        const product = createDevProduct(input)
-        return NextResponse.json(product, { status: 201 })
-      }
-      throw dbError
-    }
+    const product = await insertProduct(input)
+    return NextResponse.json(product, { status: 201 })
   } catch (error) {
-    console.error('Product create error:', error)
-    if (devModeEnabled()) {
-      return NextResponse.json(
-        { error: 'Failed to create product', devProducts: DEV_PRODUCTS.length },
-        { status: 500 }
-      )
+    if (error instanceof UnknownCategoryError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
-    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 })
+    console.error('Product create error:', error)
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to create product') },
+      { status: 503 }
+    )
   }
 }
 

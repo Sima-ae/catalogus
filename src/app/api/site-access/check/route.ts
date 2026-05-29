@@ -1,27 +1,35 @@
 import { NextResponse } from 'next/server'
 import {
-  getSiteAccessConfig,
+  applySiteAccessCookies,
   readUnlockCookie,
   verifyUnlockToken,
-} from '@/lib/site-access'
+} from '@/lib/site-access-cookie'
+import { getSiteAccessConfig } from '@/lib/site-access'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/** Used by middleware to decide if the request may proceed. */
+/** Used by middleware when meta cookies are not yet set. */
 export async function GET(request: Request) {
   try {
     const config = await getSiteAccessConfig()
-    if (!config.required) {
-      return NextResponse.json({ required: false, allowed: true })
-    }
-
     const cookie = readUnlockCookie(request.headers.get('cookie'))
-    const allowed = verifyUnlockToken(cookie, config.version)
+    const allowed =
+      !config.required || (await verifyUnlockToken(cookie, config.version))
 
-    return NextResponse.json({ required: true, allowed })
+    const res = NextResponse.json({
+      required: config.required,
+      allowed,
+    })
+    applySiteAccessCookies(res, {
+      required: config.required,
+      version: config.version,
+    })
+    return res
   } catch (error) {
     console.error('Site access check error:', error)
-    return NextResponse.json({ required: false, allowed: true })
+    const res = NextResponse.json({ required: false, allowed: true })
+    applySiteAccessCookies(res, { required: false, version: 0 })
+    return res
   }
 }

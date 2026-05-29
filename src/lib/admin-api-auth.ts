@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import type { NextRequest } from 'next/server'
 import { queryDb } from '@/lib/db'
+import { isDbConnectionError } from '@/lib/db'
 import { getDevUserByIdAndEmail, isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
 import { isSuperAdminUser } from '@/lib/user-roles'
 
@@ -20,33 +21,35 @@ export async function verifySuperAdmin(
   const normalized = email.trim().toLowerCase()
   if (!normalized || !password) return { ok: false }
 
-  if (isDevAuthEnabled()) {
-    const devUser = await tryDevLogin(normalized, password)
-    if (devUser && isSuperAdminUser(devUser)) {
-      return { ok: true, userId: devUser.id }
+  try {
+    let rows: DbUser[]
+    try {
+      rows = await queryDb<DbUser[]>(
+        'SELECT id, email, password_hash, role, is_super_admin FROM users WHERE LOWER(email) = ? LIMIT 1',
+        [normalized]
+      )
+    } catch {
+      rows = await queryDb<DbUser[]>(
+        'SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = ? LIMIT 1',
+        [normalized]
+      )
+    }
+    const user = rows[0]
+    if (!user || !isSuperAdminUser(user)) return { ok: false }
+
+    const valid = await bcrypt.compare(password, user.password_hash)
+    if (!valid) return { ok: false }
+
+    return { ok: true, userId: user.id }
+  } catch (error) {
+    if (isDevAuthEnabled() && isDbConnectionError(error)) {
+      const devUser = await tryDevLogin(normalized, password)
+      if (devUser && isSuperAdminUser(devUser)) {
+        return { ok: true, userId: devUser.id }
+      }
     }
     return { ok: false }
   }
-
-  let rows: DbUser[]
-  try {
-    rows = await queryDb<DbUser[]>(
-      'SELECT id, email, password_hash, role, is_super_admin FROM users WHERE LOWER(email) = ? LIMIT 1',
-      [normalized]
-    )
-  } catch {
-    rows = await queryDb<DbUser[]>(
-      'SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = ? LIMIT 1',
-      [normalized]
-    )
-  }
-  const user = rows[0]
-  if (!user || !isSuperAdminUser(user)) return { ok: false }
-
-  const valid = await bcrypt.compare(password, user.password_hash)
-  if (!valid) return { ok: false }
-
-  return { ok: true, userId: user.id }
 }
 
 type AdminActor = {
@@ -66,46 +69,49 @@ export async function verifyAdminActor(
     return { ok: false, status: 401, error: 'Admin authentication required' }
   }
 
-  if (isDevAuthEnabled()) {
-    const devUser = getDevUserByIdAndEmail(userId, email)
-    if (!devUser || devUser.role !== 'admin') {
+  try {
+    let rows: DbUser[]
+    try {
+      rows = await queryDb<DbUser[]>(
+        'SELECT id, email, password_hash, role, is_super_admin FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1',
+        [userId, email]
+      )
+    } catch {
+      rows = await queryDb<DbUser[]>(
+        'SELECT id, email, password_hash, role FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1',
+        [userId, email]
+      )
+    }
+
+    const user = rows[0]
+    if (!user || user.role !== 'admin') {
       return { ok: false, status: 403, error: 'Admin access required' }
     }
+
     return {
       ok: true,
       actor: {
-        userId: devUser.id,
-        email: devUser.email,
-        isSuperAdmin: isSuperAdminUser(devUser),
+        userId: user.id,
+        email: user.email,
+        isSuperAdmin: isSuperAdminUser(user),
       },
     }
-  }
-
-  let rows: DbUser[]
-  try {
-    rows = await queryDb<DbUser[]>(
-      'SELECT id, email, password_hash, role, is_super_admin FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1',
-      [userId, email]
-    )
-  } catch {
-    rows = await queryDb<DbUser[]>(
-      'SELECT id, email, password_hash, role FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1',
-      [userId, email]
-    )
-  }
-
-  const user = rows[0]
-  if (!user || user.role !== 'admin') {
-    return { ok: false, status: 403, error: 'Admin access required' }
-  }
-
-  return {
-    ok: true,
-    actor: {
-      userId: user.id,
-      email: user.email,
-      isSuperAdmin: isSuperAdminUser(user),
-    },
+  } catch (error) {
+    if (isDevAuthEnabled() && isDbConnectionError(error)) {
+      const devUser = getDevUserByIdAndEmail(userId, email)
+      if (!devUser || devUser.role !== 'admin') {
+        return { ok: false, status: 403, error: 'Admin access required' }
+      }
+      return {
+        ok: true,
+        actor: {
+          userId: devUser.id,
+          email: devUser.email,
+          isSuperAdmin: isSuperAdminUser(devUser),
+        },
+      }
+    }
+    return { ok: false, status: 503, error: 'Database unavailable' }
   }
 }
 

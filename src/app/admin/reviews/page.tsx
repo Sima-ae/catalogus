@@ -3,10 +3,20 @@
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import AdminEmptyState from '@/components/admin/AdminEmptyState'
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from '@/components/admin/AdminTable'
+import { useAppTheme } from '@/lib/theme-classes'
 import { appPath } from '@/lib/paths'
 import type { ReviewRow } from '@/app/api/reviews/route'
 
 export default function AdminReviewsPage() {
+  const t = useAppTheme()
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -24,8 +34,8 @@ export default function AdminReviewsPage() {
 
   return (
     <AdminPageShell title="Reviews" description="Customer product reviews and ratings.">
-      {loading && <p className="text-gray-400">Loading...</p>}
-      {error && <p className="text-red-400">{error}</p>}
+      {loading && <p className={t.muted}>Loading...</p>}
+      {error && <p className="text-red-500 dark:text-red-400">{error}</p>}
       {!loading && !error && reviews.length === 0 && (
         <AdminEmptyState
           title="No reviews yet"
@@ -33,34 +43,28 @@ export default function AdminReviewsPage() {
         />
       )}
       {!loading && !error && reviews.length > 0 && (
-        <div className="card overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-dark-700">
-                <th className="text-left py-3 px-4 text-gray-400">Product</th>
-                <th className="text-left py-3 px-4 text-gray-400">Customer</th>
-                <th className="text-left py-3 px-4 text-gray-400">Rating</th>
-                <th className="text-left py-3 px-4 text-gray-400">Title</th>
-                <th className="text-left py-3 px-4 text-gray-400">Status</th>
-                <th className="text-left py-3 px-4 text-gray-400">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reviews.map((r) => (
-                <tr key={r.id} className="border-b border-dark-700">
-                  <td className="py-3 px-4 text-white">{r.product_name || r.product_id}</td>
-                  <td className="py-3 px-4 text-gray-300">{r.user_name}</td>
-                  <td className="py-3 px-4 text-white">{r.rating}/5</td>
-                  <td className="py-3 px-4 text-gray-300 max-w-xs truncate">{r.title || '—'}</td>
-                  <td className="py-3 px-4 text-gray-300 capitalize">{r.status || 'pending'}</td>
-                  <td className="py-3 px-4 text-gray-400 text-sm">
-                    {new Date(r.created_at).toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable>
+          <AdminTableHead>
+            <AdminTh>Product</AdminTh>
+            <AdminTh>Customer</AdminTh>
+            <AdminTh>Rating</AdminTh>
+            <AdminTh>Title</AdminTh>
+            <AdminTh>Status</AdminTh>
+            <AdminTh>Date</AdminTh>
+          </AdminTableHead>
+          <AdminTableBody>
+            {reviews.map((r) => (
+              <AdminTr key={r.id}>
+                <AdminTd>{r.product_name || r.product_id}</AdminTd>
+                <AdminTd>{r.user_name}</AdminTd>
+                <AdminTd>{r.rating}/5</AdminTd>
+                <AdminTd className="max-w-xs truncate">{r.title || '—'}</AdminTd>
+                <AdminTd className="capitalize">{r.status || 'pending'}</AdminTd>
+                <AdminTd className="text-sm">{new Date(r.created_at).toLocaleDateString()}</AdminTd>
+              </AdminTr>
+            ))}
+          </AdminTableBody>
+        </AdminTable>
       )}
     </AdminPageShell>
   )

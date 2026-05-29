@@ -1,33 +1,9 @@
 import { NextResponse } from 'next/server'
+import { getDbErrorMessage } from '@/lib/db-errors'
 import { getUserProfile } from '@/lib/users-db'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const DEV_PROFILES: Record<string, { id: string; name: string; role: string; badge_rating: number | null; is_super_admin: boolean }> = {
-  'a0000000-0000-0000-0000-000000000001': {
-    id: 'a0000000-0000-0000-0000-000000000001',
-    name: 'Super Admin',
-    role: 'admin',
-    badge_rating: null,
-    is_super_admin: true,
-  },
-  'a0000000-0000-0000-0000-000000000002': {
-    id: 'a0000000-0000-0000-0000-000000000002',
-    name: 'Test Buyer',
-    role: 'buyer',
-    badge_rating: null,
-    is_super_admin: false,
-  },
-  'a0000000-0000-0000-0000-000000000003': {
-    id: 'a0000000-0000-0000-0000-000000000003',
-    name: 'Test Seller',
-    role: 'seller',
-    badge_rating: null,
-    is_super_admin: false,
-  },
-}
 
 type RouteContext = { params: { id: string } }
 
@@ -52,9 +28,9 @@ export async function GET(_request: Request, { params }: RouteContext) {
     })
   } catch (error) {
     console.error('User profile fetch error:', error)
-    if (isDevDataFallbackEnabled() && DEV_PROFILES[userId]) {
-      return NextResponse.json(DEV_PROFILES[userId])
-    }
-    return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to load profile') },
+      { status: 503 }
+    )
   }
 }

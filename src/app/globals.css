@@ -138,6 +138,23 @@ body.app-protected [contenteditable='true'] {
     @apply bg-white border-gray-200 shadow-sm text-gray-900;
   }
 
+  /* Readable data tables inside cards (admin + seller) */
+  html.light .card table thead th {
+    @apply text-gray-700 font-semibold;
+  }
+
+  html.light .card table tbody td {
+    @apply text-gray-900;
+  }
+
+  html.dark .card table thead th {
+    @apply text-gray-300 font-semibold;
+  }
+
+  html.dark .card table tbody td {
+    @apply text-gray-100;
+  }
+
   .sidebar {
     @apply border-r min-h-screen;
   }

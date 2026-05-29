@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-local'
 import { useAppTheme } from '@/lib/theme-classes'
+import { formatPrice } from '@/lib/format-price'
 
 const timeFilters = ['Today', 'Weekly', 'Monthly', 'Yearly']
 
@@ -356,7 +357,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className={`py-3 px-4 ${t.tableCell}`}>{product.category}</td>
                           <td className={`py-3 px-4 ${t.tableCell}`}>
-                            € {product.price.toFixed(2).replace('.', ',')}
+                            {formatPrice(product.price)}
                           </td>
                           <td className={`py-3 px-4 ${t.tableCell}`}>{product.author}</td>
                           <td className="py-3 px-4">
@@ -421,7 +422,7 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className={`py-3 px-4 ${t.tableCell}`}>
-                            € {order.total.toFixed(2).replace('.', ',')}
+                            {formatPrice(order.total)}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${

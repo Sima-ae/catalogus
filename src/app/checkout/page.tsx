@@ -11,6 +11,7 @@ import { ArrowLeftIcon, CreditCardIcon, ShieldCheckIcon, TruckIcon } from '@hero
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { appPath } from '@/lib/paths'
+import { formatPrice } from '@/lib/format-price'
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -122,7 +123,7 @@ function CheckoutForm({ cartTotal, cartItems, onSuccess }: CheckoutFormProps) {
         disabled={!stripe || isProcessing || !clientSecret}
         className="w-full btn-primary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isProcessing ? 'Processing...' : `Pay € ${cartTotal.toFixed(2).replace('.', ',')}`}
+        {isProcessing ? 'Processing...' : `Pay ${formatPrice(cartTotal)}`}
       </button>
     </form>
   )
@@ -752,7 +753,7 @@ export default function CheckoutPage() {
                           </h3>
                           <div className="flex items-center space-x-2">
                             <span className="text-primary-500 font-bold text-sm">
-                              € {item.price.toFixed(2).replace('.', ',')}
+                              {formatPrice(item.price)}
                             </span>
                             <span className={`text-sm transition-colors ${
                               theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
@@ -764,7 +765,7 @@ export default function CheckoutPage() {
                         <div className={`font-medium transition-colors ${
                           theme === 'dark' ? 'text-white' : 'text-gray-900'
                         }`}>
-                          € {(item.price * item.quantity).toFixed(2).replace('.', ',')}
+                          {formatPrice(item.price * item.quantity)}
                         </div>
                       </div>
                     ))}
@@ -776,7 +777,7 @@ export default function CheckoutPage() {
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
                     }`}>
                       <span>Subtotal ({cartState.itemCount} items)</span>
-                      <span>€ {cartState.total.toFixed(2).replace('.', ',')}</span>
+                      <span>{formatPrice(cartState.total)}</span>
                     </div>
                     <div className={`flex justify-between transition-colors ${
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
@@ -797,7 +798,7 @@ export default function CheckoutPage() {
                         theme === 'dark' ? 'text-white' : 'text-gray-900'
                       }`}>
                         <span>Total</span>
-                        <span>€ {cartState.total.toFixed(2).replace('.', ',')}</span>
+                        <span>{formatPrice(cartState.total)}</span>
                       </div>
                     </div>
                   </div>

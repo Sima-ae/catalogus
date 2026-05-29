@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/types'
+import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { useState } from 'react'
@@ -85,20 +86,23 @@ export default function ProductCard({ product }: ProductCardProps) {
         
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-2 min-w-0">
-            {product.original_price && product.original_price > product.price ? (
+            {product.original_price &&
+            !isZeroPrice(product.original_price) &&
+            product.original_price > product.price &&
+            !isZeroPrice(product.price) ? (
               <>
                 <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                  € {product.price.toFixed(2).replace('.', ',')}
+                  {formatPrice(product.price)}
                 </span>
                 <span className={`line-through text-xs truncate transition-colors ${
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                 }`}>
-                  € {product.original_price.toFixed(2).replace('.', ',')}
+                  {formatPrice(product.original_price)}
                 </span>
               </>
             ) : (
               <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                {product.price === 0 ? 'FREE' : `€ ${product.price.toFixed(2).replace('.', ',')}`}
+                {formatPrice(product.price)}
               </span>
             )}
           </div>

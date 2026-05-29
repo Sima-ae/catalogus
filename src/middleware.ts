@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import {
+  SITE_ACCESS_COOKIE,
+  SITE_ACCESS_META_REQUIRED,
+  SITE_ACCESS_META_VERSION,
+  verifyUnlockToken,
+} from '@/lib/site-access-cookie'
 
 const GATE_PATH = '/site-access-gate'
 
@@ -16,11 +22,33 @@ function isSiteAccessApi(pathname: string): boolean {
   return pathname.startsWith('/api/site-access/')
 }
 
-async function siteAccessAllowed(request: NextRequest): Promise<{
+/** Edge-safe check using cookies set by verify/status/check (no self-fetch). */
+async function siteAccessFromCookies(request: NextRequest): Promise<{
+  required: boolean
+  allowed: boolean
+} | null> {
+  const requiredFlag = request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value
+  if (requiredFlag === '0') {
+    return { required: false, allowed: true }
+  }
+  if (requiredFlag !== '1') {
+    return null
+  }
+
+  const version =
+    Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '0', 10) || 0
+  const token = request.cookies.get(SITE_ACCESS_COOKIE)?.value
+  return {
+    required: true,
+    allowed: await verifyUnlockToken(token, version),
+  }
+}
+
+async function siteAccessFromApi(request: NextRequest): Promise<{
   required: boolean
   allowed: boolean
 }> {
-  const checkUrl = new URL('/api/site-access/check', request.url)
+  const checkUrl = new URL('/api/site-access/check', request.nextUrl.origin)
   try {
     const res = await fetch(checkUrl, {
       headers: { cookie: request.headers.get('cookie') || '' },
@@ -49,7 +77,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const { required, allowed } = await siteAccessAllowed(request)
+  const fromCookies = await siteAccessFromCookies(request)
+  const { required, allowed } = fromCookies ?? (await siteAccessFromApi(request))
+
   if (!required || allowed) {
     return NextResponse.next()
   }

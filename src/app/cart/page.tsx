@@ -7,6 +7,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import Sidebar, { MobileMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
 import { TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { formatPrice, isZeroPrice } from '@/lib/format-price'
 
 export default function CartPage() {
   const { state: cartState, removeItem, updateQuantity, clearCart } = useCart()
@@ -152,13 +153,16 @@ export default function CartPage() {
                           </h3>
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="text-primary-500 font-bold">
-                              € {item.price.toFixed(2).replace('.', ',')}
+                              {formatPrice(item.price)}
                             </span>
-                            {item.original_price && item.original_price > item.price && (
+                            {item.original_price &&
+                              !isZeroPrice(item.original_price) &&
+                              item.original_price > item.price &&
+                              !isZeroPrice(item.price) && (
                               <span className={`line-through text-sm transition-colors ${
                                 theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                               }`}>
-                                € {item.original_price.toFixed(2).replace('.', ',')}
+                                {formatPrice(item.original_price)}
                               </span>
                             )}
                           </div>
@@ -226,7 +230,7 @@ export default function CartPage() {
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
                     }`}>
                       <span>Subtotal ({cartState.itemCount} items)</span>
-                      <span>€ {cartState.total.toFixed(2).replace('.', ',')}</span>
+                      <span>{formatPrice(cartState.total)}</span>
                     </div>
                     <div className={`flex justify-between transition-colors ${
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
@@ -241,7 +245,7 @@ export default function CartPage() {
                         theme === 'dark' ? 'text-white' : 'text-gray-900'
                       }`}>
                         <span>Total</span>
-                        <span>€ {cartState.total.toFixed(2).replace('.', ',')}</span>
+                        <span>{formatPrice(cartState.total)}</span>
                       </div>
                     </div>
                   </div>

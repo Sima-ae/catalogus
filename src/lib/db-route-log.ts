@@ -1,20 +1,19 @@
 import { isDbConnectionError } from '@/lib/db'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 
 let offlineHintShown = false
 
-/** One-line hint when MariaDB is down in local dev (avoids stack traces every request). */
+/** One-line hint when MariaDB is down in local dev. */
 export function warnDbOfflineOnce() {
-  if (offlineHintShown || !isDevDataFallbackEnabled()) return
+  if (offlineHintShown) return
   offlineHintShown = true
   console.warn(
-    '[catalogus] MariaDB is not reachable (127.0.0.1:3306). Using dev fallbacks. ' +
-      'To use the database: start MariaDB (e.g. npm run db:local with Docker) or run npm run db:tunnel to the VPS.'
+    '[catalogus] MariaDB is not reachable. All catalog data requires the database. ' +
+      'Start MariaDB (npm run dev:local) or connect to production (npm run db:tunnel).'
   )
 }
 
 export function logDbRouteError(context: string, error: unknown) {
-  if (isDevDataFallbackEnabled() && isDbConnectionError(error)) {
+  if (isDbConnectionError(error)) {
     warnDbOfflineOnce()
     return
   }

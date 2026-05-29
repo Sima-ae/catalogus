@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { queryDb } from '@/lib/db'
 import { isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
-import { getDevBadgeRating } from '@/lib/dev-user-badges'
 import { isSuperAdminUser } from '@/lib/user-roles'
 import { isDbConnectionError } from '@/lib/db'
 import { logDbRouteError } from '@/lib/db-route-log'
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         user: {
           ...devUser,
-          badge_rating: getDevBadgeRating(devUser.id),
+          badge_rating: null,
         },
       })
     }
@@ -66,10 +65,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    const devRating = getDevBadgeRating(user.id)
-    const badge_rating =
-      user.badge_rating != null ? Number(user.badge_rating) : devRating
-
     return NextResponse.json({
       user: {
         id: user.id,
@@ -77,7 +72,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         name: user.name || user.email.split('@')[0],
         is_super_admin: isSuperAdminUser(user),
-        badge_rating: badge_rating ?? null,
+        badge_rating: user.badge_rating != null ? Number(user.badge_rating) : null,
       },
     })
   } catch (error) {

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  deleteDevProduct,
-  devModeEnabled,
-  getDevProduct,
-  updateDevProduct,
-} from '@/lib/dev-store'
-import { deleteProductById, getProductById, updateProduct } from '@/lib/products-db'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
+  deleteProductById,
+  getProductById,
+  UnknownCategoryError,
+  updateProduct,
+} from '@/lib/products-db'
+import { getDbErrorMessage } from '@/lib/db-errors'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -22,14 +21,10 @@ export async function GET(
     }
     return NextResponse.json(product)
   } catch (error) {
-    if (isDevDataFallbackEnabled()) {
-      const product = getDevProduct(params.id)
-      if (!product) {
-        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-      }
-      return NextResponse.json(product)
-    }
-    return NextResponse.json({ error: 'Failed to load product' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to load product') },
+      { status: 503 }
+    )
   }
 }
 
@@ -39,26 +34,20 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
-
-    try {
-      const product = await updateProduct(params.id, body)
-      if (!product) {
-        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-      }
-      return NextResponse.json(product)
-    } catch (dbError) {
-      if (devModeEnabled()) {
-        const product = updateDevProduct(params.id, body)
-        if (!product) {
-          return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-        }
-        return NextResponse.json(product)
-      }
-      throw dbError
+    const product = await updateProduct(params.id, body)
+    if (!product) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
+    return NextResponse.json(product)
   } catch (error) {
+    if (error instanceof UnknownCategoryError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
     console.error('Product update error:', error)
-    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to update product') },
+      { status: 503 }
+    )
   }
 }
 
@@ -67,21 +56,17 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    try {
-      await deleteProductById(params.id)
-      return NextResponse.json({ ok: true })
-    } catch (dbError) {
-      if (devModeEnabled()) {
-        const ok = deleteDevProduct(params.id)
-        if (!ok) {
-          return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-        }
-        return NextResponse.json({ ok: true })
-      }
-      throw dbError
+    const existing = await getProductById(params.id)
+    if (!existing) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
+    await deleteProductById(params.id)
+    return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Product delete error:', error)
-    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to delete product') },
+      { status: 503 }
+    )
   }
 }

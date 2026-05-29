@@ -16,8 +16,9 @@ export function useAppTheme() {
     heading: isDark ? 'text-gray-50' : 'text-gray-900',
     body: isDark ? 'text-gray-200' : 'text-gray-800',
     muted: isDark ? 'text-gray-400' : 'text-gray-600',
-    tableHead: isDark ? 'text-gray-400' : 'text-gray-500',
+    tableHead: isDark ? 'text-gray-300' : 'text-gray-700',
     tableCell: isDark ? 'text-gray-100' : 'text-gray-900',
+    tableCellMuted: isDark ? 'text-gray-300' : 'text-gray-700',
     rowBorder: isDark ? 'border-dark-800' : 'border-gray-200',
     rowHover: isDark ? 'hover:bg-dark-800/80' : 'hover:bg-gray-50',
     iconBtn: isDark

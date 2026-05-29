@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseAdminCredentials, verifySuperAdmin } from '@/lib/admin-api-auth'
+import { getDbErrorMessage } from '@/lib/db-errors'
 import { updateUserBadgeRating } from '@/lib/users-db'
 import { clampBadgeRating } from '@/lib/user-roles'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
-import { setDevBadgeRating } from '@/lib/dev-user-badges'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -48,10 +47,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     })
   } catch (error) {
     console.error('Badge rating update error:', error)
-    if (isDevDataFallbackEnabled()) {
-      setDevBadgeRating(userId, rating)
-      return NextResponse.json({ id: userId, badge_rating: rating })
-    }
-    return NextResponse.json({ error: 'Failed to update rating' }, { status: 500 })
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to update rating') },
+      { status: 503 }
+    )
   }
 }

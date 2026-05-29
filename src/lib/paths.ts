@@ -33,3 +33,10 @@ export function isAppPath(pathname: string | null, path: string): boolean {
   const target = appPath(path)
   return pathname === target || pathname === path || pathname.endsWith(path)
 }
+
+/** Homepage filtered by product category (matches shop sidebar / ?category=). */
+export function shopCategoryUrl(categoryName: string): string {
+  const name = categoryName.trim()
+  if (!name) return appPath('/')
+  return `${appPath('/')}?category=${encodeURIComponent(name)}`
+}

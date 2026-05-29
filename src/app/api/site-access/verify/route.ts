@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  SITE_ACCESS_COOKIE,
+  applySiteAccessCookies,
   createUnlockToken,
-  getSiteAccessConfig,
-  verifySiteAccessPassword,
-} from '@/lib/site-access'
+} from '@/lib/site-access-cookie'
+import { getSiteAccessConfig, verifySiteAccessPassword } from '@/lib/site-access'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -21,7 +20,9 @@ export async function POST(request: NextRequest) {
 
     const config = await getSiteAccessConfig()
     if (!config.required) {
-      return NextResponse.json({ unlocked: true })
+      const res = NextResponse.json({ unlocked: true })
+      applySiteAccessCookies(res, { required: false, version: config.version })
+      return res
     }
 
     const valid = await verifySiteAccessPassword(password)
@@ -29,15 +30,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Incorrect password' }, { status: 401 })
     }
 
-    const { token, maxAge } = createUnlockToken(config.version, remember)
+    const unlock = await createUnlockToken(config.version, remember)
     const res = NextResponse.json({ unlocked: true })
-    res.cookies.set(SITE_ACCESS_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge,
-    })
+    applySiteAccessCookies(
+      res,
+      { required: true, version: config.version },
+      unlock
+    )
     return res
   } catch (error) {
     console.error('Site access verify error:', error)

@@ -3,6 +3,16 @@
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import AdminEmptyState from '@/components/admin/AdminEmptyState'
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from '@/components/admin/AdminTable'
+import { useAppTheme } from '@/lib/theme-classes'
+import { formatPrice } from '@/lib/format-price'
 import { appPath } from '@/lib/paths'
 
 type Order = {
@@ -15,6 +25,7 @@ type Order = {
 }
 
 export default function AdminOrdersPage() {
+  const t = useAppTheme()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -28,32 +39,28 @@ export default function AdminOrdersPage() {
   return (
     <AdminPageShell title="Orders" description="All customer orders.">
       {loading ? (
-        <p className="text-gray-400">Loading...</p>
+        <p className={t.muted}>Loading...</p>
       ) : orders.length === 0 ? (
         <AdminEmptyState title="No orders yet" description="Orders will show here after customers checkout." />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-dark-700">
-                <th className="text-left py-3 px-4 text-gray-400">ID</th>
-                <th className="text-left py-3 px-4 text-gray-400">Customer</th>
-                <th className="text-left py-3 px-4 text-gray-400">Total</th>
-                <th className="text-left py-3 px-4 text-gray-400">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-b border-dark-700">
-                  <td className="py-3 px-4 text-white text-sm">{o.id}</td>
-                  <td className="py-3 px-4 text-gray-300">{o.customer_name}</td>
-                  <td className="py-3 px-4 text-white">€ {Number(o.total).toFixed(2)}</td>
-                  <td className="py-3 px-4 text-gray-300 capitalize">{o.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable>
+          <AdminTableHead>
+            <AdminTh>ID</AdminTh>
+            <AdminTh>Customer</AdminTh>
+            <AdminTh>Total</AdminTh>
+            <AdminTh>Status</AdminTh>
+          </AdminTableHead>
+          <AdminTableBody>
+            {orders.map((o) => (
+              <AdminTr key={o.id}>
+                <AdminTd className="text-sm">{o.id}</AdminTd>
+                <AdminTd>{o.customer_name}</AdminTd>
+                <AdminTd>{formatPrice(o.total)}</AdminTd>
+                <AdminTd className="capitalize">{o.status}</AdminTd>
+              </AdminTr>
+            ))}
+          </AdminTableBody>
+        </AdminTable>
       )}
     </AdminPageShell>
   )

@@ -257,68 +257,11 @@ CREATE TABLE IF NOT EXISTS settings (
 START TRANSACTION;
 
 INSERT INTO categories (id, name, slug, description, active)
-VALUES ('11111111-1111-1111-1111-111111111111', 'WordPress Theme', 'wordpress-theme', 'Seed category from app mock data', 1)
+VALUES ('11111111-1111-1111-1111-111111111111', 'WordPress Theme', 'wordpress-theme', 'Default category', 1)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   description = VALUES(description),
   active = VALUES(active);
-
-INSERT INTO products (
-  id,
-  name,
-  description,
-  short_description,
-  price,
-  original_price,
-  image_url,
-  gallery_images,
-  category,
-  tags,
-  author,
-  author_icon,
-  sku,
-  demo_url,
-  documentation_url,
-  version,
-  license_type,
-  requirements,
-  features,
-  rating,
-  review_count,
-  download_count,
-  status,
-  featured,
-  created_at,
-  updated_at
-)
-VALUES (
-  '22222222-2222-2222-2222-222222222222',
-  'Temprador WooCommerce Template',
-  'Great software is built with amazing developers. This premium WooCommerce template provides everything you need to create a professional online store with modern design and powerful functionality.',
-  'Temprador is a premium WooCommerce template designed for modern e-commerce businesses.',
-  59.00,
-  65.00,
-  'https://picsum.photos/600/400?random=1',
-  '["https://picsum.photos/600/400?random=1","https://picsum.photos/600/400?random=2","https://picsum.photos/600/400?random=3","https://picsum.photos/400/300?random=4","https://picsum.photos/400/300?random=5"]',
-  'WordPress Theme',
-  '["WooCommerce","WordPress","E-commerce","Responsive","Modern"]',
-  'Super Clones',
-  'S',
-  'TEMP-WC-001',
-  'https://demo.temprador.com',
-  'https://docs.temprador.com',
-  '2.1.0',
-  'GPL v2 or later',
-  '["WordPress 6.0 or higher","WooCommerce 7.0 or higher","PHP 8.0 or higher","MySQL 5.7 or higher"]',
-  '["Responsive Design","Advanced Product Filtering","Multiple Layout Options","SEO Optimized","Fast Loading","Customizable Colors","Translation Ready","RTL Support"]',
-  4.80,
-  127,
-  2341,
-  'active',
-  1,
-  '2024-01-01 00:00:00',
-  '2024-01-15 00:00:00'
-);
 
 COMMIT;
 

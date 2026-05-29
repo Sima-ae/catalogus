@@ -1,7 +1,7 @@
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
 
-export type SettingsStorage = 'database' | 'file' | 'default'
+export type SettingsStorage = 'database'
 
 export function parseSettingsResponse(data: unknown): {
   settings: SiteSettings
@@ -11,7 +11,7 @@ export function parseSettingsResponse(data: unknown): {
     return { settings: { ...DEFAULT_SITE_SETTINGS } }
   }
   const raw = data as Record<string, unknown>
-  const storage = raw._storage as SettingsStorage | undefined
+  const storage = raw._storage === 'database' ? 'database' : undefined
   const settings = { ...DEFAULT_SITE_SETTINGS }
   for (const key of Object.keys(DEFAULT_SITE_SETTINGS) as (keyof SiteSettings)[]) {
     if (raw[key] !== undefined) {

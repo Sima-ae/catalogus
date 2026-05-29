@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { parseCategoryBody } from '@/lib/admin-categories'
 import { serializeCategory } from '@/lib/category-serialize'
+import { getDbErrorMessage } from '@/lib/db-errors'
 import { loadCategoryById, removeCategory, saveCategory } from '@/lib/categories-persistence'
 
 export const dynamic = 'force-dynamic'
@@ -21,14 +22,14 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       return jsonError(auth.error, auth.status)
     }
 
-    const { row } = await loadCategoryById(params.id)
+    const row = await loadCategoryById(params.id)
     if (!row) {
       return jsonError('Category not found', 404)
     }
     return NextResponse.json(serializeCategory(row as Record<string, unknown>))
   } catch (error) {
     console.error('Category GET error:', error)
-    return jsonError('Failed to load category', 500)
+    return jsonError(getDbErrorMessage(error, 'Failed to load category'), 503)
   }
 }
 
@@ -60,7 +61,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json(serializeCategory(result.row as Record<string, unknown>))
   } catch (error) {
     console.error('Category PATCH error:', error)
-    return jsonError('Failed to save category', 500)
+    return jsonError(getDbErrorMessage(error, 'Failed to save category'), 503)
   }
 }
 
@@ -84,6 +85,6 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Category DELETE error:', error)
-    return jsonError('Failed to delete category', 500)
+    return jsonError(getDbErrorMessage(error, 'Failed to delete category'), 503)
   }
 }

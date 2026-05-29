@@ -1,11 +1,5 @@
 import { queryDb } from '@/lib/db'
-import { getDevBadgeRating, setDevBadgeRating } from '@/lib/dev-user-badges'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
 import { clampBadgeRating, isSuperAdminUser, type UserListRow } from '@/lib/user-roles'
-
-type DbUserRow = UserListRow & {
-  password_hash?: string
-}
 
 function mapRow(row: Record<string, unknown>): UserListRow {
   const is_super_admin = Boolean(row.is_super_admin)
@@ -37,11 +31,7 @@ export async function listUsers(): Promise<UserListRow[]> {
       )
       return legacy.map((row) => {
         const mapped = mapRow({ ...row, is_super_admin: 0, badge_rating: null })
-        if (isSuperAdminUser(mapped)) {
-          mapped.is_super_admin = true
-        }
-        const devRating = getDevBadgeRating(mapped.id)
-        if (devRating !== null) mapped.badge_rating = devRating
+        if (isSuperAdminUser(mapped)) mapped.is_super_admin = true
         return mapped
       })
     }
@@ -68,8 +58,6 @@ export async function getUserProfile(userId: string): Promise<UserListRow | null
       if (!rows[0]) return null
       const mapped = mapRow({ ...rows[0], is_super_admin: 0, badge_rating: null })
       if (isSuperAdminUser(mapped)) mapped.is_super_admin = true
-      const devRating = getDevBadgeRating(userId)
-      if (devRating !== null) mapped.badge_rating = devRating
       return mapped
     }
     throw error
@@ -90,9 +78,10 @@ export async function updateUserBadgeRating(
     return getUserProfile(userId)
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (message.includes('Unknown column') || isDevDataFallbackEnabled()) {
-      setDevBadgeRating(userId, clamped)
-      return getUserProfile(userId)
+    if (message.includes('Unknown column')) {
+      throw new Error(
+        'badge_rating column missing — run db/migrations/001_user_badges.sql on your database'
+      )
     }
     throw error
   }

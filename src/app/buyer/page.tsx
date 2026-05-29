@@ -7,6 +7,7 @@ import UserBadgeCard from '@/components/users/UserBadgeCard'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
+import { formatPrice } from '@/lib/format-price'
 
 const nav = [
   { name: 'Dashboard', href: '/buyer' },
@@ -57,7 +58,7 @@ export default function BuyerDashboard() {
           {products.map((p) => (
             <Link key={p.id} href={`/product/${p.id}`} className="card p-4 block hover:border-primary-500">
               <p className="text-white font-medium line-clamp-1">{p.name}</p>
-              <p className="text-primary-500 mt-2">€ {Number(p.price).toFixed(2)}</p>
+              <p className="text-primary-500 mt-2">{formatPrice(p.price)}</p>
             </Link>
           ))}
         </div>

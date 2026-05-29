@@ -7,6 +7,15 @@ import UserBadgeCard from '@/components/users/UserBadgeCard'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
+import { formatPrice } from '@/lib/format-price'
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from '@/components/admin/AdminTable'
 
 const nav = [
   { name: 'Dashboard', href: '/seller' },
@@ -64,28 +73,24 @@ export default function SellerDashboard() {
       ) : products.length === 0 ? (
         <p className="text-gray-400">No products listed yet.</p>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-dark-700">
-                <th className="text-left py-3 px-4 text-gray-400">Name</th>
-                <th className="text-left py-3 px-4 text-gray-400">Category</th>
-                <th className="text-left py-3 px-4 text-gray-400">Price</th>
-                <th className="text-left py-3 px-4 text-gray-400">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-b border-dark-700">
-                  <td className="py-3 px-4 text-white">{p.name}</td>
-                  <td className="py-3 px-4 text-gray-300">{p.category}</td>
-                  <td className="py-3 px-4 text-white">€ {Number(p.price).toFixed(2)}</td>
-                  <td className="py-3 px-4 text-gray-300">{p.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable>
+          <AdminTableHead>
+            <AdminTh>Name</AdminTh>
+            <AdminTh>Category</AdminTh>
+            <AdminTh>Price</AdminTh>
+            <AdminTh>Status</AdminTh>
+          </AdminTableHead>
+          <AdminTableBody>
+            {products.map((p) => (
+              <AdminTr key={p.id}>
+                <AdminTd>{p.name}</AdminTd>
+                <AdminTd>{p.category || '—'}</AdminTd>
+                <AdminTd>{formatPrice(p.price)}</AdminTd>
+                <AdminTd>{p.status}</AdminTd>
+              </AdminTr>
+            ))}
+          </AdminTableBody>
+        </AdminTable>
       )}
     </DashboardShell>
   )

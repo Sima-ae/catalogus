@@ -79,7 +79,9 @@ export async function queryDb<T = unknown>(
     const [rows] = await getDbPool().query(sql, params)
     return rows as T
   } catch (err) {
-    if (isDbConnectionError(err)) {
+    const message = err instanceof Error ? err.message : ''
+    const poolClosed = message.includes('Pool is closed')
+    if (isDbConnectionError(err) || poolClosed) {
       resetDbPool()
       const [rows] = await getDbPool().query(sql, params)
       return rows as T

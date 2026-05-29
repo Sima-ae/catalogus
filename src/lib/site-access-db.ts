@@ -1,11 +1,5 @@
 import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
-import { isDevDataFallbackEnabled } from '@/lib/dev-seed'
-import {
-  clearDevSiteAccessPassword,
-  setDevSiteAccessEnabled,
-  setDevSiteAccessPasswordHash,
-} from '@/lib/dev-site-access'
 import { DEFAULT_SITE_ACCESS } from '@/lib/site-access-keys'
 import { hashSiteAccessPassword } from '@/lib/site-access'
 
@@ -33,26 +27,6 @@ export async function saveSiteAccessForAdmin(input: {
   newPassword?: string | null
   clearPassword?: boolean
 }) {
-  if (isDevDataFallbackEnabled()) {
-    if (input.clearPassword) {
-      clearDevSiteAccessPassword()
-      return
-    }
-    if (input.enabled === false) {
-      setDevSiteAccessEnabled(false)
-      return
-    }
-    if (input.newPassword?.trim()) {
-      const hash = await hashSiteAccessPassword(input.newPassword.trim())
-      setDevSiteAccessPasswordHash(hash, true)
-      return
-    }
-    if (input.enabled === true) {
-      setDevSiteAccessEnabled(true)
-    }
-    return
-  }
-
   if (input.clearPassword) {
     await upsertSetting('site_access_enabled', 'false')
     await upsertSetting('site_access_password_hash', '')

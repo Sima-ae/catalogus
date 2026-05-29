@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/lib/cart'
@@ -27,13 +28,21 @@ export default function RootLayout({
       <body className={`${inter.className} app-protected transition-colors duration-200`}>
         <ContentProtection />
         <AuthProvider>
-          <SiteAccessGuard>
-            <ThemeProvider>
-              <CartProvider>
-                {children}
-              </CartProvider>
-            </ThemeProvider>
-          </SiteAccessGuard>
+          <Suspense
+            fallback={
+              <div className="min-h-screen flex items-center justify-center bg-dark-900">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+              </div>
+            }
+          >
+            <SiteAccessGuard>
+              <ThemeProvider>
+                <CartProvider>
+                  {children}
+                </CartProvider>
+              </ThemeProvider>
+            </SiteAccessGuard>
+          </Suspense>
         </AuthProvider>
       </body>
     </html>
