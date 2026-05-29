@@ -10,8 +10,7 @@ export function getDbErrorMessage(error: unknown, fallback = 'Database operation
   }
   if (isDbConnectionError(error)) {
     return (
-      'Database is not available. Use one dev server only, run MariaDB (npm run dev:local) or the DB tunnel ' +
-      '(npm run db:tunnel), then restart the app.'
+      'Database is not available. Run npm run dev:local (Docker MariaDB) or check DATABASE_URL on the VPS.'
     )
   }
   if (error instanceof Error && error.message) return error.message

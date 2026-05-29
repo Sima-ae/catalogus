@@ -2,68 +2,64 @@
 
 Next.js marketplace for [superclones.cloud](https://superclones.cloud).
 
-## Local development
+## Local development (Docker MariaDB — no SSH tunnel)
 
 ```bash
 cp .env.local.example .env
 npm install
-npm run dev
+npm run dev:local
 ```
 
-With MariaDB (Docker): `npm run dev:local`  
-With remote DB: `npm run db:tunnel` then `npm run dev`
+Starts MariaDB in Docker and `next dev`. Data is local; production uses the VPS database.
 
-## Database (MariaDB)
+## Production (VPS)
 
-Import in order via phpMyAdmin or `mysql`:
+| What | Where |
+|------|--------|
+| App | `/var/www/superclones.cloud`, systemd `catalogus`, port **3001** |
+| Database | MariaDB on same VPS — `DATABASE_URL=...@127.0.0.1:3306/...` in `.env` |
+| Product images | `/home/superclones.cloud/public_html/images` (`CATALOGUS_PUBLIC_HTML`) |
 
-1. `db/supe_r_clones_cloud_init.sql` — schema
-2. `db/supe_r_clones_cloud_users.sql` — seed users (bcrypt hashes only)
-3. `db/upgrade.sql` — only if upgrading an older database  
-4. `db/brands.sql` — brands table + product `brand` columns (if missing after deploy)  
-5. `db/brand_categories.sql` — link brands to categories (many-to-many)
+Push to `main` → GitHub Actions runs `scripts/deploy.sh` on the server.
 
-Reset super-admin password on the server:
-
-```bash
-node scripts/reset-admin-password.mjs 'YourStrongPassword'
-```
-
-## Production deploy
-
-- GitHub Actions SSHs as **root** using your **existing** root key — do not generate or change server keys.
-- On the VPS: `bash scripts/deploy.sh` (same user as `catalogus` systemd — root).
-- `.env`: `AUTH_DEV_FALLBACK=false`, `DATABASE_URL`, `CATALOGUS_PUBLIC_HTML`, `SITE_ACCESS_COOKIE_SECRET`, Stripe keys.
-- LiteSpeed proxies to Node on port **3001**. See `deploy/catalogus.service` and `deploy/htaccess.example`.
-
-### GitHub Actions secrets
+### GitHub deploy secrets (same as inkoop.autos)
 
 | Secret | Value |
 |--------|--------|
-| `VPS_HOST` | Server hostname or IP |
+| `VPS_HOST` | e.g. `superclones.cloud` |
 | `VPS_USER` | `root` |
-| `VPS_SSH_KEY` | **Same private key** you already use: `ssh -i ~/.ssh/your_key root@host` |
-| `VPS_APP_PATH` | `/var/www/superclones.cloud` (optional) |
+| `VPS_SSH_KEY` | **Deploy private key with no passphrase** (not your personal `id_ed25519`) |
 
-`VPS_SSH_KEY` must match a public key **already** in `/root/.ssh/authorized_keys`. Do not edit `authorized_keys` for CI unless you rotate keys on purpose.
+**Fastest:** copy `VPS_HOST`, `VPS_USER`, and `VPS_SSH_KEY` from the **inkoop.autos** GitHub repo secrets into this repo.
 
-If deploy fails with `Permission denied (publickey)`, fix the **GitHub secret** (wrong key pasted, missing newlines, or `VPS_USER` not `root`) — not the server.
+**Or** on the VPS once as root:
 
 ```bash
-# Local test (must succeed before Actions will work):
-ssh -i /path/to/your_existing_root_key root@your-host 'echo OK'
+bash /var/www/superclones.cloud/scripts/setup-github-deploy-ssh.sh
 ```
 
-**App ownership (one-time):**
+Paste the printed private key into GitHub → **VPS_SSH_KEY**. Your personal SSH key and passphrase stay on your Mac only.
+
+Manual deploy on VPS: `bash /var/www/superclones.cloud/scripts/deploy.sh`
+
+## Database (MariaDB)
+
+Import on the VPS (phpMyAdmin or `mysql`):
+
+1. `db/supe_r_clones_cloud_init.sql`
+2. `db/supe_r_clones_cloud_users.sql`
+3. `db/upgrade.sql` (older DBs only)
+4. `db/brands.sql`
+5. `db/brand_categories.sql`
+
+Reset super-admin on VPS:
 
 ```bash
-chown -R root:root /var/www/superclones.cloud
-cp /var/www/superclones.cloud/deploy/catalogus.service /etc/systemd/system/catalogus.service
-systemctl daemon-reload && systemctl restart catalogus
+cd /var/www/superclones.cloud
+node scripts/reset-admin-password.mjs 'YourStrongPassword'
 ```
 
 ## Security
 
 - Never commit `.env`.
-- No credentials in the UI or API error messages.
 - Production: `AUTH_DEV_FALLBACK=false`, strong `SITE_ACCESS_COOKIE_SECRET`.

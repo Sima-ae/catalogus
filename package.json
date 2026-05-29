@@ -14,9 +14,9 @@
     "env:check": "node scripts/check-env.mjs",
     "db:sync-product-categories": "node scripts/sync-product-categories.mjs",
     "db:reset-admin-password": "node scripts/reset-admin-password.mjs",
+    "dev:local": "docker compose up -d && node scripts/wait-db.mjs && next dev",
     "db:tunnel": "./scripts/ssh-db-tunnel.sh",
-    "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background",
-    "dev:local": "docker compose up -d && node scripts/wait-db.mjs && next dev"
+    "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

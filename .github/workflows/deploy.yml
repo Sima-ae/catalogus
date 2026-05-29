@@ -63,14 +63,13 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER=root, and VPS_SSH_KEY (your existing root private key) in repo Settings → Secrets."
+            echo "::warning::Set VPS_HOST, VPS_USER=root, VPS_SSH_KEY (deploy key, no passphrase — same as inkoop.autos)."
           fi
 
       - name: Require VPS secrets (deploy cannot run without them)
         if: steps.vps_secrets.outputs.configured != 'true'
         run: |
-          echo "::error::Deploy did not run. Add repository secrets VPS_HOST, VPS_USER, and VPS_SSH_KEY under Settings → Secrets and variables → Actions."
-          echo "See README.md for deploy setup."
+          echo "::error::Add VPS_HOST, VPS_USER, VPS_SSH_KEY in Settings → Secrets → Actions."
           exit 1
 
       - name: Deploy over SSH
@@ -82,41 +81,46 @@ jobs:
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           VPS_APP_PATH: ${{ secrets.VPS_APP_PATH }}
           VPS_PUBLIC_HTML: ${{ secrets.VPS_PUBLIC_HTML }}
-          GIT_REF: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
-          if [[ -z "${VPS_HOST:-}" || -z "${VPS_USER:-}" || -z "${VPS_SSH_KEY:-}" ]]; then
-            echo "::error::Missing GitHub secrets. Set VPS_HOST, VPS_USER, and VPS_SSH_KEY in repo Settings → Secrets."
-            exit 1
-          fi
-
           PORT="${VPS_SSH_PORT:-22}"
-          if [[ -z "$PORT" ]]; then PORT=22; fi
-
-          # Empty VPS_APP_PATH secret must not override the default
-          if [[ -z "${VPS_APP_PATH:-}" ]]; then
-            APP_DIR=/var/www/superclones.cloud
-          else
-            APP_DIR="$VPS_APP_PATH"
-          fi
+          APP_DIR="${VPS_APP_PATH:-/var/www/superclones.cloud}"
           REPO_URL="https://github.com/${{ github.repository }}.git"
 
           mkdir -p ~/.ssh
+          umask 077
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+          if ! grep -qE 'BEGIN (OPENSSH |RSA )?PRIVATE KEY' ~/.ssh/deploy_key; then
+            echo "::error::VPS_SSH_KEY must be a private key file (BEGIN … PRIVATE KEY)."
+            exit 1
+          fi
+
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1; then
+            echo "::error::VPS_SSH_KEY cannot be used by GitHub (passphrase-protected or invalid)."
+            echo "Do not use ~/.ssh/id_ed25519 if it has a passphrase."
+            echo "Use the same VPS_SSH_KEY as inkoop.autos, or on the VPS run:"
+            echo "  bash $APP_DIR/scripts/setup-github-deploy-ssh.sh"
+            echo "and paste the printed private key into GitHub secret VPS_SSH_KEY."
+            exit 1
+          fi
+
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} (deploy path from VPS_APP_PATH secret)"
+          SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes)
+
+          echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
 
           if ! timeout 15 bash -c "echo >/dev/tcp/${VPS_HOST}/${PORT}" 2>/dev/null; then
-            echo "::error::Cannot reach ${VPS_HOST}:${PORT} from GitHub Actions (TCP timeout)."
-            echo "Fix on the VPS / panel:"
-            echo "  1. Firewall (CSF/UFW): allow inbound TCP ${PORT} from GitHub Actions IPs"
-            echo "     https://api.github.com/meta (json.actions[])"
-            echo "  2. Or use a self-hosted GitHub runner on the VPS"
-            echo "  3. If SSH uses another port, set repo secret VPS_SSH_PORT (e.g. 2222)"
-            echo "  4. Confirm VPS_HOST secret is the server hostname/IP you use for ssh"
+            echo "::error::Cannot reach ${VPS_HOST}:${PORT} (firewall or wrong VPS_HOST)."
+            exit 1
+          fi
+
+          if ! ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'echo "SSH OK as $(id -un)"'; then
+            echo "::error::SSH auth failed. VPS_USER=root and VPS_SSH_KEY must match /root/.ssh/authorized_keys."
+            echo "Copy VPS_SSH_KEY from inkoop.autos repo secrets, or run setup-github-deploy-ssh.sh on the VPS."
             exit 1
           fi
 
@@ -124,91 +128,39 @@ jobs:
           trap 'rm -f "$REMOTE_SCRIPT"' EXIT
           cat > "$REMOTE_SCRIPT" <<'REMOTE'
           set -euo pipefail
-          : "${APP_DIR:?APP_DIR is not set}"
-          : "${REPO_URL:?REPO_URL is not set}"
+          : "${APP_DIR:?}"
+          : "${REPO_URL:?}"
 
           git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 
-          ensure_git_repo() {
-            if [[ -d "$APP_DIR/.git" ]]; then
-              return 0
-            fi
-
+          if [[ ! -d "$APP_DIR/.git" ]]; then
             PARENT="$(dirname "$APP_DIR")"
-            mkdir -p "$PARENT" 2>/dev/null || true
-
-            if [[ ! -d "$APP_DIR" ]]; then
-              echo "==> First deploy: cloning into new directory"
+            mkdir -p "$PARENT"
+            if [[ ! -d "$APP_DIR" ]] || [[ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]]; then
               git clone "$REPO_URL" "$APP_DIR"
-              return 0
+            else
+              ENV_BACKUP=""
+              [[ -f "$APP_DIR/.env" ]] && ENV_BACKUP="$(mktemp)" && cp "$APP_DIR/.env" "$ENV_BACKUP"
+              cd "$APP_DIR"
+              git init -b main
+              git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
+              git fetch origin main
+              git reset --hard origin/main
+              git clean -fd
+              [[ -n "$ENV_BACKUP" ]] && cp "$ENV_BACKUP" .env && rm -f "$ENV_BACKUP"
             fi
-
-            if [[ -z "$(ls -A "$APP_DIR" 2>/dev/null)" ]]; then
-              echo "==> Empty directory: cloning repository"
-              git clone "$REPO_URL" "$APP_DIR"
-              return 0
-            fi
-
-            echo "::warning::Directory exists but is not a git repo — syncing from GitHub (preserving .env if present)"
-            ENV_BACKUP=""
-            if [[ -f "$APP_DIR/.env" ]]; then
-              ENV_BACKUP="$(mktemp)"
-              cp "$APP_DIR/.env" "$ENV_BACKUP"
-            fi
-
-            cd "$APP_DIR"
-            git init -b main
-            git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
-            git fetch origin main
-            git reset --hard origin/main
-            git clean -fd
-
-            if [[ -n "$ENV_BACKUP" ]]; then
-              cp "$ENV_BACKUP" .env
-              rm -f "$ENV_BACKUP"
-              echo "==> Restored existing .env"
-            elif [[ ! -f .env ]] && [[ -f .env.vps.example ]]; then
-              cp .env.vps.example .env
-              echo "::warning::Created .env from .env.vps.example — edit secrets on the VPS before production use"
-            fi
-          }
-
-          ensure_git_repo || {
-            echo "::error::Could not set up git at deploy path."
-            echo "SSH to the VPS and run: export APP_DIR='$APP_DIR' && bash scripts/vps-fix-git.sh"
-            exit 1
-          }
+          fi
 
           cd "$APP_DIR"
-          echo "==> Deploy directory: $(pwd)"
-          echo "==> Fetch latest from GitHub"
           git fetch origin main
           git reset --hard origin/main
           git clean -fd
-          echo "==> Git commit on server: $(git log -1 --oneline)"
-          echo "==> Run deploy script (as SSH user: $(id -un))"
-          chmod +x scripts/deploy.sh scripts/sync-public-html.sh 2>/dev/null || chmod +x scripts/deploy.sh
+          echo "==> $(git log -1 --oneline)"
+          chmod +x scripts/deploy.sh 2>/dev/null || true
           bash scripts/deploy.sh
-          test -f package.json && test -d src && echo "OK: app files present in $(pwd)"
-          echo "==> Verify Catalogus on :3001"
-          curl -sf -o /dev/null -w "catalogus :3001 HTTP %{http_code}\n" http://127.0.0.1:3001/ || echo "WARN: :3001 not reachable after deploy"
+          curl -sf -o /dev/null -w "catalogus :3001 HTTP %{http_code}\n" http://127.0.0.1:3001/ || echo "WARN: :3001 not reachable"
           REMOTE
 
           PUBLIC_HTML="${VPS_PUBLIC_HTML:-/home/superclones.cloud/public_html}"
-
-          SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30)
-
-          if ! ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'echo "SSH auth OK as $(id -un)"'; then
-            echo "::error::SSH authentication failed for ${VPS_USER}@${VPS_HOST} (publickey)."
-            echo ""
-            echo "Do NOT change keys on the server. Use the root SSH key you already have:"
-            echo "  1. GitHub secret VPS_USER = root"
-            echo "  2. GitHub secret VPS_SSH_KEY = same PRIVATE key you use locally:"
-            echo "       ssh -i YOUR_KEY root@${VPS_HOST}"
-            echo "     (entire file, BEGIN/END lines; must match an entry already in /root/.ssh/authorized_keys)"
-            echo "  3. Do not edit /root/.ssh/authorized_keys unless you intentionally rotate keys"
-            exit 1
-          fi
-
           ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" \
             "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"
