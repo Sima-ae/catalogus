@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run on the VPS after code is updated (git pull or rsync).
+# Run on the VPS after code is updated (git pull or rsync). Intended to run as root.
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -8,6 +8,10 @@ cd "$APP_DIR"
 # shellcheck source=lib/git-safe-directory.sh
 source "$(dirname "$0")/lib/git-safe-directory.sh"
 ensure_git_safe_directory "$APP_DIR"
+
+if [[ "$(id -un)" != "root" ]]; then
+  echo "WARN: not running as root ($(id -un)) — prefer: sudo bash scripts/deploy.sh"
+fi
 
 echo "==> Deploy catalogus in $APP_DIR"
 
@@ -26,7 +30,6 @@ for f in "${REQUIRED[@]}"; do
   if [[ ! -f "$f" ]]; then
     echo "ERROR: Missing $f after git pull."
     echo "On the VPS run: git fetch origin main && git reset --hard origin/main && git clean -fd"
-    echo "If still missing, re-clone: sudo -u deploy git clone https://github.com/Sima-ae/catalogus.git $APP_DIR"
     exit 1
   fi
 done
@@ -69,7 +72,7 @@ NODE_ENV=production npm run build
 
 echo "==> Restart application"
 if systemctl is-active --quiet catalogus 2>/dev/null; then
-  sudo systemctl restart catalogus
+  systemctl restart catalogus
   echo "Restarted systemd unit: catalogus"
 elif command -v pm2 >/dev/null 2>&1; then
   pm2 restart catalogus 2>/dev/null || pm2 start npm --name catalogus -- start -- -p 3001
@@ -81,25 +84,22 @@ fi
 if [[ -f scripts/sync-public-html.sh ]]; then
   chmod +x scripts/sync-public-html.sh 2>/dev/null || true
   export APP_DIR
-  bash scripts/sync-public-html.sh || sudo -E bash scripts/sync-public-html.sh || \
-    echo "WARN: public_html .htaccess sync failed — copy deploy/htaccess.example manually"
+  bash scripts/sync-public-html.sh
 fi
 
 if [[ -f scripts/ensure-catalog-images-access.sh ]]; then
   chmod +x scripts/ensure-catalog-images-access.sh 2>/dev/null || true
   export APP_DIR
-  bash scripts/ensure-catalog-images-access.sh || sudo -E bash scripts/ensure-catalog-images-access.sh || true
+  bash scripts/ensure-catalog-images-access.sh
 fi
 
 if [[ -f scripts/link-public-images.sh ]]; then
   chmod +x scripts/link-public-images.sh 2>/dev/null || true
   export APP_DIR
-  bash scripts/link-public-images.sh || sudo -E bash scripts/link-public-images.sh || \
-    echo "WARN: public/images symlink skipped — /images still works via Next.js route if CATALOGUS_PUBLIC_HTML is set"
+  bash scripts/link-public-images.sh
 fi
 
 echo "==> Deploy finished OK"
 echo "==> Path: $(pwd)"
 echo "==> Commit: $(git log -1 --oneline)"
 echo "NOTE: Catalogus runs on port 3001 (inkoop-autos uses 3000). LiteSpeed/nginx must proxy to 3001."
-echo "      public_html is NOT updated unless VPS_APP_PATH is set to that directory."

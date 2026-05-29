@@ -63,7 +63,7 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER, and VPS_SSH_KEY in repo Settings → Secrets."
+            echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER (use root), and VPS_SSH_KEY in repo Settings → Secrets."
           fi
 
       - name: Require VPS secrets (deploy cannot run without them)
@@ -186,7 +186,7 @@ jobs:
           git reset --hard origin/main
           git clean -fd
           echo "==> Git commit on server: $(git log -1 --oneline)"
-          echo "==> Run deploy script"
+          echo "==> Run deploy script (as SSH user: $(id -un))"
           chmod +x scripts/deploy.sh scripts/sync-public-html.sh 2>/dev/null || chmod +x scripts/deploy.sh
           bash scripts/deploy.sh
           test -f package.json && test -d src && echo "OK: app files present in $(pwd)"
@@ -199,6 +199,6 @@ jobs:
           if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
             "${VPS_USER}@${VPS_HOST}" \
             "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"; then
-            echo "::error::SSH deploy failed (auth, firewall, or wrong VPS_USER/VPS_SSH_KEY)."
+            echo "::error::SSH deploy failed (auth, firewall, or wrong VPS_USER/VPS_SSH_KEY). Use VPS_USER=root and the matching private key."
             exit 1
           fi

@@ -4,7 +4,7 @@
 #   sudo systemctl enable catalogus
 #   sudo systemctl start catalogus
 #
-# Edit User= and WorkingDirectory= to match your server path.
+# Runs as root so deploy scripts, npm, and public_html paths share one owner (no EACCES).
 
 [Unit]
 Description=Catalogus Next.js (superclones.cloud)
@@ -13,8 +13,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=deploy
-Group=deploy
+User=root
+Group=root
 WorkingDirectory=/var/www/superclones.cloud
 Environment=NODE_ENV=production
 EnvironmentFile=/var/www/superclones.cloud/.env

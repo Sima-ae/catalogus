@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Source from deploy scripts: mark APP_DIR trusted for git (root vs deploy user ownership).
+# Source from deploy scripts: mark APP_DIR trusted for git when running as root.
 ensure_git_safe_directory() {
   local dir="${1:-}"
   if [[ -z "$dir" ]]; then
