@@ -31,6 +31,15 @@ export async function POST(request: NextRequest) {
     }
 
     const unlock = await createUnlockToken(config.version, remember)
+    if (!unlock) {
+      return NextResponse.json(
+        {
+          error:
+            'Site access is not configured on the server (SITE_ACCESS_COOKIE_SECRET missing).',
+        },
+        { status: 503 }
+      )
+    }
     const res = NextResponse.json({ unlocked: true })
     applySiteAccessCookies(
       res,

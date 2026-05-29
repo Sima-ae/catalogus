@@ -10,14 +10,19 @@ const REMEMBER_MAX_AGE_SEC = 60 * 60 * 24 * 30
 
 const textEncoder = new TextEncoder()
 
-export function getCookieSecret(): string {
+let missingSecretLogged = false
+
+/** Returns null when production secret is missing (site stays up; site-access lock is disabled). */
+export function getCookieSecret(): string | null {
   const secret = process.env.SITE_ACCESS_COOKIE_SECRET?.trim()
   if (secret && secret.length >= 16) return secret
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'SITE_ACCESS_COOKIE_SECRET must be set in production (16+ random characters).'
+  if (process.env.NODE_ENV === 'production' && !missingSecretLogged) {
+    missingSecretLogged = true
+    console.error(
+      '[site-access] SITE_ACCESS_COOKIE_SECRET is missing or too short — site access cookies disabled until set in .env'
     )
   }
+  if (process.env.NODE_ENV === 'production') return null
   return 'dev-only-site-access-secret-not-for-production'
 }
 
@@ -55,8 +60,9 @@ function timingSafeEqualString(a: string, b: string): boolean {
 let hmacKey: CryptoKey | null = null
 let hmacKeySecret = ''
 
-async function getHmacKey(): Promise<CryptoKey> {
+async function getHmacKey(): Promise<CryptoKey | null> {
   const secret = getCookieSecret()
+  if (!secret) return null
   if (hmacKey && hmacKeySecret === secret) return hmacKey
   hmacKeySecret = secret
   hmacKey = await crypto.subtle.importKey(
@@ -69,8 +75,9 @@ async function getHmacKey(): Promise<CryptoKey> {
   return hmacKey
 }
 
-async function signPayload(payload: string): Promise<string> {
+async function signPayload(payload: string): Promise<string | null> {
   const key = await getHmacKey()
+  if (!key) return null
   const sig = await crypto.subtle.sign('HMAC', key, textEncoder.encode(payload))
   return bytesToBase64Url(sig)
 }
@@ -78,11 +85,12 @@ async function signPayload(payload: string): Promise<string> {
 export async function createUnlockToken(
   version: number,
   remember: boolean
-): Promise<{ token: string; maxAge: number }> {
+): Promise<{ token: string; maxAge: number } | null> {
   const maxAge = remember ? REMEMBER_MAX_AGE_SEC : SESSION_MAX_AGE_SEC
   const exp = Math.floor(Date.now() / 1000) + maxAge
   const payload = `v1.${version}.${exp}`
   const sig = await signPayload(payload)
+  if (!sig) return null
   return { token: `${stringToBase64Url(payload)}.${sig}`, maxAge }
 }
 
@@ -91,6 +99,8 @@ export async function verifyUnlockToken(
   currentVersion: number
 ): Promise<boolean> {
   if (!token) return false
+  if (!getCookieSecret()) return false
+
   const dot = token.indexOf('.')
   if (dot === -1) return false
   const payloadB64 = token.slice(0, dot)
@@ -105,7 +115,7 @@ export async function verifyUnlockToken(
   }
 
   const expectedSig = await signPayload(payload)
-  if (!timingSafeEqualString(sig, expectedSig)) return false
+  if (!expectedSig || !timingSafeEqualString(sig, expectedSig)) return false
 
   const parts = payload.split('.')
   if (parts.length !== 3 || parts[0] !== 'v1') return false

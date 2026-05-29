@@ -38,9 +38,15 @@ async function siteAccessFromCookies(request: NextRequest): Promise<{
   const version =
     Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '0', 10) || 0
   const token = request.cookies.get(SITE_ACCESS_COOKIE)?.value
+  let allowed = false
+  try {
+    allowed = await verifyUnlockToken(token, version)
+  } catch {
+    allowed = false
+  }
   return {
     required: true,
-    allowed: await verifyUnlockToken(token, version),
+    allowed,
   }
 }
 
@@ -84,8 +90,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const fromCookies = await siteAccessFromCookies(request)
-  const { required, allowed } = fromCookies ?? (await siteAccessFromApi(request))
+  let required = false
+  let allowed = true
+  try {
+    const fromCookies = await siteAccessFromCookies(request)
+    const access = fromCookies ?? (await siteAccessFromApi(request))
+    required = access.required
+    allowed = access.allowed
+  } catch (error) {
+    console.error('[middleware] site access check failed:', error)
+    required = false
+    allowed = true
+  }
 
   if (!required || allowed) {
     return NextResponse.next()
