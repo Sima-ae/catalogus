@@ -63,7 +63,7 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER (use root), and VPS_SSH_KEY in repo Settings → Secrets."
+            echo "::warning::Skipping deploy: set VPS_HOST, VPS_USER=root, and VPS_SSH_KEY (your existing root private key) in repo Settings → Secrets."
           fi
 
       - name: Require VPS secrets (deploy cannot run without them)
@@ -196,9 +196,19 @@ jobs:
 
           PUBLIC_HTML="${VPS_PUBLIC_HTML:-/home/superclones.cloud/public_html}"
 
-          if ! ssh -i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 \
-            "${VPS_USER}@${VPS_HOST}" \
-            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"; then
-            echo "::error::SSH deploy failed (auth, firewall, or wrong VPS_USER/VPS_SSH_KEY). Use VPS_USER=root and the matching private key."
+          SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30)
+
+          if ! ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'echo "SSH auth OK as $(id -un)"'; then
+            echo "::error::SSH authentication failed for ${VPS_USER}@${VPS_HOST} (publickey)."
+            echo ""
+            echo "Do NOT change keys on the server. Use the root SSH key you already have:"
+            echo "  1. GitHub secret VPS_USER = root"
+            echo "  2. GitHub secret VPS_SSH_KEY = same PRIVATE key you use locally:"
+            echo "       ssh -i YOUR_KEY root@${VPS_HOST}"
+            echo "     (entire file, BEGIN/END lines; must match an entry already in /root/.ssh/authorized_keys)"
+            echo "  3. Do not edit /root/.ssh/authorized_keys unless you intentionally rotate keys"
             exit 1
           fi
+
+          ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" \
+            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"

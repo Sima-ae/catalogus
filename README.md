@@ -31,18 +31,35 @@ node scripts/reset-admin-password.mjs 'YourStrongPassword'
 
 ## Production deploy
 
-- GitHub Actions deploys `main` as **root** (`VPS_USER=root`, SSH key in `/root/.ssh/authorized_keys`).
+- GitHub Actions SSHs as **root** using your **existing** root key — do not generate or change server keys.
 - On the VPS: `bash scripts/deploy.sh` (same user as `catalogus` systemd — root).
 - `.env`: `AUTH_DEV_FALLBACK=false`, `DATABASE_URL`, `CATALOGUS_PUBLIC_HTML`, `SITE_ACCESS_COOKIE_SECRET`, Stripe keys.
 - LiteSpeed proxies to Node on port **3001**. See `deploy/catalogus.service` and `deploy/htaccess.example`.
 
-**One-time switch from `deploy` user** (if you used that before):
+### GitHub Actions secrets
+
+| Secret | Value |
+|--------|--------|
+| `VPS_HOST` | Server hostname or IP |
+| `VPS_USER` | `root` |
+| `VPS_SSH_KEY` | **Same private key** you already use: `ssh -i ~/.ssh/your_key root@host` |
+| `VPS_APP_PATH` | `/var/www/superclones.cloud` (optional) |
+
+`VPS_SSH_KEY` must match a public key **already** in `/root/.ssh/authorized_keys`. Do not edit `authorized_keys` for CI unless you rotate keys on purpose.
+
+If deploy fails with `Permission denied (publickey)`, fix the **GitHub secret** (wrong key pasted, missing newlines, or `VPS_USER` not `root`) — not the server.
+
+```bash
+# Local test (must succeed before Actions will work):
+ssh -i /path/to/your_existing_root_key root@your-host 'echo OK'
+```
+
+**App ownership (one-time):**
 
 ```bash
 chown -R root:root /var/www/superclones.cloud
 cp /var/www/superclones.cloud/deploy/catalogus.service /etc/systemd/system/catalogus.service
 systemctl daemon-reload && systemctl restart catalogus
-# GitHub repo secret: VPS_USER=root
 ```
 
 ## Security
