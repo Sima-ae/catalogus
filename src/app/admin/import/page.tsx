@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import {
   AdminTable,
@@ -45,6 +46,8 @@ export default function AdminImportPage() {
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [syncInfo, setSyncInfo] = useState<SyncResult | null>(null)
+  const [copiedCommand, setCopiedCommand] = useState(false)
+  const [copiedJobId, setCopiedJobId] = useState(false)
 
   const loadSources = useCallback(() => {
     if (!user || !isAdmin) return
@@ -94,6 +97,50 @@ export default function AdminImportPage() {
     loadSources()
   }, [authLoading, isAdmin, user, loadSources])
 
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.left = '-9999px'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(textarea)
+        return ok
+      } catch {
+        return false
+      }
+    }
+  }
+
+  const handleCopyCommand = async () => {
+    if (!syncInfo?.workerCommand) return
+    const ok = await copyToClipboard(syncInfo.workerCommand)
+    if (ok) {
+      setCopiedCommand(true)
+      window.setTimeout(() => setCopiedCommand(false), 2000)
+    } else {
+      setError('Could not copy to clipboard')
+    }
+  }
+
+  const handleCopyJobId = async () => {
+    if (!syncInfo?.job.id) return
+    const ok = await copyToClipboard(syncInfo.job.id)
+    if (ok) {
+      setCopiedJobId(true)
+      window.setTimeout(() => setCopiedJobId(false), 2000)
+    } else {
+      setError('Could not copy to clipboard')
+    }
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -101,6 +148,8 @@ export default function AdminImportPage() {
     setSaving(true)
     setError('')
     setSyncInfo(null)
+    setCopiedCommand(false)
+    setCopiedJobId(false)
 
     try {
       const res = await fetch(appPath('/api/admin/import/sources'), {
@@ -129,6 +178,8 @@ export default function AdminImportPage() {
     setSyncingId(sourceId)
     setError('')
     setSyncInfo(null)
+    setCopiedCommand(false)
+    setCopiedJobId(false)
 
     try {
       const res = await fetch(appPath(`/api/admin/import/sources/${sourceId}/sync`), {
@@ -168,13 +219,55 @@ export default function AdminImportPage() {
       {error && <p className="text-red-400 mb-4">{error}</p>}
 
       {syncInfo && (
-        <div className={`card mb-6 space-y-2 ${t.muted}`}>
+        <div className={`card mb-6 space-y-3 ${t.muted}`}>
           <p className="text-green-400 font-medium">Import job queued</p>
-          <p>Job ID: <code className="text-sm">{syncInfo.job.id}</code></p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              Job ID: <code className="text-sm">{syncInfo.job.id}</code>
+            </span>
+            <button
+              type="button"
+              className="btn-secondary text-sm inline-flex items-center gap-1.5"
+              onClick={handleCopyJobId}
+            >
+              {copiedJobId ? (
+                <>
+                  <CheckIcon className="w-4 h-4 text-green-500" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <ClipboardDocumentIcon className="w-4 h-4" />
+                  Copy job ID
+                </>
+              )}
+            </button>
+          </div>
           <p>Run on the VPS (or locally with db:tunnel):</p>
-          <pre className={`text-sm p-3 rounded overflow-x-auto ${t.surfaceMuted}`}>
-            {syncInfo.workerCommand}
-          </pre>
+          <div className="flex flex-col sm:flex-row sm:items-start gap-2">
+            <pre
+              className={`text-sm p-3 rounded overflow-x-auto flex-1 select-text ${t.surfaceMuted}`}
+            >
+              {syncInfo.workerCommand}
+            </pre>
+            <button
+              type="button"
+              className="btn-primary text-sm inline-flex items-center justify-center gap-1.5 shrink-0"
+              onClick={handleCopyCommand}
+            >
+              {copiedCommand ? (
+                <>
+                  <CheckIcon className="w-4 h-4" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <ClipboardDocumentIcon className="w-4 h-4" />
+                  Copy command
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
