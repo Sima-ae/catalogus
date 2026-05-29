@@ -47,6 +47,10 @@ export type ProductInput = {
   download_count?: number | null
   status?: string
   featured?: boolean
+  available_sizes?: string | null
+  available_colors?: string | null
+  source_url?: string | null
+  source_album_id?: string | null
 }
 
 export class UnknownCategoryError extends Error {
@@ -85,6 +89,10 @@ type ProductSchemaFlags = {
   authorId: boolean
   compatibility: boolean
   support_url: boolean
+  available_sizes: boolean
+  available_colors: boolean
+  source_url: boolean
+  source_album_id: boolean
 }
 
 const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
@@ -99,7 +107,10 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
     const rows = await queryDb<{ COLUMN_NAME: string }[]>(
       `SELECT COLUMN_NAME FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
-         AND COLUMN_NAME IN ('category_id', 'author_id', 'compatibility', 'support_url')`
+         AND COLUMN_NAME IN (
+           'category_id', 'author_id', 'compatibility', 'support_url',
+           'available_sizes', 'available_colors', 'source_url', 'source_album_id'
+         )`
     )
     const names = new Set(rows.map((r) => r.COLUMN_NAME))
     g[SCHEMA_CACHE_KEY] = {
@@ -107,6 +118,10 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       authorId: names.has('author_id'),
       compatibility: names.has('compatibility'),
       support_url: names.has('support_url'),
+      available_sizes: names.has('available_sizes'),
+      available_colors: names.has('available_colors'),
+      source_url: names.has('source_url'),
+      source_album_id: names.has('source_album_id'),
     }
   } catch {
     g[SCHEMA_CACHE_KEY] = {
@@ -114,6 +129,10 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       authorId: false,
       compatibility: false,
       support_url: false,
+      available_sizes: false,
+      available_colors: false,
+      source_url: false,
+      source_album_id: false,
     }
   }
   return g[SCHEMA_CACHE_KEY]
@@ -249,6 +268,18 @@ export async function insertProduct(input: ProductInput) {
     download_count: input.download_count ?? null,
     status: input.status || 'active',
     featured: input.featured ? 1 : 0,
+    ...(schema.available_sizes && input.available_sizes !== undefined
+      ? { available_sizes: input.available_sizes || null }
+      : {}),
+    ...(schema.available_colors && input.available_colors !== undefined
+      ? { available_colors: input.available_colors || null }
+      : {}),
+    ...(schema.source_url && input.source_url !== undefined
+      ? { source_url: input.source_url || null }
+      : {}),
+    ...(schema.source_album_id && input.source_album_id !== undefined
+      ? { source_album_id: input.source_album_id || null }
+      : {}),
   }
 
   const columns = Object.keys(insertMap)
@@ -325,6 +356,20 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     download_count: input.download_count,
     status: input.status,
     featured: input.featured != null ? (input.featured ? 1 : 0) : undefined,
+    available_sizes:
+      schema.available_sizes && input.available_sizes !== undefined
+        ? input.available_sizes || null
+        : undefined,
+    available_colors:
+      schema.available_colors && input.available_colors !== undefined
+        ? input.available_colors || null
+        : undefined,
+    source_url:
+      schema.source_url && input.source_url !== undefined ? input.source_url || null : undefined,
+    source_album_id:
+      schema.source_album_id && input.source_album_id !== undefined
+        ? input.source_album_id || null
+        : undefined,
   }
 
   if (!hasCategoryId) {
@@ -385,6 +430,19 @@ export async function listProductsForSeller(sellerId: string, sellerName: string
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE LOWER(TRIM(p.author)) = LOWER(TRIM(?)) ORDER BY p.created_at DESC`,
     [name]
+  )
+  return rows.map(serializeProductRow)
+}
+
+/** Draft products created by Yupoo import (for admin review queue). */
+export async function listDraftImportProducts(limit = 100) {
+  const select = await productSelectSql()
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `${select}
+     WHERE p.status = 'draft' AND p.source_album_id IS NOT NULL
+     ORDER BY p.created_at DESC
+     LIMIT ?`,
+    [limit]
   )
   return rows.map(serializeProductRow)
 }

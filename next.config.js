@@ -86,6 +86,14 @@ const nextConfig = {
         hostname: 'superclones.cloud',
         pathname: '/images/**',
       },
+      {
+        protocol: 'https',
+        hostname: '**.yupoo.com',
+      },
+      {
+        protocol: 'http',
+        hostname: '**.yupoo.com',
+      },
     ],
   },
   typescript: {

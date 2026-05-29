@@ -26,6 +26,19 @@ export function arrayToLines(value: unknown): string {
   return ''
 }
 
+export function pipeToLines(value: unknown): string {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean).join('\n')
+  if (typeof value === 'string' && value.trim()) {
+    return value.split('|').map((s) => s.trim()).filter(Boolean).join('\n')
+  }
+  return ''
+}
+
+export function linesToPipe(value: unknown): string | null {
+  const lines = linesToStringArray(value)
+  return lines?.join('|') ?? null
+}
+
 function parseOptionalNumber(value: unknown): number | null | undefined {
   if (value === undefined) return undefined
   if (value === null || value === '') return null
@@ -58,6 +71,16 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
         ? String(body.brand).trim() || null
         : undefined,
     gallery_images: normalizeProductImageList(linesToStringArray(body.gallery_images)),
+    available_sizes: linesToPipe(body.available_sizes),
+    available_colors: linesToPipe(body.available_colors),
+    source_url:
+      body.source_url !== undefined
+        ? String(body.source_url ?? '').trim() || null
+        : undefined,
+    source_album_id:
+      body.source_album_id !== undefined
+        ? String(body.source_album_id ?? '').trim() || null
+        : undefined,
     tags,
     features: linesToStringArray(body.features),
     requirements: linesToStringArray(body.requirements),

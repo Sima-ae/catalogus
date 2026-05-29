@@ -3,7 +3,7 @@ import {
   buildProductGallery,
   normalizeProductImageUrl,
 } from '@/lib/product-image-url'
-import { parseProductJsonField } from '@/lib/product-serialize'
+import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 
 export type ProductPageView = {
   id: string
@@ -30,6 +30,8 @@ export type ProductPageView = {
   requirements: string[]
   image_url: string
   gallery: string[]
+  availableSizes: string[]
+  availableColors: string[]
   demo_url: string
   documentation_url: string
   support_url: string
@@ -94,6 +96,8 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     requirements,
     image_url: mainImage,
     gallery,
+    availableSizes: parsePipeField(raw.available_sizes) ?? [],
+    availableColors: parsePipeField(raw.available_colors) ?? [],
     demo_url: String(raw.demo_url || '').trim() || appPath('/contact'),
     documentation_url: String(raw.documentation_url || '').trim() || appPath('/contact'),
     support_url: String(raw.support_url || '').trim() || appUrl('/contact'),

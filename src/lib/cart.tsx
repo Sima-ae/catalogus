@@ -5,11 +5,36 @@ import { CART_STORAGE_KEY, LEGACY_CART_STORAGE_KEY } from '@/lib/brand'
 
 export interface CartItem {
   id: string
+  productId?: string
   name: string
   price: number
   original_price?: number
   image_url: string
   quantity: number
+  size?: string
+  color?: string
+}
+
+export function buildCartLineId(
+  productId: string,
+  size?: string,
+  color?: string
+): string {
+  if (!size && !color) return productId
+  return `${productId}::${size || '-'}::${color || '-'}`
+}
+
+function normalizeCartItem(item: CartItem): CartItem {
+  const productId = item.productId || item.id
+  const size = item.size?.trim() || undefined
+  const color = item.color?.trim() || undefined
+  return {
+    ...item,
+    productId,
+    size,
+    color,
+    id: buildCartLineId(productId, size, color),
+  }
 }
 
 interface CartState {
@@ -34,12 +59,13 @@ const initialState: CartState = {
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const existingItem = state.items.find(item => item.id === action.payload.id)
+      const line = normalizeCartItem(action.payload as CartItem)
+      const existingItem = state.items.find(item => item.id === line.id)
       
       if (existingItem) {
         // Update quantity if item already exists
         const updatedItems = state.items.map(item =>
-          item.id === action.payload.id
+          item.id === line.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
@@ -55,7 +81,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         }
       } else {
         // Add new item
-        const newItem = { ...action.payload, quantity: 1 }
+        const newItem = { ...line, quantity: 1 }
         const newItems = [...state.items, newItem]
         const newTotal = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
         const newItemCount = newItems.reduce((sum, item) => sum + item.quantity, 0)
@@ -108,16 +134,18 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         itemCount: 0,
       }
     
-    case 'LOAD_CART':
-      const newTotal = action.payload.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const newItemCount = action.payload.reduce((sum, item) => sum + item.quantity, 0)
-      
+    case 'LOAD_CART': {
+      const items = action.payload.map((item) => normalizeCartItem(item))
+      const newTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      const newItemCount = items.reduce((sum, item) => sum + item.quantity, 0)
+
       return {
         ...state,
-        items: action.payload,
+        items,
         total: newTotal,
         itemCount: newItemCount,
       }
+    }
     
     default:
       return state
@@ -126,12 +154,12 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
 interface CartContextType {
   state: CartState
-  addItem: (item: Omit<CartItem, 'quantity'>) => void
+  addItem: (item: Omit<CartItem, 'quantity' | 'id'> & { id?: string; productId?: string }) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
-  isInCart: (id: string) => boolean
-  getItemQuantity: (id: string) => number
+  isInCart: (productId: string, opts?: { size?: string; color?: string }) => boolean
+  getItemQuantity: (productId: string, opts?: { size?: string; color?: string }) => number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -167,8 +195,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [state.items, isInitialized])
 
-  const addItem = (item: Omit<CartItem, 'quantity'>) => {
-    dispatch({ type: 'ADD_ITEM', payload: item })
+  const addItem = (item: Omit<CartItem, 'quantity' | 'id'> & { id?: string; productId?: string }) => {
+    const productId = item.productId || item.id
+    if (!productId) return
+    const line = normalizeCartItem({
+      ...item,
+      id: item.id || productId,
+      productId,
+      quantity: 1,
+    })
+    dispatch({ type: 'ADD_ITEM', payload: line })
   }
 
   const removeItem = (id: string) => {
@@ -190,12 +226,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const isInCart = (id: string) => {
-    return state.items.some(item => item.id === id)
+  const isInCart = (productId: string, opts?: { size?: string; color?: string }) => {
+    const lineId = buildCartLineId(productId, opts?.size, opts?.color)
+    return state.items.some(item => item.id === lineId)
   }
 
-  const getItemQuantity = (id: string) => {
-    const item = state.items.find(item => item.id === id)
+  const getItemQuantity = (productId: string, opts?: { size?: string; color?: string }) => {
+    const lineId = buildCartLineId(productId, opts?.size, opts?.color)
+    const item = state.items.find(item => item.id === lineId)
     return item ? item.quantity : 0
   }
 

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
-import { arrayToLines, parseProductBody } from '@/lib/product-body'
+import { arrayToLines, parseProductBody, pipeToLines } from '@/lib/product-body'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
@@ -39,6 +39,10 @@ const defaultForm = {
   features: '',
   requirements: '',
   compatibility: '',
+  available_sizes: '',
+  available_colors: '',
+  source_url: '',
+  source_album_id: '',
   rating: '',
   review_count: '',
   download_count: '',
@@ -389,6 +393,42 @@ export default function ProductForm({
 
       {!isSeller && (
         <section className="card space-y-4">
+          <h2 className="card-section-title">Variants & import</h2>
+          <Field
+            label="Available sizes (one per line)"
+            name="available_sizes"
+            value={form.available_sizes}
+            onChange={onChange}
+            multiline
+            rows={3}
+            placeholder="39&#10;40&#10;41"
+          />
+          <Field
+            label="Available colors (one per line)"
+            name="available_colors"
+            value={form.available_colors}
+            onChange={onChange}
+            multiline
+            rows={3}
+          />
+          <Field
+            label="Source URL (Yupoo album)"
+            name="source_url"
+            value={form.source_url}
+            onChange={onChange}
+            placeholder="https://..."
+          />
+          <Field
+            label="Source album ID"
+            name="source_album_id"
+            value={form.source_album_id}
+            onChange={onChange}
+          />
+        </section>
+      )}
+
+      {!isSeller && (
+        <section className="card space-y-4">
           <h2 className="card-section-title">Stats & reviews</h2>
           <p className="form-hint">
             Shown in the product header. Individual customer reviews are managed under{' '}
@@ -477,6 +517,10 @@ function mapProductToForm(p: Partial<Product>) {
     features: arrayToLines(p.features),
     requirements: arrayToLines(p.requirements),
     compatibility: p.compatibility || '',
+    available_sizes: pipeToLines(p.available_sizes),
+    available_colors: pipeToLines(p.available_colors),
+    source_url: p.source_url || '',
+    source_album_id: p.source_album_id || '',
     rating: p.rating != null ? String(p.rating) : '',
     review_count: p.review_count != null ? String(p.review_count) : '',
     download_count: p.download_count != null ? String(p.download_count) : '',

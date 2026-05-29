@@ -39,6 +39,9 @@ export default function ProductPageClient() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedLicense, setSelectedLicense] = useState('standard')
+  const [selectedSize, setSelectedSize] = useState('')
+  const [selectedColor, setSelectedColor] = useState('')
+  const [variantError, setVariantError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
   const [reviews, setReviews] = useState<ProductReview[]>([])
@@ -81,6 +84,9 @@ export default function ProductPageClient() {
         }
         setProduct(toProductPageView(data))
         setSelectedImage(0)
+        setSelectedSize('')
+        setSelectedColor('')
+        setVariantError(null)
       })
       .catch((e) => {
         if (controller.signal.aborted) return
@@ -184,22 +190,43 @@ export default function ProductPageClient() {
 
   const handleAddToCart = async () => {
     if (!product) return
+
+    const needsSize = product.availableSizes.length > 0 && !selectedSize
+    const needsColor = product.availableColors.length > 0 && !selectedColor
+    if (needsSize || needsColor) {
+      setVariantError(
+        needsSize && needsColor
+          ? 'Please select a size and color'
+          : needsSize
+            ? 'Please select a size'
+            : 'Please select a color'
+      )
+      return
+    }
+
+    setVariantError(null)
     setIsAdding(true)
     try {
       addItem({
-        id: product.id,
+        productId: product.id,
         name: product.name,
         price: product.price,
         original_price: product.original_price,
         image_url: product.image_url,
+        size: selectedSize || undefined,
+        color: selectedColor || undefined,
       })
     } finally {
       setIsAdding(false)
     }
   }
 
-  const quantityInCart = product ? getItemQuantity(product.id) : 0
-  const inCart = product ? isInCart(product.id) : false
+  const cartVariant = {
+    size: selectedSize || undefined,
+    color: selectedColor || undefined,
+  }
+  const quantityInCart = product ? getItemQuantity(product.id, cartVariant) : 0
+  const inCart = product ? isInCart(product.id, cartVariant) : false
 
   const licenseOptions = product
     ? [
@@ -504,6 +531,68 @@ export default function ProductPageClient() {
 
               {!catalogMode && (
                 <>
+                  {product.availableSizes.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <label className={`text-sm font-medium ${
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                      }`}>Size:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {product.availableSizes.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSize(size)
+                              setVariantError(null)
+                            }}
+                            className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                              selectedSize === size
+                                ? 'border-primary-500 bg-primary-500/10 text-primary-500'
+                                : theme === 'dark'
+                                  ? 'border-dark-600 text-gray-300 hover:border-primary-500'
+                                  : 'border-gray-300 text-gray-700 hover:border-primary-500'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {product.availableColors.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <label className={`text-sm font-medium ${
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                      }`}>Color:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {product.availableColors.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => {
+                              setSelectedColor(color)
+                              setVariantError(null)
+                            }}
+                            className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                              selectedColor === color
+                                ? 'border-primary-500 bg-primary-500/10 text-primary-500'
+                                : theme === 'dark'
+                                  ? 'border-dark-600 text-gray-300 hover:border-primary-500'
+                                  : 'border-gray-300 text-gray-700 hover:border-primary-500'
+                            }`}
+                          >
+                            {color}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {variantError && (
+                    <p className="text-red-400 text-sm mb-4">{variantError}</p>
+                  )}
+
                   <div className="space-y-3 mb-6">
                     <label className={`text-sm font-medium ${
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'

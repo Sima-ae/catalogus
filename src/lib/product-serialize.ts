@@ -3,6 +3,19 @@ import {
   normalizeProductImageUrl,
 } from '@/lib/product-image-url'
 
+/** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
+export function parsePipeField(value: unknown): string[] | null {
+  if (value == null || value === '') return null
+  if (Array.isArray(value)) {
+    const list = value.map(String).map((s) => s.trim()).filter(Boolean)
+    return list.length ? list : null
+  }
+  const raw = String(value).trim()
+  if (!raw) return null
+  const list = raw.split('|').map((s) => s.trim()).filter(Boolean)
+  return list.length ? list : null
+}
+
 /** Normalize a product row from MariaDB for API responses (JSON fields + category from join). */
 export function parseProductJsonField(value: unknown): string[] | null {
   if (value == null || value === '') return null
@@ -38,12 +51,17 @@ export function serializeProductRow(row: Record<string, unknown>) {
 
   return {
     ...rest,
+    id: String(row.id ?? ''),
     image_url: normalizeProductImageUrl(String(row.image_url ?? '')),
     category,
     category_id: row.category_id ?? row.resolved_category_id ?? null,
     brand: brand || undefined,
     brand_id: row.brand_id ?? row.resolved_brand_id ?? null,
     gallery_images: normalizeProductImageList(parseProductJsonField(row.gallery_images)),
+    available_sizes: parsePipeField(row.available_sizes),
+    available_colors: parsePipeField(row.available_colors),
+    source_url: row.source_url != null ? String(row.source_url) : null,
+    source_album_id: row.source_album_id != null ? String(row.source_album_id) : null,
     tags: parseProductJsonField(row.tags),
     features: parseProductJsonField(row.features) ?? [],
     requirements: parseProductJsonField(row.requirements) ?? [],
@@ -57,5 +75,8 @@ export function serializeProductRow(row: Record<string, unknown>) {
     review_count: row.review_count != null ? Number(row.review_count) : null,
     download_count: row.download_count != null ? Number(row.download_count) : null,
     featured: row.featured === 1 || row.featured === true,
+    status: String(row.status || 'active'),
+    created_at: row.created_at != null ? String(row.created_at) : '',
+    updated_at: row.updated_at != null ? String(row.updated_at) : '',
   }
 }

@@ -19,6 +19,7 @@ import {
   TagIcon,
   BuildingStorefrontIcon,
   DocumentTextIcon,
+  ArrowDownTrayIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Users', href: '/admin/users', icon: UsersIcon },
   { name: 'Categories', href: '/admin/categories', icon: TagIcon },
   { name: 'Brands', href: '/admin/brands', icon: BuildingStorefrontIcon },
+  { name: 'Import', href: '/admin/import', icon: ArrowDownTrayIcon },
   { name: 'Reviews', href: '/admin/reviews', icon: DocumentTextIcon },
   { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
   { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },

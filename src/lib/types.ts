@@ -7,6 +7,10 @@ export interface Product {
   original_price?: number
   image_url: string
   gallery_images?: string[]
+  available_sizes?: string[]
+  available_colors?: string[]
+  source_url?: string | null
+  source_album_id?: string | null
   category: string
   brand?: string
   brand_id?: string | null

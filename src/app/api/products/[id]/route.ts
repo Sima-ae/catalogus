@@ -44,6 +44,11 @@ export async function GET(
       if (!allowed.ok) {
         return NextResponse.json({ error: allowed.error }, { status: allowed.status })
       }
+    } else if (access.kind === 'public') {
+      const status = String(product.status || 'active')
+      if (status === 'draft' || status === 'inactive') {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      }
     }
 
     return NextResponse.json(product)

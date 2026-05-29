@@ -154,6 +154,15 @@ export default function CartPage() {
                           }`}>
                             {item.name}
                           </h3>
+                          {(item.size || item.color) && (
+                            <p className={`text-xs mb-1 transition-colors ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              {[item.size && `Size: ${item.size}`, item.color && `Color: ${item.color}`]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          )}
                           <div className="flex items-center space-x-2 mb-2">
                             <span className="text-primary-500 font-bold">
                               {formatPrice(item.price)}

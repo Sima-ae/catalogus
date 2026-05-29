@@ -12,7 +12,8 @@
     "db:sync-product-categories": "node scripts/sync-product-categories.mjs",
     "db:reset-admin-password": "node scripts/reset-admin-password.mjs",
     "db:tunnel": "./scripts/ssh-db-tunnel.sh",
-    "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background"
+    "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background",
+    "import:worker": "tsx scripts/yupoo-import-worker.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
@@ -21,6 +22,7 @@
     "@stripe/stripe-js": "^7.9.0",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^3.0.3",
+    "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
     "framer-motion": "^11.15.0",
     "mysql2": "^3.14.3",
@@ -37,6 +39,7 @@
     "@types/react-dom": "^18.3.5",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.35",
+    "tsx": "^4.22.3",
     "typescript": "5.9.3"
   }
 }
