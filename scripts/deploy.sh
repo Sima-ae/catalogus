@@ -5,6 +5,10 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$APP_DIR"
 
+# shellcheck source=lib/git-safe-directory.sh
+source "$(dirname "$0")/lib/git-safe-directory.sh"
+ensure_git_safe_directory "$APP_DIR"
+
 echo "==> Deploy catalogus in $APP_DIR"
 
 echo "==> Verify repository checkout"

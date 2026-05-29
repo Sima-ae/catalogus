@@ -6,6 +6,10 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/var/www/superclones.cloud}"
 REPO_URL="${REPO_URL:-https://github.com/Sima-ae/catalogus.git}"
 
+# shellcheck source=lib/git-safe-directory.sh
+source "$(dirname "$0")/lib/git-safe-directory.sh"
+ensure_git_safe_directory "$APP_DIR"
+
 echo "==> Fix git deploy at: $APP_DIR"
 echo "==> Repository: $REPO_URL"
 
