@@ -17,11 +17,11 @@ import BrandLogo from '@/components/brand/BrandLogo'
 import SidebarCategories from '@/components/layout/SidebarCategories'
 import {
   HomeIcon,
-  MapIcon,
   CubeIcon,
+  StarIcon,
   UserGroupIcon,
   ShoppingBagIcon,
-  PhoneIcon,
+  EnvelopeIcon,
   Cog6ToothIcon,
   XMarkIcon,
   Bars3Icon,
@@ -29,15 +29,15 @@ import {
 
 const navigation = [
   { name: 'Home', href: '/', icon: HomeIcon },
-  { name: 'New', href: '/new', icon: MapIcon },
-  { name: 'Most Popular', href: '/popular', icon: CubeIcon },
+  { name: 'New', href: '/new', icon: CubeIcon },
+  { name: 'Most Popular', href: '/popular', icon: StarIcon },
 ]
 
 const bottomNavigation = [
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
-  { name: 'Become a Buyer', href: '/buyer', icon: ShoppingBagIcon },
-  { name: 'Become a Seller', href: '/seller', icon: UserGroupIcon },
-  { name: 'Contact', href: '/contact', icon: PhoneIcon },
+  { name: 'Become a Buyer', href: '/buyer', icon: UserGroupIcon },
+  { name: 'Become a Seller', href: '/seller', icon: ShoppingBagIcon },
+  { name: 'Contact', href: '/contact', icon: EnvelopeIcon },
 ]
 
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {

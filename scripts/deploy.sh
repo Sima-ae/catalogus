@@ -28,6 +28,13 @@ for f in "${REQUIRED[@]}"; do
 done
 echo "Git: $(git rev-parse --short HEAD) on $(git branch --show-current 2>/dev/null || echo detached)"
 
+# Old VPS layouts cloned into APP_DIR/catalogus — Next still type-checks it and breaks the build.
+NESTED="${APP_DIR}/catalogus"
+if [[ -d "$NESTED" ]] && [[ -f "$APP_DIR/package.json" ]] && [[ -d "$APP_DIR/src" ]]; then
+  echo "==> Remove stale nested app directory: $NESTED"
+  rm -rf "$NESTED"
+fi
+
 if [[ ! -f .env ]]; then
   echo "ERROR: Missing .env — copy .env.vps.example to .env and configure secrets."
   exit 1
@@ -44,13 +51,11 @@ if grep -qE '^NEXT_PUBLIC_APP_URL=.*superclones\.cloud/catalogus' .env 2>/dev/nu
   exit 1
 fi
 
-export NODE_ENV=production
-
-echo "==> Install dependencies"
+echo "==> Install dependencies (include devDependencies for build)"
 npm ci
 
 echo "==> Build Next.js (production)"
-npm run build
+NODE_ENV=production npm run build
 
 echo "==> Restart application"
 if systemctl is-active --quiet catalogus 2>/dev/null; then

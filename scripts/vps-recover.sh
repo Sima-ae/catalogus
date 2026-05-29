@@ -33,7 +33,10 @@ if [[ -d "$NESTED" ]] && [[ "$NESTED" != "$APP_DIR" ]]; then
     fi
   done
   shopt -u dotglob
-  rmdir "$NESTED" 2>/dev/null || echo "  (nested folder not empty — inspect $NESTED manually)"
+  if [[ -d "$NESTED" ]]; then
+    echo "  removing leftover nested tree: $NESTED"
+    rm -rf "$NESTED"
+  fi
 fi
 
 echo "==> Install Node.js 20 (if missing)"

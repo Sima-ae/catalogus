@@ -4,6 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Stale nested clone on VPS (must not live in repo)
+catalogus/
+
 # Next.js
 .next/
 out/
