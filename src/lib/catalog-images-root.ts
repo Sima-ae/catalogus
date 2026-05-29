@@ -17,5 +17,6 @@ export function getCatalogImagesRoots(): string[] {
 
   roots.push(path.join(process.cwd(), 'public', 'images'))
 
-  return [...new Set(roots.map((r) => path.resolve(r)).filter((r) => existsSync(r)))]
+  const unique = Array.from(new Set(roots.map((r) => path.resolve(r)).filter((r) => existsSync(r))))
+  return unique
 }
