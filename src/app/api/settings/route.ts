@@ -6,6 +6,7 @@ import {
 import { loadSiteSettings, saveSiteSettings } from '@/lib/settings-persistence'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { logDbRouteError } from '@/lib/db-route-log'
+import { superAdminDenial, verifyAdminActor } from '@/lib/admin-api-auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -22,7 +23,10 @@ function parseBody(body: unknown): Partial<Record<SettingKey, string>> {
   return updates
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const denied = superAdminDenial(await verifyAdminActor(request))
+  if (denied) return denied
+
   try {
     const { settings, storage } = await loadSiteSettings()
     return NextResponse.json({ ...settings, _storage: storage })
@@ -36,6 +40,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const denied = superAdminDenial(await verifyAdminActor(request))
+  if (denied) return denied
+
   const updates = parseBody(await request.json())
   if (!Object.keys(updates).length) {
     return NextResponse.json({ error: 'No settings provided' }, { status: 400 })

@@ -9,9 +9,12 @@ import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useAuth } from '@/lib/auth-local'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
 
 export default function AdminSettingsPage() {
   const t = useAppTheme()
+  const { user } = useAuth()
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -19,7 +22,7 @@ export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    fetch(appPath('/api/settings'))
+    fetch(appPath('/api/settings'), { headers: adminAuthHeaders(user) })
       .then(async (r) => {
         const d = await r.json()
         if (!r.ok) throw new Error(d.error || 'Failed to load settings')
@@ -28,7 +31,7 @@ export default function AdminSettingsPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const updateField = (key: keyof SiteSettings, value: string) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
@@ -43,7 +46,7 @@ export default function AdminSettingsPage() {
     try {
       const res = await fetch(appPath('/api/settings'), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...adminAuthHeaders(user) },
         body: JSON.stringify(settings),
       })
       const data = await res.json()

@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
 import ShopPageShell from '@/components/shop/ShopPageShell'
 import { useTheme } from '@/lib/theme'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { appPath } from '@/lib/paths'
+import { useAuth } from '@/lib/auth-local'
+import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { APP_NAME, APP_COPYRIGHT, CART_STORAGE_KEY } from '@/lib/brand'
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from '@/lib/site-settings'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
@@ -19,13 +21,15 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function ShopSettingsPage() {
+  const { user } = useAuth()
   const { catalogMode } = useCatalogMode()
   const { theme, setTheme, toggleTheme } = useTheme()
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [loading, setLoading] = useState(true)
+  const authHeaders = useMemo(() => catalogAuthHeaders(user), [user])
 
   useEffect(() => {
-    fetch(appPath('/api/settings'))
+    fetch(appPath('/api/settings'), { headers: authHeaders })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && typeof data === 'object' && !data.error) {
@@ -33,7 +37,7 @@ export default function ShopSettingsPage() {
         }
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [authHeaders])
 
   const isDark = theme === 'dark'
   const card = isDark ? 'bg-dark-800 border-dark-700' : 'bg-white border-gray-200'

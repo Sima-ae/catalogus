@@ -43,7 +43,7 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false)
 
   useEffect(() => {
-    fetch(appPath('/api/settings'))
+    fetch(appPath('/api/settings/public'))
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data && typeof data === 'object' && !data.error) {

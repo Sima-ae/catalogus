@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { isDbConnectionError } from '@/lib/db'
@@ -126,4 +127,17 @@ export function parseAdminCredentials(body: unknown): {
   const password = String(raw.adminPassword ?? raw.password ?? '')
   if (!email || !password) return null
   return { email, password }
+}
+
+/** Returns a JSON error response when the actor is not a super admin. */
+export function superAdminDenial(
+  auth: Awaited<ReturnType<typeof verifyAdminActor>>
+): NextResponse | null {
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+  if (!auth.actor.isSuperAdmin) {
+    return NextResponse.json({ error: 'Super admin access required' }, { status: 403 })
+  }
+  return null
 }

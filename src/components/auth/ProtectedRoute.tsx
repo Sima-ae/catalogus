@@ -8,7 +8,7 @@ import { appPath } from '@/lib/paths'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  requiredRole?: 'admin' | 'seller' | 'buyer'
+  requiredRole?: 'admin' | 'seller' | 'buyer' | 'super_admin'
   redirectTo?: string
 }
 
@@ -17,7 +17,7 @@ export default function ProtectedRoute({
   requiredRole = 'admin',
   redirectTo = '/login',
 }: ProtectedRouteProps) {
-  const { user, loading, isAdmin, isSeller, isBuyer } = useAuth()
+  const { user, loading, isAdmin, isSeller, isBuyer, isSuperAdmin } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -28,25 +28,10 @@ export default function ProtectedRoute({
       return
     }
 
-    let hasAccess = false
-    switch (requiredRole) {
-      case 'admin':
-        hasAccess = isAdmin
-        break
-      case 'seller':
-        hasAccess = isSeller || isAdmin
-        break
-      case 'buyer':
-        hasAccess = isBuyer || isSeller || isAdmin
-        break
-      default:
-        hasAccess = true
+    if (!hasRoleAccess(requiredRole, { isAdmin, isSeller, isBuyer, isSuperAdmin })) {
+      router.replace(appPath(user ? getDashboardPath(user.role) : redirectTo))
     }
-
-    if (!hasAccess) {
-      router.replace(appPath(getDashboardPath(user.role)))
-    }
-  }, [user, loading, isAdmin, isSeller, isBuyer, requiredRole, router, redirectTo])
+  }, [user, loading, isAdmin, isSeller, isBuyer, isSuperAdmin, requiredRole, router, redirectTo])
 
   if (loading) {
     return (
@@ -61,22 +46,30 @@ export default function ProtectedRoute({
 
   if (!user) return null
 
-  let hasAccess = false
-  switch (requiredRole) {
-    case 'admin':
-      hasAccess = isAdmin
-      break
-    case 'seller':
-      hasAccess = isSeller || isAdmin
-      break
-    case 'buyer':
-      hasAccess = isBuyer || isSeller || isAdmin
-      break
-    default:
-      hasAccess = true
-  }
-
-  if (!hasAccess) return null
+  if (!hasRoleAccess(requiredRole, { isAdmin, isSeller, isBuyer, isSuperAdmin })) return null
 
   return <>{children}</>
+}
+
+function hasRoleAccess(
+  requiredRole: ProtectedRouteProps['requiredRole'],
+  flags: {
+    isAdmin: boolean
+    isSeller: boolean
+    isBuyer: boolean
+    isSuperAdmin: boolean
+  }
+): boolean {
+  switch (requiredRole) {
+    case 'admin':
+      return flags.isAdmin
+    case 'super_admin':
+      return flags.isSuperAdmin
+    case 'seller':
+      return flags.isSeller || flags.isAdmin
+    case 'buyer':
+      return flags.isBuyer || flags.isSeller || flags.isAdmin
+    default:
+      return true
+  }
 }

@@ -11,6 +11,7 @@ export function useMobileSidebar() {
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
+import { useAuth } from '@/lib/auth-local'
 import { APP_COPYRIGHT } from '@/lib/brand'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
@@ -33,8 +34,8 @@ const navigation = [
   { name: 'Most Popular', href: '/popular', icon: StarIcon },
 ]
 
-const bottomNavigation = [
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
+const bottomNavigationBase = [
+  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon, superAdminOnly: true },
   { name: 'Become a Buyer', href: '/buyer', icon: UserGroupIcon },
   { name: 'Become a Seller', href: '/seller', icon: ShoppingBagIcon },
   { name: 'Contact', href: '/contact', icon: EnvelopeIcon },
@@ -98,6 +99,11 @@ export default function Sidebar({
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { theme } = useTheme()
+  const { isSuperAdmin, loading: authLoading } = useAuth()
+
+  const bottomNavigation = bottomNavigationBase.filter(
+    (item) => !item.superAdminOnly || (!authLoading && isSuperAdmin)
+  )
 
   const shellClass =
     theme === 'dark'
