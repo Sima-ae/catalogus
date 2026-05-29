@@ -10,6 +10,6 @@ export function buildShopCategoryMenu(rows: CategoryRow[]): string[] {
     .map((row) => String(row.name || '').trim())
     .filter(Boolean)
 
-  const unique = [...new Set(names)].sort((a, b) => a.localeCompare(b))
+  const unique = Array.from(new Set(names)).sort((a, b) => a.localeCompare(b))
   return ['All', ...unique]
 }
