@@ -461,22 +461,48 @@ export default function ProductPageClient() {
 
           {/* Right Column - Product Details */}
           <div className="space-y-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                href={appPath('/')}
+                className={`transition-colors shrink-0 ${
+                  theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+                aria-label="Back to shop"
+              >
+                <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              </Link>
+              <nav
+                className={`flex items-center flex-wrap gap-x-2 gap-y-1 text-sm min-w-0 ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}
+                aria-label="Breadcrumb"
+              >
+                <Link
+                  href={appPath('/')}
+                  className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
+                >
+                  Home
+                </Link>
+                {product.category.trim() ? (
+                  <>
+                    <span className="text-gray-400" aria-hidden>
+                      /
+                    </span>
+                    <Link
+                      href={product.categoryHref}
+                      className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
+                    >
+                      {product.category}
+                    </Link>
+                  </>
+                ) : null}
+              </nav>
+            </div>
+
             {/* Product Header */}
             <div>
-              <div className="flex items-center space-x-2 mb-2">
-                {product.category ? (
-                  <Link
-                    href={product.categoryHref}
-                    className={`text-sm px-2 py-1 rounded transition-colors ${
-                      theme === 'dark'
-                        ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
-                        : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
-                    }`}
-                  >
-                    {product.category}
-                  </Link>
-                ) : null}
-                {product.version && product.version !== '—' ? (
+              {product.version && product.version !== '—' ? (
+                <div className="mb-2">
                   <span
                     className={`text-sm px-2 py-1 rounded ${
                       theme === 'dark'
@@ -486,9 +512,9 @@ export default function ProductPageClient() {
                   >
                     v{product.version}
                   </span>
-                ) : null}
-              </div>
-              
+                </div>
+              ) : null}
+
               <h1 className={`text-3xl font-bold mb-3 ${
                 theme === 'dark' ? 'text-white' : 'text-gray-900'
               }`}>
@@ -796,43 +822,20 @@ export default function ProductPageClient() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 pt-1">
-              <Link
-                href={appPath('/')}
-                className={`transition-colors shrink-0 ${
-                  theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-                }`}
-                aria-label="Back to shop"
-              >
-                <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-              </Link>
-              <nav
-                className={`flex items-center flex-wrap gap-x-2 gap-y-1 text-sm min-w-0 ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}
-                aria-label="Breadcrumb"
-              >
+            {product.category ? (
+              <div>
                 <Link
-                  href={appPath('/')}
-                  className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
+                  href={product.categoryHref}
+                  className={`inline-block text-sm px-2 py-1 rounded transition-colors ${
+                    theme === 'dark'
+                      ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
+                      : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
+                  }`}
                 >
-                  Home
+                  {product.category}
                 </Link>
-                {product.category.trim() ? (
-                  <>
-                    <span className="text-gray-400" aria-hidden>
-                      /
-                    </span>
-                    <Link
-                      href={product.categoryHref}
-                      className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
-                    >
-                      {product.category}
-                    </Link>
-                  </>
-                ) : null}
-              </nav>
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
 

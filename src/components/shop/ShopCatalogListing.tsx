@@ -29,7 +29,7 @@ export default function ShopCatalogListing({
 
   return (
     <>
-      <CatalogProductCount count={products.length} centered={centered} />
+      {!centered ? <CatalogProductCount count={products.length} /> : null}
       <CatalogPagination
         page={safePage}
         totalItems={products.length}
