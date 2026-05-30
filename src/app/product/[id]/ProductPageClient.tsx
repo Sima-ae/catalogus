@@ -13,6 +13,7 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, 
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
+import { getCurrencySymbol } from '@/lib/currency'
 import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
@@ -26,9 +27,6 @@ type ProductReview = {
   comment: string | null
   created_at: string
 }
-
-/** Thumbnails shown before the side column scrolls */
-const GALLERY_THUMBS_VISIBLE = 5
 
 export default function ProductPageClient() {
   const params = useParams()
@@ -305,56 +303,46 @@ export default function ProductPageClient() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left Column - Image Gallery (thumbs left, main image right) */}
-          <div className="flex gap-3 sm:gap-4 min-w-0">
+          {/* Left Column - Image Gallery (thumbs stretch to main image height, scroll inside) */}
+          <div className="flex min-w-0 items-stretch gap-2.5 sm:gap-3">
             {product.gallery.length > 1 ? (
-              <div
-                ref={thumbListRef}
-                className={`product-gallery-thumbs flex flex-col gap-2 w-[4.25rem] sm:w-20 shrink-0 overscroll-y-contain ${
-                  product.gallery.length > GALLERY_THUMBS_VISIBLE
-                    ? 'overflow-y-auto'
-                    : 'overflow-hidden'
-                }`}
-                role="tablist"
-                aria-label="Product images"
-              >
-                {product.gallery.map((image, index) => (
-                  <button
-                    key={`${image}-${index}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={selectedImage === index}
-                    aria-label={`Image ${index + 1} of ${product.gallery.length}`}
-                    onClick={() => setSelectedImage(index)}
-                    className={`relative aspect-[3/4] w-full shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
-                      theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
-                    } ${
-                      selectedImage === index
-                        ? 'border-primary-500 ring-1 ring-primary-500/30'
-                        : theme === 'dark'
-                          ? 'border-transparent hover:border-gray-600'
-                          : 'border-transparent hover:border-gray-400'
-                    }`}
-                  >
-                    <Image
-                      src={image}
-                      alt=""
-                      fill
-                      sizes="80px"
-                      className="object-contain"
-                      unoptimized={shouldUnoptimizeProductImage(image)}
-                    />
-                  </button>
-                ))}
+              <div className="flex w-[4.5rem] shrink-0 flex-col self-stretch sm:w-[5.25rem]">
+                <div
+                  ref={thumbListRef}
+                  className="product-gallery-thumbs flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-0.5"
+                  role="tablist"
+                  aria-label="Product images"
+                >
+                  {product.gallery.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={selectedImage === index}
+                      aria-label={`Image ${index + 1} of ${product.gallery.length}`}
+                      onClick={() => setSelectedImage(index)}
+                      className="product-gallery-thumb-btn"
+                    >
+                      <Image
+                        src={image}
+                        alt=""
+                        fill
+                        sizes="84px"
+                        className="object-contain p-1"
+                        unoptimized={shouldUnoptimizeProductImage(image)}
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
 
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               {product.gallery[selectedImage] ? (
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className={`relative block w-full aspect-[3/4] max-h-[min(75vh,720px)] rounded-lg overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                  className={`product-gallery-main relative block w-full aspect-[3/4] max-h-[min(75vh,720px)] cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
                   }`}
                   aria-label={`View ${product.name} image full size`}
@@ -364,14 +352,14 @@ export default function ProductPageClient() {
                     alt={product.name}
                     fill
                     sizes="(max-width: 1024px) 85vw, 45vw"
-                    className="object-contain pointer-events-none"
+                    className="object-contain p-2 pointer-events-none"
                     priority
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                   />
                 </button>
               ) : (
                 <div
-                  className={`relative flex w-full aspect-[3/4] max-h-[min(75vh,720px)] items-center justify-center rounded-lg text-sm ${
+                  className={`product-gallery-main relative flex w-full aspect-[3/4] max-h-[min(75vh,720px)] items-center justify-center text-sm ${
                     theme === 'dark' ? 'bg-dark-800 text-gray-500' : 'bg-gray-100 text-gray-400'
                   }`}
                 >
@@ -563,6 +551,28 @@ export default function ProductPageClient() {
             </div>
             )}
 
+            {/* Product Meta */}
+            <div className={`rounded-lg p-4 border ${
+              theme === 'dark' 
+                ? 'bg-dark-800 border-dark-700' 
+                : 'bg-white border-gray-200 shadow-lg'
+            }`}>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>SKU:</span>
+                  <span className={`ml-2 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>{product.sku}</span>
+                </div>
+                <div>
+                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Version:</span>
+                  <span className={`ml-2 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>{product.version}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Price and License Selection */}
             <div className={`rounded-lg p-6 border ${
               theme === 'dark' 
@@ -570,10 +580,13 @@ export default function ProductPageClient() {
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
               <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mb-4">
-                <span className={`text-lg font-medium ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}>
-                  EUR
+                <span
+                  className={`text-xl font-medium tabular-nums ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}
+                  aria-hidden
+                >
+                  {getCurrencySymbol()}
                 </span>
                 <span className="text-3xl font-bold text-primary-500">
                   {formatPriceAmount(selectedLicenseOption?.price)}
@@ -753,28 +766,6 @@ export default function ProductPageClient() {
                   </div>
                 </>
               )}
-            </div>
-
-            {/* Product Meta */}
-            <div className={`rounded-lg p-4 border ${
-              theme === 'dark' 
-                ? 'bg-dark-800 border-dark-700' 
-                : 'bg-white border-gray-200 shadow-lg'
-            }`}>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>SKU:</span>
-                  <span className={`ml-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>{product.sku}</span>
-                </div>
-                <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Version:</span>
-                  <span className={`ml-2 ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>{product.version}</span>
-                </div>
-              </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 pt-1">

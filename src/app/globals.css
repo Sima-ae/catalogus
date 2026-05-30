@@ -305,35 +305,51 @@ body.app-protected [contenteditable='true'] {
     @apply relative w-full aspect-[3/4] max-h-[min(75vh,720px)] bg-gray-100 rounded-lg overflow-hidden;
   }
 
-  /* ~5 portrait thumbnails visible; scroll for the rest (width matches w-[4.25rem] / sm:w-20) */
+  /* Thumbnail strip: height matches main image (grid row); scroll when overflow */
   .product-gallery-thumbs {
-    --thumb-w: 4.25rem;
-    --thumb-visible: 5;
-    --thumb-gap: 0.5rem;
-    max-height: calc(
-      var(--thumb-visible) * (var(--thumb-w) * 4 / 3) +
-        (var(--thumb-visible) - 1) * var(--thumb-gap)
-    );
     scrollbar-width: thin;
-    scrollbar-color: rgb(156 163 175) transparent;
-  }
-
-  @media (min-width: 640px) {
-    .product-gallery-thumbs {
-      --thumb-w: 5rem;
-    }
+    scrollbar-color: rgb(156 163 175 / 0.6) transparent;
+    scroll-padding-block: 2px;
   }
 
   .product-gallery-thumbs::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
+  }
+
+  .product-gallery-thumbs::-webkit-scrollbar-track {
+    @apply rounded-full bg-transparent;
   }
 
   .product-gallery-thumbs::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-gray-400;
+    @apply rounded-full bg-gray-300/90;
   }
 
   html.dark .product-gallery-thumbs::-webkit-scrollbar-thumb {
-    @apply bg-gray-600;
+    @apply bg-gray-600/90;
+  }
+
+  .product-gallery-thumb-btn {
+    @apply relative aspect-[3/4] w-full shrink-0 overflow-hidden rounded-xl border transition-all duration-200;
+  }
+
+  html.light .product-gallery-thumb-btn {
+    @apply border-gray-200/90 bg-white shadow-sm;
+  }
+
+  html.dark .product-gallery-thumb-btn {
+    @apply border-dark-600 bg-dark-800 shadow-sm;
+  }
+
+  html.light .product-gallery-thumb-btn:hover {
+    @apply border-gray-300 shadow-md;
+  }
+
+  html.dark .product-gallery-thumb-btn:hover {
+    @apply border-gray-500 shadow-md;
+  }
+
+  .product-gallery-thumb-btn[aria-selected='true'] {
+    @apply border-primary-500 ring-2 ring-primary-500/30 shadow-md;
   }
 
   .product-gallery-thumbnail-active {

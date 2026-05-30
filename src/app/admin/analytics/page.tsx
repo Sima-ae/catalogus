@@ -5,6 +5,7 @@ import AdminPageShell from '@/components/admin/AdminPageShell'
 import { useAppTheme } from '@/lib/theme-classes'
 import StatCard from '@/components/admin/StatCard'
 import { appPath } from '@/lib/paths'
+import { getCurrencySymbol } from '@/lib/currency'
 import {
   BanknotesIcon,
   ShoppingCartIcon,
@@ -59,7 +60,7 @@ export default function AdminAnalyticsPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const currency = '€'
+  const currency = getCurrencySymbol()
 
   return (
     <AdminPageShell title="Analytics" description="Overview from your store data.">

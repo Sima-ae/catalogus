@@ -16,6 +16,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   site_name: APP_NAME,
   site_tagline: 'Digital marketplace for templates and digital assets',
   support_email: '',
-  currency: 'EUR',
+  currency: 'USD',
   tax_rate: '0',
 }

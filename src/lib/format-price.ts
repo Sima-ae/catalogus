@@ -1,3 +1,10 @@
+import {
+  DEFAULT_SHOP_CURRENCY,
+  getCurrencySymbol,
+  normalizeCurrencyCode,
+  type ShopCurrencyCode,
+} from '@/lib/currency'
+
 /** True when price is 0, empty, or not a positive number. */
 export function isZeroPrice(value: number | string | null | undefined): boolean {
   if (value == null || value === '') return true
@@ -9,15 +16,24 @@ export function isZeroPrice(value: number | string | null | undefined): boolean 
 }
 
 export type FormatPriceOptions = {
-  /** Prefix, default €. Pass empty string when currency is shown separately (e.g. EUR). */
+  /** Override symbol (e.g. "$"). Defaults from `currencyCode`. */
   currency?: string
+  /** ISO code from settings / locale (USD, EUR, …). */
+  currencyCode?: string | null
   /** Shown when price is zero or missing */
   zeroLabel?: string
   /** Use comma as decimal separator (e.g. 12,50) */
   useCommaDecimals?: boolean
 }
 
-/** Amount or zero label only — pair with a separate "EUR" prefix. */
+function resolveCurrencySymbol(options: FormatPriceOptions): string {
+  if (options.currency !== undefined && options.currency !== '') {
+    return options.currency
+  }
+  return getCurrencySymbol(options.currencyCode ?? DEFAULT_SHOP_CURRENCY)
+}
+
+/** Amount or zero label only — pair with a separate currency symbol. */
 export function formatPriceAmount(
   value: number | string | null | undefined,
   options: Omit<FormatPriceOptions, 'currency'> = {}
@@ -31,10 +47,11 @@ export function formatPrice(
   options: FormatPriceOptions = {}
 ): string {
   const {
-    currency = '€',
     zeroLabel = 'Price on request',
     useCommaDecimals = true,
   } = options
+
+  const currency = resolveCurrencySymbol(options)
 
   if (isZeroPrice(value)) return zeroLabel
 
@@ -46,3 +63,5 @@ export function formatPrice(
   const amount = useCommaDecimals ? n.toFixed(2).replace('.', ',') : n.toFixed(2)
   return `${currency} ${amount}`
 }
+
+export { normalizeCurrencyCode, type ShopCurrencyCode }

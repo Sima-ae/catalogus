@@ -40,7 +40,7 @@ function ActivityLine({
         compact ? 'text-xs sm:text-sm truncate' : 'text-sm sm:text-base'
       } ${muted}`}
     >
-      <span>{notification.buyerName} just bought </span>
+      <span>{notification.buyerName} just ordered </span>
       <span className={`font-semibold ${emphasis}`}>{notification.productName}</span>
       <span> — {formatMinutesAgo(minutesAgo)}</span>
     </p>
@@ -118,7 +118,7 @@ export default function RecentPurchaseActivity({
 
   const current = items[index] ?? items[0]
   const minutesAgo = minutesSince(current.purchasedAt)
-  const fullTitle = `${current.buyerName} just bought ${current.productName} — ${formatMinutesAgo(minutesAgo)}`
+  const fullTitle = `${current.buyerName} just ordered ${current.productName} — ${formatMinutesAgo(minutesAgo)}`
 
   return (
     <ActivitySpeechBubble isDark={isDark} compact={isHeader} title={fullTitle}>
