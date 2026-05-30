@@ -17,13 +17,15 @@ export default function CategoryFilter({
   const categories = useShopCategoryList()
 
   return (
-    <FilterPillsScroll
-      items={categories}
-      selected={selectedCategory}
-      onChange={onCategoryChange}
-      showArrows={false}
-      ariaLabel="Categories"
-      centered={centered}
-    />
+    <div className={centered ? 'flex w-full justify-center' : undefined}>
+      <FilterPillsScroll
+        items={categories}
+        selected={selectedCategory}
+        onChange={onCategoryChange}
+        showArrows={false}
+        ariaLabel="Categories"
+        centered={centered}
+      />
+    </div>
   )
 }

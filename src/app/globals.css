@@ -133,6 +133,15 @@ body.app-protected [contenteditable='true'] {
     @apply bg-neutral-100 text-black;
   }
 
+  /* Catalog filter pills — avoid clipping descenders inside horizontal scroll */
+  .filter-pills-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filter-pills-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
   .card {
     @apply rounded-lg p-6 border transition-colors duration-200;
   }

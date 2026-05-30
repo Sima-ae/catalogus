@@ -151,17 +151,25 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${shellBg}`}
         >
           <div className="max-w-full">
-            <CategoryFilter
-              selectedCategory={selectedCategory}
-              onCategoryChange={setSelectedCategory}
-              centered={config.centerCatalog}
-            />
-            <BrandFilter
-              selectedCategory={selectedCategory}
-              selectedBrand={selectedBrand}
-              onBrandChange={setSelectedBrand}
-              centered={config.centerCatalog}
-            />
+            <div
+              className={
+                config.centerCatalog
+                  ? 'mb-5 flex w-full flex-col items-center gap-2'
+                  : undefined
+              }
+            >
+              <CategoryFilter
+                selectedCategory={selectedCategory}
+                onCategoryChange={setSelectedCategory}
+                centered={config.centerCatalog}
+              />
+              <BrandFilter
+                selectedCategory={selectedCategory}
+                selectedBrand={selectedBrand}
+                onBrandChange={setSelectedBrand}
+                centered={config.centerCatalog}
+              />
+            </div>
 
             {loading ? (
               <div className="text-center py-12">
