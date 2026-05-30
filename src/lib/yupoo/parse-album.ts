@@ -6,6 +6,7 @@ import {
   dedupeProductImageUrls,
   upgradeYupooImageUrl,
 } from '@/lib/product-image-url'
+import { brandSkuPrefix } from '@/lib/product-sku'
 import {
   extractYupooStyleCode,
   isSkuOnlyTitle,
@@ -118,13 +119,13 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
   }
 }
 
-/** One SKU per Yupoo album; style prefix alone collides across albums. */
-export function buildSku(album: YupooAlbumData): string {
+/** One SKU per Yupoo album + brand; style code alone collides across brands. */
+export function buildSku(album: YupooAlbumData, brandName?: string | null): string {
   const id = String(album.albumId).trim()
-  if (album.skuHint) {
-    return `${album.skuHint}-${id}`
-  }
-  return `YUPOO-${id}`
+  const brand = brandSkuPrefix(brandName)
+  const code = album.skuHint || 'YUPOO'
+  if (brand) return `${brand}-${code}-${id}`
+  return album.skuHint ? `${album.skuHint}-${id}` : `YUPOO-${id}`
 }
 
 export { parseAttributes }

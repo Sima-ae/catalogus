@@ -1,3 +1,14 @@
+/** Slug for SKU prefix (e.g. "Yves Saint Laurent" → "YVES-SAINT-LAURENT"). */
+export function brandSkuPrefix(brandName: string | null | undefined): string {
+  const raw = String(brandName ?? '').trim()
+  if (!raw) return ''
+  return raw
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+}
+
 /** Trim SKU; empty string becomes null (no SKU). */
 export function normalizeProductSku(sku: unknown): string | null {
   if (sku == null || sku === '') return null

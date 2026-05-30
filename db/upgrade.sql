@@ -143,3 +143,16 @@ WHERE NOT EXISTS (
   WHERE id = 'a0000000-0000-0000-0000-000000000001'
      OR LOWER(email) IN ('info@000.it.com', 'info@superclones.cloud')
 );
+
+-- Yupoo import: same album/style code may exist per brand (see db/import_brand_dedup.sql)
+UPDATE products p
+INNER JOIN brands b ON b.active = 1 AND LOWER(TRIM(b.name)) = LOWER(TRIM(p.brand))
+SET p.brand_id = b.id
+WHERE p.brand_id IS NULL
+  AND p.brand IS NOT NULL
+  AND TRIM(p.brand) <> '';
+
+ALTER TABLE products DROP INDEX IF EXISTS uq_products_source_album_id;
+
+ALTER TABLE products
+  ADD UNIQUE INDEX IF NOT EXISTS uq_products_source_album_brand (source_album_id, brand(64));

@@ -2,8 +2,8 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
-import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import { dedupeProductImageUrls } from '@/lib/product-image-url'
+import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
   cleanImportDescription,
@@ -57,7 +57,7 @@ export function buildProductInputFromImport(
     source_album_id: album.albumId,
     author: APP_DEFAULT_AUTHOR,
     author_icon: APP_DEFAULT_AUTHOR_ICON,
-    sku: buildSku(album),
+    sku: buildSku(album, brandName),
     status: 'draft',
     featured: false,
   }
@@ -365,6 +365,50 @@ export async function resetCompletedJobItems(jobId: string): Promise<number> {
   return result?.affectedRows ?? 0
 }
 
+export async function getImportProductByAlbum(
+  albumId: string,
+  brandId: string | null | undefined,
+  brandName: string | null | undefined
+): Promise<{ id: string; status: string } | null> {
+  const bid = brandId?.trim() || null
+  const bname = brandName?.trim() || null
+
+  if (bid) {
+    const rows = await queryDb<{ id: string; status: string }[]>(
+      `SELECT id, status FROM products
+       WHERE source_album_id = ? AND brand_id = ?
+       LIMIT 1`,
+      [albumId, bid]
+    )
+    if (rows[0]) return rows[0]
+  }
+
+  if (bname) {
+    const rows = await queryDb<{ id: string; status: string }[]>(
+      `SELECT id, status FROM products
+       WHERE source_album_id = ? AND LOWER(TRIM(brand)) = LOWER(?)
+       LIMIT 1`,
+      [albumId, bname]
+    )
+    if (rows[0]) return rows[0]
+  }
+
+  if (!bid && !bname) {
+    const rows = await queryDb<{ id: string; status: string }[]>(
+      `SELECT id, status FROM products
+       WHERE source_album_id = ?
+         AND (brand IS NULL OR TRIM(brand) = '')
+         AND (brand_id IS NULL OR TRIM(brand_id) = '')
+       LIMIT 1`,
+      [albumId]
+    )
+    return rows[0] ?? null
+  }
+
+  return null
+}
+
+/** @deprecated Use getImportProductByAlbum — album alone is not unique across brands. */
 export async function getProductBySourceAlbumId(
   albumId: string
 ): Promise<{ id: string; status: string } | null> {

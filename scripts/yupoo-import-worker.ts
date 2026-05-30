@@ -7,7 +7,7 @@
  *   npm run import:worker -- --job=<uuid> --refresh
  *   npm run import:worker -- --job=<uuid> --refresh --retry-all
  *
- * Skipped albums already exist in products (same source_album_id).
+ * Skipped albums already exist for the same brand (source_album_id + brand).
  * --refresh  re-fetch Yupoo and update those products (keeps active/draft status).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
  */
@@ -24,7 +24,7 @@ import {
   createImportJobItems,
   getImportJob,
   getImportSource,
-  getProductBySourceAlbumId,
+  getImportProductByAlbum,
   getQueuedImportJob,
   listPendingJobItems,
   resetCompletedJobItems,
@@ -172,10 +172,15 @@ async function processJob(jobId: string) {
 
   for (const item of items) {
     try {
-      const existing = await getProductBySourceAlbumId(item.album_id)
+      const existing = await getImportProductByAlbum(
+        item.album_id,
+        source.catalog_brand_id,
+        source.brand_name ?? null
+      )
 
       if (existing && !flags.refresh) {
-        console.log(`==> Album ${item.album_id} (skip — already in catalog)`)
+        const brandLabel = source.brand_name?.trim() || 'this brand'
+        console.log(`==> Album ${item.album_id} (skip — already imported for ${brandLabel})`)
         await updateJobItem(item.id, {
           status: 'skipped',
           product_id: existing.id,

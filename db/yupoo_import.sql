@@ -18,6 +18,8 @@ ALTER TABLE products
 ALTER TABLE products
   ADD UNIQUE INDEX IF NOT EXISTS uq_products_source_album_id (source_album_id);
 
+-- Prefer db/import_brand_dedup.sql on existing DBs (per-brand album uniqueness).
+
 CREATE TABLE IF NOT EXISTS import_sources (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
