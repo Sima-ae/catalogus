@@ -464,6 +464,31 @@ export async function deleteProductById(id: string) {
   await queryDb('DELETE FROM products WHERE id = ?', [id])
 }
 
+export type ProductStatusValue = 'active' | 'draft' | 'inactive'
+
+export async function bulkUpdateProductStatus(
+  productIds: string[],
+  status: ProductStatusValue
+): Promise<number> {
+  if (!productIds.length) return 0
+  const placeholders = productIds.map(() => '?').join(', ')
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE products SET status = ? WHERE id IN (${placeholders})`,
+    [status, ...productIds]
+  )
+  return result?.affectedRows ?? productIds.length
+}
+
+export async function bulkDeleteProducts(productIds: string[]): Promise<number> {
+  if (!productIds.length) return 0
+  const placeholders = productIds.map(() => '?').join(', ')
+  const result = await queryDb<{ affectedRows?: number }>(
+    `DELETE FROM products WHERE id IN (${placeholders})`,
+    productIds
+  )
+  return result?.affectedRows ?? productIds.length
+}
+
 export async function listCategories(activeOnly = false) {
   if (activeOnly) {
     return queryDb<any[]>(

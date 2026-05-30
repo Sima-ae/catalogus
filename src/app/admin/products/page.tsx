@@ -1,10 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
+import {
+  CubeIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+  CheckCircleIcon,
+  DocumentTextIcon,
+  NoSymbolIcon,
+} from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import StatCard from '@/components/admin/StatCard'
 import {
   AdminTable,
   AdminTableBody,
@@ -18,20 +27,71 @@ import { formatPrice } from '@/lib/format-price'
 import type { Product } from '@/lib/types'
 import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
+import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
+
+type StatusFilter = 'all' | 'active' | 'draft' | 'inactive'
+
+function statusLabel(status: string): string {
+  if (status === 'active') return 'Published'
+  if (status === 'draft') return 'Draft'
+  if (status === 'inactive') return 'Inactive'
+  return status
+}
+
+function statusBadgeClass(status: string, isDark: boolean): string {
+  if (status === 'active') {
+    return isDark
+      ? 'bg-green-500/15 text-green-400 border-green-500/30'
+      : 'bg-green-50 text-green-800 border-green-200'
+  }
+  if (status === 'draft') {
+    return isDark
+      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+      : 'bg-amber-50 text-amber-800 border-amber-200'
+  }
+  if (status === 'inactive') {
+    return isDark
+      ? 'bg-gray-500/15 text-gray-400 border-gray-500/30'
+      : 'bg-gray-100 text-gray-600 border-gray-200'
+  }
+  return isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-100 text-gray-700'
+}
 
 export default function AdminProductsPage() {
   const t = useAppTheme()
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkWorking, setBulkWorking] = useState(false)
 
   const loadProducts = useCallback(() => {
     if (!user) return
+
     setLoading(true)
-    fetch(appPath('/api/products'), { headers: adminAuthHeaders(user) })
-      .then((r) => r.json())
-      .then((d) => setProducts(Array.isArray(d) ? d : []))
+    setError('')
+
+    fetch(appPath('/api/products'), {
+      headers: adminAuthHeaders(user),
+      cache: 'no-store',
+    })
+      .then(async (r) => {
+        const data = await parseJsonResponse<{ error?: string } | Product[]>(r)
+        if (!r.ok) {
+          throw new Error(!Array.isArray(data) && data.error ? data.error : 'Failed to load products')
+        }
+        if (!Array.isArray(data)) throw new Error('Invalid response')
+        setProducts(data)
+        setSelected(new Set())
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load')
+        setProducts([])
+      })
       .finally(() => setLoading(false))
   }, [user])
 
@@ -39,70 +99,342 @@ export default function AdminProductsPage() {
     loadProducts()
   }, [loadProducts])
 
-  const handleDelete = async (id: string) => {
-    if (!user || !confirm('Delete this product?')) return
-    const res = await fetch(appPath(`/api/products/${id}`), {
-      method: 'DELETE',
-      headers: adminAuthHeaders(user),
+  const stats = useMemo(() => {
+    const total = products.length
+    const active = products.filter((p) => p.status === 'active').length
+    const draft = products.filter((p) => p.status === 'draft').length
+    const inactive = products.filter((p) => p.status === 'inactive').length
+    return { total, active, draft, inactive }
+  }, [products])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return products.filter((p) => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false
+      if (!q) return true
+      const sku = (p.sku || '').toLowerCase()
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q) ||
+        sku.includes(q)
+      )
     })
-    if (res.ok) loadProducts()
-    else {
-      const data = await res.json().catch(() => ({}))
-      alert(typeof data.error === 'string' ? data.error : 'Could not delete product')
+  }, [products, search, statusFilter])
+
+  const toggleSelected = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAllFiltered = () => {
+    if (selected.size === filtered.length && filtered.length > 0) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map((p) => p.id)))
     }
   }
 
+  const runBulkStatus = async (status: 'active' | 'draft' | 'inactive', ids: string[]) => {
+    if (!user || !ids.length) return
+
+    const label = statusLabel(status)
+    if (!confirm(`Set ${ids.length} product(s) to "${label}"?`)) return
+
+    setBulkWorking(true)
+    setError('')
+
+    try {
+      const res = await fetch(appPath('/api/admin/products/bulk-status'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds: ids, status }),
+      })
+      const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
+      if (!res.ok) throw new Error(data.error || 'Bulk update failed')
+      loadProducts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk update failed')
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!user || !confirm('Delete this product?')) return
+    void runBulkDelete([id], true)
+  }
+
+  const runBulkDelete = async (ids: string[], skipConfirm = false) => {
+    if (!user || !ids.length) return
+    if (
+      !skipConfirm &&
+      !confirm(`Delete ${ids.length} product(s)? This cannot be undone.`)
+    ) {
+      return
+    }
+
+    setBulkWorking(true)
+    setError('')
+
+    try {
+      const res = await fetch(appPath('/api/admin/products/bulk-delete'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds: ids }),
+      })
+      const data = await parseJsonResponse<{ error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Bulk delete failed')
+      loadProducts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk delete failed')
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const publishAllDrafts = () => {
+    const draftIds = products.filter((p) => p.status === 'draft').map((p) => p.id)
+    if (!draftIds.length) return
+    void runBulkStatus('active', draftIds)
+  }
+
+  const selectedIds = Array.from(selected)
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((p) => selected.has(p.id))
+
   return (
-    <AdminPageShell title="Products">
-      <div className="flex justify-end mb-4">
-        <Link href="/admin/products/new" className="btn-primary flex items-center gap-2">
+    <AdminPageShell
+      title="Products"
+      description="Manage your full catalog. Use bulk actions to publish drafts or update many products at once."
+    >
+      <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
+        {stats.draft > 0 && (
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking || loading}
+            onClick={publishAllDrafts}
+          >
+            Publish all drafts ({stats.draft})
+          </button>
+        )}
+        <Link href={appPath('/admin/products/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
           Add product
         </Link>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <StatCard
+          title="Total products"
+          value={stats.total}
+          icon={<CubeIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-primary-500"
+        />
+        <StatCard
+          title="Published"
+          value={stats.active}
+          icon={<CheckCircleIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-green-500"
+        />
+        <StatCard
+          title="Draft"
+          value={stats.draft}
+          icon={<DocumentTextIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-amber-500"
+        />
+        <StatCard
+          title="Inactive"
+          value={stats.inactive}
+          icon={<NoSymbolIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-gray-500"
+        />
+      </div>
+
+      {error && <p className="text-red-400 mb-4">{error}</p>}
+
+      <div className="card mb-4 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <label className="flex-1 space-y-1">
+            <span className={`text-sm font-medium ${t.muted}`}>Search</span>
+            <input
+              type="search"
+              className="input w-full"
+              placeholder="Name, SKU, category..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          <label className="sm:w-48 space-y-1">
+            <span className={`text-sm font-medium ${t.muted}`}>Status</span>
+            <select
+              className="input w-full"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            >
+              <option value="all">All statuses</option>
+              <option value="active">Published</option>
+              <option value="draft">Draft</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </label>
+        </div>
+
+        <p className={`text-sm ${t.muted}`}>
+          Showing <strong className={t.heading}>{filtered.length}</strong> of{' '}
+          <strong className={t.heading}>{stats.total}</strong> products
+          {statusFilter !== 'all' && (
+            <> · filter: {statusLabel(statusFilter)}</>
+          )}
+        </p>
+
+        {selected.size > 0 && (
+          <div
+            className={`flex flex-wrap items-center gap-2 pt-3 border-t ${t.rowBorder}`}
+          >
+            <span className={`text-sm font-medium ${t.heading}`}>
+              {selected.size} selected
+            </span>
+            <button
+              type="button"
+              className="btn-primary text-sm"
+              disabled={bulkWorking}
+              onClick={() => runBulkStatus('active', selectedIds)}
+            >
+              Publish
+            </button>
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              disabled={bulkWorking}
+              onClick={() => runBulkStatus('draft', selectedIds)}
+            >
+              Set draft
+            </button>
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              disabled={bulkWorking}
+              onClick={() => runBulkStatus('inactive', selectedIds)}
+            >
+              Set inactive
+            </button>
+            <button
+              type="button"
+              className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+              disabled={bulkWorking}
+              onClick={() => runBulkDelete(selectedIds)}
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              className={`text-sm ${t.muted} hover:underline ml-auto`}
+              onClick={() => setSelected(new Set())}
+            >
+              Clear selection
+            </button>
+          </div>
+        )}
+      </div>
+
       {loading ? (
-        <p className={t.muted}>Loading...</p>
+        <p className={t.muted}>Loading products...</p>
       ) : products.length === 0 ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">No products yet.</p>
-          <Link href="/admin/products/new" className="btn-primary inline-flex items-center gap-2">
+          <Link href={appPath('/admin/products/new')} className="btn-primary inline-flex items-center gap-2">
             <PlusIcon className="w-5 h-5" />
             Add your first product
           </Link>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className={`card text-center py-12 ${t.muted}`}>
+          <p>No products match your search or filter.</p>
+          <button
+            type="button"
+            className="btn-secondary mt-4"
+            onClick={() => {
+              setSearch('')
+              setStatusFilter('all')
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
         <AdminTable>
           <AdminTableHead>
+            <AdminTh>
+              <input
+                type="checkbox"
+                checked={allFilteredSelected}
+                onChange={toggleAllFiltered}
+                aria-label="Select all on page"
+                className="rounded border-gray-400"
+              />
+            </AdminTh>
             <AdminTh>Product</AdminTh>
+            <AdminTh>SKU</AdminTh>
             <AdminTh>Category</AdminTh>
             <AdminTh>Price</AdminTh>
             <AdminTh>Status</AdminTh>
             <AdminTh align="right">Actions</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
-            {products.map((p) => (
+            {filtered.map((p) => (
               <AdminTr key={p.id}>
                 <AdminTd>
-                  <div className="flex items-center gap-3">
-                    <Image
-                      src={p.image_url}
-                      alt={p.name}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 rounded object-cover"
-                      unoptimized
-                    />
-                    <span className="font-medium">{p.name}</span>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => toggleSelected(p.id)}
+                    aria-label={`Select ${p.name}`}
+                    className="rounded border-gray-400"
+                  />
+                </AdminTd>
+                <AdminTd>
+                  <div className="flex items-center gap-3 min-w-[12rem]">
+                    {p.image_url ? (
+                      <Image
+                        src={p.image_url}
+                        alt=""
+                        width={40}
+                        height={40}
+                        className="w-10 h-10 rounded object-cover shrink-0 bg-gray-100"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded bg-gray-200 dark:bg-dark-700 shrink-0" />
+                    )}
+                    <span className="font-medium line-clamp-2">{p.name}</span>
                   </div>
                 </AdminTd>
+                <AdminTd className="font-mono text-xs whitespace-nowrap">{p.sku || '—'}</AdminTd>
                 <AdminTd>{p.category || '—'}</AdminTd>
                 <AdminTd>{formatPrice(p.price)}</AdminTd>
-                <AdminTd className="capitalize">{p.status || 'active'}</AdminTd>
+                <AdminTd>
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border capitalize ${statusBadgeClass(p.status, t.isDark)}`}
+                  >
+                    {statusLabel(p.status || 'active')}
+                  </span>
+                </AdminTd>
                 <AdminTd align="right">
                   <div className="flex items-center justify-end gap-2">
                     <Link
-                      href={`/admin/products/${p.id}/edit`}
+                      href={appPath(`/admin/products/${p.id}/edit`)}
                       className={`p-2 rounded-lg ${t.iconBtn}`}
                       title="Edit"
                     >
