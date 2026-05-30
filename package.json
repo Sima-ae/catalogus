@@ -13,7 +13,8 @@
     "db:reset-admin-password": "node scripts/reset-admin-password.mjs",
     "db:tunnel": "./scripts/ssh-db-tunnel.sh",
     "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background",
-    "import:worker": "tsx scripts/yupoo-import-worker.ts"
+    "import:worker": "tsx scripts/yupoo-import-worker.ts",
+    "db:clean-descriptions": "tsx scripts/clean-product-descriptions.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

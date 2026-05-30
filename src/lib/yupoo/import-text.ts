@@ -47,20 +47,34 @@ export function stripProductTrademarkBoilerplate(
   const brand = String(brandName ?? '').trim()
   const brandEsc = brand ? escapeRegExp(brand) : ''
 
-  // Product trademark: Ferragamo "Ferragamo" casual... → casual...
+  const quotedBrandPrefix = (_match: string, label: string) => `"${label.trim()}" `
+
+  // Product trademark: Ferragamo "Ferragamo" casual... → "Ferragamo" casual...
   result = result.replace(
     /^Product\s+trademark\s*[：:]\s*([^\s"']+)\s*["'「『"](\1)["'」』"]\s*/i,
-    ''
+    quotedBrandPrefix
   )
-  result = result.replace(/^Product\s+trademark\s*[：:]\s*([^\s"']+)\s+\1\s*/i, '')
+  result = result.replace(
+    /^Product\s+trademark\s*[：:]\s*([^\s"']+)\s+\1\s*/i,
+    quotedBrandPrefix
+  )
 
   if (brandEsc) {
+    const keepQuotedBrand = () => `"${brand}" `
     result = result.replace(
       new RegExp(
-        `^Product\\s+trademark\\s*[：:]\\s*${brandEsc}(?:\\s*["'「『"]${brandEsc}["'」』"])?\\s*`,
+        `^Product\\s+trademark\\s*[：:]\\s*${brandEsc}\\s*["'「『"]${brandEsc}["'」』"]\\s*`,
         'i'
       ),
-      ''
+      keepQuotedBrand
+    )
+    result = result.replace(
+      new RegExp(`^Product\\s+trademark\\s*[：:]\\s*${brandEsc}\\s+${brandEsc}\\s*`, 'i'),
+      keepQuotedBrand
+    )
+    result = result.replace(
+      new RegExp(`^Product\\s+trademark\\s*[：:]\\s*${brandEsc}\\s*`, 'i'),
+      keepQuotedBrand
     )
   }
 
@@ -72,14 +86,10 @@ export function stripProductTrademarkBoilerplate(
     .trim()
 
   if (brandEsc) {
-    let prev = ''
-    while (prev !== result) {
-      prev = result
-      result = result
-        .replace(new RegExp(`^["'「『"]${brandEsc}["'」』"]\\s*`, 'i'), '')
-        .replace(new RegExp(`^${brandEsc}\\s+`, 'i'), '')
-        .trim()
-    }
+    result = result.replace(
+      new RegExp(`^${brandEsc}\\s+${brandEsc}\\s+`, 'i'),
+      `"${brand}" `
+    )
   }
 
   result = result.replace(/^[|｜\-–—:：,，.\s]+/, '').trim()
