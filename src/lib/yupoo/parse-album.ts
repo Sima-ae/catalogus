@@ -2,20 +2,17 @@ import * as cheerio from 'cheerio'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import { absoluteUrl } from '@/lib/yupoo/client'
 import { parseAttributes } from '@/lib/yupoo/parse-attributes'
+import {
+  dedupeProductImageUrls,
+  upgradeYupooImageUrl,
+} from '@/lib/product-image-url'
 
 function extractSkuHint(title: string): string | null {
   const match = title.match(/^(\d{5,})/)
   return match?.[1] ?? null
 }
 
-/** Prefer medium/original over small/thumb CDN paths. */
-export function upgradeYupooImageUrl(url: string): string {
-  let u = url.trim()
-  u = u.replace(/\/small\./gi, '/medium.')
-  u = u.replace(/\/thumb\./gi, '/medium.')
-  u = u.replace(/\/square\./gi, '/medium.')
-  return u.split('?')[0] || u
-}
+export { upgradeYupooImageUrl } from '@/lib/product-image-url'
 
 function normalizeImageUrl(src: string, pageUrl: string): string | null {
   if (!src || src.startsWith('data:')) return null
@@ -27,16 +24,16 @@ function normalizeImageUrl(src: string, pageUrl: string): string | null {
 }
 
 function collectFromHtml(html: string, pageUrl: string): string[] {
-  const found = new Set<string>()
+  const found: string[] = []
 
   const regexMatches =
     html.match(/https?:\/\/photo\.yupoo\.com\/[^\s"'<>]+?\.(?:jpe?g|png|webp|gif)/gi) || []
   for (const match of regexMatches) {
     const normalized = normalizeImageUrl(match, pageUrl)
-    if (normalized) found.add(normalized)
+    if (normalized) found.push(normalized)
   }
 
-  return Array.from(found)
+  return found
 }
 
 export function parseAlbumPage(html: string, albumUrl: string, albumId: string): YupooAlbumData {
@@ -67,10 +64,10 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
 
   const description = descriptionParts.join('\n\n').trim() || title
 
-  const imageSet = new Set<string>()
+  const imageCandidates: string[] = []
 
   for (const url of collectFromHtml(html, albumUrl)) {
-    imageSet.add(url)
+    imageCandidates.push(url)
   }
 
   const imageSelectors =
@@ -85,17 +82,17 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
       $(el).attr('src')
     if (!src) return
     const normalized = normalizeImageUrl(src, albumUrl)
-    if (normalized) imageSet.add(normalized)
+    if (normalized) imageCandidates.push(normalized)
   })
 
   $('a[href*=".jpg"], a[href*=".jpeg"], a[href*=".png"], a[href*=".webp"]').each((_, el) => {
     const href = $(el).attr('href')
     if (!href) return
     const normalized = normalizeImageUrl(href, albumUrl)
-    if (normalized) imageSet.add(normalized)
+    if (normalized) imageCandidates.push(normalized)
   })
 
-  const images = Array.from(imageSet)
+  const images = dedupeProductImageUrls(imageCandidates)
 
   return {
     albumId,

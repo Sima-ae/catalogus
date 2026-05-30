@@ -74,6 +74,66 @@ export function isYupooImageUrl(url: string | null | undefined): boolean {
   }
 }
 
+/** Prefer medium/original over small/thumb Yupoo CDN paths. */
+export function upgradeYupooImageUrl(url: string): string {
+  let u = url.trim()
+  u = u.replace(/\/small\./gi, '/medium.')
+  u = u.replace(/\/thumb\./gi, '/medium.')
+  u = u.replace(/\/square\./gi, '/medium.')
+  u = u.replace(/\/original\./gi, '/medium.')
+  return u.split('?')[0] || u
+}
+
+function unwrapDisplayImageUrl(url: string): string {
+  const raw = url.trim()
+  if (!raw.includes('/api/yupoo-image')) return raw
+  try {
+    const parsed = new URL(raw, CATALOG_IMAGE_ORIGIN)
+    const inner = parsed.searchParams.get('url')
+    return inner ? decodeURIComponent(inner) : raw
+  } catch {
+    return raw
+  }
+}
+
+/**
+ * Stable key for deduping the same photo (Yupoo small/medium/original, proxy vs raw, etc.).
+ */
+export function canonicalProductImageKey(url: string | null | undefined): string {
+  let raw = unwrapDisplayImageUrl(String(url ?? '').trim())
+  if (!raw) return ''
+
+  raw = normalizeProductImageUrl(raw)
+  if (isYupooImageUrl(raw)) {
+    raw = upgradeYupooImageUrl(raw)
+  }
+
+  try {
+    const u = new URL(raw)
+    const host = u.hostname.toLowerCase()
+    let path = u.pathname.replace(/\/+$/, '')
+    path = path.replace(/\/(small|thumb|square|original)\./gi, '/medium.')
+    return `${host}${path}`
+  } catch {
+    return raw.toLowerCase().split('?')[0] || ''
+  }
+}
+
+/** Keep first occurrence of each unique image (order preserved). */
+export function dedupeProductImageUrls(urls: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const url of urls) {
+    const trimmed = String(url ?? '').trim()
+    if (!trimmed || isPlaceholderImageUrl(trimmed)) continue
+    const key = canonicalProductImageKey(trimmed)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(trimmed)
+  }
+  return out
+}
+
 /**
  * Yupoo CDN blocks hotlinking — serve through our proxy using the album URL as Referer.
  * Raw Yupoo URLs stay in the database; this is for display only.
@@ -113,9 +173,11 @@ export function toDisplayProductImageList(
   sourceUrl?: string | null
 ): string[] | null {
   if (!urls?.length) return null
-  const out = urls
-    .map((u) => toDisplayProductImageUrl(u, sourceUrl))
-    .filter((u) => u && !isPlaceholderImageUrl(u))
+  const out = dedupeProductImageUrls(
+    urls
+      .map((u) => toDisplayProductImageUrl(u, sourceUrl))
+      .filter((u) => Boolean(u))
+  )
   return out.length ? out : null
 }
 
@@ -135,9 +197,12 @@ export function normalizeProductImageList(
   urls: string[] | null | undefined
 ): string[] | null {
   if (!urls?.length) return null
-  const out = urls
-    .map((u) => normalizeProductImageUrl(u))
-    .filter((u) => u && !isPlaceholderImageUrl(u))
+  const out = dedupeProductImageUrls(
+    urls
+      .map((u) => normalizeProductImageUrl(u))
+      .map((u) => (isYupooImageUrl(u) ? upgradeYupooImageUrl(u) : u))
+      .filter((u) => u && !isPlaceholderImageUrl(u))
+  )
   return out.length ? out : null
 }
 
@@ -147,18 +212,13 @@ export function buildProductGallery(
   galleryRaw: string[] | null | undefined
 ): string[] {
   const mainImage = String(mainImageRaw ?? '').trim()
-  const extras = (galleryRaw ?? [])
-    .map((u) => String(u ?? '').trim())
-    .filter((u) => u && !isPlaceholderImageUrl(u) && u !== mainImage)
-
-  const gallery: string[] = []
-  if (mainImage && !isPlaceholderImageUrl(mainImage)) {
-    gallery.push(mainImage)
-  }
-  for (const url of extras) {
-    if (!gallery.includes(url)) gallery.push(url)
-  }
-  return gallery
+  const ordered = [
+    ...(mainImage && !isPlaceholderImageUrl(mainImage) ? [mainImage] : []),
+    ...(galleryRaw ?? [])
+      .map((u) => String(u ?? '').trim())
+      .filter((u) => u && !isPlaceholderImageUrl(u)),
+  ]
+  return dedupeProductImageUrls(ordered)
 }
 
 /** True when the image is served from our /images/ tree (safe for Next.js optimizer). */

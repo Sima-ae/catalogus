@@ -3,6 +3,7 @@ import { queryDb } from '@/lib/db'
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
+import { dedupeProductImageUrls } from '@/lib/product-image-url'
 import {
   catalogCardDescription,
   cleanImportDescription,
@@ -18,8 +19,9 @@ export function buildProductInputFromImport(
   brandName: string | null
 ): ProductInput {
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
-  const mainImage = album.images[0] || ''
-  const gallery = album.images.slice(1)
+  const uniqueImages = dedupeProductImageUrls(album.images)
+  const mainImage = uniqueImages[0] || ''
+  const gallery = uniqueImages.slice(1)
 
   const rawTitle = translated.enTitle || album.title
   const rawDescription = translated.enDescription || album.description

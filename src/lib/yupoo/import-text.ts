@@ -36,6 +36,84 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/**
+ * Emoji + circled CJK buttons (🉑 🈶): supplementary planes via surrogates + BMP symbols.
+ * (ES5-safe — no \u{...} escapes.)
+ */
+const DECORATIVE_UNICODE_RE =
+  /(?:[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u26FF]|[\u2700-\u27BF]|[\uFE00-\uFE0F]|\u200D|\u20E3)/g
+
+/** Older blocks: circled/squared CJK and compatibility forms. */
+const LEGACY_CJK_DECORATION_RE = /[\u24B6-\u24FF\u32A0-\u33FF]/g
+
+/** Common Yupoo CN marketing fragments (inline or standalone). */
+const CN_MARKETING_PHRASES = [
+  '专柜正品',
+  '厂家直销',
+  '高品质',
+  '微信同款',
+  '可查码',
+  '包邮',
+  '正品',
+  '现货',
+  '特价',
+  '原单',
+  '原版',
+  '一比一',
+  '超高品质',
+  '顶级品质',
+] as const
+
+function stripInlineChineseNoise(text: string): string {
+  let result = text
+  for (const phrase of CN_MARKETING_PHRASES) {
+    result = result.replace(new RegExp(escapeRegExp(phrase), 'gi'), ' ')
+  }
+  // Lone 1–3 character Han fragments (icon captions like 可 / 正) between word boundaries
+  result = result.replace(/(^|[\s,，.;:：！!？?])[\u4e00-\u9fff]{1,3}(?=($|[\s,，.;:：！!？?]))/g, '$1')
+  return result
+}
+
+/** Line is only short Chinese labels / symbols (not English product copy). */
+function isChineseLabelOnlyLine(line: string): boolean {
+  const stripped = line.replace(DECORATIVE_UNICODE_RE, '').replace(LEGACY_CJK_DECORATION_RE, '').trim()
+  if (!stripped) return true
+  if (/^(包邮|正品|现货|专柜|特价|微信|.taobao|taobao|商标|厂家|直销)/i.test(stripped)) return true
+  if (
+    /^[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\s·•‧|｜\-–—:：,，.、]+$/.test(stripped) &&
+    stripped.length <= 16
+  ) {
+    return true
+  }
+  return false
+}
+
+/** Remove Chinese icon buttons, emoji, and short CN label lines from descriptions. */
+export function stripChineseIconsAndDecorations(text: string): string {
+  let result = String(text ?? '')
+
+  result = result.replace(DECORATIVE_UNICODE_RE, '').replace(LEGACY_CJK_DECORATION_RE, '')
+
+  const lines = result.split(/\r?\n/)
+  if (lines.length > 1) {
+    result = lines
+      .map((line) => line.trim())
+      .filter((line) => line && !isChineseLabelOnlyLine(line))
+      .join('\n')
+  } else {
+    result = lines[0] ?? ''
+  }
+
+  result = stripInlineChineseNoise(result)
+
+  result = result
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return result
+}
+
 /** Remove Yupoo "Product trademark: Brand" boilerplate (EN + CN). */
 export function stripProductTrademarkBoilerplate(
   text: string,
@@ -102,8 +180,10 @@ export function cleanImportDescription(
   title: string,
   brandName?: string | null
 ): string {
-  let result = stripDuplicateSkuPrefix(text, title)
+  let result = stripChineseIconsAndDecorations(text)
+  result = stripDuplicateSkuPrefix(result, title)
   result = stripProductTrademarkBoilerplate(result, brandName)
+  result = stripChineseIconsAndDecorations(result)
   return result.replace(/\s+/g, ' ').trim()
 }
 
@@ -116,6 +196,7 @@ function firstMeaningfulDescriptionLine(cleaned: string): string {
   for (const line of lines) {
     if (/^Product\s+trademark\s*[：:]/i.test(line)) continue
     if (/^[\u4e00-\u9fff]{2,6}\s*[：:]/.test(line) && /商标/.test(line)) continue
+    if (isChineseLabelOnlyLine(line)) continue
     if (line.length >= 12) return line
   }
 

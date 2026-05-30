@@ -320,7 +320,7 @@ export default function ProductPageClient() {
               >
                 {product.gallery.map((image, index) => (
                   <button
-                    key={index}
+                    key={`${image}-${index}`}
                     type="button"
                     role="tab"
                     aria-selected={selectedImage === index}
