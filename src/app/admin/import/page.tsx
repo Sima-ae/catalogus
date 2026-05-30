@@ -31,8 +31,10 @@ type CategoryOption = { id: string; name: string }
 type BrandOption = { id: string; name: string }
 
 type SyncResult = {
+  kind: 'sync' | 'retry-skipped'
   job: { id: string; status: string }
   workerCommand: string
+  skippedCount?: number
 }
 
 const emptyForm: ImportSourceFormValues = {
@@ -63,6 +65,7 @@ export default function AdminImportPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [retryingId, setRetryingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [syncInfo, setSyncInfo] = useState<SyncResult | null>(null)
@@ -261,6 +264,31 @@ export default function AdminImportPage() {
     }
   }
 
+  const handleRetrySkipped = async (sourceId: string) => {
+    if (!user) return
+
+    setRetryingId(sourceId)
+    setError('')
+    setSyncInfo(null)
+    setCopiedCommand(false)
+    setCopiedJobId(false)
+
+    try {
+      const res = await fetch(appPath(`/api/admin/import/sources/${sourceId}/retry-skipped`), {
+        method: 'POST',
+        headers: adminAuthHeaders(user),
+      })
+      const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Retry failed')
+      setSyncInfo(data)
+      loadSources()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Retry failed')
+    } finally {
+      setRetryingId(null)
+    }
+  }
+
   const handleSync = async (sourceId: string) => {
     if (!user) return
 
@@ -315,7 +343,17 @@ export default function AdminImportPage() {
 
       {syncInfo && (
         <div className={`card mb-6 space-y-3 ${t.muted}`}>
-          <p className="text-green-400 font-medium">Import job queued</p>
+          <p className="text-green-400 font-medium">
+            {syncInfo.kind === 'retry-skipped'
+              ? `Retry queued${syncInfo.skippedCount ? ` (${syncInfo.skippedCount} skipped albums)` : ''}`
+              : 'Import job queued'}
+          </p>
+          {syncInfo.kind === 'retry-skipped' ? (
+            <p className="text-sm">
+              Re-fetches Yupoo and updates products already in the catalog. Run this command on the
+              VPS (or locally with db:tunnel):
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <span>
               Job ID: <code className="text-sm">{syncInfo.job.id}</code>
@@ -433,10 +471,27 @@ export default function AdminImportPage() {
                       <button
                         type="button"
                         className="btn-secondary text-sm"
-                        disabled={syncingId === source.id}
+                        disabled={syncingId === source.id || retryingId === source.id}
                         onClick={() => handleSync(source.id)}
                       >
                         {syncingId === source.id ? 'Starting...' : 'Start sync'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary text-sm"
+                        disabled={
+                          syncingId === source.id ||
+                          retryingId === source.id ||
+                          !(Number(source.skipped_items) > 0)
+                        }
+                        title={
+                          Number(source.skipped_items) > 0
+                            ? `${source.skipped_items} skipped on latest job — refresh from Yupoo`
+                            : 'No skipped albums on the latest job'
+                        }
+                        onClick={() => handleRetrySkipped(source.id)}
+                      >
+                        {retryingId === source.id ? 'Queuing…' : 'Retry skipped'}
                       </button>
                       {isSuperAdmin ? (
                         <>

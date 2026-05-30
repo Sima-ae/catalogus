@@ -73,6 +73,8 @@ export type ImportSourceRow = {
   last_synced_at: string | null
   category_name?: string | null
   brand_name?: string | null
+  /** Skipped albums on the latest import job for this source. */
+  skipped_items?: number
 }
 
 export type ImportJobRow = {
@@ -106,7 +108,19 @@ export async function listImportSources(): Promise<ImportSourceRow[]> {
   return queryDb<ImportSourceRow[]>(
     `SELECT s.*,
             c.name AS category_name,
-            b.name AS brand_name
+            b.name AS brand_name,
+            (
+              SELECT COUNT(*)
+              FROM import_job_items i
+              WHERE i.job_id = (
+                SELECT j2.id
+                FROM import_jobs j2
+                WHERE j2.source_id = s.id
+                ORDER BY j2.created_at DESC
+                LIMIT 1
+              )
+              AND i.status = 'skipped'
+            ) AS skipped_items
      FROM import_sources s
      LEFT JOIN categories c ON c.id = s.catalog_category_id
      LEFT JOIN brands b ON b.id = s.catalog_brand_id
@@ -291,11 +305,71 @@ export async function updateJobItem(
   await queryDb(`UPDATE import_job_items SET ${fields.join(', ')} WHERE id = ?`, values)
 }
 
+export async function findImportJobWithSkippedItems(
+  sourceId: string
+): Promise<ImportJobRow | null> {
+  const rows = await queryDb<ImportJobRow[]>(
+    `SELECT j.*
+     FROM import_jobs j
+     WHERE j.source_id = ?
+       AND EXISTS (
+         SELECT 1 FROM import_job_items i
+         WHERE i.job_id = j.id AND i.status = 'skipped'
+       )
+     ORDER BY j.created_at DESC
+     LIMIT 1`,
+    [sourceId]
+  )
+  return rows[0] ?? null
+}
+
+export async function countSkippedJobItems(jobId: string): Promise<number> {
+  const rows = await queryDb<{ n: number }[]>(
+    `SELECT COUNT(*) AS n FROM import_job_items WHERE job_id = ? AND status = 'skipped'`,
+    [jobId]
+  )
+  return Number(rows[0]?.n ?? 0)
+}
+
+export async function queueRetrySkippedImport(jobId: string): Promise<number> {
+  const reset = await resetSkippedJobItems(jobId)
+  await updateImportJob(jobId, {
+    status: 'queued',
+    processed: 0,
+    imported: 0,
+    skipped: 0,
+    failed: 0,
+    error_log: null,
+    started_at: null,
+    finished_at: null,
+  })
+  return reset
+}
+
+export async function resetSkippedJobItems(jobId: string): Promise<number> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE import_job_items SET status = 'pending', error_message = NULL
+     WHERE job_id = ? AND status = 'skipped'`,
+    [jobId]
+  )
+  return result?.affectedRows ?? 0
+}
+
+/** Re-queue imported + skipped items so a finished job can run again (use with --refresh). */
+export async function resetCompletedJobItems(jobId: string): Promise<number> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE import_job_items SET status = 'pending', error_message = NULL
+     WHERE job_id = ? AND status IN ('skipped', 'imported')`,
+    [jobId]
+  )
+  return result?.affectedRows ?? 0
+}
+
 export async function getProductBySourceAlbumId(
   albumId: string
-): Promise<{ id: string } | null> {
-  const rows = await queryDb<{ id: string }[]>(
-    `SELECT id FROM products WHERE source_album_id = ? LIMIT 1`,
+): Promise<{ id: string; status: string } | null> {
+  const rows = await queryDb<{ id: string; status: string }[]>(
+    `SELECT id, status FROM products WHERE source_album_id = ? LIMIT 1`,
     [albumId]
   )
   return rows[0] ?? null

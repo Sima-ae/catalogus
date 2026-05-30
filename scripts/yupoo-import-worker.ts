@@ -4,6 +4,12 @@
  *
  *   npm run import:worker
  *   npm run import:worker -- --job=<uuid>
+ *   npm run import:worker -- --job=<uuid> --refresh
+ *   npm run import:worker -- --job=<uuid> --refresh --retry-all
+ *
+ * Skipped albums already exist in products (same source_album_id).
+ * --refresh  re-fetch Yupoo and update those products (keeps active/draft status).
+ * --retry-all  re-queue imported/skipped job items (finished jobs only).
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
@@ -11,6 +17,7 @@ import { fetchHtml, sleep } from '@/lib/yupoo/client'
 import { parseCategoryAlbums } from '@/lib/yupoo/parse-category'
 import { parseAlbumPage } from '@/lib/yupoo/parse-album'
 import { translateProductText } from '@/lib/translate'
+import type { ImportJobItemRow, ImportSourceRow } from '@/lib/import-db'
 import {
   appendJobErrorLog,
   buildProductInputFromImport,
@@ -20,11 +27,14 @@ import {
   getProductBySourceAlbumId,
   getQueuedImportJob,
   listPendingJobItems,
+  resetCompletedJobItems,
+  resetSkippedJobItems,
   touchImportSourceSynced,
   updateImportJob,
   updateJobItem,
 } from '@/lib/import-db'
-import { insertProduct } from '@/lib/products-db'
+import { insertProduct, updateProduct } from '@/lib/products-db'
+import type { ProductInput } from '@/lib/products-db'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 
 function loadDotEnv() {
@@ -47,6 +57,14 @@ function loadDotEnv() {
   }
 }
 
+function workerFlags() {
+  return {
+    refresh: process.argv.includes('--refresh'),
+    retryAll: process.argv.includes('--retry-all'),
+    retrySkipped: process.argv.includes('--retry-skipped'),
+  }
+}
+
 async function resolveJobId(): Promise<string | null> {
   const arg = process.argv.find((a) => a.startsWith('--job='))
   if (arg) return arg.split('=')[1] || null
@@ -54,7 +72,41 @@ async function resolveJobId(): Promise<string | null> {
   return queued?.id ?? null
 }
 
+async function buildImportInput(
+  item: ImportJobItemRow,
+  source: ImportSourceRow
+) {
+  const html = await fetchHtml(item.album_url)
+  const album = parseAlbumPage(html, item.album_url, item.album_id)
+
+  if (!album.images.length) {
+    throw new Error('No images found on album page')
+  }
+
+  const translated = await translateProductText(album.title, album.description, 500)
+
+  const input = buildProductInputFromImport(
+    album,
+    translated,
+    source.category_name!,
+    source.brand_name ?? null,
+    item.album_title ?? album.title
+  )
+
+  if (!input.image_url) {
+    throw new Error('No images found on album page')
+  }
+
+  return { input, album, translated }
+}
+
+function inputForRefresh(input: ProductInput): Partial<ProductInput> {
+  const { status: _status, featured: _featured, ...rest } = input
+  return rest
+}
+
 async function processJob(jobId: string) {
+  const flags = workerFlags()
   const job = await getImportJob(jobId)
   if (!job) {
     console.error('Job not found:', jobId)
@@ -72,9 +124,24 @@ async function processJob(jobId: string) {
     process.exit(1)
   }
 
+  if (flags.retryAll) {
+    const reset = await resetCompletedJobItems(jobId)
+    if (reset > 0) {
+      console.log(`==> Re-queued ${reset} imported/skipped albums`)
+    }
+  } else if (flags.retrySkipped) {
+    const reset = await resetSkippedJobItems(jobId)
+    if (reset > 0) {
+      console.log(`==> Re-queued ${reset} skipped albums`)
+    }
+  }
+
   await updateImportJob(jobId, {
     status: 'running',
     started_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    ...(flags.retryAll || flags.retrySkipped
+      ? { processed: 0, imported: 0, skipped: 0, failed: 0 }
+      : {}),
   })
 
   let items = await listPendingJobItems(jobId)
@@ -89,15 +156,26 @@ async function processJob(jobId: string) {
     items = await listPendingJobItems(jobId)
   }
 
-  let processed = job.processed
-  let imported = job.imported
-  let skipped = job.skipped
-  let failed = job.failed
+  if (!items.length && (flags.refresh || flags.retryAll)) {
+    console.log('No pending albums. Use --retry-all on a finished job, or start a new sync in admin.')
+  }
+
+  if (flags.refresh) {
+    console.log('==> Refresh mode: existing albums will be updated from Yupoo (status unchanged)')
+  }
+
+  let processed = flags.retryAll || flags.retrySkipped ? 0 : job.processed
+  let imported = flags.retryAll || flags.retrySkipped ? 0 : job.imported
+  let skipped = flags.retryAll || flags.retrySkipped ? 0 : job.skipped
+  let failed = flags.retryAll || flags.retrySkipped ? 0 : job.failed
+  let refreshed = 0
 
   for (const item of items) {
     try {
       const existing = await getProductBySourceAlbumId(item.album_id)
-      if (existing) {
+
+      if (existing && !flags.refresh) {
+        console.log(`==> Album ${item.album_id} (skip — already in catalog)`)
         await updateJobItem(item.id, {
           status: 'skipped',
           product_id: existing.id,
@@ -105,44 +183,41 @@ async function processJob(jobId: string) {
         })
         skipped++
         processed++
+        await updateImportJob(jobId, { processed, imported, skipped, failed })
         continue
       }
 
-      console.log(`==> Album ${item.album_id}`)
-      await sleep(1200)
-      const html = await fetchHtml(item.album_url)
-      const album = parseAlbumPage(html, item.album_url, item.album_id)
-
-      if (!album.images.length) {
-        throw new Error('No images found on album page')
-      }
-
-      const translated = await translateProductText(album.title, album.description, 500)
-
-      const input = buildProductInputFromImport(
-        album,
-        translated,
-        source.category_name!,
-        source.brand_name ?? null,
-        item.album_title ?? album.title
+      console.log(
+        `==> Album ${item.album_id}${existing && flags.refresh ? ' (refresh)' : ''}`
       )
+      await sleep(1200)
 
-      if (!input.image_url) {
-        throw new Error('No images found on album page')
+      const { input, album, translated } = await buildImportInput(item, source)
+
+      if (existing && flags.refresh) {
+        await updateProduct(existing.id, inputForRefresh(input))
+        await updateJobItem(item.id, {
+          status: 'imported',
+          product_id: existing.id,
+          raw_json: JSON.stringify({ album, translated, refreshed: true }),
+          error_message: translated.translationFailed ? 'Translation failed — kept raw text' : null,
+        })
+        refreshed++
+        processed++
+      } else {
+        const product = await insertProduct(input)
+        const productId = product ? String((product as { id?: string }).id || '') : ''
+
+        await updateJobItem(item.id, {
+          status: 'imported',
+          product_id: productId || null,
+          raw_json: JSON.stringify({ album, translated }),
+          error_message: translated.translationFailed ? 'Translation failed — kept raw text' : null,
+        })
+
+        imported++
+        processed++
       }
-
-      const product = await insertProduct(input)
-      const productId = product ? String((product as { id?: string }).id || '') : ''
-
-      await updateJobItem(item.id, {
-        status: 'imported',
-        product_id: productId || null,
-        raw_json: JSON.stringify({ album, translated }),
-        error_message: translated.translationFailed ? 'Translation failed — kept raw text' : null,
-      })
-
-      imported++
-      processed++
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('FAIL:', item.album_id, message)
@@ -156,12 +231,14 @@ async function processJob(jobId: string) {
   }
 
   await updateImportJob(jobId, {
-    status: failed > 0 && imported === 0 ? 'failed' : 'done',
+    status: failed > 0 && imported === 0 && refreshed === 0 ? 'failed' : 'done',
     finished_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
   })
   await touchImportSourceSynced(source.id)
 
-  console.log(`Done. imported=${imported} skipped=${skipped} failed=${failed}`)
+  const parts = [`imported=${imported}`, `skipped=${skipped}`, `failed=${failed}`]
+  if (refreshed > 0) parts.push(`refreshed=${refreshed}`)
+  console.log(`Done. ${parts.join(' ')}`)
 }
 
 async function main() {

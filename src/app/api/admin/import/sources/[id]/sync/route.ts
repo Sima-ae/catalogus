@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
+import { buildImportWorkerCommand } from '@/lib/admin-import'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { createImportJob, getImportSource } from '@/lib/import-db'
 
@@ -31,8 +32,9 @@ export async function POST(
     const job = await createImportJob(params.id)
     return NextResponse.json(
       {
+        kind: 'sync' as const,
         job,
-        workerCommand: `npm run import:worker -- --job=${job.id}`,
+        workerCommand: buildImportWorkerCommand(job.id),
       },
       { status: 201 }
     )

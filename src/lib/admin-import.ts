@@ -25,3 +25,10 @@ export function validateImportSourceInput(input: ImportSourceInput): string | nu
   }
   return null
 }
+
+export function buildImportWorkerCommand(jobId: string, extraFlags: string[] = []): string {
+  const flags = extraFlags.filter(Boolean).join(' ')
+  return flags
+    ? `npm run import:worker -- --job=${jobId} ${flags}`
+    : `npm run import:worker -- --job=${jobId}`
+}
