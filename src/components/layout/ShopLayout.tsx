@@ -14,11 +14,22 @@ export default function ShopLayout({
   children: ReactNode
   header?: ReactNode
 }) {
-  const { open: sidebarOpen, openSidebar, closeSidebar } = useShopSidebar()
+  const {
+    open: sidebarOpen,
+    openSidebar,
+    closeSidebar,
+    dismissSidebarManually,
+    asideRef,
+  } = useShopSidebar()
 
   return (
     <div className="flex min-h-screen overflow-x-hidden">
-      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar
+        open={sidebarOpen}
+        onClose={closeSidebar}
+        onManualClose={dismissSidebarManually}
+        asideRef={asideRef}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         {header !== undefined ? (
           header

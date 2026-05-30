@@ -305,8 +305,10 @@ body.app-protected [contenteditable='true'] {
     @apply relative w-full aspect-[3/4] max-h-[min(75vh,720px)] bg-gray-100 rounded-lg overflow-hidden;
   }
 
-  /* Thumbnail strip: height matches main image (grid row); scroll when overflow */
+  /* Thumbnail strip: fixed height (synced to main image in JS); scroll when overflow */
   .product-gallery-thumbs {
+    min-height: 0;
+    flex-shrink: 0;
     scrollbar-width: thin;
     scrollbar-color: rgb(156 163 175 / 0.6) transparent;
     scroll-padding-block: 2px;

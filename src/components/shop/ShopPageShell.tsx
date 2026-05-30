@@ -13,13 +13,24 @@ type ShopPageShellProps = {
 
 export default function ShopPageShell({ title, children }: ShopPageShellProps) {
   const { theme } = useTheme()
-  const { open: sidebarOpen, openSidebar, closeSidebar } = useShopSidebar()
+  const {
+    open: sidebarOpen,
+    openSidebar,
+    closeSidebar,
+    dismissSidebarManually,
+    asideRef,
+  } = useShopSidebar()
 
   const shellBg = theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
 
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
-      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar
+        open={sidebarOpen}
+        onClose={closeSidebar}
+        onManualClose={dismissSidebarManually}
+        asideRef={asideRef}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         <AppStickyHeader

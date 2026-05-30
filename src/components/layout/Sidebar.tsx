@@ -1,10 +1,36 @@
 'use client'
 
-import { Suspense, useState, useCallback, useEffect } from 'react'
+import {
+  Suspense,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type MutableRefObject,
+  type RefObject,
+} from 'react'
+
+const LG_MEDIA = '(min-width: 1024px)'
+const SCROLL_COLLAPSE_OFFSET = 12
+
+function isLargeViewport(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia(LG_MEDIA).matches
+}
 
 /** Sidebar open/close — closed by default on viewports below lg. */
 export function useShopSidebar() {
   const [open, setOpen] = useState(true)
+  const asideRef = useRef<HTMLElement | null>(null)
+  const manuallyClosedRef = useRef(false)
+  const collapseScrollYRef = useRef<number | null>(null)
+
+  const measureCollapseScrollY = useCallback(() => {
+    const aside = asideRef.current
+    if (!aside || !isLargeViewport()) return
+    const rect = aside.getBoundingClientRect()
+    collapseScrollYRef.current = window.scrollY + rect.bottom
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -13,9 +39,81 @@ export function useShopSidebar() {
     }
   }, [])
 
-  const openSidebar = useCallback(() => setOpen(true), [])
+  useEffect(() => {
+    if (!open) return
+    const id = requestAnimationFrame(measureCollapseScrollY)
+    return () => cancelAnimationFrame(id)
+  }, [open, measureCollapseScrollY])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const onResize = () => {
+      if (open && isLargeViewport()) measureCollapseScrollY()
+    }
+
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [open, measureCollapseScrollY])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const onScroll = () => {
+      if (!isLargeViewport()) return
+
+      const aside = asideRef.current
+
+      if (open && aside) {
+        const rect = aside.getBoundingClientRect()
+        collapseScrollYRef.current = window.scrollY + rect.bottom
+        if (rect.bottom <= SCROLL_COLLAPSE_OFFSET) {
+          setOpen(false)
+          return
+        }
+        return
+      }
+
+      const threshold = collapseScrollYRef.current
+      if (threshold == null) return
+
+      const scrollY = window.scrollY
+
+      if (scrollY > threshold - SCROLL_COLLAPSE_OFFSET) {
+        setOpen(false)
+        return
+      }
+
+      if (!manuallyClosedRef.current && scrollY <= threshold - SCROLL_COLLAPSE_OFFSET) {
+        setOpen(true)
+      }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [open, measureCollapseScrollY])
+
+  const openSidebar = useCallback(() => {
+    manuallyClosedRef.current = false
+    setOpen(true)
+  }, [])
+
   const closeSidebar = useCallback(() => setOpen(false), [])
-  return { open, openSidebar, closeSidebar }
+
+  /** User tapped X — do not auto-reopen on scroll until menu is opened again. */
+  const dismissSidebarManually = useCallback(() => {
+    manuallyClosedRef.current = true
+    setOpen(false)
+  }, [])
+
+  return {
+    open,
+    openSidebar,
+    closeSidebar,
+    dismissSidebarManually,
+    asideRef,
+  }
 }
 
 /** @deprecated Use useShopSidebar */
@@ -128,6 +226,8 @@ function NavLink({
 export default function Sidebar({
   open = true,
   onClose,
+  onManualClose,
+  asideRef,
   /** @deprecated Use `open` */
   mobileOpen,
   /** @deprecated Use `onClose` */
@@ -135,12 +235,24 @@ export default function Sidebar({
 }: {
   open?: boolean
   onClose?: () => void
+  /** X button — marks sidebar as manually dismissed (no scroll reopen). */
+  onManualClose?: () => void
+  asideRef?: RefObject<HTMLElement | null>
   mobileOpen?: boolean
   onMobileClose?: () => void
 }) {
   const pathname = usePathname()
   const isOpen = open ?? mobileOpen ?? true
   const close = onClose ?? onMobileClose
+  const dismiss = onManualClose ?? close
+  const setAsideNode = useCallback(
+    (node: HTMLElement | null) => {
+      if (asideRef) {
+        ;(asideRef as MutableRefObject<HTMLElement | null>).current = node
+      }
+    },
+    [asideRef]
+  )
   const { theme } = useTheme()
   const { isSuperAdmin, loading: authLoading } = useAuth()
 
@@ -162,7 +274,7 @@ export default function Sidebar({
           </div>
           <button
             type="button"
-            onClick={() => close?.()}
+            onClick={() => dismiss?.()}
             className={`p-2 rounded-lg transition-colors shrink-0 ${
               theme === 'dark' ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
             }`}
@@ -237,6 +349,7 @@ export default function Sidebar({
       )}
 
       <aside
+        ref={setAsideNode}
         className={`sidebar z-50 h-screen overflow-hidden border-r
           w-[min(100vw-3rem,16rem)] sm:w-64
           fixed inset-y-0 left-0 transition-transform duration-300

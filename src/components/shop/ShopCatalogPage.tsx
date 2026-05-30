@@ -58,7 +58,13 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const { theme } = useTheme()
-  const { open: sidebarOpen, openSidebar, closeSidebar } = useShopSidebar()
+  const {
+    open: sidebarOpen,
+    openSidebar,
+    closeSidebar,
+    dismissSidebarManually,
+    asideRef,
+  } = useShopSidebar()
 
   const searchPlaceholder =
     config.searchPlaceholder ?? `Search in ${config.title.toLowerCase()}...`
@@ -121,7 +127,12 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
-      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+      <Sidebar
+        open={sidebarOpen}
+        onClose={closeSidebar}
+        onManualClose={dismissSidebarManually}
+        asideRef={asideRef}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         <AppStickyHeader

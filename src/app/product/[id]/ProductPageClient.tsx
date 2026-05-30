@@ -48,9 +48,34 @@ export default function ProductPageClient() {
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
   const thumbListRef = useRef<HTMLDivElement>(null)
+  const mainGalleryRef = useRef<HTMLDivElement>(null)
+  const [thumbColumnHeight, setThumbColumnHeight] = useState<number | null>(null)
   const lightboxRef = useRef<HTMLDivElement>(null)
   const lightboxTouchStart = useRef<{ x: number; y: number } | null>(null)
   const lightboxDidSwipe = useRef(false)
+
+  useEffect(() => {
+    const main = mainGalleryRef.current
+    if (!main || !product || product.gallery.length <= 1) {
+      setThumbColumnHeight(null)
+      return
+    }
+
+    const syncHeight = () => {
+      const h = Math.round(main.getBoundingClientRect().height)
+      if (h > 0) setThumbColumnHeight(h)
+    }
+
+    syncHeight()
+    const observer = new ResizeObserver(syncHeight)
+    observer.observe(main)
+    window.addEventListener('resize', syncHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', syncHeight)
+    }
+  }, [product?.gallery.length, selectedImage])
 
   useEffect(() => {
     const list = thumbListRef.current
@@ -303,41 +328,44 @@ export default function ProductPageClient() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left Column - Image Gallery (thumbs stretch to main image height, scroll inside) */}
-          <div className="flex min-w-0 items-stretch gap-2.5 sm:gap-3">
+          {/* Left Column - Image Gallery (thumb column height synced to main image) */}
+          <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
             {product.gallery.length > 1 ? (
-              <div className="flex w-[4.5rem] shrink-0 flex-col self-stretch sm:w-[5.25rem]">
-                <div
-                  ref={thumbListRef}
-                  className="product-gallery-thumbs flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-0.5"
-                  role="tablist"
-                  aria-label="Product images"
-                >
-                  {product.gallery.map((image, index) => (
-                    <button
-                      key={`${image}-${index}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={selectedImage === index}
-                      aria-label={`Image ${index + 1} of ${product.gallery.length}`}
-                      onClick={() => setSelectedImage(index)}
-                      className="product-gallery-thumb-btn"
-                    >
-                      <Image
-                        src={image}
-                        alt=""
-                        fill
-                        sizes="84px"
-                        className="object-contain p-1"
-                        unoptimized={shouldUnoptimizeProductImage(image)}
-                      />
-                    </button>
-                  ))}
-                </div>
+              <div
+                ref={thumbListRef}
+                className="product-gallery-thumbs flex w-[4.5rem] shrink-0 flex-col gap-2 overflow-y-auto overscroll-y-contain pr-0.5 sm:w-[5.25rem]"
+                style={
+                  thumbColumnHeight != null
+                    ? { height: thumbColumnHeight, maxHeight: thumbColumnHeight }
+                    : { maxHeight: 'min(75vh, 720px)' }
+                }
+                role="tablist"
+                aria-label="Product images"
+              >
+                {product.gallery.map((image, index) => (
+                  <button
+                    key={`${image}-${index}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedImage === index}
+                    aria-label={`Image ${index + 1} of ${product.gallery.length}`}
+                    onClick={() => setSelectedImage(index)}
+                    className="product-gallery-thumb-btn"
+                  >
+                    <Image
+                      src={image}
+                      alt=""
+                      fill
+                      sizes="84px"
+                      className="object-contain p-1"
+                      unoptimized={shouldUnoptimizeProductImage(image)}
+                    />
+                  </button>
+                ))}
               </div>
             ) : null}
 
-            <div className="min-w-0 flex-1">
+            <div ref={mainGalleryRef} className="min-w-0 flex-1">
               {product.gallery[selectedImage] ? (
                 <button
                   type="button"
