@@ -13,7 +13,7 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, 
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
-import { formatPrice, isZeroPrice } from '@/lib/format-price'
+import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
@@ -509,15 +509,74 @@ export default function ProductPageClient() {
               </div>
             </div>
 
-                        {/* Price and License Selection */}
+            {product.shortDescription ? (
+              <div
+                className={`rounded-lg p-4 border ${
+                  theme === 'dark'
+                    ? 'bg-dark-800 border-dark-700'
+                    : 'bg-white border-gray-200 shadow-lg'
+                }`}
+              >
+                <p
+                  className={`leading-relaxed whitespace-pre-line ${
+                    theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
+                  }`}
+                >
+                  {product.shortDescription}
+                </p>
+              </div>
+            ) : null}
+
+            {!catalogMode && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className={`rounded-lg p-4 border ${
+                theme === 'dark'
+                  ? 'bg-dark-800 border-dark-700'
+                  : 'bg-white border-gray-200 shadow-lg'
+              }`}>
+                <div className="flex items-center space-x-2 mb-2">
+                  <TruckIcon className="w-5 h-5 text-primary-500" />
+                  <span className={`font-medium ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Instant Download</span>
+                </div>
+                <p className={`text-sm ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}>Get your files immediately after purchase</p>
+              </div>
+
+              <div className={`rounded-lg p-4 border ${
+                theme === 'dark'
+                  ? 'bg-dark-800 border-dark-700'
+                  : 'bg-white border-gray-200 shadow-lg'
+              }`}>
+                <div className="flex items-center space-x-2 mb-2">
+                  <ShieldCheckIcon className="w-5 h-5 text-primary-500" />
+                  <span className={`font-medium ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Secure Payment</span>
+                </div>
+                <p className={`text-sm ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}>SSL encrypted, secure checkout</p>
+              </div>
+            </div>
+            )}
+
+            {/* Price and License Selection */}
             <div className={`rounded-lg p-6 border ${
               theme === 'dark' 
                 ? 'bg-dark-800 border-dark-700' 
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
-              <div className="flex items-baseline space-x-3 mb-4">
+              <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mb-4">
+                <span className={`text-lg font-medium ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  EUR
+                </span>
                 <span className="text-3xl font-bold text-primary-500">
-                  {formatPrice(selectedLicenseOption?.price)}
+                  {formatPriceAmount(selectedLicenseOption?.price)}
                 </span>
                 {product.original_price &&
                   !isZeroPrice(product.original_price) &&
@@ -526,10 +585,9 @@ export default function ProductPageClient() {
                   <span className={`text-xl line-through ${
                     theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                   }`}>
-                    {formatPrice(product.original_price)}
+                    {formatPriceAmount(product.original_price)}
                 </span>
                 )}
-                <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>EUR</span>
               </div>
 
               {!catalogMode && (
@@ -696,60 +754,6 @@ export default function ProductPageClient() {
                 </>
               )}
             </div>
-
-            {product.shortDescription ? (
-              <div
-                className={`rounded-lg p-4 border ${
-                  theme === 'dark'
-                    ? 'bg-dark-800 border-dark-700'
-                    : 'bg-white border-gray-200 shadow-lg'
-                }`}
-              >
-                <p
-                  className={`leading-relaxed whitespace-pre-line ${
-                    theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
-                  }`}
-                >
-                  {product.shortDescription}
-                </p>
-              </div>
-            ) : null}
-
-            {!catalogMode && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className={`rounded-lg p-4 border ${
-                theme === 'dark'
-                  ? 'bg-dark-800 border-dark-700'
-                  : 'bg-white border-gray-200 shadow-lg'
-              }`}>
-                <div className="flex items-center space-x-2 mb-2">
-                  <TruckIcon className="w-5 h-5 text-primary-500" />
-                  <span className={`font-medium ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Instant Download</span>
-                </div>
-                <p className={`text-sm ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}>Get your files immediately after purchase</p>
-              </div>
-
-              <div className={`rounded-lg p-4 border ${
-                theme === 'dark'
-                  ? 'bg-dark-800 border-dark-700'
-                  : 'bg-white border-gray-200 shadow-lg'
-              }`}>
-                <div className="flex items-center space-x-2 mb-2">
-                  <ShieldCheckIcon className="w-5 h-5 text-primary-500" />
-                  <span className={`font-medium ${
-                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Secure Payment</span>
-                </div>
-                <p className={`text-sm ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}>SSL encrypted, secure checkout</p>
-              </div>
-            </div>
-            )}
 
             {/* Product Meta */}
             <div className={`rounded-lg p-4 border ${

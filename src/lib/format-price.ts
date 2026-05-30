@@ -9,12 +9,20 @@ export function isZeroPrice(value: number | string | null | undefined): boolean 
 }
 
 export type FormatPriceOptions = {
-  /** Prefix, default € */
+  /** Prefix, default €. Pass empty string when currency is shown separately (e.g. EUR). */
   currency?: string
   /** Shown when price is zero or missing */
   zeroLabel?: string
   /** Use comma as decimal separator (e.g. 12,50) */
   useCommaDecimals?: boolean
+}
+
+/** Amount or zero label only — pair with a separate "EUR" prefix. */
+export function formatPriceAmount(
+  value: number | string | null | undefined,
+  options: Omit<FormatPriceOptions, 'currency'> = {}
+): string {
+  return formatPrice(value, { ...options, currency: '' }).trim()
 }
 
 /** Display product/order price; zero → "Price on request" by default. */
