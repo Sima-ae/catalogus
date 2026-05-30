@@ -4,6 +4,7 @@ import {
   toDisplayProductImageUrl,
 } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
+import { cleanImportDescription } from '@/lib/yupoo/import-text'
 
 export type ProductPageView = {
   id: string
@@ -68,12 +69,18 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []
-  const description = String(raw.description || '').trim()
-  const shortDescription = String(raw.short_description ?? '').trim()
+  const name = String(raw.name || 'Product')
+  const brand = raw.brand != null ? String(raw.brand).trim() : null
+  const rawDescription = String(raw.description || '').trim()
+  const rawShort = String(raw.short_description ?? '').trim()
+  const description = cleanImportDescription(rawDescription, name, brand)
+  const shortDescription = rawShort
+    ? cleanImportDescription(rawShort, name, brand)
+    : description.slice(0, 280)
 
   return {
     id: String(raw.id ?? ''),
-    name: String(raw.name || 'Product'),
+    name,
     description,
     shortDescription,
     longDescription: description || shortDescription,

@@ -32,6 +32,68 @@ export function stripDuplicateSkuPrefix(text: string, title: string): string {
   return result
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Remove Yupoo "Product trademark: Brand" boilerplate (EN + CN). */
+export function stripProductTrademarkBoilerplate(
+  text: string,
+  brandName?: string | null
+): string {
+  let result = String(text ?? '').trim()
+  if (!result) return result
+
+  const brand = String(brandName ?? '').trim()
+  const brandEsc = brand ? escapeRegExp(brand) : ''
+
+  result = result
+    .replace(/^Product\s+trademark\s*[：:]\s*/i, '')
+    .replace(/^Brand\s+trademark\s*[：:]\s*/i, '')
+    .replace(/^Trademark\s*[：:]\s*/i, '')
+    .replace(/^[\u4e00-\u9fff]{2,6}\s*[：:]\s*/, '')
+    .trim()
+
+  if (brandEsc) {
+    result = result
+      .replace(
+        new RegExp(`^["'「『]?${brandEsc}["'」』]?\\s*["'「『]?${brandEsc}["'」』]?\\s*`, 'i'),
+        ''
+      )
+      .replace(new RegExp(`^${brandEsc}\\s+`, 'i'), '')
+      .trim()
+  }
+
+  result = result.replace(/^[|｜\-–—:：,，.\s]+/, '').trim()
+  return result
+}
+
+/** SKU prefix + trademark boilerplate cleanup for import and shop display. */
+export function cleanImportDescription(
+  text: string,
+  title: string,
+  brandName?: string | null
+): string {
+  let result = stripDuplicateSkuPrefix(text, title)
+  result = stripProductTrademarkBoilerplate(result, brandName)
+  return result.replace(/\s+/g, ' ').trim()
+}
+
+function firstMeaningfulDescriptionLine(cleaned: string): string {
+  const lines = cleaned
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  for (const line of lines) {
+    if (/^Product\s+trademark\s*[：:]/i.test(line)) continue
+    if (/^[\u4e00-\u9fff]{2,6}\s*[：:]/.test(line) && /商标/.test(line)) continue
+    if (line.length >= 12) return line
+  }
+
+  return lines[0] || cleaned
+}
+
 /** Prefer a readable title when Yupoo only provides a style code. */
 export function deriveImportProductName(
   title: string,
@@ -43,24 +105,28 @@ export function deriveImportProductName(
     return rawTitle || 'Imported product'
   }
 
-  const cleaned = stripDuplicateSkuPrefix(description, rawTitle)
-  const firstLine = cleaned.split(/\r?\n/)[0]?.trim() || cleaned
-  const snippet = firstLine.replace(/\s+/g, ' ').slice(0, 120).trim()
+  const cleaned = cleanImportDescription(description, rawTitle, brandName)
+  const snippet = firstMeaningfulDescriptionLine(cleaned)
+    .replace(/\s+/g, ' ')
+    .slice(0, 120)
+    .trim()
 
   if (snippet.length >= 12) return snippet
   if (brandName) return brandName
   return rawTitle
 }
 
-/** Text for catalog cards — no repeat of the product name / SKU. */
+/** Text for catalog cards — no repeat of the product name / SKU / trademark line. */
 export function catalogCardDescription(
   name: string,
   description: string,
-  shortDescription?: string | null
+  shortDescription?: string | null,
+  brandName?: string | null
 ): string {
   const base = String(shortDescription || description || '').trim()
-  const cleaned = stripDuplicateSkuPrefix(base, name)
+  const cleaned = cleanImportDescription(base, name, brandName)
   if (!cleaned) return ''
   if (cleaned.toLowerCase() === name.trim().toLowerCase()) return ''
+  if (brandName && cleaned.toLowerCase() === brandName.trim().toLowerCase()) return ''
   return cleaned
 }

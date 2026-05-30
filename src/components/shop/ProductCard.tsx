@@ -41,7 +41,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const cardDescription = catalogCardDescription(
     product.name,
     product.description,
-    product.short_description
+    product.short_description,
+    product.brand
   )
 
   return (

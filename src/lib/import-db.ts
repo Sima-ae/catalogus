@@ -5,8 +5,8 @@ import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
+  cleanImportDescription,
   deriveImportProductName,
-  stripDuplicateSkuPrefix,
 } from '@/lib/yupoo/import-text'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
@@ -24,9 +24,10 @@ export function buildProductInputFromImport(
   const rawTitle = translated.enTitle || album.title
   const rawDescription = translated.enDescription || album.description
   const name = deriveImportProductName(rawTitle, rawDescription, brandName)
-  const description = stripDuplicateSkuPrefix(rawDescription, rawTitle)
+  const description = cleanImportDescription(rawDescription, rawTitle, brandName)
   const short_description =
-    catalogCardDescription(name, description).slice(0, 280) || undefined
+    catalogCardDescription(name, description, undefined, brandName).slice(0, 280) ||
+    undefined
 
   return {
     name,
