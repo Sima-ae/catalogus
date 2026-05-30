@@ -1,7 +1,7 @@
 import { appPath, appUrl, shopCategoryUrl } from '@/lib/paths'
 import {
   buildProductGallery,
-  normalizeProductImageUrl,
+  toDisplayProductImageUrl,
 } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 
@@ -59,8 +59,12 @@ function galleryFromApi(raw: Record<string, unknown>): string[] | null {
 /** Map API / database product row to product page UI model (database fields only). */
 export function toProductPageView(raw: Record<string, unknown>): ProductPageView {
   const category = String(raw.category || '').trim()
-  const mainImage = normalizeProductImageUrl(String(raw.image_url || ''))
-  const gallery = buildProductGallery(mainImage, galleryFromApi(raw))
+  const sourceUrl = raw.source_url != null ? String(raw.source_url) : null
+  const mainImage = toDisplayProductImageUrl(String(raw.image_url || ''), sourceUrl)
+  const galleryRaw = galleryFromApi(raw)?.map((u) =>
+    toDisplayProductImageUrl(u, sourceUrl)
+  )
+  const gallery = buildProductGallery(mainImage, galleryRaw)
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []

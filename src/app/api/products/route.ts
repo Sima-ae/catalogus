@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   DuplicateSkuError,
   insertProduct,
+  listActiveProducts,
   listProducts,
   listProductsForSeller,
   MissingSkuError,
@@ -26,7 +27,9 @@ export async function GET(request: NextRequest) {
     const rows =
       access.kind === 'seller'
         ? await listProductsForSeller(access.actor.userId, access.actor.name)
-        : await listProducts()
+        : access.kind === 'admin'
+          ? await listProducts()
+          : await listActiveProducts()
     return NextResponse.json(rows)
   } catch (error) {
     logDbRouteError('Products fetch error', error)

@@ -410,6 +410,15 @@ export async function listProducts() {
   return rows.map(serializeProductRow)
 }
 
+/** Active products only — public shop catalog. */
+export async function listActiveProducts() {
+  const select = await productSelectSql()
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `${select} WHERE p.status = 'active' ORDER BY p.created_at DESC`
+  )
+  return rows.map(serializeProductRow)
+}
+
 /** Products owned by a seller (author_id or legacy author name match). */
 export async function listProductsForSeller(sellerId: string, sellerName: string) {
   const select = await productSelectSql()

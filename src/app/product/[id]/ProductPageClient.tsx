@@ -15,6 +15,7 @@ import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
+import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 
 type ProductReview = {
@@ -341,6 +342,7 @@ export default function ProductPageClient() {
                       fill
                       sizes="80px"
                       className="object-contain"
+                      unoptimized={shouldUnoptimizeProductImage(image)}
                     />
                   </button>
                 ))}
@@ -364,6 +366,7 @@ export default function ProductPageClient() {
                     sizes="(max-width: 1024px) 85vw, 45vw"
                     className="object-contain pointer-events-none"
                     priority
+                    unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                   />
                 </button>
               ) : (

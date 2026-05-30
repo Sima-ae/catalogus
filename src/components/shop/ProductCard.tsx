@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Product } from '@/lib/types'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
+import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { useState } from 'react'
@@ -53,6 +54,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-contain group-hover:scale-105 transition-transform duration-300"
+            unoptimized={shouldUnoptimizeProductImage(product.image_url)}
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300" />
         </div>

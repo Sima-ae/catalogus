@@ -64,6 +64,61 @@ export function normalizeProductImageUrl(url: string | null | undefined): string
   return raw
 }
 
+export function isYupooImageUrl(url: string | null | undefined): boolean {
+  const raw = String(url ?? '').trim()
+  if (!raw) return false
+  try {
+    return new URL(raw).hostname.toLowerCase().endsWith('yupoo.com')
+  } catch {
+    return /yupoo\.com/i.test(raw)
+  }
+}
+
+/**
+ * Yupoo CDN blocks hotlinking — serve through our proxy using the album URL as Referer.
+ * Raw Yupoo URLs stay in the database; this is for display only.
+ */
+export function toDisplayProductImageUrl(
+  url: string | null | undefined,
+  sourceUrl?: string | null
+): string {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized) return ''
+
+  if (normalized.includes('/api/yupoo-image')) {
+    return normalized
+  }
+
+  if (!isYupooImageUrl(normalized)) {
+    return normalized
+  }
+
+  const params = new URLSearchParams({ url: normalized })
+  const ref = String(sourceUrl ?? '').trim()
+  if (ref) {
+    try {
+      if (new URL(ref).hostname.toLowerCase().endsWith('yupoo.com')) {
+        params.set('ref', ref)
+      }
+    } catch {
+      /* ignore invalid ref */
+    }
+  }
+
+  return `/api/yupoo-image?${params.toString()}`
+}
+
+export function toDisplayProductImageList(
+  urls: string[] | null | undefined,
+  sourceUrl?: string | null
+): string[] | null {
+  if (!urls?.length) return null
+  const out = urls
+    .map((u) => toDisplayProductImageUrl(u, sourceUrl))
+    .filter((u) => u && !isPlaceholderImageUrl(u))
+  return out.length ? out : null
+}
+
 export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
   const u = String(url ?? '').trim().toLowerCase()
   if (!u) return true
@@ -91,9 +146,9 @@ export function buildProductGallery(
   mainImageRaw: string | null | undefined,
   galleryRaw: string[] | null | undefined
 ): string[] {
-  const mainImage = normalizeProductImageUrl(mainImageRaw)
+  const mainImage = String(mainImageRaw ?? '').trim()
   const extras = (galleryRaw ?? [])
-    .map((u) => normalizeProductImageUrl(u))
+    .map((u) => String(u ?? '').trim())
     .filter((u) => u && !isPlaceholderImageUrl(u) && u !== mainImage)
 
   const gallery: string[] = []
@@ -104,4 +159,28 @@ export function buildProductGallery(
     if (!gallery.includes(url)) gallery.push(url)
   }
   return gallery
+}
+
+/** True when the image is served from our /images/ tree (safe for Next.js optimizer). */
+export function isCatalogHostedImage(url: string | null | undefined): boolean {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized) return false
+  try {
+    const u = new URL(normalized)
+    const host = u.hostname.toLowerCase()
+    return (
+      (host.includes('superclones.cloud') || host === 'localhost' || host === '127.0.0.1') &&
+      u.pathname.includes('/images/')
+    )
+  } catch {
+    return normalized.includes('/images/')
+  }
+}
+
+/** External CDN URLs (Yupoo etc.) must bypass the Next.js image optimizer. */
+export function shouldUnoptimizeProductImage(url: string | null | undefined): boolean {
+  const raw = String(url ?? '').trim()
+  if (raw.includes('/api/yupoo-image')) return true
+  if (isYupooImageUrl(raw)) return true
+  return !isCatalogHostedImage(url)
 }

@@ -8,12 +8,35 @@ function extractSkuHint(title: string): string | null {
   return match?.[1] ?? null
 }
 
+/** Prefer medium/original over small/thumb CDN paths. */
+export function upgradeYupooImageUrl(url: string): string {
+  let u = url.trim()
+  u = u.replace(/\/small\./gi, '/medium.')
+  u = u.replace(/\/thumb\./gi, '/medium.')
+  u = u.replace(/\/square\./gi, '/medium.')
+  return u.split('?')[0] || u
+}
+
 function normalizeImageUrl(src: string, pageUrl: string): string | null {
   if (!src || src.startsWith('data:')) return null
-  const url = absoluteUrl(src, pageUrl)
+  const url = upgradeYupooImageUrl(absoluteUrl(src, pageUrl))
   if (!/^https?:\/\//i.test(url)) return null
   if (url.includes('logo') || url.includes('avatar')) return null
+  if (!/yupoo\.com/i.test(url) && !/\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)) return null
   return url
+}
+
+function collectFromHtml(html: string, pageUrl: string): string[] {
+  const found = new Set<string>()
+
+  const regexMatches =
+    html.match(/https?:\/\/photo\.yupoo\.com\/[^\s"'<>]+?\.(?:jpe?g|png|webp|gif)/gi) || []
+  for (const match of regexMatches) {
+    const normalized = normalizeImageUrl(match, pageUrl)
+    if (normalized) found.add(normalized)
+  }
+
+  return Array.from(found)
 }
 
 export function parseAlbumPage(html: string, albumUrl: string, albumId: string): YupooAlbumData {
@@ -26,14 +49,14 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     albumId
 
   const descriptionParts: string[] = []
-  $('.showalbumheader .text, .showalbumheader, .album_desc, .album-description').each(
-    (_, el) => {
-      const t = $(el).text().replace(/\s+/g, ' ').trim()
-      if (t && t.length > 10 && !descriptionParts.includes(t)) {
-        descriptionParts.push(t)
-      }
+  $(
+    '.showalbumheader .text, .showalbumheader, .album_desc, .album-description, .showalbum__desc'
+  ).each((_, el) => {
+    const t = $(el).text().replace(/\s+/g, ' ').trim()
+    if (t && t.length > 10 && !descriptionParts.includes(t)) {
+      descriptionParts.push(t)
     }
-  )
+  })
 
   if (!descriptionParts.length) {
     $('meta[name="description"]').each((_, el) => {
@@ -45,8 +68,17 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
   const description = descriptionParts.join('\n\n').trim() || title
 
   const imageSet = new Set<string>()
-  $('img').each((_, el) => {
+
+  for (const url of collectFromHtml(html, albumUrl)) {
+    imageSet.add(url)
+  }
+
+  const imageSelectors =
+    '.showalbum__children img, .showalbum-image img, .album__img img, .image__main img, .showalbum img, img'
+
+  $(imageSelectors).each((_, el) => {
     const src =
+      $(el).attr('data-origin-src') ||
       $(el).attr('data-origin') ||
       $(el).attr('data-src') ||
       $(el).attr('data-original') ||
@@ -75,9 +107,13 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
   }
 }
 
+/** One SKU per Yupoo album; style prefix alone collides across albums. */
 export function buildSku(album: YupooAlbumData): string {
-  if (album.skuHint) return album.skuHint
-  return `YUPOO-${album.albumId}`
+  const id = String(album.albumId).trim()
+  if (album.skuHint) {
+    return `${album.skuHint}-${id}`
+  }
+  return `YUPOO-${id}`
 }
 
 export { parseAttributes }

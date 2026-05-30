@@ -113,6 +113,10 @@ async function processJob(jobId: string) {
       const html = await fetchHtml(item.album_url)
       const album = parseAlbumPage(html, item.album_url, item.album_id)
 
+      if (!album.images.length) {
+        throw new Error('No images found on album page')
+      }
+
       const translated = await translateProductText(album.title, album.description, 500)
 
       const input = buildProductInputFromImport(

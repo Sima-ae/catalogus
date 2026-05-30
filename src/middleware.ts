@@ -28,7 +28,7 @@ function isSiteAccessApi(pathname: string): boolean {
 
 /** Deploy/diagnostics only — must not require the site-access cookie. */
 function isPublicApi(pathname: string): boolean {
-  return pathname === '/api/health/db'
+  return pathname === '/api/health/db' || pathname === '/api/yupoo-image'
 }
 
 /** Edge-safe check using cookies set by verify/status/check (no self-fetch). */
