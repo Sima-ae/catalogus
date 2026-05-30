@@ -17,7 +17,7 @@ export default function CategoryFilter({
   const categories = useShopCategoryList()
 
   return (
-    <div className={centered ? 'w-full' : undefined}>
+    <div className={centered ? 'flex w-full justify-center' : undefined}>
       <FilterPillsScroll
         items={categories}
         selected={selectedCategory}
@@ -25,6 +25,7 @@ export default function CategoryFilter({
         showArrows={false}
         ariaLabel="Categories"
         centered={centered}
+        alignGroup={centered ? 'center' : 'full'}
       />
     </div>
   )

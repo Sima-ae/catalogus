@@ -9,8 +9,10 @@ type Props = {
   onChange: (value: string) => void
   showArrows?: boolean
   ariaLabel?: string
-  /** Center pill row (homepage / new catalog). */
+  /** Catalog pill styling (homepage / new). */
   centered?: boolean
+  /** Center the pill group on the page (categories). Full-width row when "full" (brands). */
+  alignGroup?: 'center' | 'full'
 }
 
 export default function FilterPillsScroll({
@@ -20,6 +22,7 @@ export default function FilterPillsScroll({
   showArrows = false,
   ariaLabel = 'Filter',
   centered = false,
+  alignGroup = 'full',
 }: Props) {
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
@@ -106,11 +109,17 @@ export default function FilterPillsScroll({
       : 'border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900'
   }`
 
+  const centerGroup = centered && alignGroup === 'center' && !showArrows
+
   const pills = (
     <div
       ref={scrollContainerRef}
-      className={`filter-pills-scroll flex min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth ${
-        centered ? 'justify-start gap-2 px-1 py-1.5' : 'gap-3 py-0.5'
+      className={`filter-pills-scroll flex flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth ${
+        centerGroup
+          ? 'w-max max-w-full justify-center gap-2 px-1 py-1.5'
+          : centered
+            ? 'min-w-0 flex-1 justify-start gap-2 px-1 py-1.5'
+            : 'min-w-0 gap-3 py-0.5'
       } ${!centered && showArrows ? 'px-16' : ''}`}
       style={{
         scrollbarWidth: 'none',
@@ -145,6 +154,10 @@ export default function FilterPillsScroll({
       ))}
     </div>
   )
+
+  if (centerGroup) {
+    return <div className="flex w-full justify-center overflow-visible">{pills}</div>
+  }
 
   if (centered) {
     const fadeFrom = isDark ? 'from-dark-950' : 'from-gray-50'
