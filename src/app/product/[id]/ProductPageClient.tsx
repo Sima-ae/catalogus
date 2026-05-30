@@ -75,7 +75,7 @@ export default function ProductPageClient() {
       observer.disconnect()
       window.removeEventListener('resize', syncHeight)
     }
-  }, [product?.gallery.length, selectedImage])
+  }, [product, selectedImage])
 
   useEffect(() => {
     const list = thumbListRef.current

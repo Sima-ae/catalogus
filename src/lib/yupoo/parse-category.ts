@@ -21,40 +21,43 @@ export function parseCategoryAlbums(html: string, categoryUrl: string): YupooAlb
 
     const albumUrl = absoluteUrl(href, categoryUrl)
     const $link = $(el)
-    const thumbTitle = pickCategoryThumbTitle($link)
+    const attrTitle = $link.attr('title')?.trim()
+    let thumbTitle: string | undefined
+
+    if (attrTitle && isSkuOnlyTitle(attrTitle)) {
+      thumbTitle = attrTitle.replace(/\s+/g, '')
+    } else {
+      const fromSelectors = [
+        $link.find('.album__title, .album_title, .title, .text_overflow').first().text().trim(),
+        $link
+          .closest('.album__main, .album-item, .album, li, .categories__children')
+          .find('.album__title, .album_title, .text_overflow, .title')
+          .first()
+          .text()
+          .trim(),
+        $link.text().trim(),
+      ]
+
+      for (const text of fromSelectors) {
+        if (!text) continue
+        if (isSkuOnlyTitle(text)) {
+          thumbTitle = text.replace(/\s+/g, '')
+          break
+        }
+        const code = extractYupooStyleCode(text)
+        if (code) {
+          thumbTitle = code
+          break
+        }
+      }
+
+      if (!thumbTitle && attrTitle) {
+        thumbTitle = extractYupooStyleCode(attrTitle) ?? undefined
+      }
+    }
 
     albums.push({ albumId, albumUrl, thumbTitle })
   })
 
   return albums
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function pickCategoryThumbTitle($link: cheerio.Cheerio<any>): string | undefined {
-  const attrTitle = $link.attr('title')?.trim()
-  if (attrTitle && isSkuOnlyTitle(attrTitle)) return attrTitle.replace(/\s+/g, '')
-
-  const fromSelectors = [
-    $link.find('.album__title, .album_title, .title, .text_overflow').first().text().trim(),
-    $link.closest('.album__main, .album-item, .album, li, .categories__children')
-      .find('.album__title, .album_title, .text_overflow, .title')
-      .first()
-      .text()
-      .trim(),
-    $link.text().trim(),
-  ]
-
-  for (const text of fromSelectors) {
-    if (!text) continue
-    if (isSkuOnlyTitle(text)) return text.replace(/\s+/g, '')
-    const code = extractYupooStyleCode(text)
-    if (code) return code
-  }
-
-  if (attrTitle) {
-    const code = extractYupooStyleCode(attrTitle)
-    if (code) return code
-  }
-
-  return undefined
 }
