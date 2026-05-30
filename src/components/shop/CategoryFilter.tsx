@@ -17,7 +17,7 @@ export default function CategoryFilter({
   const categories = useShopCategoryList()
 
   return (
-    <div className={centered ? 'flex w-full justify-center' : undefined}>
+    <div className={centered ? 'w-full' : undefined}>
       <FilterPillsScroll
         items={categories}
         selected={selectedCategory}

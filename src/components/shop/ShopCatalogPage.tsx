@@ -153,9 +153,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           <div className="max-w-full">
             <div
               className={
-                config.centerCatalog
-                  ? 'mb-5 flex w-full flex-col items-center gap-2'
-                  : undefined
+                config.centerCatalog ? 'mb-5 flex w-full flex-col gap-2' : undefined
               }
             >
               <CategoryFilter

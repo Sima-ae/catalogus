@@ -21,7 +21,7 @@ export default function BrandFilter({
   if (selectedCategory === 'All' || brands.length <= 1) return null
 
   return (
-    <div className={centered ? 'mt-2 flex w-full justify-center' : 'mt-4'}>
+    <div className={centered ? 'mt-2 w-full' : 'mt-4'}>
       <FilterPillsScroll
         items={brands}
         selected={selectedBrand}

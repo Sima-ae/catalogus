@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/lib/theme'
 
 type Props = {
@@ -46,13 +46,26 @@ export default function FilterPillsScroll({
   const handleMouseUp = () => setIsDragging(false)
   const handleMouseLeave = () => setIsDragging(false)
 
+  const scrollStep = () => {
+    const el = scrollContainerRef.current
+    if (!el) return 280
+    return Math.max(280, Math.floor(el.clientWidth * 0.8))
+  }
+
   const scrollPrev = () => {
-    scrollContainerRef.current?.scrollBy({ left: -200, behavior: 'smooth' })
+    scrollContainerRef.current?.scrollBy({ left: -scrollStep(), behavior: 'smooth' })
   }
 
   const scrollNext = () => {
-    scrollContainerRef.current?.scrollBy({ left: 200, behavior: 'smooth' })
+    scrollContainerRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const active = el.querySelector<HTMLElement>('[aria-selected="true"]')
+    active?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+  }, [selected, items])
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!scrollContainerRef.current) return
@@ -96,13 +109,14 @@ export default function FilterPillsScroll({
   const pills = (
     <div
       ref={scrollContainerRef}
-      className={`filter-pills-scroll flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overflow-y-visible ${
-        centered ? 'justify-center py-1' : 'gap-3 py-0.5'
+      className={`filter-pills-scroll flex min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth ${
+        centered ? 'justify-start gap-2 px-1 py-1.5' : 'gap-3 py-0.5'
       } ${!centered && showArrows ? 'px-16' : ''}`}
       style={{
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
         cursor: isDragging ? 'grabbing' : 'grab',
+        WebkitOverflowScrolling: 'touch',
       }}
       role="tablist"
       aria-label={ariaLabel}
@@ -120,9 +134,9 @@ export default function FilterPillsScroll({
           role="tab"
           aria-selected={selected === item}
           onClick={() => onChange(item)}
-          className={`inline-flex shrink-0 items-center justify-center rounded-full font-medium whitespace-nowrap transition-all duration-200 leading-normal ${
+          className={`inline-flex shrink-0 items-center justify-center rounded-full font-medium whitespace-nowrap transition-all duration-200 leading-snug ${
             centered
-              ? 'min-h-[2rem] px-3.5 py-1.5 text-xs sm:min-h-[2.125rem] sm:px-4 sm:py-2 sm:text-sm'
+              ? 'min-h-[2.125rem] px-3.5 py-2 text-xs sm:min-h-[2.25rem] sm:px-4 sm:py-2 sm:text-sm'
               : 'px-4 py-2.5 text-sm'
           } ${pillClass(item)}`}
         >
@@ -133,13 +147,14 @@ export default function FilterPillsScroll({
   )
 
   if (centered) {
+    const fadeFrom = isDark ? 'from-dark-950' : 'from-gray-50'
     return (
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-center gap-2 px-1 sm:max-w-4xl">
+      <div className="flex w-full max-w-full items-stretch gap-1.5 sm:gap-2">
         {showArrows ? (
           <button
             type="button"
             onClick={scrollPrev}
-            className={arrowClass}
+            className={`${arrowClass} self-center`}
             aria-label={`Scroll ${ariaLabel} left`}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -147,12 +162,26 @@ export default function FilterPillsScroll({
             </svg>
           </button>
         ) : null}
-        <div className="min-w-0 flex-1">{pills}</div>
+        <div className="relative min-w-0 flex-1">
+          {showArrows ? (
+            <>
+              <div
+                className={`pointer-events-none absolute inset-y-0 left-0 z-[1] w-6 sm:w-10 bg-gradient-to-r ${fadeFrom} to-transparent`}
+                aria-hidden
+              />
+              <div
+                className={`pointer-events-none absolute inset-y-0 right-0 z-[1] w-6 sm:w-10 bg-gradient-to-l ${fadeFrom} to-transparent`}
+                aria-hidden
+              />
+            </>
+          ) : null}
+          {pills}
+        </div>
         {showArrows ? (
           <button
             type="button"
             onClick={scrollNext}
-            className={arrowClass}
+            className={`${arrowClass} self-center`}
             aria-label={`Scroll ${ariaLabel} right`}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
