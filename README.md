@@ -53,6 +53,24 @@ Paste the printed private key into GitHub → **VPS_SSH_KEY**. Your personal SSH
 
 Manual deploy on VPS: `bash /var/www/superclones.cloud/scripts/deploy.sh`
 
+### Deploy fails: `Cannot reach …:22`
+
+GitHub Actions runs on **datacenter IPs**, not your Mac. SSH from your laptop can work while CI fails.
+
+1. **GitHub secrets** (repo → Settings → Secrets → Actions):
+   - `VPS_HOST` = `superclones.cloud` (public DNS) — **not** the internal name from `hostname` (e.g. `do-it`)
+   - `VPS_USER` = `root`
+   - `VPS_SSH_KEY` = deploy private key with **no passphrase** (same as inkoop.autos, or from `setup-github-deploy-ssh.sh`)
+   - Optional: `VPS_SSH_PORT` if SSH is not on 22
+2. **On the VPS as root:**
+   ```bash
+   bash /var/www/superclones.cloud/scripts/setup-github-deploy-ssh.sh
+   bash /var/www/superclones.cloud/scripts/vps-check-github-ssh.sh
+   ```
+3. **Firewall:** open inbound TCP 22 (or your SSH port). If CSF/fail2ban blocked GitHub IPs, unban or allow SSH from the internet (key-only auth is fine).
+
+Until CI SSH works, deploy manually: `bash /var/www/superclones.cloud/scripts/deploy.sh`
+
 ### “Database is not available” on the live site
 
 On the VPS as root:
