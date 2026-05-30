@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Product } from '@/lib/types'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
+import { catalogCardDescription } from '@/lib/yupoo/import-text'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
@@ -37,6 +38,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const quantity = getItemQuantity(product.id)
   const inCart = isInCart(product.id)
+  const cardDescription = catalogCardDescription(
+    product.name,
+    product.description,
+    product.short_description
+  )
 
   return (
     <div className={`card group cursor-pointer hover:shadow-xl transition-all duration-300 w-full ${
@@ -71,11 +77,13 @@ export default function ProductCard({ product }: ProductCardProps) {
           </h3>
         </Link>
         
-        <p className={`text-xs line-clamp-2 leading-tight transition-colors ${
-          theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-        }`}>
-          {product.description}
-        </p>
+        {cardDescription ? (
+          <p className={`text-xs line-clamp-2 leading-tight transition-colors ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            {cardDescription}
+          </p>
+        ) : null}
 
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-2 min-w-0">

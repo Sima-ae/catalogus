@@ -3,6 +3,11 @@ import { queryDb } from '@/lib/db'
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
+import {
+  catalogCardDescription,
+  deriveImportProductName,
+  stripDuplicateSkuPrefix,
+} from '@/lib/yupoo/import-text'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
 
@@ -16,10 +21,17 @@ export function buildProductInputFromImport(
   const mainImage = album.images[0] || ''
   const gallery = album.images.slice(1)
 
+  const rawTitle = translated.enTitle || album.title
+  const rawDescription = translated.enDescription || album.description
+  const name = deriveImportProductName(rawTitle, rawDescription, brandName)
+  const description = stripDuplicateSkuPrefix(rawDescription, rawTitle)
+  const short_description =
+    catalogCardDescription(name, description).slice(0, 280) || undefined
+
   return {
-    name: translated.enTitle || album.title,
-    description: translated.enDescription || album.description,
-    short_description: (translated.enDescription || album.description).slice(0, 280),
+    name,
+    description,
+    short_description,
     price: 0,
     original_price: null,
     image_url: mainImage,

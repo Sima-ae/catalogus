@@ -32,6 +32,71 @@ import { appPath } from '@/lib/paths'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive'
 
+const PAGE_SIZES = [50, 100, 250, 500] as const
+type PageSize = (typeof PAGE_SIZES)[number]
+
+function ProductsPaginationBar({
+  page,
+  pageSize,
+  totalItems,
+  onPageChange,
+  t,
+}: {
+  page: number
+  pageSize: PageSize
+  totalItems: number
+  onPageChange: (page: number) => void
+  t: ReturnType<typeof useAppTheme>
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
+  const safePage = Math.min(Math.max(1, page), totalPages)
+  const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
+  const end = Math.min(safePage * pageSize, totalItems)
+
+  return (
+    <div
+      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 px-1 border-b sm:border-b-0 ${t.rowBorder}`}
+    >
+      <p className={`text-sm ${t.muted}`}>
+        {totalItems === 0 ? (
+          'No products on this page'
+        ) : (
+          <>
+            Showing <strong className={t.heading}>{start}</strong>–
+            <strong className={t.heading}>{end}</strong> of{' '}
+            <strong className={t.heading}>{totalItems}</strong>
+            {totalPages > 1 && (
+              <>
+                {' '}
+                · page <strong className={t.heading}>{safePage}</strong> of{' '}
+                <strong className={t.heading}>{totalPages}</strong>
+              </>
+            )}
+          </>
+        )}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="btn-secondary text-sm"
+          disabled={safePage <= 1}
+          onClick={() => onPageChange(safePage - 1)}
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          className="btn-secondary text-sm"
+          disabled={safePage >= totalPages || totalItems === 0}
+          onClick={() => onPageChange(safePage + 1)}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function statusLabel(status: string): string {
   if (status === 'active') return 'Published'
   if (status === 'draft') return 'Draft'
@@ -66,6 +131,8 @@ export default function AdminProductsPage() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [pageSize, setPageSize] = useState<PageSize>(50)
+  const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
 
@@ -99,6 +166,10 @@ export default function AdminProductsPage() {
     loadProducts()
   }, [loadProducts])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter, pageSize])
+
   const stats = useMemo(() => {
     const total = products.length
     const active = products.filter((p) => p.status === 'active').length
@@ -117,10 +188,23 @@ export default function AdminProductsPage() {
         p.name.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q) ||
         (p.category || '').toLowerCase().includes(q) ||
+        (p.brand || '').toLowerCase().includes(q) ||
         sku.includes(q)
       )
     })
   }, [products, search, statusFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize) || 1)
+  const safePage = Math.min(Math.max(1, currentPage), totalPages)
+
+  useEffect(() => {
+    if (currentPage !== safePage) setCurrentPage(safePage)
+  }, [currentPage, safePage])
+
+  const pageItems = useMemo(() => {
+    const start = (safePage - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, safePage, pageSize])
 
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
@@ -131,12 +215,26 @@ export default function AdminProductsPage() {
     })
   }
 
-  const toggleAllFiltered = () => {
-    if (selected.size === filtered.length && filtered.length > 0) {
-      setSelected(new Set())
+  const toggleAllOnPage = () => {
+    const pageIds = pageItems.map((p) => p.id)
+    const allOnPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
+    if (allOnPageSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev)
+        for (const id of pageIds) next.delete(id)
+        return next
+      })
     } else {
-      setSelected(new Set(filtered.map((p) => p.id)))
+      setSelected((prev) => {
+        const next = new Set(prev)
+        for (const id of pageIds) next.add(id)
+        return next
+      })
     }
+  }
+
+  const selectAllFiltered = () => {
+    setSelected(new Set(filtered.map((p) => p.id)))
   }
 
   const runBulkStatus = async (status: 'active' | 'draft' | 'inactive', ids: string[]) => {
@@ -210,6 +308,8 @@ export default function AdminProductsPage() {
   }
 
   const selectedIds = Array.from(selected)
+  const allOnPageSelected =
+    pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((p) => selected.has(p.id))
 
@@ -276,7 +376,7 @@ export default function AdminProductsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          <label className="sm:w-48 space-y-1">
+          <label className="sm:w-44 space-y-1">
             <span className={`text-sm font-medium ${t.muted}`}>Status</span>
             <select
               className="input w-full"
@@ -289,13 +389,27 @@ export default function AdminProductsPage() {
               <option value="inactive">Inactive</option>
             </select>
           </label>
+          <label className="sm:w-36 space-y-1">
+            <span className={`text-sm font-medium ${t.muted}`}>Per page</span>
+            <select
+              className="input w-full"
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <p className={`text-sm ${t.muted}`}>
-          Showing <strong className={t.heading}>{filtered.length}</strong> of{' '}
-          <strong className={t.heading}>{stats.total}</strong> products
+          <strong className={t.heading}>{filtered.length}</strong> matching ·{' '}
+          <strong className={t.heading}>{stats.total}</strong> total in catalog
           {statusFilter !== 'all' && (
-            <> · filter: {statusLabel(statusFilter)}</>
+            <> · status: {statusLabel(statusFilter)}</>
           )}
         </p>
 
@@ -374,26 +488,37 @@ export default function AdminProductsPage() {
           </button>
         </div>
       ) : (
-        <AdminTable>
+        <div className="space-y-0">
+          <div className="card rounded-b-none border-b-0 pb-0">
+            <ProductsPaginationBar
+              page={safePage}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setCurrentPage}
+              t={t}
+            />
+          </div>
+          <AdminTable>
           <AdminTableHead>
             <AdminTh>
               <input
                 type="checkbox"
-                checked={allFilteredSelected}
-                onChange={toggleAllFiltered}
-                aria-label="Select all on page"
+                checked={allOnPageSelected}
+                onChange={toggleAllOnPage}
+                aria-label="Select all on this page"
                 className="rounded border-gray-400"
               />
             </AdminTh>
             <AdminTh>Product</AdminTh>
             <AdminTh>SKU</AdminTh>
             <AdminTh>Category</AdminTh>
+            <AdminTh>Brand</AdminTh>
             <AdminTh>Price</AdminTh>
             <AdminTh>Status</AdminTh>
             <AdminTh align="right">Actions</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
-            {filtered.map((p) => (
+            {pageItems.map((p) => (
               <AdminTr key={p.id}>
                 <AdminTd>
                   <input
@@ -423,6 +548,7 @@ export default function AdminProductsPage() {
                 </AdminTd>
                 <AdminTd className="font-mono text-xs whitespace-nowrap">{p.sku || '—'}</AdminTd>
                 <AdminTd>{p.category || '—'}</AdminTd>
+                <AdminTd>{p.brand || '—'}</AdminTd>
                 <AdminTd>{formatPrice(p.price)}</AdminTd>
                 <AdminTd>
                   <span
@@ -454,6 +580,27 @@ export default function AdminProductsPage() {
             ))}
           </AdminTableBody>
         </AdminTable>
+          <div className="card rounded-t-none border-t-0 pt-0">
+            <ProductsPaginationBar
+              page={safePage}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setCurrentPage}
+              t={t}
+            />
+            {filtered.length > pageItems.length && !allFilteredSelected && (
+              <p className={`text-center text-sm pb-3 ${t.muted}`}>
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={selectAllFiltered}
+                >
+                  Select all {filtered.length} matching products
+                </button>
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </AdminPageShell>
   )
