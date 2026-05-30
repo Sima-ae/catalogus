@@ -1,477 +1,409 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { appPath } from '@/lib/paths'
-import ProtectedRoute from '@/components/auth/ProtectedRoute'
-import AdminSidebar, { AdminMobileMenuButton } from '@/components/admin/AdminSidebar'
-import AppStickyHeader from '@/components/layout/AppStickyHeader'
-import AdminHeaderActions from '@/components/admin/AdminHeaderActions'
-import StatCard from '@/components/admin/StatCard'
-import { 
-  BanknotesIcon, 
-  ShoppingCartIcon, 
-  ClipboardDocumentListIcon, 
-  ShoppingBagIcon,
-  EyeIcon,
-  PlusIcon,
+import {
+  ArrowDownTrayIcon,
+  BanknotesIcon,
+  ClipboardDocumentListIcon,
+  CubeIcon,
   PencilIcon,
-  TrashIcon
+  PlusIcon,
+  ShoppingCartIcon,
+  TagIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline'
+import AdminPageShell from '@/components/admin/AdminPageShell'
+import StatCard from '@/components/admin/StatCard'
+import {
+  AdminTable,
+  AdminTableBody,
+  AdminTableHead,
+  AdminTd,
+  AdminTh,
+  AdminTr,
+} from '@/components/admin/AdminTable'
 import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
-import { useAppTheme } from '@/lib/theme-classes'
+import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice } from '@/lib/format-price'
+import { getCurrencySymbol } from '@/lib/currency'
+import { appPath } from '@/lib/paths'
+import { useAppTheme } from '@/lib/theme-classes'
+import type { Product } from '@/lib/types'
 
-const timeFilters = ['Today', 'Weekly', 'Monthly', 'Yearly']
-
-interface Product {
+type Order = {
   id: string
-  name: string
-  description: string
-  price: number
-  original_price?: number
-  image_url: string
-  category: string
-  author: string
-  author_icon: string
-  created_at: string
-  updated_at: string
-}
-
-interface Order {
-  id: string
-  tracking_number: string
+  tracking_number?: string
   customer_email: string
   customer_name: string
   total: number
-  status: 'pending' | 'processing' | 'completed' | 'cancelled'
+  status: string
   created_at: string
 }
 
+type UserRow = { id: string; role: string }
+
+const LATEST_PRODUCTS = 10
+const RECENT_ORDERS = 5
+
+function sortNewest<T extends { created_at?: string }>(rows: T[]): T[] {
+  return [...rows].sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  )
+}
+
+function formatWhen(iso: string | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function StatusBadge({ status }: { status: Product['status'] | string }) {
+  const normalized = String(status || '').toLowerCase()
+  const styles =
+    normalized === 'active'
+      ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+      : normalized === 'draft'
+        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+        : normalized === 'completed' || normalized === 'paid'
+          ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+          : normalized === 'pending'
+            ? 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'
+            : normalized === 'processing'
+              ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+              : normalized === 'cancelled'
+                ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                : 'bg-gray-500/15 text-gray-600 dark:text-gray-400'
+
+  const label = normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '—'
+
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${styles}`}>
+      {label}
+    </span>
+  )
+}
+
+const quickLinks = [
+  { href: '/admin/products', label: 'Products', icon: CubeIcon },
+  { href: '/admin/import', label: 'Yupoo import', icon: ArrowDownTrayIcon },
+  { href: '/admin/import/review', label: 'Import review', icon: ClipboardDocumentListIcon },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingCartIcon },
+  { href: '/admin/categories', label: 'Categories', icon: TagIcon },
+  { href: '/admin/users', label: 'Users', icon: UsersIcon },
+] as const
+
 export default function AdminDashboard() {
-  const [selectedTimeFilter, setSelectedTimeFilter] = useState('Today')
+  const t = useAppTheme()
+  const { user } = useAuth()
+  const currency = getCurrencySymbol()
+
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
-  const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalOrders: 0,
-    totalProducts: 0,
-    totalVendors: 0
-  })
+  const [userCount, setUserCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const { user, loading: authLoading, isAdmin } = useAuth()
-  const t = useAppTheme()
+  const [error, setError] = useState('')
 
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  
-  if (isDevelopment) {
-    console.log('🔍 AdminDashboard render:', { hasUser: !!user, authLoading, isAdmin, loading })
-  }
+  const loadDashboard = useCallback(async () => {
+    if (!user) return
 
-  const fetchData = useCallback(async () => {
-    let productsData: Product[] = []
-    
-    const isDevelopment = process.env.NODE_ENV === 'development'
-    
+    setLoading(true)
+    setError('')
+
     try {
-      setLoading(true)
-      if (isDevelopment) {
-        console.log('🔄 Starting admin data fetch...')
-      }
-      
-      if (isDevelopment) {
-        console.log('📦 Fetching products...')
-      }
-      const productsResponse = await fetch(appPath('/api/products'), {
-        method: 'GET',
-        headers: adminAuthHeaders(user),
-      })
+      const headers = adminAuthHeaders(user)
+      const [productsRes, ordersRes, usersRes] = await Promise.all([
+        fetch(appPath('/api/products'), { headers, cache: 'no-store' }),
+        fetch(appPath('/api/orders'), { cache: 'no-store' }),
+        fetch(appPath('/api/users'), { cache: 'no-store' }),
+      ])
 
-      if (!productsResponse.ok) {
-        throw new Error(`Products fetch failed: ${productsResponse.status}`)
-      }
-
-      productsData = await productsResponse.json()
-      if (isDevelopment) {
-        console.log('✅ Products fetched:', productsData?.length || 0, 'products')
-      }
-      
-      // Set products immediately so they display
-      setProducts(productsData || [])
-      
-      // Calculate basic stats with products
-      const totalProducts = productsData?.length || 0
-      const totalVendors = new Set(productsData?.map((p: Product) => p.author) || []).size
-      
-      // Set initial stats
-      setStats({
-        totalRevenue: 0,
-        totalOrders: 0,
-        totalProducts,
-        totalVendors
-      })
-
-      // Fetch orders from local API
-      let ordersData: any[] = []
-      try {
-        if (isDevelopment) console.log('📦 Fetching orders...')
-        const ordersResponse = await fetch(appPath('/api/orders'), { method: 'GET' })
-        if (ordersResponse.ok) {
-          ordersData = await ordersResponse.json()
-          if (isDevelopment) console.log('✅ Orders fetched:', ordersData.length, 'orders')
-        }
-      } catch {
-        if (isDevelopment) console.log('⚠️ Orders not available, continuing without orders')
+      const productsData = await parseJsonResponse<Product[] | { error?: string }>(productsRes)
+      if (!productsRes.ok || !Array.isArray(productsData)) {
+        throw new Error(
+          !Array.isArray(productsData) && productsData.error
+            ? productsData.error
+            : 'Failed to load products'
+        )
       }
 
-      // Update stats with orders if available
-      const totalRevenue = ordersData?.reduce((sum, order) => sum + order.total, 0) || 0
-      const totalOrders = ordersData?.length || 0
-      
-      setOrders(ordersData || [])
-      setStats({
-        totalRevenue,
-        totalOrders,
-        totalProducts,
-        totalVendors
-      })
-      
-      if (isDevelopment) {
-        console.log('✅ Admin data fetch completed successfully')
+      let ordersData: Order[] = []
+      if (ordersRes.ok) {
+        const parsed = await parseJsonResponse<Order[]>(ordersRes)
+        if (Array.isArray(parsed)) ordersData = parsed
       }
-    } catch (error) {
-      if (isDevelopment) {
-        console.error('💥 Error in admin data fetch:', error instanceof Error ? error.message : 'Unknown error')
+
+      let usersData: UserRow[] = []
+      if (usersRes.ok) {
+        const parsed = await parseJsonResponse<UserRow[]>(usersRes)
+        if (Array.isArray(parsed)) usersData = parsed
       }
-      // Even if there's an error, try to show products if we have them
-      if (productsData && productsData.length > 0) {
-        setProducts(productsData)
-        setStats({
-          totalRevenue: 0,
-          totalOrders: 0,
-          totalProducts: productsData.length,
-          totalVendors: new Set(productsData.map((p: Product) => p.author)).size
-        })
-      }
+
+      setProducts(productsData)
+      setOrders(ordersData)
+      setUserCount(usersData.length)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard')
     } finally {
       setLoading(false)
     }
   }, [user])
 
   useEffect(() => {
-    if (isDevelopment) {
-      console.log('🔍 AdminDashboard useEffect triggered')
+    if (user) loadDashboard()
+  }, [user, loadDashboard])
+
+  const stats = useMemo(() => {
+    const active = products.filter((p) => p.status === 'active').length
+    const draft = products.filter((p) => p.status === 'draft').length
+    const inactive = products.filter((p) => p.status === 'inactive').length
+    const importDrafts = products.filter((p) => p.status === 'draft' && p.source_album_id).length
+    const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0)
+    const pendingOrders = orders.filter((o) => o.status === 'pending').length
+
+    return {
+      active,
+      draft,
+      inactive,
+      importDrafts,
+      revenue,
+      pendingOrders,
     }
-    if (!authLoading && user && isAdmin) {
-      if (isDevelopment) {
-        console.log('🔍 User authenticated and is admin, fetching data...')
-      }
-      fetchData()
-    } else if (!authLoading && !user) {
-      if (isDevelopment) {
-        console.log('🔍 User not authenticated')
-      }
-    } else if (!authLoading && !isAdmin) {
-      if (isDevelopment) {
-        console.log('🔍 User not admin')
-      }
-    }
-  }, [authLoading, user, isAdmin, isDevelopment, fetchData])
+  }, [products, orders])
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return
+  const latestProducts = useMemo(
+    () => sortNewest(products).slice(0, LATEST_PRODUCTS),
+    [products]
+  )
 
-    try {
-      const res = await fetch(appPath(`/api/products/${productId}`), {
-        method: 'DELETE',
-        headers: adminAuthHeaders(user),
-      })
-      if (!res.ok) throw new Error(`Delete failed: ${res.status}`)
+  const recentOrders = useMemo(() => sortNewest(orders).slice(0, RECENT_ORDERS), [orders])
 
-      // Refresh data
-      fetchData()
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error deleting product:', error instanceof Error ? error.message : 'Unknown error')
-      }
-      alert('Failed to delete product')
-    }
-  }
-
-  // Show loading state while auth is loading
-  if (authLoading) {
-    if (isDevelopment) {
-      console.log('🔍 Showing auth loading state')
-    }
-    return (
-      <div className={`flex min-h-screen ${t.page}`}>
-        <div className="flex-1 flex items-center justify-center">
-          <div className={`text-center ${t.heading}`}>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-            <p className="mt-4">Authenticating...</p>
-            <p className={`text-sm mt-2 ${t.muted}`}>This may take a few seconds</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="mt-4 text-primary-400 hover:text-primary-300 underline"
-            >
-              Click here if this takes too long
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show error if user is not admin
-  if (!user || !isAdmin) {
-    if (isDevelopment) {
-      console.log('🔍 User not authenticated or not admin, showing error')
-    }
-    return (
-      <div className={`flex min-h-screen ${t.page}`}>
-        <div className="flex-1 flex items-center justify-center">
-          <div className={`text-center max-w-md mx-auto ${t.heading}`}>
-            <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-            <p className={`mb-6 ${t.muted}`}>
-              {!user ? 'Please log in to access the admin dashboard.' : 'You do not have permission to access this page.'}
-            </p>
-            
-            <div className="space-y-3">
-              <button 
-                onClick={() => { window.location.href = appPath('/login') }} 
-                className="btn-primary w-full"
-              >
-                Go to Login
-              </button>
-            </div>
-            
-
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    if (isDevelopment) {
-      console.log('🔍 Showing data loading state')
-    }
-    return (
-      <div className={`flex min-h-screen overflow-x-hidden ${t.page}`}>
-        <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
-        <div className="flex-1 flex items-center justify-center min-w-0">
-          <div className={`text-center ${t.heading}`}>
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-            <p className="mt-4">Loading dashboard data...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (isDevelopment) {
-    console.log('🔍 Rendering admin dashboard with:', { products: products.length, orders: orders.length, stats })
-  }
+  const greetingName = user?.name?.trim() || user?.email?.split('@')[0] || 'Admin'
 
   return (
-    <div className={`flex min-h-screen overflow-x-hidden ${t.page}`}>
-      <AdminSidebar mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
+    <AdminPageShell
+      title="Dashboard"
+      description={`Welcome back, ${greetingName}. Here is a snapshot of your catalog and store activity.`}
+    >
+      {error ? <p className="text-red-500 dark:text-red-400 text-sm mb-4">{error}</p> : null}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <AppStickyHeader
-          title="Admin Dashboard"
-          showSocialProof
-          searchPlaceholder="Search your route..."
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          leading={<AdminMobileMenuButton onClick={() => setMobileNavOpen(true)} />}
-          actions={<AdminHeaderActions />}
-        />
-
-        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">
-          {/* Summary Section */}
-          <div className="mb-8">
-            <h2 className={`text-xl font-semibold mb-4 ${t.heading}`}>Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                title="Total Revenue"
-                value={`€ ${stats.totalRevenue.toFixed(2).replace('.', ',')}`}
-                icon={<BanknotesIcon className="w-6 h-6 text-white" />}
-                accentColor="bg-green-500"
-              />
-              <StatCard
-                title="Total Orders"
-                value={stats.totalOrders.toString()}
-                icon={<ShoppingCartIcon className="w-6 h-6 text-white" />}
-                accentColor="bg-purple-500"
-              />
-              <StatCard
-                title="Total Products"
-                value={stats.totalProducts.toString()}
-                icon={<ClipboardDocumentListIcon className="w-6 h-6 text-white" />}
-                accentColor="bg-pink-500"
-              />
-              <StatCard
-                title="Total Vendors"
-                value={stats.totalVendors.toString()}
-                icon={<ShoppingBagIcon className="w-6 h-6 text-white" />}
-                accentColor="bg-red-500"
-              />
-            </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500 mx-auto" />
+            <p className={`mt-3 text-sm ${t.muted}`}>Loading dashboard…</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+            <StatCard
+              title="Catalog"
+              value={products.length}
+              change={`${stats.active} live · ${stats.draft} draft · ${stats.inactive} inactive`}
+              icon={<CubeIcon className="w-6 h-6 text-white" />}
+              accentColor="bg-pink-500"
+            />
+            <StatCard
+              title="Orders"
+              value={orders.length}
+              change={
+                stats.pendingOrders > 0
+                  ? `${stats.pendingOrders} pending`
+                  : orders.length
+                    ? 'All caught up'
+                    : 'No orders yet'
+              }
+              icon={<ShoppingCartIcon className="w-6 h-6 text-white" />}
+              accentColor="bg-purple-500"
+            />
+            <StatCard
+              title="Revenue"
+              value={`${currency} ${stats.revenue.toFixed(2)}`}
+              change="From all orders"
+              icon={<BanknotesIcon className="w-6 h-6 text-white" />}
+              accentColor="bg-green-500"
+            />
+            <StatCard
+              title="Users"
+              value={userCount}
+              change={
+                stats.importDrafts > 0
+                  ? `${stats.importDrafts} drafts in import queue`
+                  : 'Registered accounts'
+              }
+              icon={<UsersIcon className="w-6 h-6 text-white" />}
+              accentColor="bg-blue-500"
+            />
           </div>
 
-          {/* Products Section */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className={`text-xl font-semibold ${t.heading}`}>Products</h2>
-              <Link href="/admin/products/new" className="btn-primary flex items-center space-x-2">
-                <PlusIcon className="w-5 h-5" />
-                <span>Add Product</span>
-              </Link>
+          <section className="mb-8">
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${t.muted}`}>
+              Quick actions
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {quickLinks.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={appPath(href)}
+                  className={`card flex flex-col items-center justify-center gap-2 py-4 text-center text-sm font-medium transition-colors hover:ring-1 hover:ring-primary-500/40 ${t.tableCell}`}
+                >
+                  <Icon className="w-6 h-6 text-primary-500" aria-hidden />
+                  {label}
+                </Link>
+              ))}
             </div>
-            
-            <div className="card">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className={`border-b ${t.rowBorder}`}>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Product</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Category</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Price</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Author</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.length > 0 ? (
-                      products.map((product) => (
-                        <tr key={product.id} className={`border-b ${t.rowBorder}`}>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center space-x-3">
+          </section>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <section className="xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className={`text-lg font-semibold ${t.heading}`}>Latest products</h2>
+                  <p className={`text-sm ${t.muted}`}>
+                    Most recently added or updated — showing {latestProducts.length} of{' '}
+                    {products.length}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={appPath('/admin/products')} className="btn-secondary text-sm">
+                    View all
+                  </Link>
+                  <Link
+                    href={appPath('/admin/products/new')}
+                    className="btn-primary text-sm inline-flex items-center gap-1.5"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                    Add product
+                  </Link>
+                </div>
+              </div>
+
+              {latestProducts.length === 0 ? (
+                <div className={`card text-center py-10 ${t.muted}`}>
+                  <p className="mb-3">No products in the catalog yet.</p>
+                  <Link href={appPath('/admin/products/new')} className="btn-primary text-sm">
+                    Add your first product
+                  </Link>
+                </div>
+              ) : (
+                <AdminTable>
+                  <AdminTableHead>
+                    <AdminTh>Product</AdminTh>
+                    <AdminTh>Category</AdminTh>
+                    <AdminTh>Status</AdminTh>
+                    <AdminTh>Added</AdminTh>
+                    <AdminTh align="right"> </AdminTh>
+                  </AdminTableHead>
+                  <AdminTableBody>
+                    {latestProducts.map((product) => (
+                      <AdminTr key={product.id}>
+                        <AdminTd>
+                          <div className="flex items-center gap-3 min-w-0">
+                            {product.image_url ? (
                               <Image
                                 src={product.image_url}
-                                alt={product.name}
+                                alt=""
                                 width={40}
                                 height={40}
-                                className="w-10 h-10 rounded object-cover"
+                                className="w-10 h-10 rounded object-cover shrink-0"
                                 unoptimized
                               />
-                              <div>
-                                <p className={`font-medium ${t.tableCell}`}>{product.name}</p>
-                                <p className={`text-sm line-clamp-1 ${t.muted}`}>{product.description}</p>
-                              </div>
+                            ) : (
+                              <div
+                                className={`w-10 h-10 rounded shrink-0 ${t.surfaceMuted}`}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <p className={`font-medium truncate max-w-[200px] sm:max-w-xs ${t.heading}`}>
+                                {product.name}
+                              </p>
+                              {product.brand ? (
+                                <p className={`text-xs truncate ${t.muted}`}>{product.brand}</p>
+                              ) : null}
                             </div>
-                          </td>
-                          <td className={`py-3 px-4 ${t.tableCell}`}>{product.category}</td>
-                          <td className={`py-3 px-4 ${t.tableCell}`}>
-                            {formatPrice(product.price)}
-                          </td>
-                          <td className={`py-3 px-4 ${t.tableCell}`}>{product.author}</td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center space-x-2">
-                              <button className={`p-2 rounded-lg transition-colors ${t.iconBtn}`}>
-                                <EyeIcon className="w-5 h-5" />
-                              </button>
-                              <Link
-                                href={`/admin/products/${product.id}/edit`}
-                                className={`p-2 rounded-lg transition-colors inline-flex ${t.iconBtn}`}
-                              >
-                                <PencilIcon className="w-5 h-5" />
-                              </Link>
-                              <button 
-                                onClick={() => handleDeleteProduct(product.id)}
-                                className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-red-500 hover:text-red-400"
-                              >
-                                <TrashIcon className="w-5 h-5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className={`py-8 text-center ${t.muted}`}>
-                          No products found. Add your first product to get started.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+                          </div>
+                        </AdminTd>
+                        <AdminTd className="whitespace-nowrap">{product.category || '—'}</AdminTd>
+                        <AdminTd>
+                          <StatusBadge status={product.status} />
+                        </AdminTd>
+                        <AdminTd className={`text-xs whitespace-nowrap ${t.muted}`}>
+                          {formatWhen(product.created_at)}
+                        </AdminTd>
+                        <AdminTd align="right">
+                          <Link
+                            href={appPath(`/admin/products/${product.id}/edit`)}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${t.iconBtn}`}
+                            title="Edit product"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                            Edit
+                          </Link>
+                        </AdminTd>
+                      </AdminTr>
+                    ))}
+                  </AdminTableBody>
+                </AdminTable>
+              )}
+            </section>
 
-          {/* Recent Orders Section */}
-          <div>
-            <h2 className={`text-xl font-semibold mb-4 ${t.heading}`}>Recent Orders</h2>
-            <div className="card">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className={`border-b ${t.rowBorder}`}>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Order ID</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Customer</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Total</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Status</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Date</th>
-                      <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.length > 0 ? (
-                      orders.map((order) => (
-                        <tr key={order.id} className={`border-b ${t.rowBorder}`}>
-                          <td className={`py-3 px-4 ${t.tableCell}`}>{order.id}</td>
-                          <td className="py-3 px-4">
-                            <div>
-                              <p className={t.tableCell}>{order.customer_name}</p>
-                              <p className={`text-sm ${t.muted}`}>{order.customer_email}</p>
-                            </div>
-                          </td>
-                          <td className={`py-3 px-4 ${t.tableCell}`}>
-                            {formatPrice(order.total)}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              order.status === 'completed' 
-                                ? 'bg-green-500 text-white' 
-                                : order.status === 'pending'
-                                ? 'bg-yellow-500 text-white'
-                                : order.status === 'processing'
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-red-500 text-white'
-                            }`}>
-                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                            </span>
-                          </td>
-                          <td className={`py-3 px-4 ${t.muted}`}>
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            <button className={`p-2 rounded-lg transition-colors ${t.iconBtn}`}>
-                              <EyeIcon className="w-5 h-5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className={`py-8 text-center ${t.muted}`}>
-                          No orders found yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className={`text-lg font-semibold ${t.heading}`}>Recent orders</h2>
+                  <p className={`text-sm ${t.muted}`}>Last {RECENT_ORDERS} orders</p>
+                </div>
+                <Link href={appPath('/admin/orders')} className="btn-secondary text-sm">
+                  View all
+                </Link>
               </div>
-            </div>
+
+              {recentOrders.length === 0 ? (
+                <div className={`card text-center py-10 text-sm ${t.muted}`}>
+                  No orders yet. They will appear here after customers checkout.
+                </div>
+              ) : (
+                <div className="card divide-y divide-gray-200 dark:divide-dark-800">
+                  {recentOrders.map((order) => (
+                    <div key={order.id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className={`font-medium truncate ${t.heading}`}>
+                            {order.customer_name || 'Customer'}
+                          </p>
+                          <p className={`text-xs truncate ${t.muted}`}>{order.customer_email}</p>
+                        </div>
+                        <StatusBadge status={order.status} />
+                      </div>
+                      <div className={`mt-2 flex items-center justify-between text-sm ${t.muted}`}>
+                        <span>{formatWhen(order.created_at)}</span>
+                        <span className={`font-semibold ${t.heading}`}>
+                          {formatPrice(order.total)}
+                        </span>
+                      </div>
+                      {order.tracking_number ? (
+                        <p className={`text-xs mt-1 font-mono ${t.muted}`}>
+                          {order.tracking_number}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
-        </main>
-      </div>
-    </div>
+        </>
+      )}
+    </AdminPageShell>
   )
 }
