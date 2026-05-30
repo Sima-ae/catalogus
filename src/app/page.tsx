@@ -10,6 +10,7 @@ export default function HomePage() {
         showSocialProof: true,
         showFooterTagline: false,
         emptyVariant: 'simple',
+        centerCatalog: true,
       }}
     />
   )

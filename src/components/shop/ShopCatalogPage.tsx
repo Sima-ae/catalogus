@@ -47,6 +47,8 @@ export type ShopCatalogConfig = {
   icon?: 'sparkles' | 'fire' | 'bag'
   emptyTitle?: string
   emptyMessage?: string
+  /** Center category pills, count, and pagination (homepage). */
+  centerCatalog?: boolean
 }
 
 function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
@@ -152,11 +154,13 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
             <CategoryFilter
               selectedCategory={selectedCategory}
               onCategoryChange={setSelectedCategory}
+              centered={config.centerCatalog}
             />
             <BrandFilter
               selectedCategory={selectedCategory}
               selectedBrand={selectedBrand}
               onBrandChange={setSelectedBrand}
+              centered={config.centerCatalog}
             />
 
             {loading ? (
@@ -230,6 +234,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
                 products={displayedProducts}
                 page={safePage}
                 onPageChange={setCurrentPage}
+                centered={config.centerCatalog}
               />
             )}
           </div>

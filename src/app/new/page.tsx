@@ -23,6 +23,7 @@ export default function NewProductsPage() {
         emptyTitle: 'No new products this week',
         emptyMessage:
           'Nothing was added during the current catalog week yet. The list resets every Sunday at midnight. Browse the full catalog on Home in the meantime.',
+        centerCatalog: true,
       }}
     />
   )

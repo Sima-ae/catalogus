@@ -9,6 +9,7 @@ type Props = {
   totalItems: number
   pageSize?: number
   onPageChange: (page: number) => void
+  centered?: boolean
 }
 
 export default function CatalogPagination({
@@ -16,6 +17,7 @@ export default function CatalogPagination({
   totalItems,
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
+  centered = false,
 }: Props) {
   const t = useAppTheme()
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
@@ -25,42 +27,59 @@ export default function CatalogPagination({
 
   if (totalItems === 0) return null
 
+  const statusText = (
+    <>
+      Showing <strong className={t.heading}>{start}</strong>–
+      <strong className={t.heading}>{end}</strong> of{' '}
+      <strong className={t.heading}>{totalItems}</strong>
+      {totalPages > 1 && (
+        <>
+          {' '}
+          · page <strong className={t.heading}>{safePage}</strong> of{' '}
+          <strong className={t.heading}>{totalPages}</strong>
+        </>
+      )}
+    </>
+  )
+
+  const navButtons = (
+    <div className="flex items-center justify-center gap-2">
+      <button
+        type="button"
+        className="btn-secondary text-sm"
+        disabled={safePage <= 1}
+        onClick={() => onPageChange(safePage - 1)}
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        className="btn-secondary text-sm"
+        disabled={safePage >= totalPages}
+        onClick={() => onPageChange(safePage + 1)}
+      >
+        Next
+      </button>
+    </div>
+  )
+
+  if (centered) {
+    return (
+      <div className="flex w-full flex-col items-center gap-3 py-3 text-center">
+        <p className={`text-sm ${t.muted}`}>{statusText}</p>
+        {navButtons}
+      </div>
+    )
+  }
+
   return (
     <div
-      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 ${
+      className={`flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between ${
         t.isDark ? 'border-dark-800' : 'border-gray-200'
       }`}
     >
-      <p className={`text-sm ${t.muted}`}>
-        Showing <strong className={t.heading}>{start}</strong>–
-        <strong className={t.heading}>{end}</strong> of{' '}
-        <strong className={t.heading}>{totalItems}</strong>
-        {totalPages > 1 && (
-          <>
-            {' '}
-            · page <strong className={t.heading}>{safePage}</strong> of{' '}
-            <strong className={t.heading}>{totalPages}</strong>
-          </>
-        )}
-      </p>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          disabled={safePage <= 1}
-          onClick={() => onPageChange(safePage - 1)}
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          disabled={safePage >= totalPages}
-          onClick={() => onPageChange(safePage + 1)}
-        >
-          Next
-        </button>
-      </div>
+      <p className={`text-sm ${t.muted}`}>{statusText}</p>
+      {navButtons}
     </div>
   )
 }

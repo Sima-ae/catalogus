@@ -12,10 +12,16 @@ type Props = {
   products: Product[]
   page: number
   onPageChange: (page: number) => void
+  centered?: boolean
 }
 
 /** Shared product grid with top/bottom pagination (max {CATALOG_PAGE_SIZE} per page). */
-export default function ShopCatalogListing({ products, page, onPageChange }: Props) {
+export default function ShopCatalogListing({
+  products,
+  page,
+  onPageChange,
+  centered = false,
+}: Props) {
   const totalPages = Math.max(1, Math.ceil(products.length / CATALOG_PAGE_SIZE) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
   const start = (safePage - 1) * CATALOG_PAGE_SIZE
@@ -23,11 +29,12 @@ export default function ShopCatalogListing({ products, page, onPageChange }: Pro
 
   return (
     <>
-      <CatalogProductCount count={products.length} />
+      <CatalogProductCount count={products.length} centered={centered} />
       <CatalogPagination
         page={safePage}
         totalItems={products.length}
         onPageChange={onPageChange}
+        centered={centered}
       />
       <div className={catalogGridClassName}>
         {pageProducts.map((product) => (
@@ -38,6 +45,7 @@ export default function ShopCatalogListing({ products, page, onPageChange }: Pro
         page={safePage}
         totalItems={products.length}
         onPageChange={onPageChange}
+        centered={centered}
       />
     </>
   )

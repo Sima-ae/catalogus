@@ -7,12 +7,14 @@ interface BrandFilterProps {
   selectedCategory: string
   selectedBrand: string
   onBrandChange: (brand: string) => void
+  centered?: boolean
 }
 
 export default function BrandFilter({
   selectedCategory,
   selectedBrand,
   onBrandChange,
+  centered = false,
 }: BrandFilterProps) {
   const brands = useShopBrandList(selectedCategory)
 
@@ -26,6 +28,7 @@ export default function BrandFilter({
         onChange={onBrandChange}
         showArrows
         ariaLabel="Brands"
+        centered={centered}
       />
     </div>
   )

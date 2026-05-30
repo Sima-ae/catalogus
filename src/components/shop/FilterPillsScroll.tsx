@@ -9,6 +9,8 @@ type Props = {
   onChange: (value: string) => void
   showArrows?: boolean
   ariaLabel?: string
+  /** Center pill row (homepage catalog). */
+  centered?: boolean
 }
 
 export default function FilterPillsScroll({
@@ -17,6 +19,7 @@ export default function FilterPillsScroll({
   onChange,
   showArrows = false,
   ariaLabel = 'Filter',
+  centered = false,
 }: Props) {
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
@@ -103,8 +106,8 @@ export default function FilterPillsScroll({
       <div
         ref={scrollContainerRef}
         className={`flex space-x-3 overflow-x-auto scrollbar-hide ${
-          showArrows ? 'px-20' : 'px-1'
-        }`}
+          showArrows ? 'px-20' : centered ? 'px-1 justify-center' : 'px-1'
+        } ${centered ? 'w-full' : ''}`}
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',

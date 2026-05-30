@@ -6,9 +6,14 @@ import { useShopCategoryList } from '@/lib/use-shop-category-list'
 interface CategoryFilterProps {
   selectedCategory: string
   onCategoryChange: (category: string) => void
+  centered?: boolean
 }
 
-export default function CategoryFilter({ selectedCategory, onCategoryChange }: CategoryFilterProps) {
+export default function CategoryFilter({
+  selectedCategory,
+  onCategoryChange,
+  centered = false,
+}: CategoryFilterProps) {
   const categories = useShopCategoryList()
 
   return (
@@ -18,6 +23,7 @@ export default function CategoryFilter({ selectedCategory, onCategoryChange }: C
       onChange={onCategoryChange}
       showArrows={false}
       ariaLabel="Categories"
+      centered={centered}
     />
   )
 }
