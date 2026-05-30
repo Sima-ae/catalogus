@@ -49,11 +49,15 @@ CREATE TABLE IF NOT EXISTS import_jobs (
   CONSTRAINT fk_import_jobs_source FOREIGN KEY (source_id) REFERENCES import_sources (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE import_job_items
+  ADD COLUMN IF NOT EXISTS album_title VARCHAR(128) NULL AFTER album_id;
+
 CREATE TABLE IF NOT EXISTS import_job_items (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   job_id VARCHAR(36) NOT NULL,
   album_url TEXT NOT NULL,
   album_id VARCHAR(64) NOT NULL,
+  album_title VARCHAR(128) NULL,
   status VARCHAR(32) NOT NULL DEFAULT 'pending',
   raw_json LONGTEXT NULL,
   error_message TEXT NULL,

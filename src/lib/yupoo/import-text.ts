@@ -6,6 +6,49 @@ export function isSkuOnlyTitle(title: string): boolean {
   return /^\d{5,}[a-zA-Z]?$/.test(t.replace(/\s+/g, ''))
 }
 
+/** Yupoo style codes on category grids (e.g. 1308230, 1133260). */
+export function extractYupooStyleCode(text: string): string | null {
+  const t = String(text ?? '').trim()
+  if (!t) return null
+  if (isSkuOnlyTitle(t)) return t.replace(/\s+/g, '')
+  const leading = t.match(/^(\d{5,}[a-zA-Z]?)/)
+  if (leading?.[1] && isSkuOnlyTitle(leading[1])) return leading[1]
+  const standalone = t.match(/(?:^|[\s,，|｜])(\d{5,}[a-zA-Z]?)(?:$|[\s,，|｜])/)
+  if (standalone?.[1] && isSkuOnlyTitle(standalone[1])) return standalone[1]
+  return null
+}
+
+/**
+ * Product name = Yupoo numeric style code (category thumb / album title), not marketing copy.
+ */
+export function resolveYupooProductTitle(options: {
+  albumTitle: string
+  description?: string
+  thumbTitle?: string | null
+}): string {
+  const description = String(options.description ?? '').trim()
+  const candidates = [
+    options.thumbTitle,
+    options.albumTitle,
+    extractYupooStyleCode(options.albumTitle ?? ''),
+    extractYupooStyleCode(description.split(/\r?\n/)[0] ?? ''),
+    extractYupooStyleCode(description),
+  ]
+
+  for (const candidate of candidates) {
+    const value = String(candidate ?? '').trim()
+    if (!value) continue
+    if (isSkuOnlyTitle(value)) return value.replace(/\s+/g, '')
+  }
+
+  for (const candidate of candidates) {
+    const code = extractYupooStyleCode(String(candidate ?? ''))
+    if (code) return code
+  }
+
+  return 'Imported product'
+}
+
 /** Remove leading SKU / numeric prefix already shown as the product name. */
 export function stripDuplicateSkuPrefix(text: string, title: string): string {
   let result = String(text ?? '').trim()
@@ -187,42 +230,18 @@ export function cleanImportDescription(
   return result.replace(/\s+/g, ' ').trim()
 }
 
-function firstMeaningfulDescriptionLine(cleaned: string): string {
-  const lines = cleaned
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-  for (const line of lines) {
-    if (/^Product\s+trademark\s*[：:]/i.test(line)) continue
-    if (/^[\u4e00-\u9fff]{2,6}\s*[：:]/.test(line) && /商标/.test(line)) continue
-    if (isChineseLabelOnlyLine(line)) continue
-    if (line.length >= 12) return line
-  }
-
-  return lines[0] || cleaned
-}
-
-/** Prefer a readable title when Yupoo only provides a style code. */
+/** @deprecated Use resolveYupooProductTitle — kept for callers passing only album fields. */
 export function deriveImportProductName(
   title: string,
   description: string,
-  brandName: string | null
+  _brandName: string | null,
+  thumbTitle?: string | null
 ): string {
-  const rawTitle = title.trim()
-  if (!isSkuOnlyTitle(rawTitle)) {
-    return rawTitle || 'Imported product'
-  }
-
-  const cleaned = cleanImportDescription(description, rawTitle, brandName)
-  const snippet = firstMeaningfulDescriptionLine(cleaned)
-    .replace(/\s+/g, ' ')
-    .slice(0, 120)
-    .trim()
-
-  if (snippet.length >= 12) return snippet
-  if (brandName) return brandName
-  return rawTitle
+  return resolveYupooProductTitle({
+    albumTitle: title,
+    description,
+    thumbTitle,
+  })
 }
 
 /** Text for catalog cards — no repeat of the product name / SKU / trademark line. */

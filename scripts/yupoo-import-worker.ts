@@ -123,7 +123,8 @@ async function processJob(jobId: string) {
         album,
         translated,
         source.category_name!,
-        source.brand_name ?? null
+        source.brand_name ?? null,
+        item.album_title ?? album.title
       )
 
       if (!input.image_url) {

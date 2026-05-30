@@ -15,7 +15,8 @@
     "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background",
     "import:worker": "tsx scripts/yupoo-import-worker.ts",
     "db:clean-descriptions": "tsx scripts/clean-product-descriptions.ts",
-    "db:dedupe-galleries": "tsx scripts/dedupe-product-galleries.ts"
+    "db:dedupe-galleries": "tsx scripts/dedupe-product-galleries.ts",
+    "db:fix-yupoo-titles": "tsx scripts/fix-yupoo-product-titles.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

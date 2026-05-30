@@ -7,7 +7,8 @@ import { dedupeProductImageUrls } from '@/lib/product-image-url'
 import {
   catalogCardDescription,
   cleanImportDescription,
-  deriveImportProductName,
+  extractYupooStyleCode,
+  resolveYupooProductTitle,
 } from '@/lib/yupoo/import-text'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
@@ -16,7 +17,8 @@ export function buildProductInputFromImport(
   album: YupooAlbumData,
   translated: TranslatedProductText,
   categoryName: string,
-  brandName: string | null
+  brandName: string | null,
+  thumbTitle?: string | null
 ): ProductInput {
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
   const uniqueImages = dedupeProductImageUrls(album.images)
@@ -25,8 +27,16 @@ export function buildProductInputFromImport(
 
   const rawTitle = translated.enTitle || album.title
   const rawDescription = translated.enDescription || album.description
-  const name = deriveImportProductName(rawTitle, rawDescription, brandName)
-  const description = cleanImportDescription(rawDescription, rawTitle, brandName)
+  let name = resolveYupooProductTitle({
+    albumTitle: rawTitle,
+    description: rawDescription,
+    thumbTitle,
+  })
+  if (!/^\d{5,}/.test(name)) {
+    const fromSku = extractYupooStyleCode(buildSku(album))
+    if (fromSku) name = fromSku
+  }
+  const description = cleanImportDescription(rawDescription, name, brandName)
   const short_description =
     catalogCardDescription(name, description, undefined, brandName).slice(0, 280) ||
     undefined
@@ -85,6 +95,7 @@ export type ImportJobItemRow = {
   job_id: string
   album_url: string
   album_id: string
+  album_title?: string | null
   status: string
   raw_json: string | null
   error_message: string | null
@@ -200,14 +211,23 @@ export async function appendJobErrorLog(jobId: string, message: string): Promise
 
 export async function createImportJobItems(
   jobId: string,
-  albums: { albumId: string; albumUrl: string }[]
+  albums: { albumId: string; albumUrl: string; thumbTitle?: string }[]
 ): Promise<void> {
   for (const album of albums) {
-    await queryDb(
-      `INSERT INTO import_job_items (id, job_id, album_url, album_id, status)
-       VALUES (?, ?, ?, ?, 'pending')`,
-      [randomUUID(), jobId, album.albumUrl, album.albumId]
-    )
+    const title = album.thumbTitle?.trim() || null
+    try {
+      await queryDb(
+        `INSERT INTO import_job_items (id, job_id, album_url, album_id, album_title, status)
+         VALUES (?, ?, ?, ?, ?, 'pending')`,
+        [randomUUID(), jobId, album.albumUrl, album.albumId, title]
+      )
+    } catch {
+      await queryDb(
+        `INSERT INTO import_job_items (id, job_id, album_url, album_id, status)
+         VALUES (?, ?, ?, ?, 'pending')`,
+        [randomUUID(), jobId, album.albumUrl, album.albumId]
+      )
+    }
   }
 }
 

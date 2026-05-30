@@ -6,10 +6,14 @@ import {
   dedupeProductImageUrls,
   upgradeYupooImageUrl,
 } from '@/lib/product-image-url'
+import {
+  extractYupooStyleCode,
+  isSkuOnlyTitle,
+  resolveYupooProductTitle,
+} from '@/lib/yupoo/import-text'
 
 function extractSkuHint(title: string): string | null {
-  const match = title.match(/^(\d{5,})/)
-  return match?.[1] ?? null
+  return extractYupooStyleCode(title)
 }
 
 export { upgradeYupooImageUrl } from '@/lib/product-image-url'
@@ -39,11 +43,11 @@ function collectFromHtml(html: string, pageUrl: string): string[] {
 export function parseAlbumPage(html: string, albumUrl: string, albumId: string): YupooAlbumData {
   const $ = cheerio.load(html)
 
-  const title =
+  const h1 =
     $('h1').first().text().trim() ||
     $('.album__title').first().text().trim() ||
     $('title').text().split('|')[0]?.trim() ||
-    albumId
+    ''
 
   const descriptionParts: string[] = []
   $(
@@ -62,7 +66,17 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     })
   }
 
-  const description = descriptionParts.join('\n\n').trim() || title
+  const description = descriptionParts.join('\n\n').trim() || h1
+
+  const headerCode =
+    $('.showalbumheader .sku, .showalbumheader .code, .album_code').first().text().trim() ||
+    ''
+
+  const title = resolveYupooProductTitle({
+    albumTitle: h1,
+    description,
+    thumbTitle: isSkuOnlyTitle(headerCode) ? headerCode : extractYupooStyleCode(headerCode),
+  })
 
   const imageCandidates: string[] = []
 
