@@ -149,6 +149,38 @@ export async function createImportSource(input: {
   return (await getImportSource(id))!
 }
 
+export async function updateImportSource(
+  id: string,
+  input: {
+    name: string
+    yupoo_category_url: string
+    catalog_category_id?: string | null
+    catalog_brand_id?: string | null
+  }
+): Promise<ImportSourceRow | null> {
+  await queryDb(
+    `UPDATE import_sources
+     SET name = ?, yupoo_category_url = ?, catalog_category_id = ?, catalog_brand_id = ?
+     WHERE id = ?`,
+    [
+      input.name.trim(),
+      input.yupoo_category_url.trim(),
+      input.catalog_category_id || null,
+      input.catalog_brand_id || null,
+      id,
+    ]
+  )
+  return getImportSource(id)
+}
+
+export async function deleteImportSource(id: string): Promise<boolean> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `DELETE FROM import_sources WHERE id = ?`,
+    [id]
+  )
+  return (result?.affectedRows ?? 0) > 0
+}
+
 export async function createImportJob(sourceId: string): Promise<ImportJobRow> {
   const id = randomUUID()
   await queryDb(

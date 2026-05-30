@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdminActor } from '@/lib/admin-api-auth'
+import { superAdminDenial, verifyAdminActor } from '@/lib/admin-api-auth'
+import { parseImportSourceBody, validateImportSourceInput } from '@/lib/admin-import'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { createImportSource, listImportSources } from '@/lib/import-db'
 
@@ -26,40 +27,26 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const auth = await verifyAdminActor(request)
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status })
-  }
+  const denied = superAdminDenial(auth)
+  if (denied) return denied
 
   try {
-    const body = (await request.json()) as Record<string, unknown>
-    const name = String(body.name || '').trim()
-    const yupoo_category_url = String(body.yupoo_category_url || '').trim()
-    const catalog_category_id = body.catalog_category_id
-      ? String(body.catalog_category_id).trim()
-      : null
-    const catalog_brand_id = body.catalog_brand_id
-      ? String(body.catalog_brand_id).trim()
-      : null
-
-    if (!name || !yupoo_category_url) {
-      return NextResponse.json(
-        { error: 'Name and Yupoo category URL are required' },
-        { status: 400 }
-      )
+    const body = await request.json()
+    const input = parseImportSourceBody(body)
+    if (!input) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
     }
 
-    if (!catalog_category_id) {
-      return NextResponse.json(
-        { error: 'Catalog category is required' },
-        { status: 400 }
-      )
+    const validationError = validateImportSourceInput(input)
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
     const source = await createImportSource({
-      name,
-      yupoo_category_url,
-      catalog_category_id,
-      catalog_brand_id,
+      name: input.name,
+      yupoo_category_url: input.yupoo_category_url,
+      catalog_category_id: input.catalog_category_id,
+      catalog_brand_id: input.catalog_brand_id || null,
     })
 
     return NextResponse.json(source, { status: 201 })

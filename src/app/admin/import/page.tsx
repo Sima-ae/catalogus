@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline'
+import {
+  ClipboardDocumentIcon,
+  CheckIcon,
+  PencilIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import ImportSourceForm, {
+  type ImportSourceFormValues,
+} from '@/components/admin/ImportSourceForm'
 import {
   AdminTable,
   AdminTableBody,
@@ -27,23 +35,35 @@ type SyncResult = {
   workerCommand: string
 }
 
-const emptyForm = {
+const emptyForm: ImportSourceFormValues = {
   name: '',
   yupoo_category_url: '',
   catalog_category_id: '',
   catalog_brand_id: '',
 }
 
+function sourceToForm(source: ImportSourceRow): ImportSourceFormValues {
+  return {
+    name: source.name,
+    yupoo_category_url: source.yupoo_category_url,
+    catalog_category_id: source.catalog_category_id || '',
+    catalog_brand_id: source.catalog_brand_id || '',
+  }
+}
+
 export default function AdminImportPage() {
   const t = useAppTheme()
-  const { user, isAdmin, loading: authLoading } = useAuth()
+  const { user, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const [sources, setSources] = useState<ImportSourceRow[]>([])
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [brands, setBrands] = useState<BrandOption[]>([])
   const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState(emptyForm)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [syncInfo, setSyncInfo] = useState<SyncResult | null>(null)
   const [copiedCommand, setCopiedCommand] = useState(false)
@@ -143,7 +163,7 @@ export default function AdminImportPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!user || !isSuperAdmin) return
 
     setSaving(true)
     setError('')
@@ -169,6 +189,75 @@ export default function AdminImportPage() {
       setError(e instanceof Error ? e.message : 'Create failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const startEdit = (source: ImportSourceRow) => {
+    setEditingId(source.id)
+    setEditForm(sourceToForm(source))
+    setError('')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditForm(emptyForm)
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user || !isSuperAdmin || !editingId) return
+
+    setSaving(true)
+    setError('')
+
+    try {
+      const res = await fetch(appPath(`/api/admin/import/sources/${editingId}`), {
+        method: 'PATCH',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editForm),
+      })
+      const data = await parseJsonResponse<{ error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Update failed')
+
+      cancelEdit()
+      loadSources()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Update failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (source: ImportSourceRow) => {
+    if (!user || !isSuperAdmin) return
+    if (
+      !window.confirm(
+        `Delete import source "${source.name}"? Related import jobs will be removed. This cannot be undone.`
+      )
+    ) {
+      return
+    }
+
+    setDeletingId(source.id)
+    setError('')
+
+    try {
+      const res = await fetch(appPath(`/api/admin/import/sources/${source.id}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
+      const data = await parseJsonResponse<{ error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
+
+      if (editingId === source.id) cancelEdit()
+      loadSources()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -215,6 +304,12 @@ export default function AdminImportPage() {
           Review import queue
         </Link>
       </div>
+
+      {!isSuperAdmin && !authLoading ? (
+        <p className={`text-sm mb-4 ${t.muted}`}>
+          Only super admin can add, edit, or delete import sources. You can start sync jobs below.
+        </p>
+      ) : null}
 
       {error && <p className="text-red-400 mb-4">{error}</p>}
 
@@ -271,63 +366,36 @@ export default function AdminImportPage() {
         </div>
       )}
 
-      <section className="card mb-8 space-y-4">
-        <h2 className="card-section-title">Add import source</h2>
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="block space-y-1">
-              <span className={`text-sm ${t.muted}`}>Name</span>
-              <input
-                className="input w-full"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Nike sneakers batch 1"
-                required
-              />
-            </label>
-            <label className="block space-y-1 md:col-span-2">
-              <span className={`text-sm ${t.muted}`}>Yupoo category URL</span>
-              <input
-                className="input w-full"
-                value={form.yupoo_category_url}
-                onChange={(e) => setForm((f) => ({ ...f, yupoo_category_url: e.target.value }))}
-                placeholder="https://xxx.x.yupoo.com/categories/..."
-                required
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className={`text-sm ${t.muted}`}>Catalog category</span>
-              <select
-                className="input w-full"
-                value={form.catalog_category_id}
-                onChange={(e) => setForm((f) => ({ ...f, catalog_category_id: e.target.value }))}
-                required
-              >
-                <option value="">Select category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1">
-              <span className={`text-sm ${t.muted}`}>Catalog brand (optional)</span>
-              <select
-                className="input w-full"
-                value={form.catalog_brand_id}
-                onChange={(e) => setForm((f) => ({ ...f, catalog_brand_id: e.target.value }))}
-              >
-                <option value="">None</option>
-                {brands.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : 'Add source'}
-          </button>
-        </form>
-      </section>
+      {isSuperAdmin && !editingId ? (
+        <section className="card mb-8 space-y-4">
+          <h2 className="card-section-title">Add import source</h2>
+          <ImportSourceForm
+            values={form}
+            onChange={setForm}
+            onSubmit={handleCreate}
+            submitLabel="Add source"
+            saving={saving}
+            categories={categories}
+            brands={brands}
+          />
+        </section>
+      ) : null}
+
+      {isSuperAdmin && editingId ? (
+        <section className="card mb-8 space-y-4">
+          <h2 className="card-section-title">Edit import source</h2>
+          <ImportSourceForm
+            values={editForm}
+            onChange={setEditForm}
+            onSubmit={handleUpdate}
+            onCancel={cancelEdit}
+            submitLabel="Save changes"
+            saving={saving}
+            categories={categories}
+            brands={brands}
+          />
+        </section>
+      ) : null}
 
       <section>
         <h2 className="card-section-title mb-4">Import sources</h2>
@@ -342,7 +410,7 @@ export default function AdminImportPage() {
               <AdminTh>Category</AdminTh>
               <AdminTh>Brand</AdminTh>
               <AdminTh>Last synced</AdminTh>
-              <AdminTh>Actions</AdminTh>
+              <AdminTh align="right">Actions</AdminTh>
             </AdminTableHead>
             <AdminTableBody>
               {sources.map((source) => (
@@ -361,14 +429,42 @@ export default function AdminImportPage() {
                       : 'Never'}
                   </AdminTd>
                   <AdminTd>
-                    <button
-                      type="button"
-                      className="btn-secondary text-sm"
-                      disabled={syncingId === source.id}
-                      onClick={() => handleSync(source.id)}
-                    >
-                      {syncingId === source.id ? 'Starting...' : 'Start sync'}
-                    </button>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-sm"
+                        disabled={syncingId === source.id}
+                        onClick={() => handleSync(source.id)}
+                      >
+                        {syncingId === source.id ? 'Starting...' : 'Start sync'}
+                      </button>
+                      {isSuperAdmin ? (
+                        <>
+                          <button
+                            type="button"
+                            className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm btn-secondary`}
+                            onClick={() => startEdit(source)}
+                            disabled={saving && editingId === source.id}
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(source)}
+                            disabled={deletingId === source.id}
+                            className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm disabled:opacity-50 ${
+                              t.isDark
+                                ? 'text-red-400 hover:bg-red-500/10'
+                                : 'text-red-600 hover:bg-red-50'
+                            }`}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                            {deletingId === source.id ? '…' : 'Delete'}
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   </AdminTd>
                 </AdminTr>
               ))}
