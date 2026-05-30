@@ -112,6 +112,11 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/popular',
+        destination: '/new',
+        permanent: true,
+      },
+      {
         source: '/:path*',
         has: [{ type: 'host', value: 'www.superclones.cloud' }],
         destination: 'https://superclones.cloud/:path*',

@@ -4,9 +4,11 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/Sidebar'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
-import ProductCard from '@/components/shop/ProductCard'
 import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
+import ShopCatalogListing, {
+  CATALOG_PAGE_SIZE,
+} from '@/components/shop/ShopCatalogListing'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
 import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
@@ -14,7 +16,6 @@ import { appPath } from '@/lib/paths'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { APP_NAME } from '@/lib/brand'
-import CatalogProductCount from '@/components/shop/CatalogProductCount'
 import {
   SparklesIcon,
   FireIcon,
@@ -37,10 +38,15 @@ const EMPTY_ICONS = {
 export type ShopCatalogConfig = {
   mode: CatalogMode
   title: string
-  subtitle: string
-  icon: 'sparkles' | 'fire' | 'bag'
-  emptyTitle: string
-  emptyMessage: string
+  subtitle?: string
+  searchPlaceholder?: string
+  showSocialProof?: boolean
+  showFooterTagline?: boolean
+  /** Simple text empty state (homepage) vs icon card (/new). */
+  emptyVariant?: 'simple' | 'featured'
+  icon?: 'sparkles' | 'fire' | 'bag'
+  emptyTitle?: string
+  emptyMessage?: string
 }
 
 function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
@@ -50,8 +56,15 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const { theme } = useTheme()
   const { open: sidebarOpen, openSidebar, closeSidebar } = useShopSidebar()
+
+  const searchPlaceholder =
+    config.searchPlaceholder ?? `Search in ${config.title.toLowerCase()}...`
+  const emptyVariant = config.emptyVariant ?? 'featured'
+  const showSocialProof = config.showSocialProof ?? true
+  const showFooterTagline = config.showFooterTagline ?? config.mode === 'new'
 
   useEffect(() => {
     fetchProducts()
@@ -84,14 +97,28 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     if (selectedCategory !== 'All') {
       list = filterByBrand(list, selectedBrand)
     }
-    list = filterBySearch(list, searchQuery)
-    return list
+    return filterBySearch(list, searchQuery)
   }, [sortedProducts, selectedCategory, selectedBrand, searchQuery])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedCategory, selectedBrand, searchQuery, config.mode])
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(displayedProducts.length / CATALOG_PAGE_SIZE) || 1
+  )
+  const safePage = Math.min(Math.max(1, currentPage), totalPages)
+
+  useEffect(() => {
+    if (currentPage !== safePage) setCurrentPage(safePage)
+  }, [currentPage, safePage])
+
   const isDark = theme === 'dark'
-  const EmptyIcon = EMPTY_ICONS[config.icon]
+  const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
   const shellBg = isDark ? 'bg-dark-950' : 'bg-gray-50'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
+
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
@@ -99,59 +126,108 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
       <div className="flex-1 flex flex-col min-w-0">
         <AppStickyHeader
           title={config.title}
-          showSocialProof
-          searchPlaceholder={`Search in ${config.title.toLowerCase()}...`}
+          showSocialProof={showSocialProof}
+          searchPlaceholder={searchPlaceholder}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           leading={<SidebarMenuButton open={sidebarOpen} onOpen={openSidebar} />}
           actions={<ShopHeroHeaderActions />}
         />
 
-        <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden app-readable ${shellBg}`}>
-          <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
-          <BrandFilter
-            selectedCategory={selectedCategory}
-            selectedBrand={selectedBrand}
-            onBrandChange={setSelectedBrand}
-          />
+        <main
+          className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${shellBg}`}
+        >
+          <div className="max-w-full">
+            <CategoryFilter
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+            />
+            <BrandFilter
+              selectedCategory={selectedCategory}
+              selectedBrand={selectedBrand}
+              onBrandChange={setSelectedBrand}
+            />
 
-          {loading ? (
-            <div className="text-center py-16">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
-              <p className={muted}>Loading {config.title.toLowerCase()}...</p>
-            </div>
-          ) : error ? (
-            <div className="text-center py-16">
-              <p className="text-red-500 mb-4">{error}</p>
-              <button type="button" onClick={fetchProducts} className="btn-primary px-6 py-2">
-                Try Again
-              </button>
-            </div>
-          ) : displayedProducts.length === 0 ? (
-            <div className={`text-center py-16 rounded-xl border ${isDark ? 'border-dark-800 bg-dark-900' : 'border-gray-200 bg-white'}`}>
-              <EmptyIcon className={`w-12 h-12 mx-auto mb-4 ${muted}`} />
-              <h2 className={`text-xl font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {config.emptyTitle}
-              </h2>
-              <p className={`${muted} mb-6 max-w-md mx-auto`}>{config.emptyMessage}</p>
-              <Link href={appPath('/')} className="btn-primary inline-flex px-6 py-2">
-                Browse all products
-              </Link>
-            </div>
-          ) : (
-            <>
-              <CatalogProductCount count={displayedProducts.length} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-                {displayedProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
+                <p className={`text-lg ${muted}`}>Loading products...</p>
               </div>
-            </>
-          )}
+            ) : error ? (
+              <div className="text-center py-12">
+                <div className="text-red-500 mb-4">
+                  <svg
+                    className="w-16 h-16 mx-auto"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
+                <h3
+                  className={`text-xl font-semibold mb-2 ${
+                    isDark ? 'text-white' : 'text-gray-900'
+                  }`}
+                >
+                  Failed to Load Products
+                </h3>
+                <p className={`text-lg mb-4 ${muted}`}>{error}</p>
+                <button type="button" onClick={fetchProducts} className="btn-primary px-6 py-2">
+                  Try Again
+                </button>
+              </div>
+            ) : displayedProducts.length === 0 ? (
+              emptyVariant === 'simple' ? (
+                <div className="text-center py-12">
+                  <p className={`text-lg ${muted}`}>
+                    {searchQuery.trim()
+                      ? 'No products match your search.'
+                      : 'No products found in this category.'}
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className={`text-center py-16 rounded-xl border ${
+                    isDark ? 'border-dark-800 bg-dark-900' : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <EmptyIcon className={`w-12 h-12 mx-auto mb-4 ${muted}`} />
+                  <h2
+                    className={`text-xl font-semibold mb-2 ${
+                      isDark ? 'text-white' : 'text-gray-900'
+                    }`}
+                  >
+                    {config.emptyTitle ?? 'No products'}
+                  </h2>
+                  <p className={`${muted} mb-6 max-w-md mx-auto`}>
+                    {config.emptyMessage ?? 'Try another category or search.'}
+                  </p>
+                  <Link href={appPath('/')} className="btn-primary inline-flex px-6 py-2">
+                    Browse all products
+                  </Link>
+                </div>
+              )
+            ) : (
+              <ShopCatalogListing
+                products={displayedProducts}
+                page={safePage}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </div>
 
-          <p className={`mt-10 text-center text-xs ${muted}`}>
-            {APP_NAME} — curated digital products for professionals
-          </p>
+          {showFooterTagline ? (
+            <p className={`mt-10 text-center text-xs ${muted}`}>
+              {APP_NAME} — curated digital products for professionals
+            </p>
+          ) : null}
         </main>
       </div>
     </div>

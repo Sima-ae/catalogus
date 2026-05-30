@@ -45,7 +45,6 @@ import SidebarCategories from '@/components/layout/SidebarCategories'
 import {
   HomeIcon,
   CubeIcon,
-  StarIcon,
   UserGroupIcon,
   ShoppingBagIcon,
   EnvelopeIcon,
@@ -57,7 +56,6 @@ import {
 const navigation = [
   { name: 'Home', href: '/', icon: HomeIcon },
   { name: 'New', href: '/new', icon: CubeIcon },
-  { name: 'Most Popular', href: '/popular', icon: StarIcon },
 ]
 
 const bottomNavigationBase = [
@@ -175,7 +173,7 @@ export default function Sidebar({
         </div>
 
         <div>
-          <ShopCatalogBadge label="Catalogus 2026" />
+          <ShopCatalogBadge label="Catalog 2026" />
         </div>
       </div>
 

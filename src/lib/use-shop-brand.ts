@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
 import { appPath, isAppPath } from '@/lib/paths'
 
-const CATALOG_PATHS = ['/', '/new', '/popular']
+const CATALOG_PATHS = ['/', '/new']
 
 function isCatalogPath(pathname: string | null) {
   if (!pathname) return false

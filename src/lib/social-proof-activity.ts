@@ -232,9 +232,9 @@ function allBuyerNameCount(): number {
   )
 }
 
-const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v5'
+const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v6'
 const PREVIOUS_DAYS_KEY = 'catalogus-social-proof-previous-days'
-const DEFAULT_COUNT = 8
+const DEFAULT_COUNT = 12
 /** Remember a few recent days for soft de-dupe; older lines can return anytime. */
 const MAX_RECENT_DAYS_MEMORY = 7
 
@@ -492,6 +492,20 @@ function daysBetweenKeys(older: string, newer: string): number {
   return Math.max(1, Math.round(diff / (24 * 60 * 60_000)))
 }
 
+function validProductNameSet(productNames: string[]): Set<string> {
+  return new Set(productNames.map((n) => n.trim().toLowerCase()).filter(Boolean))
+}
+
+function cacheMatchesCatalog(
+  notifications: StoredSocialProofNotification[],
+  validNames: Set<string>
+): boolean {
+  if (validNames.size === 0) return false
+  return notifications.every((n) =>
+    validNames.has(n.productName.trim().toLowerCase())
+  )
+}
+
 /**
  * Load or create today’s feed (new random set each calendar day, all year).
  * Names and lines can reappear after a few days — never a fixed loop.
@@ -501,8 +515,13 @@ export function loadOrCreateDailySocialProofFeed(
 ): StoredSocialProofNotification[] {
   const today = getLocalDateKey()
   const cached = readDailyCache()
+  const validNames = validProductNameSet(productNames)
 
-  if (cached?.date === today && cached.notifications.length > 0) {
+  if (
+    cached?.date === today &&
+    cached.notifications.length > 0 &&
+    cacheMatchesCatalog(cached.notifications, validNames)
+  ) {
     return cached.notifications
   }
 

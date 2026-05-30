@@ -314,10 +314,7 @@ export default function AdminProductsPage() {
     filtered.length > 0 && filtered.every((p) => selected.has(p.id))
 
   return (
-    <AdminPageShell
-      title="Products"
-      description="Manage your full catalog. Use bulk actions to publish drafts or update many products at once."
-    >
+    <AdminPageShell title="Products">
       <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
         {stats.draft > 0 && (
           <button

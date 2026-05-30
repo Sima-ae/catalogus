@@ -17,10 +17,8 @@ function categoryHref(pathname: string, category: string): string {
   const onCatalog =
     isAppPath(pathname, '/') ||
     isAppPath(pathname, '/new') ||
-    isAppPath(pathname, '/popular') ||
     pathname === '/' ||
-    pathname === '/new' ||
-    pathname === '/popular'
+    pathname === '/new'
 
   const base = onCatalog ? pathname.split('?')[0] : appPath('/')
   if (category === 'All') return base
