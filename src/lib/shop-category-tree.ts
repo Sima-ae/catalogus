@@ -130,3 +130,14 @@ export function getCategoryAndDescendantNames(
   if (!cat) return [name]
   return getCategoryAndDescendantIds(rows, cat).names
 }
+
+/** Parent category name when `name` is a subcategory (null if top-level or unknown). */
+export function findParentCategoryName(
+  rows: CategoryTreeRow[],
+  name: string
+): string | null {
+  const cat = findCategoryByName(rows, name)
+  if (!cat?.parent_id) return null
+  const parent = rows.find((row) => row.id === cat.parent_id)
+  return parent?.name?.trim() || null
+}

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { appPath } from '@/lib/paths'
 import { buildShopCategoryMenu, type CategoryRow } from '@/lib/shop-category-menu'
 
-/** Category labels for shop sidebar and filters — synced from the `categories` table only. */
+/** Top-level category labels for shop sidebar and filters. */
 export function useShopCategoryList() {
   const [categories, setCategories] = useState<string[]>(['All'])
 
