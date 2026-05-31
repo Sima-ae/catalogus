@@ -18,7 +18,8 @@ export function buildProductInputFromImport(
   translated: TranslatedProductText,
   categoryName: string,
   brandName: string | null,
-  thumbTitle?: string | null
+  thumbTitle?: string | null,
+  catalogCategoryId?: string | null
 ): ProductInput {
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
   const uniqueImages = cleanProductGalleryUrls(album.images)
@@ -50,6 +51,7 @@ export function buildProductInputFromImport(
     image_url: mainImage,
     gallery_images: gallery.length ? gallery : null,
     category: categoryName,
+    category_id: catalogCategoryId?.trim() || null,
     brand: brandName,
     available_sizes: attrs.sizes,
     available_colors: attrs.colors,

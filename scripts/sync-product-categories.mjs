@@ -46,14 +46,33 @@ const STEPS = [
   `ALTER TABLE products
    ADD KEY IF NOT EXISTS idx_products_category_id (category_id)`,
   `UPDATE products p
-   INNER JOIN categories c ON c.name = p.category AND c.active = 1
+   INNER JOIN import_job_items i ON i.product_id = p.id AND i.status IN ('imported', 'skipped')
+   INNER JOIN import_jobs j ON j.id = i.job_id
+   INNER JOIN import_sources s ON s.id = j.source_id AND s.catalog_category_id IS NOT NULL
+   INNER JOIN categories c ON c.id = s.catalog_category_id AND c.active = 1
    SET p.category_id = c.id, p.category = c.name
-   WHERE p.category_id IS NULL OR p.category_id <> c.id`,
+   WHERE p.source_album_id IS NOT NULL`,
+  `UPDATE products p
+   INNER JOIN categories c ON c.active = 1 AND c.name = p.category
+     AND c.id = (
+       SELECT c2.id FROM categories c2
+       WHERE c2.active = 1 AND c2.name = p.category
+       ORDER BY CASE WHEN c2.parent_id IS NULL THEN 0 ELSE 1 END, c2.name ASC
+       LIMIT 1
+     )
+   SET p.category_id = c.id, p.category = c.name
+   WHERE p.category_id IS NULL AND TRIM(IFNULL(p.category, '')) <> ''`,
   `UPDATE products p
    INNER JOIN categories c
      ON c.slug = LOWER(REPLACE(TRIM(p.category), ' ', '-')) AND c.active = 1
+     AND c.id = (
+       SELECT c2.id FROM categories c2
+       WHERE c2.active = 1 AND c2.slug = LOWER(REPLACE(TRIM(p.category), ' ', '-'))
+       ORDER BY CASE WHEN c2.parent_id IS NULL THEN 0 ELSE 1 END, c2.name ASC
+       LIMIT 1
+     )
    SET p.category_id = c.id, p.category = c.name
-   WHERE p.category_id IS NULL`,
+   WHERE p.category_id IS NULL AND TRIM(IFNULL(p.category, '')) <> ''`,
 ]
 
 async function main() {

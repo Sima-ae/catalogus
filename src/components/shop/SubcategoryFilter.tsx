@@ -12,10 +12,10 @@ export default function SubcategoryFilter({
   selectedCategory,
   centered = false,
 }: SubcategoryFilterProps) {
-  const { selectedSubcategory, setSelectedSubcategory, subcategoryOptions, hasSubcategories } =
+  const { selectedSubcategory, setSelectedSubcategory, subcategoryOptions, hasSubcategories, loadingSubcategories } =
     useShopSubcategory(selectedCategory)
 
-  if (!hasSubcategories || selectedCategory === 'All') return null
+  if (loadingSubcategories || !hasSubcategories || selectedCategory === 'All') return null
 
   const items = ['All', ...subcategoryOptions]
 

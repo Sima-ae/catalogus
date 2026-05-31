@@ -8,7 +8,7 @@ import {
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
-import { resolveShopCategoryFilterNames } from '@/lib/shop-category-tree'
+import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 import { serializeProductRow } from '@/lib/product-serialize'
 import {
   brandsTableExists,
@@ -35,6 +35,8 @@ export type ProductInput = {
   image_url: string
   gallery_images?: string[] | null
   category: string
+  /** When set, links to this categories row (avoids ambiguous name matches). */
+  category_id?: string | null
   brand?: string | null
   tags?: string[] | null
   features?: string[] | null
@@ -231,24 +233,107 @@ async function fetchProductRowsByIds(ids: string[]): Promise<Record<string, unkn
 
 /** Resolve category label to a row in the categories table (required for products). */
 export async function resolveCategoryByName(
-  categoryName: string
+  categoryName: string,
+  options?: { parentId?: string | null }
 ): Promise<{ id: string; name: string } | null> {
   const trimmed = categoryName.trim()
   if (!trimmed) return null
 
+  if (options?.parentId !== undefined) {
+    const rows = await queryDb<{ id: string; name: string }[]>(
+      `SELECT id, name FROM categories
+       WHERE active = 1 AND parent_id <=> ? AND (name = ? OR slug = ?)
+       LIMIT 1`,
+      [options.parentId, trimmed, slugifyCategory(trimmed)]
+    )
+    return rows[0] ?? null
+  }
+
   const rows = await queryDb<{ id: string; name: string }[]>(
     `SELECT id, name FROM categories
      WHERE active = 1 AND (name = ? OR slug = ?)
+     ORDER BY CASE WHEN parent_id IS NULL THEN 0 ELSE 1 END, name ASC
      LIMIT 1`,
     [trimmed, slugifyCategory(trimmed)]
   )
   return rows[0] ?? null
 }
 
-async function resolveProductCategoryInput(categoryName: string) {
+export async function resolveCategoryById(
+  categoryId: string
+): Promise<{ id: string; name: string } | null> {
+  const id = categoryId.trim()
+  if (!id) return null
+  const rows = await queryDb<{ id: string; name: string }[]>(
+    `SELECT id, name FROM categories WHERE active = 1 AND id = ? LIMIT 1`,
+    [id]
+  )
+  return rows[0] ?? null
+}
+
+async function resolveProductCategoryInput(
+  categoryName: string,
+  categoryId?: string | null
+) {
+  if (categoryId?.trim()) {
+    const byId = await resolveCategoryById(categoryId)
+    if (byId) return byId
+  }
   const resolved = await resolveCategoryByName(categoryName)
   if (!resolved) throw new UnknownCategoryError(categoryName.trim())
   return resolved
+}
+
+export type ShopSubcategoryOption = {
+  id: string
+  name: string
+  productCount: number
+}
+
+/** Active subcategories under a parent that have at least one active product. */
+export async function listShopSubcategoriesWithProducts(
+  parentCategoryName: string,
+  brandName?: string
+): Promise<ShopSubcategoryOption[]> {
+  const parentRows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM categories
+     WHERE active = 1 AND (name = ? OR slug = ?)
+     LIMIT 1`,
+    [parentCategoryName.trim(), slugifyCategory(parentCategoryName)]
+  )
+  const parentId = parentRows[0]?.id
+  if (!parentId) return []
+
+  const brand = brandName?.trim()
+  const brandClause =
+    brand && brand !== 'All'
+      ? `AND (
+           LOWER(TRIM(p.brand)) = LOWER(?)
+           OR EXISTS (
+             SELECT 1 FROM brands b
+             WHERE b.active = 1 AND b.id = p.brand_id AND LOWER(TRIM(b.name)) = LOWER(?)
+           )
+         )`
+      : ''
+  const brandParams = brand && brand !== 'All' ? [brand, brand] : []
+
+  const rows = await queryDb<{ id: string; name: string; productCount: number }[]>(
+    `SELECT c.id, c.name, COUNT(DISTINCT p.id) AS productCount
+     FROM categories c
+     INNER JOIN products p ON p.status = 'active' AND p.category_id = c.id
+     ${brandClause}
+     WHERE c.parent_id = ? AND c.active = 1
+     GROUP BY c.id, c.name
+     HAVING productCount > 0
+     ORDER BY c.name ASC`,
+    [...brandParams, parentId]
+  )
+
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    productCount: Number(row.productCount ?? 0),
+  }))
 }
 
 async function fetchProductRow(id: string) {
@@ -261,7 +346,7 @@ async function fetchProductRow(id: string) {
 }
 
 export async function insertProduct(input: ProductInput) {
-  const category = await resolveProductCategoryInput(input.category)
+  const category = await resolveProductCategoryInput(input.category, input.category_id)
   const brand =
     (await brandsTableExists()) ? await resolveProductBrandInput(input.brand) : { name: null, id: undefined }
   const sku = requireProductSku(input.sku)
@@ -339,8 +424,11 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   let brandId: string | undefined
   let brandName: string | null | undefined
 
-  if (input.category !== undefined) {
-    const resolved = await resolveProductCategoryInput(input.category)
+  if (input.category !== undefined || input.category_id !== undefined) {
+    const resolved = await resolveProductCategoryInput(
+      input.category ?? '',
+      input.category_id
+    )
     categoryName = resolved.name
     categoryId = resolved.id
   }
@@ -463,16 +551,32 @@ export async function listActiveProductsPaginated(
 ): Promise<CatalogProductsPage> {
   const select = await productSelectSql()
   const hasBrandsTable = await brandsTableExists()
+  const limit = query.limit
   const categories = await loadActiveCategories()
-  const categoryNames = resolveShopCategoryFilterNames(categories, {
+  const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
   })
+
+  if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
+    return {
+      items: [],
+      total: 0,
+      page: query.page,
+      pageSize: limit,
+      totalPages: 1,
+    }
+  }
+
   const { whereSql, params } = buildActiveCatalogFilters(
-    { ...query, categoryNames },
+    {
+      ...query,
+      categoryIds: categoryFilter?.categoryIds,
+      legacyCategoryNames: categoryFilter?.legacyNames,
+      strictCategoryIdOnly: categoryFilter?.strictIdOnly,
+    },
     { includeBrandJoin: hasBrandsTable }
   )
-  const limit = query.limit
   const offset = (query.page - 1) * limit
   const fromIndex = select.search(/\bFROM\b/i)
   const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'

@@ -11,8 +11,11 @@ export type CatalogProductsQuery = {
   category?: string
   /** Narrow a parent category to one subcategory (e.g. SOCCER → SHIRTS). */
   subcategory?: string
-  /** Resolved server-side — parent + descendants or single subcategory. */
-  categoryNames?: string[]
+  /** Resolved server-side — category ids for precise parent/child filtering. */
+  categoryIds?: string[]
+  /** Legacy product names when category_id is missing (not used for strict subcategory filters). */
+  legacyCategoryNames?: string[]
+  strictCategoryIdOnly?: boolean
   brand?: string
   search?: string
   mode?: CatalogMode
@@ -94,14 +97,27 @@ export function buildActiveCatalogFilters(
     params.push(toMysqlDatetime(start), toMysqlDatetime(end))
   }
 
-  const categoryNames =
-    query.categoryNames?.filter(Boolean) ??
-    (query.category && query.category !== 'All' ? [query.category] : undefined)
+  const categoryIds = query.categoryIds?.filter(Boolean)
 
-  if (categoryNames?.length) {
-    const placeholders = categoryNames.map(() => '?').join(', ')
-    where.push(`(p.category IN (${placeholders}) OR c.name IN (${placeholders}))`)
-    params.push(...categoryNames, ...categoryNames)
+  if (categoryIds?.length) {
+    const idPlaceholders = categoryIds.map(() => '?').join(', ')
+    const idClause = `(p.category_id IN (${idPlaceholders}) OR c.id IN (${idPlaceholders}))`
+    params.push(...categoryIds, ...categoryIds)
+
+    if (!query.strictCategoryIdOnly && query.legacyCategoryNames?.length) {
+      const legacyNames = query.legacyCategoryNames.filter(Boolean)
+      if (legacyNames.length) {
+        const namePlaceholders = legacyNames.map(() => '?').join(', ')
+        where.push(
+          `(${idClause} OR (p.category_id IS NULL AND p.category IN (${namePlaceholders})))`
+        )
+        params.push(...legacyNames)
+      } else {
+        where.push(idClause)
+      }
+    } else {
+      where.push(idClause)
+    }
   }
 
   if (query.brand && query.brand !== 'All') {

@@ -90,7 +90,8 @@ async function buildImportInput(
     translated,
     source.category_name!,
     source.brand_name ?? null,
-    item.album_title ?? album.title
+    item.album_title ?? album.title,
+    source.catalog_category_id
   )
 
   if (!input.image_url) {

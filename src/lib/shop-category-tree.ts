@@ -12,10 +12,22 @@ function isActiveRow(row: CategoryTreeRow): boolean {
 /** Find a category row by display name (case-insensitive). */
 export function findCategoryByName(
   rows: CategoryTreeRow[],
-  name: string
+  name: string,
+  options?: { parentId?: string | null; topLevelOnly?: boolean }
 ): CategoryTreeRow | undefined {
   const key = normalizeName(name)
-  return rows.find((row) => normalizeName(row.name) === key)
+  const matches = rows.filter(
+    (row) => normalizeName(row.name) === key && isActiveRow(row)
+  )
+  if (!matches.length) return undefined
+
+  if (options?.parentId !== undefined) {
+    return matches.find((row) => row.parent_id === options.parentId)
+  }
+  if (options?.topLevelOnly) {
+    return matches.find((row) => !row.parent_id)
+  }
+  return matches.find((row) => !row.parent_id) ?? matches[0]
 }
 
 /** Direct children of a parent category (by name). */
@@ -34,25 +46,23 @@ export function categoryHasChildren(rows: CategoryTreeRow[], name: string): bool
   return getDirectChildCategories(rows, name).length > 0
 }
 
-/** Parent category name plus all descendant category names. */
-export function getCategoryAndDescendantNames(
+function getCategoryAndDescendantIds(
   rows: CategoryTreeRow[],
-  name: string
-): string[] {
-  const cat = findCategoryByName(rows, name)
-  if (!cat) return [name]
-
+  cat: CategoryTreeRow
+): { ids: string[]; names: string[] } {
+  const ids: string[] = [cat.id]
   const names: string[] = [cat.name]
   const walk = (parentId: string) => {
     for (const row of rows) {
       if (row.parent_id === parentId && isActiveRow(row)) {
+        ids.push(row.id)
         names.push(row.name)
         walk(row.id)
       }
     }
   }
   walk(cat.id)
-  return names
+  return { ids, names }
 }
 
 export type ShopCategoryFilterInput = {
@@ -60,18 +70,63 @@ export type ShopCategoryFilterInput = {
   subcategory?: string
 }
 
-/** Resolve which category names a shop filter should match. */
-export function resolveShopCategoryFilterNames(
+export type ShopCategoryFilterResult = {
+  categoryIds: string[]
+  /** For legacy rows without category_id — only used when strictIdOnly is false. */
+  legacyNames: string[]
+  /** When true, match category_id only (e.g. SOCCER › SHOES vs top-level SHOES). */
+  strictIdOnly: boolean
+}
+
+/** Resolve which categories a shop filter should match (by id, not ambiguous name). */
+export function resolveShopCategoryFilter(
   rows: CategoryTreeRow[],
   input: ShopCategoryFilterInput
-): string[] | undefined {
+): ShopCategoryFilterResult | undefined {
   const category = input.category?.trim()
   if (!category || category === 'All') return undefined
 
   const subcategory = input.subcategory?.trim()
+
   if (subcategory && subcategory !== 'All') {
-    return [subcategory]
+    const parent = findCategoryByName(rows, category)
+    if (!parent) return { categoryIds: [], legacyNames: [], strictIdOnly: true }
+
+    const child = rows.find(
+      (row) =>
+        row.parent_id === parent.id &&
+        normalizeName(row.name) === normalizeName(subcategory) &&
+        isActiveRow(row)
+    )
+    if (!child) return { categoryIds: [], legacyNames: [], strictIdOnly: true }
+    return { categoryIds: [child.id], legacyNames: [], strictIdOnly: true }
   }
 
-  return getCategoryAndDescendantNames(rows, category)
+  const anchor =
+    findCategoryByName(rows, category, { topLevelOnly: true }) ??
+    findCategoryByName(rows, category)
+  if (!anchor) return undefined
+
+  const { ids, names } = getCategoryAndDescendantIds(rows, anchor)
+  return { categoryIds: ids, legacyNames: names, strictIdOnly: false }
+}
+
+/** @deprecated Use resolveShopCategoryFilter — kept for callers that only need names. */
+export function resolveShopCategoryFilterNames(
+  rows: CategoryTreeRow[],
+  input: ShopCategoryFilterInput
+): string[] | undefined {
+  const result = resolveShopCategoryFilter(rows, input)
+  if (!result?.categoryIds.length) return undefined
+  return result.legacyNames.length ? result.legacyNames : undefined
+}
+
+export function getCategoryAndDescendantNames(
+  rows: CategoryTreeRow[],
+  name: string
+): string[] {
+  const cat =
+    findCategoryByName(rows, name, { topLevelOnly: true }) ?? findCategoryByName(rows, name)
+  if (!cat) return [name]
+  return getCategoryAndDescendantIds(rows, cat).names
 }

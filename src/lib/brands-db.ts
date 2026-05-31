@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
 import { loadActiveCategories } from '@/lib/categories-persistence'
-import { resolveShopCategoryFilterNames } from '@/lib/shop-category-tree'
+import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 
 export class UnknownBrandError extends Error {
   constructor(name: string) {
@@ -34,13 +34,19 @@ export async function listBrands(
 
   if (activeOnly && category && category !== 'All' && hasLinks) {
     const categories = await loadActiveCategories()
-    const filterNames = resolveShopCategoryFilterNames(categories, {
+    const categoryFilter = resolveShopCategoryFilter(categories, {
       category,
       subcategory,
-    }) ?? [category]
+    })
+    const filterIds = categoryFilter?.categoryIds ?? []
 
-    const placeholders = filterNames.map(() => '?').join(', ')
-    const slugParams = filterNames.map((name) => slugifyCategory(name))
+    if (!filterIds.length) {
+      return queryDb<Record<string, unknown>[]>(
+        `SELECT * FROM brands WHERE active = 1 AND 1 = 0`
+      )
+    }
+
+    const placeholders = filterIds.map(() => '?').join(', ')
 
     return queryDb<Record<string, unknown>[]>(
       `SELECT DISTINCT b.*
@@ -51,11 +57,11 @@ export async function listBrands(
            OR EXISTS (
              SELECT 1 FROM brand_categories bc
              INNER JOIN categories c ON c.id = bc.category_id AND c.active = 1
-             WHERE bc.brand_id = b.id AND (c.name IN (${placeholders}) OR c.slug IN (${placeholders}))
+             WHERE bc.brand_id = b.id AND c.id IN (${placeholders})
            )
          )
        ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
-      [...filterNames, ...slugParams]
+      filterIds
     )
   }
 

@@ -15,6 +15,8 @@ type Props = {
   alignGroup?: 'center' | 'full'
 }
 
+const HORIZONTAL_DRAG_THRESHOLD = 8
+
 export default function FilterPillsScroll({
   items,
   selected,
@@ -24,30 +26,18 @@ export default function FilterPillsScroll({
   centered = false,
   alignGroup = 'full',
 }: Props) {
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
-  const [scrollLeft, setScrollLeft] = useState(0)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef({
+    active: false,
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    startScrollLeft: 0,
+    horizontal: false,
+  })
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollContainerRef.current) return
-    setIsDragging(true)
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
-    setScrollLeft(scrollContainerRef.current.scrollLeft)
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollContainerRef.current) return
-    e.preventDefault()
-    const x = e.pageX - scrollContainerRef.current.offsetLeft
-    const walk = (x - startX) * 2
-    scrollContainerRef.current.scrollLeft = scrollLeft - walk
-  }
-
-  const handleMouseUp = () => setIsDragging(false)
-  const handleMouseLeave = () => setIsDragging(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   const scrollStep = () => {
     const el = scrollContainerRef.current
@@ -63,26 +53,78 @@ export default function FilterPillsScroll({
     scrollContainerRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' })
   }
 
+  /** Scroll the active pill into view horizontally — never scroll the page vertically. */
   useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
     const active = el.querySelector<HTMLElement>('[aria-selected="true"]')
-    active?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+    if (!active) return
+
+    const targetLeft =
+      active.offsetLeft - el.clientWidth / 2 + active.clientWidth / 2
+    const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth)
+    el.scrollTo({
+      left: Math.min(maxLeft, Math.max(0, targetLeft)),
+      behavior: 'smooth',
+    })
   }, [selected, items])
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!scrollContainerRef.current) return
-    const touch = e.touches[0]
-    setStartX(touch.pageX - scrollContainerRef.current.offsetLeft)
-    setScrollLeft(scrollContainerRef.current.scrollLeft)
+  const endDrag = () => {
+    if (!dragRef.current.active) return
+    dragRef.current.active = false
+    dragRef.current.horizontal = false
+    dragRef.current.pointerId = -1
+    setIsDragging(false)
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     if (!scrollContainerRef.current) return
-    const touch = e.touches[0]
-    const x = touch.pageX - scrollContainerRef.current.offsetLeft
-    const walk = (x - startX) * 2
-    scrollContainerRef.current.scrollLeft = scrollLeft - walk
+    dragRef.current = {
+      active: true,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: scrollContainerRef.current.scrollLeft,
+      horizontal: false,
+    }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag.active || e.pointerId !== drag.pointerId || !scrollContainerRef.current) return
+
+    const deltaX = e.clientX - drag.startX
+    const deltaY = e.clientY - drag.startY
+
+    if (!drag.horizontal) {
+      if (Math.abs(deltaX) < HORIZONTAL_DRAG_THRESHOLD && Math.abs(deltaY) < HORIZONTAL_DRAG_THRESHOLD) {
+        return
+      }
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        endDrag()
+        return
+      }
+      drag.horizontal = true
+      setIsDragging(true)
+      e.currentTarget.setPointerCapture(e.pointerId)
+    }
+
+    e.preventDefault()
+    scrollContainerRef.current.scrollLeft = drag.startScrollLeft - deltaX
+  }
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== dragRef.current.pointerId) return
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+    endDrag()
+  }
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== dragRef.current.pointerId) return
+    endDrag()
   }
 
   const pillClass = (item: string) => {
@@ -114,7 +156,7 @@ export default function FilterPillsScroll({
   const pills = (
     <div
       ref={scrollContainerRef}
-      className={`filter-pills-scroll flex flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth ${
+      className={`filter-pills-scroll flex flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth touch-pan-y ${
         centerGroup
           ? 'w-max max-w-full justify-center gap-2 px-1 py-1.5'
           : centered
@@ -124,17 +166,16 @@ export default function FilterPillsScroll({
       style={{
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
-        cursor: isDragging ? 'grabbing' : 'grab',
+        cursor: isDragging ? 'grabbing' : undefined,
         WebkitOverflowScrolling: 'touch',
       }}
       role="tablist"
       aria-label={ariaLabel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       {items.map((item) => (
         <button
