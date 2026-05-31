@@ -29,6 +29,7 @@ import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
+import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive'
 
@@ -127,6 +128,7 @@ export default function AdminProductsPage() {
   const t = useAppTheme()
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
+  const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -142,22 +144,39 @@ export default function AdminProductsPage() {
     setLoading(true)
     setError('')
 
-    fetch(appPath('/api/products'), {
-      headers: adminAuthHeaders(user),
-      cache: 'no-store',
-    })
-      .then(async (r) => {
-        const data = await parseJsonResponse<{ error?: string } | Product[]>(r)
-        if (!r.ok) {
-          throw new Error(!Array.isArray(data) && data.error ? data.error : 'Failed to load products')
+    const headers = adminAuthHeaders(user)
+
+    Promise.all([
+      fetch(appPath('/api/products'), { headers, cache: 'no-store' }),
+      fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
+    ])
+      .then(async ([listRes, statsRes]) => {
+        const listData = await parseJsonResponse<{ error?: string } | Product[]>(listRes)
+        if (!listRes.ok) {
+          throw new Error(
+            !Array.isArray(listData) && listData.error ? listData.error : 'Failed to load products'
+          )
         }
-        if (!Array.isArray(data)) throw new Error('Invalid response')
-        setProducts(data)
+        if (!Array.isArray(listData)) throw new Error('Invalid response')
+        setProducts(listData)
+
+        if (statsRes.ok) {
+          const statsData = await parseJsonResponse<
+            { error?: string; dashboardStats?: ProductDashboardStats } | Product[]
+          >(statsRes)
+          if (isCatalogProductsPage(statsData)) {
+            setProductStats(statsData.dashboardStats ?? null)
+          }
+        } else {
+          setProductStats(null)
+        }
+
         setSelected(new Set())
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : 'Failed to load')
         setProducts([])
+        setProductStats(null)
       })
       .finally(() => setLoading(false))
   }, [user])
@@ -171,12 +190,20 @@ export default function AdminProductsPage() {
   }, [search, statusFilter, pageSize])
 
   const stats = useMemo(() => {
+    if (productStats) {
+      return {
+        total: productStats.total,
+        active: productStats.active,
+        draft: productStats.draft,
+        inactive: productStats.inactive,
+      }
+    }
     const total = products.length
     const active = products.filter((p) => p.status === 'active').length
     const draft = products.filter((p) => p.status === 'draft').length
     const inactive = products.filter((p) => p.status === 'inactive').length
     return { total, active, draft, inactive }
-  }, [products])
+  }, [productStats, products])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

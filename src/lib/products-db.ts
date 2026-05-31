@@ -163,17 +163,18 @@ async function productSelectSql() {
   const hasCategoryId = await productsHaveCategoryIdColumn()
   const hasBrandsTable = await brandsTableExists()
   const hasBrandId = hasBrandsTable && (await productsHaveBrandIdColumn())
+  /** Prefer FK when set; name match only for legacy rows without category_id / brand_id. */
   const categoryJoin = hasCategoryId
     ? `LEFT JOIN categories c ON c.active = 1 AND (
          (p.category_id IS NOT NULL AND c.id = p.category_id)
-         OR (c.name = p.category)
+         OR (p.category_id IS NULL AND c.name = p.category)
        )`
     : `LEFT JOIN categories c ON c.active = 1 AND c.name = p.category`
   const brandJoin = hasBrandsTable
     ? hasBrandId
       ? `LEFT JOIN brands b ON b.active = 1 AND (
            (p.brand_id IS NOT NULL AND b.id = p.brand_id)
-           OR (b.name = p.brand)
+           OR (p.brand_id IS NULL AND b.name = p.brand)
          )`
       : `LEFT JOIN brands b ON b.active = 1 AND b.name = p.brand`
     : ''
@@ -195,6 +196,35 @@ async function productSelectSql() {
     ${categoryJoin}
     ${brandJoin}
   `
+}
+
+/** One row per product — guards against any residual join fan-out. */
+function dedupeProductRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const seen = new Set<string>()
+  const result: Record<string, unknown>[] = []
+  for (const row of rows) {
+    const id = String(row.id ?? '')
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    result.push(row)
+  }
+  return result
+}
+
+function serializeProductRows(rows: Record<string, unknown>[]) {
+  return dedupeProductRows(rows).map(serializeProductRow)
+}
+
+async function fetchProductRowsByIds(ids: string[]): Promise<Record<string, unknown>[]> {
+  if (!ids.length) return []
+  const select = await productSelectSql()
+  const placeholders = ids.map(() => '?').join(', ')
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `${select} WHERE p.id IN (${placeholders})`,
+    ids
+  )
+  const byId = new Map(rows.map((row) => [String(row.id ?? ''), row]))
+  return ids.map((id) => byId.get(id)).filter(Boolean) as Record<string, unknown>[]
 }
 
 /** Resolve category label to a row in the categories table (required for products). */
@@ -413,7 +443,7 @@ export async function listProducts() {
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} ORDER BY p.created_at DESC`
   )
-  return rows.map(serializeProductRow)
+  return serializeProductRows(rows)
 }
 
 /** Active products only — public shop catalog. */
@@ -422,7 +452,7 @@ export async function listActiveProducts() {
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE p.status = 'active' ORDER BY p.created_at DESC`
   )
-  return rows.map(serializeProductRow)
+  return serializeProductRows(rows)
 }
 
 /** Paginated active catalog — filters applied in SQL for fast first paint. */
@@ -445,13 +475,15 @@ export async function listActiveProductsPaginated(
   )
 
   const total = Number(countRows[0]?.total ?? 0)
-  const rows = await queryDb<Record<string, unknown>[]>(
-    `${select} ${whereSql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
+
+  const idRows = await queryDb<{ id: string }[]>(
+    `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   )
+  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
-    items: rows.map(serializeProductRow) as unknown as CatalogProductsPage['items'],
+    items: serializeProductRows(rows) as unknown as CatalogProductsPage['items'],
     total,
     page: query.page,
     pageSize: limit,
@@ -464,7 +496,6 @@ export async function listProductsPaginated(
   page: number,
   limit: number
 ): Promise<CatalogProductsPage> {
-  const select = await productSelectSql()
   const safeLimit = Math.min(120, Math.max(1, limit))
   const safePage = Math.max(1, page)
   const offset = (safePage - 1) * safeLimit
@@ -474,13 +505,14 @@ export async function listProductsPaginated(
   )
   const total = Number(countRows[0]?.total ?? 0)
 
-  const rows = await queryDb<Record<string, unknown>[]>(
-    `${select} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
+  const idRows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM products ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [safeLimit, offset]
   )
+  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
-    items: rows.map(serializeProductRow) as unknown as CatalogProductsPage['items'],
+    items: serializeProductRows(rows) as unknown as CatalogProductsPage['items'],
     total,
     page: safePage,
     pageSize: safeLimit,
@@ -537,14 +569,14 @@ export async function listProductsForSeller(sellerId: string, sellerName: string
        ORDER BY p.created_at DESC`,
       [sellerId, name]
     )
-    return rows.map(serializeProductRow)
+    return serializeProductRows(rows)
   }
 
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE LOWER(TRIM(p.author)) = LOWER(TRIM(?)) ORDER BY p.created_at DESC`,
     [name]
   )
-  return rows.map(serializeProductRow)
+  return serializeProductRows(rows)
 }
 
 /** Draft products created by Yupoo import (for admin review queue). */
@@ -557,7 +589,7 @@ export async function listDraftImportProducts(limit = 100) {
      LIMIT ?`,
     [limit]
   )
-  return rows.map(serializeProductRow)
+  return serializeProductRows(rows)
 }
 
 export async function getProductById(id: string) {
