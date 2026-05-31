@@ -5,7 +5,10 @@ import { appPath } from '@/lib/paths'
 import { buildShopBrandMenu, type BrandRow } from '@/lib/shop-brand-menu'
 
 /** Brand labels for shop filters — optional category narrows linked brands. */
-export function useShopBrandList(selectedCategory: string = 'All') {
+export function useShopBrandList(
+  selectedCategory: string = 'All',
+  selectedSubcategory: string = 'All'
+) {
   const [brands, setBrands] = useState<string[]>(['All'])
 
   useEffect(() => {
@@ -13,6 +16,9 @@ export function useShopBrandList(selectedCategory: string = 'All') {
     const params = new URLSearchParams()
     if (selectedCategory && selectedCategory !== 'All') {
       params.set('category', selectedCategory)
+    }
+    if (selectedSubcategory && selectedSubcategory !== 'All') {
+      params.set('subcategory', selectedSubcategory)
     }
     const qs = params.toString()
     const url = qs ? `${appPath('/api/brands')}?${qs}` : appPath('/api/brands')
@@ -29,7 +35,7 @@ export function useShopBrandList(selectedCategory: string = 'All') {
     return () => {
       cancelled = true
     }
-  }, [selectedCategory])
+  }, [selectedCategory, selectedSubcategory])
 
   return useMemo(() => brands, [brands])
 }

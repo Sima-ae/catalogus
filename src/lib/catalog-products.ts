@@ -9,6 +9,10 @@ export type CatalogProductsQuery = {
   page: number
   limit: number
   category?: string
+  /** Narrow a parent category to one subcategory (e.g. SOCCER → SHIRTS). */
+  subcategory?: string
+  /** Resolved server-side — parent + descendants or single subcategory. */
+  categoryNames?: string[]
   brand?: string
   search?: string
   mode?: CatalogMode
@@ -51,13 +55,14 @@ export function parseCatalogProductsQuery(
   )
 
   const category = searchParams.get('category')?.trim() || undefined
+  const subcategory = searchParams.get('subcategory')?.trim() || undefined
   const brand = searchParams.get('brand')?.trim() || undefined
   const search = searchParams.get('search')?.trim() || undefined
   const modeRaw = searchParams.get('mode')?.trim()
   const mode: CatalogMode | undefined =
     modeRaw === 'new' || modeRaw === 'all' ? modeRaw : undefined
 
-  return { page, limit, category, brand, search, mode }
+  return { page, limit, category, subcategory, brand, search, mode }
 }
 
 function toMysqlDatetime(d: Date): string {
@@ -89,9 +94,14 @@ export function buildActiveCatalogFilters(
     params.push(toMysqlDatetime(start), toMysqlDatetime(end))
   }
 
-  if (query.category && query.category !== 'All') {
-    where.push('(p.category = ? OR c.name = ?)')
-    params.push(query.category, query.category)
+  const categoryNames =
+    query.categoryNames?.filter(Boolean) ??
+    (query.category && query.category !== 'All' ? [query.category] : undefined)
+
+  if (categoryNames?.length) {
+    const placeholders = categoryNames.map(() => '?').join(', ')
+    where.push(`(p.category IN (${placeholders}) OR c.name IN (${placeholders}))`)
+    params.push(...categoryNames, ...categoryNames)
   }
 
   if (query.brand && query.brand !== 'All') {
@@ -140,6 +150,9 @@ export function buildCatalogProductsUrl(
   params.set('page', String(query.page))
   params.set('limit', String(query.limit))
   if (query.category && query.category !== 'All') params.set('category', query.category)
+  if (query.subcategory && query.subcategory !== 'All') {
+    params.set('subcategory', query.subcategory)
+  }
   if (query.brand && query.brand !== 'All') params.set('brand', query.brand)
   if (query.search) params.set('search', query.search)
   if (query.mode) params.set('mode', query.mode)

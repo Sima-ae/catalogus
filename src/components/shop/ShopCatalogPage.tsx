@@ -6,6 +6,7 @@ import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
+import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing, {
   CATALOG_PAGE_SIZE,
 } from '@/components/shop/ShopCatalogListing'
@@ -16,6 +17,7 @@ import { appPath } from '@/lib/paths'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSearch } from '@/lib/use-shop-search'
+import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { APP_NAME } from '@/lib/brand'
 import {
   SparklesIcon,
@@ -51,6 +53,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
+  const { selectedSubcategory } = useShopSubcategory(selectedCategory)
   const { selectedBrand, setSelectedBrand } = useShopBrand()
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
   const [loading, setLoading] = useState(true)
@@ -75,7 +78,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const showSocialProof = config.showSocialProof ?? true
   const showFooterTagline = config.showFooterTagline ?? config.mode === 'new'
 
-  const filterSignature = `${selectedCategory}|${selectedBrand}|${debouncedSearch}|${config.mode}`
+  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedBrand}|${debouncedSearch}|${config.mode}`
 
   useEffect(() => {
     let cancelled = false
@@ -99,6 +102,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           page: pageToLoad,
           limit: CATALOG_PAGE_SIZE,
           category: selectedCategory,
+          subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
           brand: selectedBrand,
           search: debouncedSearch || undefined,
           mode: config.mode === 'new' ? 'new' : undefined,
@@ -146,6 +150,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     filterSignature,
     selectedBrand,
     selectedCategory,
+    selectedSubcategory,
     reloadToken,
   ])
 
@@ -189,8 +194,13 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
                 onCategoryChange={setSelectedCategory}
                 centered={config.centerCatalog}
               />
+              <SubcategoryFilter
+                selectedCategory={selectedCategory}
+                centered={config.centerCatalog}
+              />
               <BrandFilter
                 selectedCategory={selectedCategory}
+                selectedSubcategory={selectedSubcategory}
                 selectedBrand={selectedBrand}
                 onBrandChange={setSelectedBrand}
                 centered={config.centerCatalog}

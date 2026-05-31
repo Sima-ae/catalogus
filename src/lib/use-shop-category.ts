@@ -32,9 +32,12 @@ export function useShopCategory() {
       )
       if (category === 'All') {
         params.delete('category')
+        params.delete('subcategory')
         params.delete('brand')
       } else {
         params.set('category', category)
+        params.delete('subcategory')
+        params.delete('brand')
       }
       const qs = params.toString()
       router.push(qs ? `${basePath}?${qs}` : basePath)

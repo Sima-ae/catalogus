@@ -5,11 +5,12 @@ import { getDbErrorMessage } from '@/lib/db-errors'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/** Public read — active brands; optional ?category=CategoryName filters by linked categories. */
+/** Public read — active brands; optional ?category= & ?subcategory= filter by linked categories. */
 export async function GET(request: NextRequest) {
   try {
     const category = request.nextUrl.searchParams.get('category')?.trim() || undefined
-    const rows = await loadActiveBrands(category)
+    const subcategory = request.nextUrl.searchParams.get('subcategory')?.trim() || undefined
+    const rows = await loadActiveBrands(category, subcategory)
     return NextResponse.json(rows)
   } catch (error) {
     console.error('Brands fetch error:', error)

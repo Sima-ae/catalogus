@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
+import { loadActiveCategories } from '@/lib/categories-persistence'
+import { resolveShopCategoryFilterNames } from '@/lib/shop-category-tree'
 
 export class UnknownBrandError extends Error {
   constructor(name: string) {
@@ -21,12 +23,25 @@ export async function brandCategoriesTableExists(): Promise<boolean> {
   }
 }
 
-/** Active brands for shop; optional category name filters linked brands (unlinked brands show everywhere). */
-export async function listBrands(activeOnly = false, categoryName?: string) {
+/** Active brands for shop; optional category filters linked brands (unlinked brands show everywhere). */
+export async function listBrands(
+  activeOnly = false,
+  categoryName?: string,
+  subcategory?: string
+) {
   const category = categoryName?.trim()
   const hasLinks = await brandCategoriesTableExists()
 
   if (activeOnly && category && category !== 'All' && hasLinks) {
+    const categories = await loadActiveCategories()
+    const filterNames = resolveShopCategoryFilterNames(categories, {
+      category,
+      subcategory,
+    }) ?? [category]
+
+    const placeholders = filterNames.map(() => '?').join(', ')
+    const slugParams = filterNames.map((name) => slugifyCategory(name))
+
     return queryDb<Record<string, unknown>[]>(
       `SELECT DISTINCT b.*
        FROM brands b
@@ -36,11 +51,11 @@ export async function listBrands(activeOnly = false, categoryName?: string) {
            OR EXISTS (
              SELECT 1 FROM brand_categories bc
              INNER JOIN categories c ON c.id = bc.category_id AND c.active = 1
-             WHERE bc.brand_id = b.id AND (c.name = ? OR c.slug = ?)
+             WHERE bc.brand_id = b.id AND (c.name IN (${placeholders}) OR c.slug IN (${placeholders}))
            )
          )
        ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
-      [category, slugifyCategory(category)]
+      [...filterNames, ...slugParams]
     )
   }
 

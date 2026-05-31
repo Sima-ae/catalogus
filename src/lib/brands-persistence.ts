@@ -15,9 +15,12 @@ export async function loadAllBrands(): Promise<BrandRecord[]> {
   }
 }
 
-export async function loadActiveBrands(categoryName?: string): Promise<BrandRecord[]> {
+export async function loadActiveBrands(
+  categoryName?: string,
+  subcategory?: string
+): Promise<BrandRecord[]> {
   try {
-    return (await listBrands(true, categoryName)) as BrandRecord[]
+    return (await listBrands(true, categoryName, subcategory)) as BrandRecord[]
   } catch {
     return []
   }

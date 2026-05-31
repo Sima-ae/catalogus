@@ -7,6 +7,8 @@ import {
   type CatalogProductsQuery,
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
+import { loadActiveCategories } from '@/lib/categories-persistence'
+import { resolveShopCategoryFilterNames } from '@/lib/shop-category-tree'
 import { serializeProductRow } from '@/lib/product-serialize'
 import {
   brandsTableExists,
@@ -461,9 +463,15 @@ export async function listActiveProductsPaginated(
 ): Promise<CatalogProductsPage> {
   const select = await productSelectSql()
   const hasBrandsTable = await brandsTableExists()
-  const { whereSql, params } = buildActiveCatalogFilters(query, {
-    includeBrandJoin: hasBrandsTable,
+  const categories = await loadActiveCategories()
+  const categoryNames = resolveShopCategoryFilterNames(categories, {
+    category: query.category,
+    subcategory: query.subcategory,
   })
+  const { whereSql, params } = buildActiveCatalogFilters(
+    { ...query, categoryNames },
+    { includeBrandJoin: hasBrandsTable }
+  )
   const limit = query.limit
   const offset = (query.page - 1) * limit
   const fromIndex = select.search(/\bFROM\b/i)
