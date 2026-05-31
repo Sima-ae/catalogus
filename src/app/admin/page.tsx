@@ -30,6 +30,7 @@ import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice } from '@/lib/format-price'
 import { getCurrencySymbol } from '@/lib/currency'
 import { appPath } from '@/lib/paths'
+import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
 import { useAppTheme } from '@/lib/theme-classes'
 import type { Product } from '@/lib/types'
 
@@ -108,6 +109,7 @@ export default function AdminDashboard() {
   const currency = getCurrencySymbol()
 
   const [products, setProducts] = useState<Product[]>([])
+  const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
   const [userCount, setUserCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -122,18 +124,31 @@ export default function AdminDashboard() {
     try {
       const headers = adminAuthHeaders(user)
       const [productsRes, ordersRes, usersRes] = await Promise.all([
-        fetch(appPath('/api/products'), { headers, cache: 'no-store' }),
+        fetch(appPath('/api/products?page=1&limit=10&scope=admin'), { headers, cache: 'no-store' }),
         fetch(appPath('/api/orders'), { cache: 'no-store' }),
         fetch(appPath('/api/users'), { cache: 'no-store' }),
       ])
 
-      const productsData = await parseJsonResponse<Product[] | { error?: string }>(productsRes)
-      if (!productsRes.ok || !Array.isArray(productsData)) {
+      const productsData = await parseJsonResponse<
+        | { items?: Product[]; dashboardStats?: ProductDashboardStats; error?: string }
+        | Product[]
+      >(productsRes)
+      if (!productsRes.ok) {
         throw new Error(
           !Array.isArray(productsData) && productsData.error
             ? productsData.error
             : 'Failed to load products'
         )
+      }
+
+      if (isCatalogProductsPage(productsData)) {
+        setProducts(productsData.items)
+        setProductStats(productsData.dashboardStats ?? null)
+      } else if (Array.isArray(productsData)) {
+        setProducts(productsData)
+        setProductStats(null)
+      } else {
+        throw new Error('Failed to load products')
       }
 
       let ordersData: Order[] = []
@@ -148,7 +163,6 @@ export default function AdminDashboard() {
         if (Array.isArray(parsed)) usersData = parsed
       }
 
-      setProducts(productsData)
       setOrders(ordersData)
       setUserCount(usersData.length)
     } catch (e) {
@@ -163,10 +177,12 @@ export default function AdminDashboard() {
   }, [user, loadDashboard])
 
   const stats = useMemo(() => {
-    const active = products.filter((p) => p.status === 'active').length
-    const draft = products.filter((p) => p.status === 'draft').length
-    const inactive = products.filter((p) => p.status === 'inactive').length
-    const importDrafts = products.filter((p) => p.status === 'draft' && p.source_album_id).length
+    const active = productStats?.active ?? products.filter((p) => p.status === 'active').length
+    const draft = productStats?.draft ?? products.filter((p) => p.status === 'draft').length
+    const inactive = productStats?.inactive ?? products.filter((p) => p.status === 'inactive').length
+    const importDrafts =
+      productStats?.importDrafts ??
+      products.filter((p) => p.status === 'draft' && p.source_album_id).length
     const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0)
     const pendingOrders = orders.filter((o) => o.status === 'pending').length
 
@@ -178,12 +194,9 @@ export default function AdminDashboard() {
       revenue,
       pendingOrders,
     }
-  }, [products, orders])
+  }, [productStats, products, orders])
 
-  const latestProducts = useMemo(
-    () => sortNewest(products).slice(0, LATEST_PRODUCTS),
-    [products]
-  )
+  const latestProducts = useMemo(() => sortNewest(products).slice(0, LATEST_PRODUCTS), [products])
 
   const recentOrders = useMemo(() => sortNewest(orders).slice(0, RECENT_ORDERS), [orders])
 
@@ -208,7 +221,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
             <StatCard
               title="Catalog"
-              value={products.length}
+              value={productStats?.total ?? products.length}
               change={`${stats.active} live · ${stats.draft} draft · ${stats.inactive} inactive`}
               icon={<CubeIcon className="w-6 h-6 text-white" />}
               accentColor="bg-pink-500"
@@ -271,7 +284,7 @@ export default function AdminDashboard() {
                   <h2 className={`text-lg font-semibold ${t.heading}`}>Latest products</h2>
                   <p className={`text-sm ${t.muted}`}>
                     Most recently added or updated — showing {latestProducts.length} of{' '}
-                    {products.length}
+                    {productStats?.total ?? products.length}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

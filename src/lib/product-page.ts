@@ -1,8 +1,5 @@
 import { appPath, appUrl, shopCategoryUrl } from '@/lib/paths'
-import {
-  buildProductGallery,
-  toDisplayProductImageUrl,
-} from '@/lib/product-image-url'
+import { resolveProductDisplayImages } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 import { cleanImportDescription } from '@/lib/yupoo/import-text'
 
@@ -61,11 +58,12 @@ function galleryFromApi(raw: Record<string, unknown>): string[] | null {
 export function toProductPageView(raw: Record<string, unknown>): ProductPageView {
   const category = String(raw.category || '').trim()
   const sourceUrl = raw.source_url != null ? String(raw.source_url) : null
-  const mainImage = toDisplayProductImageUrl(String(raw.image_url || ''), sourceUrl)
-  const galleryRaw = galleryFromApi(raw)?.map((u) =>
-    toDisplayProductImageUrl(u, sourceUrl)
+  const galleryRaw = galleryFromApi(raw)
+  const { main, gallery } = resolveProductDisplayImages(
+    String(raw.image_url || ''),
+    galleryRaw,
+    sourceUrl
   )
-  const gallery = buildProductGallery(mainImage, galleryRaw)
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []
@@ -105,8 +103,8 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     tags,
     features,
     requirements,
-    image_url: mainImage,
-    gallery,
+    image_url: main,
+    gallery: gallery ?? [],
     availableSizes: parsePipeField(raw.available_sizes) ?? [],
     availableColors: parsePipeField(raw.available_colors) ?? [],
     demo_url: String(raw.demo_url || '').trim() || appPath('/contact'),

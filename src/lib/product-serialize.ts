@@ -1,7 +1,6 @@
 import {
   normalizeProductImageList,
-  toDisplayProductImageList,
-  toDisplayProductImageUrl,
+  resolveProductDisplayImages,
 } from '@/lib/product-image-url'
 
 /** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
@@ -52,16 +51,21 @@ export function serializeProductRow(row: Record<string, unknown>) {
 
   const sourceUrl = row.source_url != null ? String(row.source_url) : null
   const rawGallery = parseProductJsonField(row.gallery_images)
+  const { main, gallery } = resolveProductDisplayImages(
+    String(row.image_url ?? ''),
+    rawGallery,
+    sourceUrl
+  )
 
   return {
     ...rest,
     id: String(row.id ?? ''),
-    image_url: toDisplayProductImageUrl(String(row.image_url ?? ''), sourceUrl),
+    image_url: main,
     category,
     category_id: row.category_id ?? row.resolved_category_id ?? null,
     brand: brand || undefined,
     brand_id: row.brand_id ?? row.resolved_brand_id ?? null,
-    gallery_images: toDisplayProductImageList(rawGallery, sourceUrl),
+    gallery_images: gallery,
     available_sizes: parsePipeField(row.available_sizes),
     available_colors: parsePipeField(row.available_colors),
     source_url: row.source_url != null ? String(row.source_url) : null,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import Sidebar, { SidebarMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
@@ -31,6 +31,7 @@ type ProductReview = {
 
 export default function ProductPageClient() {
   const params = useParams()
+  const router = useRouter()
   const productId = typeof params.id === 'string' ? params.id : ''
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
@@ -46,6 +47,7 @@ export default function ProductPageClient() {
   const [isAdding, setIsAdding] = useState(false)
   const [reviews, setReviews] = useState<ProductReview[]>([])
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [headerSearch, setHeaderSearch] = useState('')
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
   const thumbListRef = useRef<HTMLDivElement>(null)
@@ -318,6 +320,16 @@ export default function ProductPageClient() {
           title="WELCOME"
           showSocialProof
           searchPlaceholder="Search products..."
+          searchValue={headerSearch}
+          onSearchChange={setHeaderSearch}
+          onSearchSubmit={(query) => {
+            const trimmed = query.trim()
+            router.push(
+              trimmed
+                ? `${appPath('/')}?search=${encodeURIComponent(trimmed)}`
+                : appPath('/')
+            )
+          }}
           leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
           actions={<ShopHeroHeaderActions cartBadgeCount={quantityInCart} />}
         />
@@ -381,7 +393,7 @@ export default function ProductPageClient() {
                     alt={product.name}
                     fill
                     sizes="(max-width: 1024px) 85vw, 45vw"
-                    className="object-contain p-2 pointer-events-none"
+                    className="relative z-0 object-contain p-2 pointer-events-none"
                     priority
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                   />
@@ -450,13 +462,13 @@ export default function ProductPageClient() {
                   </button>
                 </>
               ) : null}
-              <div className="relative z-10 flex max-h-[92vh] max-w-[min(calc(96vw-5rem),1400px)] items-center justify-center">
+              <div className="relative z-10 inline-flex max-h-[92vh] max-w-[min(calc(96vw-5rem),1400px)] items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element -- full-resolution lightbox */}
                 <img
                   key={product.gallery[selectedImage]}
                   src={product.gallery[selectedImage]}
                   alt={`${product.name} — image ${selectedImage + 1}`}
-                  className="max-h-[92vh] max-w-full w-auto h-auto object-contain select-none pointer-events-none"
+                  className="relative z-0 max-h-[92vh] max-w-full w-auto h-auto object-contain select-none pointer-events-none"
                   draggable={false}
                 />
                 <ProductImageWatermark variant="lightbox" />

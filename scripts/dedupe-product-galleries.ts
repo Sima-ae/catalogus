@@ -1,6 +1,10 @@
 #!/usr/bin/env npx tsx
 /**
- * Remove duplicate gallery images stored on products (Yupoo small/medium duplicates, etc.).
+ * Clean product galleries in the database:
+ * - Remove Yupoo platform icons (photo.yupoo.com/icons/logo@558.png, Weibo badge, etc.)
+ * - Remove duplicate same-photo URLs (small/medium/thumb variants)
+ *
+ * Product photos are NOT removed. Only the 2 platform promo icons + duplicates.
  *
  *   npm run db:dedupe-galleries
  *   npm run db:dedupe-galleries -- --dry-run
@@ -9,8 +13,11 @@ import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { queryDb } from '@/lib/db'
 import {
+  cleanProductGalleryUrls,
   dedupeProductImageUrls,
+  isBrandingGalleryImageUrl,
   normalizeProductImageUrl,
+  stripBrandingGalleryImageUrls,
   upgradeYupooImageUrl,
   isYupooImageUrl,
 } from '@/lib/product-image-url'
@@ -48,6 +55,37 @@ type Row = {
   gallery_images: unknown
 }
 
+function cleanStoredProductImages(
+  mainRaw: string,
+  galleryRaw: string[]
+): { main: string; gallery: string[]; brandingRemoved: number; dupesRemoved: number } {
+  const mainNorm = mainRaw ? normalizeStoredUrl(mainRaw) : ''
+  const galleryNorm = galleryRaw.map((u) => normalizeStoredUrl(String(u))).filter(Boolean)
+
+  const beforeAll = [mainNorm, ...galleryNorm].filter(Boolean)
+  const afterBranding = stripBrandingGalleryImageUrls(beforeAll)
+  const brandingRemoved = beforeAll.length - afterBranding.length
+
+  let main = mainNorm
+  let gallery = galleryNorm
+
+  if (main && isBrandingGalleryImageUrl(main)) {
+    const next = stripBrandingGalleryImageUrls(galleryNorm)
+    main = next[0] || mainNorm
+    gallery = next.slice(main === next[0] ? 1 : 0)
+  } else {
+    gallery = stripBrandingGalleryImageUrls(galleryNorm)
+  }
+
+  const combined = dedupeProductImageUrls([main, ...gallery].filter(Boolean))
+  const dupesRemoved = afterBranding.length - combined.length
+
+  main = combined[0] || mainNorm || mainRaw
+  gallery = combined.slice(1)
+
+  return { main, gallery, brandingRemoved, dupesRemoved }
+}
+
 async function main() {
   loadDotEnv()
   const dryRun = process.argv.includes('--dry-run')
@@ -57,51 +95,55 @@ async function main() {
   )
 
   let updated = 0
+  let brandingStripped = 0
+  let dupesStripped = 0
 
   for (const row of rows) {
     const mainRaw = String(row.image_url ?? '').trim()
     const galleryRaw = parseProductJsonField(row.gallery_images) ?? []
-    const ordered = [
-      ...(mainRaw ? [normalizeStoredUrl(mainRaw)] : []),
-      ...galleryRaw.map((u) => normalizeStoredUrl(String(u))),
-    ].filter(Boolean)
 
-    const unique = dedupeProductImageUrls(ordered)
-    const newMain = unique[0] || ''
-    const newGallery = unique.slice(1)
+    if (!mainRaw && galleryRaw.length === 0) continue
 
-    const beforeCount = (mainRaw ? 1 : 0) + galleryRaw.length
-    const afterCount = unique.length
+    const { main, gallery, brandingRemoved, dupesRemoved } = cleanStoredProductImages(
+      mainRaw,
+      galleryRaw
+    )
 
-    if (beforeCount === afterCount && newMain === mainRaw) {
+    if (brandingRemoved === 0 && dupesRemoved === 0) {
+      const normalizedMain = mainRaw ? normalizeStoredUrl(mainRaw) : ''
+      const sameMain = main === normalizedMain || main === mainRaw
       const sameGallery =
-        newGallery.length === galleryRaw.length &&
-        newGallery.every((u, i) => u === normalizeStoredUrl(String(galleryRaw[i])))
-      if (sameGallery) continue
+        gallery.length === galleryRaw.length &&
+        gallery.every((u, i) => u === normalizeStoredUrl(String(galleryRaw[i])))
+      if (sameMain && sameGallery) continue
+    }
+
+    if (!main) {
+      console.warn(`Skipping ${row.id}: no image_url to store`)
+      continue
     }
 
     updated++
+    brandingStripped += brandingRemoved
+    dupesStripped += dupesRemoved
+
     if (dryRun) {
       console.log(
-        `[dry-run] ${row.id}: ${beforeCount} → ${afterCount} images (${beforeCount - afterCount} duplicates removed)`
+        `[dry-run] ${row.id}: branding -${brandingRemoved}, dupes -${dupesRemoved} → main + ${gallery.length} gallery`
       )
       continue
     }
 
     await queryDb(
       `UPDATE products SET image_url = ?, gallery_images = ? WHERE id = ?`,
-      [
-        newMain || null,
-        newGallery.length ? JSON.stringify(newGallery) : null,
-        row.id,
-      ]
+      [main, gallery.length ? JSON.stringify(gallery) : null, row.id]
     )
   }
 
   console.log(
     dryRun
-      ? `Dry run: ${updated} products would be updated.`
-      : `Updated ${updated} products.`
+      ? `Dry run: ${updated} products would be updated (${brandingStripped} icons, ${dupesStripped} duplicates).`
+      : `Updated ${updated} products (${brandingStripped} icons, ${dupesStripped} duplicates removed).`
   )
 }
 

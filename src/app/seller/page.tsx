@@ -17,6 +17,7 @@ import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { formatPrice } from '@/lib/format-price'
 import { appPath } from '@/lib/paths'
+import { isCatalogProductsPage } from '@/lib/catalog-products'
 import { sellerNav } from '@/lib/seller-nav'
 import { useAppTheme } from '@/lib/theme-classes'
 import type { Product } from '@/lib/types'
@@ -29,9 +30,12 @@ export default function SellerDashboard() {
 
   const loadProducts = useCallback(() => {
     if (!user) return
-    fetch(appPath('/api/products'), { headers: catalogAuthHeaders(user) })
+    fetch(appPath('/api/products?page=1&limit=100'), { headers: catalogAuthHeaders(user) })
       .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .then((data) => {
+        if (isCatalogProductsPage(data)) setProducts(data.items)
+        else setProducts(Array.isArray(data) ? data : [])
+      })
       .finally(() => setLoading(false))
   }, [user])
 

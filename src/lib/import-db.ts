@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
-import { dedupeProductImageUrls } from '@/lib/product-image-url'
+import { cleanProductGalleryUrls } from '@/lib/product-image-url'
 import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
@@ -21,7 +21,7 @@ export function buildProductInputFromImport(
   thumbTitle?: string | null
 ): ProductInput {
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
-  const uniqueImages = dedupeProductImageUrls(album.images)
+  const uniqueImages = cleanProductGalleryUrls(album.images)
   const mainImage = uniqueImages[0] || ''
   const gallery = uniqueImages.slice(1)
 

@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
+import {
+  buildActiveCatalogFilters,
+  type CatalogProductsPage,
+  type CatalogProductsQuery,
+  type ProductDashboardStats,
+} from '@/lib/catalog-products'
 import { serializeProductRow } from '@/lib/product-serialize'
 import {
   brandsTableExists,
@@ -417,6 +423,104 @@ export async function listActiveProducts() {
     `${select} WHERE p.status = 'active' ORDER BY p.created_at DESC`
   )
   return rows.map(serializeProductRow)
+}
+
+/** Paginated active catalog — filters applied in SQL for fast first paint. */
+export async function listActiveProductsPaginated(
+  query: CatalogProductsQuery
+): Promise<CatalogProductsPage> {
+  const select = await productSelectSql()
+  const hasBrandsTable = await brandsTableExists()
+  const { whereSql, params } = buildActiveCatalogFilters(query, {
+    includeBrandJoin: hasBrandsTable,
+  })
+  const limit = query.limit
+  const offset = (query.page - 1) * limit
+  const fromIndex = select.search(/\bFROM\b/i)
+  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+
+  const countRows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+    params
+  )
+
+  const total = Number(countRows[0]?.total ?? 0)
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `${select} ${whereSql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  )
+
+  return {
+    items: rows.map(serializeProductRow) as unknown as CatalogProductsPage['items'],
+    total,
+    page: query.page,
+    pageSize: limit,
+    totalPages: Math.max(1, Math.ceil(total / limit) || 1),
+  }
+}
+
+/** Paginated all products (admin dashboard snippets). */
+export async function listProductsPaginated(
+  page: number,
+  limit: number
+): Promise<CatalogProductsPage> {
+  const select = await productSelectSql()
+  const safeLimit = Math.min(120, Math.max(1, limit))
+  const safePage = Math.max(1, page)
+  const offset = (safePage - 1) * safeLimit
+
+  const countRows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(*) AS total FROM products`
+  )
+  const total = Number(countRows[0]?.total ?? 0)
+
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `${select} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
+    [safeLimit, offset]
+  )
+
+  return {
+    items: rows.map(serializeProductRow) as unknown as CatalogProductsPage['items'],
+    total,
+    page: safePage,
+    pageSize: safeLimit,
+    totalPages: Math.max(1, Math.ceil(total / safeLimit) || 1),
+  }
+}
+
+/** Aggregate product counts for admin dashboard cards. */
+export async function getProductDashboardStats(): Promise<ProductDashboardStats> {
+  const rows = await queryDb<{ status: string; count: number; import_drafts: number }[]>(
+    `SELECT
+       status,
+       COUNT(*) AS count,
+       SUM(CASE WHEN source_album_id IS NOT NULL AND source_album_id != '' THEN 1 ELSE 0 END) AS import_drafts
+     FROM products
+     GROUP BY status`
+  )
+
+  let active = 0
+  let draft = 0
+  let inactive = 0
+  let importDrafts = 0
+
+  for (const row of rows) {
+    const count = Number(row.count ?? 0)
+    const status = String(row.status || '').toLowerCase()
+    if (status === 'active') active = count
+    else if (status === 'draft') {
+      draft = count
+      importDrafts = Number(row.import_drafts ?? 0)
+    } else if (status === 'inactive') inactive = count
+  }
+
+  return {
+    total: active + draft + inactive,
+    active,
+    draft,
+    inactive,
+    importDrafts,
+  }
 }
 
 /** Products owned by a seller (author_id or legacy author name match). */

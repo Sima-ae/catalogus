@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   DuplicateSkuError,
+  getProductDashboardStats,
   insertProduct,
   listActiveProducts,
+  listActiveProductsPaginated,
   listProducts,
   listProductsForSeller,
+  listProductsPaginated,
   MissingSkuError,
   UnknownBrandError,
   UnknownCategoryError,
@@ -17,12 +20,44 @@ import {
   requireProductWrite,
   resolveCatalogAccess,
 } from '@/lib/product-api-auth'
+import { parseCatalogProductsQuery } from '@/lib/catalog-products'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
+    const paginatedQuery = parseCatalogProductsQuery(request.nextUrl.searchParams)
+
+    if (paginatedQuery) {
+      const scope = request.nextUrl.searchParams.get('scope')?.trim()
+      const access = await resolveCatalogAccess(request)
+
+      if (scope === 'admin' && access.kind === 'admin') {
+        const [result, dashboardStats] = await Promise.all([
+          listProductsPaginated(paginatedQuery.page, paginatedQuery.limit),
+          getProductDashboardStats(),
+        ])
+        return NextResponse.json({ ...result, dashboardStats })
+      }
+
+      if (access.kind === 'seller') {
+        const all = await listProductsForSeller(access.actor.userId, access.actor.name)
+        const start = (paginatedQuery.page - 1) * paginatedQuery.limit
+        const items = all.slice(start, start + paginatedQuery.limit)
+        return NextResponse.json({
+          items,
+          total: all.length,
+          page: paginatedQuery.page,
+          pageSize: paginatedQuery.limit,
+          totalPages: Math.max(1, Math.ceil(all.length / paginatedQuery.limit) || 1),
+        })
+      }
+
+      const result = await listActiveProductsPaginated(paginatedQuery)
+      return NextResponse.json(result)
+    }
+
     const access = await resolveCatalogAccess(request)
     const rows =
       access.kind === 'seller'

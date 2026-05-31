@@ -7,6 +7,7 @@ import UserBadgeCard from '@/components/users/UserBadgeCard'
 import { useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
+import { isCatalogProductsPage } from '@/lib/catalog-products'
 import { formatPrice } from '@/lib/format-price'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAppTheme } from '@/lib/theme-classes'
@@ -28,9 +29,13 @@ export default function BuyerDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(appPath('/api/products'))
+    fetch(appPath('/api/products?page=1&limit=6'))
       .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data.slice(0, 6) : []))
+      .then((data) => {
+        if (isCatalogProductsPage(data)) setProducts(data.items)
+        else if (Array.isArray(data)) setProducts(data.slice(0, 6))
+        else setProducts([])
+      })
       .finally(() => setLoading(false))
   }, [])
 

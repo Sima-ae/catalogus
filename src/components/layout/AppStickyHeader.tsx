@@ -11,6 +11,7 @@ export type AppStickyHeaderProps = {
   searchPlaceholder?: string
   searchValue?: string
   onSearchChange?: (value: string) => void
+  onSearchSubmit?: (value: string) => void
   showSearch?: boolean
   actions: ReactNode
   /** Mobile menu etc. — inline with title on the same row */
@@ -26,6 +27,7 @@ export default function AppStickyHeader({
   searchPlaceholder = 'Search products...',
   searchValue,
   onSearchChange,
+  onSearchSubmit,
   showSearch = true,
   actions,
   leading,
@@ -80,6 +82,7 @@ export default function AppStickyHeader({
                 placeholder={searchPlaceholder}
                 value={searchValue}
                 onChange={onSearchChange}
+                onSubmit={onSearchSubmit}
               />
             </div>
           ) : null}

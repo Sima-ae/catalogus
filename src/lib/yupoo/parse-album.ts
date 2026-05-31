@@ -1,9 +1,11 @@
 import * as cheerio from 'cheerio'
+import type { Element } from 'domhandler'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import { absoluteUrl } from '@/lib/yupoo/client'
 import { parseAttributes } from '@/lib/yupoo/parse-attributes'
 import {
-  dedupeProductImageUrls,
+  cleanProductGalleryUrls,
+  isBrandingGalleryImageUrl,
   upgradeYupooImageUrl,
 } from '@/lib/product-image-url'
 import { brandSkuPrefix } from '@/lib/product-sku'
@@ -23,9 +25,23 @@ function normalizeImageUrl(src: string, pageUrl: string): string | null {
   if (!src || src.startsWith('data:')) return null
   const url = upgradeYupooImageUrl(absoluteUrl(src, pageUrl))
   if (!/^https?:\/\//i.test(url)) return null
-  if (url.includes('logo') || url.includes('avatar')) return null
+  if (isBrandingGalleryImageUrl(url)) return null
   if (!/yupoo\.com/i.test(url) && !/\.(jpe?g|png|webp|gif)(\?|$)/i.test(url)) return null
   return url
+}
+
+function isBrandingImageElement($: cheerio.CheerioAPI, el: Element): boolean {
+  const $el = $(el)
+  const alt = ($el.attr('alt') || $el.attr('title') || '').trim()
+  if (/weibo|sinaweibo|微博|yupoo\s*logo|又拍/i.test(alt)) return true
+
+  const link =
+    $el.closest('a').attr('href') ||
+    $el.parent('a').attr('href') ||
+    ''
+  if (/weibo\.com|sinaweibo|weibo/i.test(link)) return true
+
+  return false
 }
 
 function collectFromHtml(html: string, pageUrl: string): string[] {
@@ -89,6 +105,7 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     '.showalbum__children img, .showalbum-image img, .album__img img, .image__main img, .showalbum img, img'
 
   $(imageSelectors).each((_, el) => {
+    if (isBrandingImageElement($, el)) return
     const src =
       $(el).attr('data-origin-src') ||
       $(el).attr('data-origin') ||
@@ -107,7 +124,7 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     if (normalized) imageCandidates.push(normalized)
   })
 
-  const images = dedupeProductImageUrls(imageCandidates)
+  const images = cleanProductGalleryUrls(imageCandidates)
 
   return {
     albumId,

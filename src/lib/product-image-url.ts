@@ -74,6 +74,43 @@ export function isYupooImageUrl(url: string | null | undefined): boolean {
   }
 }
 
+/** Yupoo platform icons only (green-dots logo, Weibo badge) — not product photos. */
+export function isBrandingGalleryImageUrl(url: string | null | undefined): boolean {
+  const raw = unwrapDisplayImageUrl(String(url ?? '').trim())
+  if (!raw) return false
+
+  try {
+    const u = new URL(raw)
+    const host = u.hostname.toLowerCase()
+    const path = u.pathname.toLowerCase()
+    const base = path.split('/').pop() || ''
+
+    // Yupoo marketing/static host — never product album photos
+    if (host === 's.yupoo.com') return true
+
+    // Platform icon folder on Yupoo CDN (logo@558.png, weibo icons, etc.)
+    if (host === 'photo.yupoo.com' && path.startsWith('/icons/')) return true
+    if (host.endsWith('x.yupoo.com') && path.startsWith('/icons/')) return true
+
+    // Occasional re-uploads of the same promo icons outside /icons/
+    if (/^weibo(@[\d]+x?)?\.(png|jpe?g|gif|webp)$/i.test(base)) return true
+    if (/^sinaweibo(@[\d]+x?)?\.(png|jpe?g|gif|webp)$/i.test(base)) return true
+    if (/^logo\d?@\d+\.(png|jpe?g|gif|webp)$/i.test(base)) return true
+
+    return false
+  } catch {
+    return /photo\.yupoo\.com\/icons\//i.test(raw) || /^https?:\/\/s\.yupoo\.com\//i.test(raw)
+  }
+}
+
+/** Remove Yupoo/Weibo platform icons from a URL list (product photos kept). */
+export function stripBrandingGalleryImageUrls(urls: string[]): string[] {
+  return urls.filter((u) => {
+    const trimmed = String(u ?? '').trim()
+    return trimmed && !isBrandingGalleryImageUrl(trimmed)
+  })
+}
+
 /** Prefer medium/original over small/thumb Yupoo CDN paths. */
 export function upgradeYupooImageUrl(url: string): string {
   let u = url.trim()
@@ -119,7 +156,7 @@ export function canonicalProductImageKey(url: string | null | undefined): string
   }
 }
 
-/** Keep first occurrence of each unique image (order preserved). */
+/** Keep first occurrence of each unique image (order preserved). Duplicates only — does not drop product photos. */
 export function dedupeProductImageUrls(urls: string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -132,6 +169,11 @@ export function dedupeProductImageUrls(urls: string[]): string[] {
     out.push(trimmed)
   }
   return out
+}
+
+/** Strip platform icons, then dedupe same-photo variants (small/medium/thumb). */
+export function cleanProductGalleryUrls(urls: string[]): string[] {
+  return dedupeProductImageUrls(stripBrandingGalleryImageUrls(urls))
 }
 
 /**
@@ -206,7 +248,7 @@ export function normalizeProductImageList(
   return out.length ? out : null
 }
 
-/** Main image first, then gallery URLs from DB (no placeholders, deduped). */
+/** Main image first, then gallery URLs from DB (no placeholders/branding, deduped). */
 export function buildProductGallery(
   mainImageRaw: string | null | undefined,
   galleryRaw: string[] | null | undefined
@@ -218,7 +260,25 @@ export function buildProductGallery(
       .map((u) => String(u ?? '').trim())
       .filter((u) => u && !isPlaceholderImageUrl(u)),
   ]
-  return dedupeProductImageUrls(ordered)
+  return cleanProductGalleryUrls(ordered)
+}
+
+/** Pick display main + gallery, promoting the next photo when main is branding. */
+export function resolveProductDisplayImages(
+  mainImageRaw: string | null | undefined,
+  galleryRaw: string[] | null | undefined,
+  sourceUrl?: string | null
+): { main: string; gallery: string[] | null } {
+  const rawMain = String(mainImageRaw ?? '').trim()
+  const rawGallery = galleryRaw ?? []
+  const combined = buildProductGallery(rawMain, rawGallery)
+  const main = combined[0] ? toDisplayProductImageUrl(combined[0], sourceUrl) : ''
+  const gallery = combined.slice(1).map((u) => toDisplayProductImageUrl(u, sourceUrl))
+  const dedupedGallery = dedupeProductImageUrls(gallery)
+  return {
+    main,
+    gallery: dedupedGallery.length ? dedupedGallery : null,
+  }
 }
 
 /** True when the image is served from our /images/ tree (safe for Next.js optimizer). */

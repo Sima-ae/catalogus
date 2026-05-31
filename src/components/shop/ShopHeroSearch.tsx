@@ -6,12 +6,14 @@ type ShopHeroSearchProps = {
   placeholder?: string
   value?: string
   onChange?: (value: string) => void
+  onSubmit?: (value: string) => void
 }
 
 export default function ShopHeroSearch({
   placeholder = 'Search products...',
   value,
   onChange,
+  onSubmit,
 }: ShopHeroSearchProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -36,6 +38,9 @@ export default function ShopHeroSearch({
         type="search"
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onSubmit?.(String(value ?? '').trim())
+        }}
         placeholder={placeholder}
         className={`w-full pl-10 pr-4 py-2.5 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
           isDark
