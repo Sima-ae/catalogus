@@ -35,10 +35,11 @@ import {
 type BrandOption = { id: string; name: string }
 
 type SyncResult = {
-  kind: 'sync' | 'retry-skipped'
+  kind: 'sync' | 'retry-skipped' | 'refresh-all'
   job: { id: string; status: string }
   workerCommand: string
   skippedCount?: number
+  refreshCount?: number
 }
 
 const emptyForm: ImportSourceFormValues = {
@@ -71,6 +72,7 @@ export default function AdminImportPage() {
   const [saving, setSaving] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
+  const [refreshingId, setRefreshingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [syncInfo, setSyncInfo] = useState<SyncResult | null>(null)
@@ -287,6 +289,39 @@ export default function AdminImportPage() {
     }
   }
 
+  const handleRefreshAll = async (sourceId: string) => {
+    if (!user) return
+
+    if (
+      !window.confirm(
+        'Re-fetch all imported albums from Yupoo and update products (titles, images, descriptions)? This re-processes the latest job.'
+      )
+    ) {
+      return
+    }
+
+    setRefreshingId(sourceId)
+    setError('')
+    setSyncInfo(null)
+    setCopiedCommand(false)
+    setCopiedJobId(false)
+
+    try {
+      const res = await fetch(appPath(`/api/admin/import/sources/${sourceId}/refresh-all`), {
+        method: 'POST',
+        headers: adminAuthHeaders(user),
+      })
+      const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Refresh failed')
+      setSyncInfo(data)
+      loadSources()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Refresh failed')
+    } finally {
+      setRefreshingId(null)
+    }
+  }
+
   const handleRetrySkipped = async (sourceId: string) => {
     if (!user) return
 
@@ -369,9 +404,11 @@ export default function AdminImportPage() {
           <p className="text-green-400 font-medium">
             {syncInfo.kind === 'retry-skipped'
               ? `Retry queued${syncInfo.skippedCount ? ` (${syncInfo.skippedCount} skipped albums)` : ''}`
-              : 'Import job queued'}
+              : syncInfo.kind === 'refresh-all'
+                ? `Refresh queued${syncInfo.refreshCount ? ` (${syncInfo.refreshCount} albums)` : ''}`
+                : 'Import job queued'}
           </p>
-          {syncInfo.kind === 'retry-skipped' ? (
+          {syncInfo.kind === 'retry-skipped' || syncInfo.kind === 'refresh-all' ? (
             <p className="text-sm">
               Re-fetches Yupoo and updates products already in the catalog. Run this command on the
               VPS (or locally with db:tunnel):
@@ -500,7 +537,11 @@ export default function AdminImportPage() {
                       <button
                         type="button"
                         className="btn-secondary text-sm"
-                        disabled={syncingId === source.id || retryingId === source.id}
+                        disabled={
+                          syncingId === source.id ||
+                          retryingId === source.id ||
+                          refreshingId === source.id
+                        }
                         onClick={() => handleSync(source.id)}
                       >
                         {syncingId === source.id ? 'Starting...' : 'Start sync'}
@@ -511,6 +552,25 @@ export default function AdminImportPage() {
                         disabled={
                           syncingId === source.id ||
                           retryingId === source.id ||
+                          refreshingId === source.id ||
+                          !source.last_synced_at
+                        }
+                        title={
+                          source.last_synced_at
+                            ? 'Re-fetch all imported albums from Yupoo and update products'
+                            : 'Run Start sync first'
+                        }
+                        onClick={() => handleRefreshAll(source.id)}
+                      >
+                        {refreshingId === source.id ? 'Queuing…' : 'Refresh all'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary text-sm"
+                        disabled={
+                          syncingId === source.id ||
+                          retryingId === source.id ||
+                          refreshingId === source.id ||
                           !(Number(source.skipped_items) > 0)
                         }
                         title={

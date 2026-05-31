@@ -302,6 +302,40 @@ export async function updateJobItem(
   await queryDb(`UPDATE import_job_items SET ${fields.join(', ')} WHERE id = ?`, values)
 }
 
+export async function findLatestImportJobForSource(
+  sourceId: string
+): Promise<ImportJobRow | null> {
+  const rows = await queryDb<ImportJobRow[]>(
+    `SELECT * FROM import_jobs WHERE source_id = ? ORDER BY created_at DESC LIMIT 1`,
+    [sourceId]
+  )
+  return rows[0] ?? null
+}
+
+export async function countRefreshableJobItems(jobId: string): Promise<number> {
+  const rows = await queryDb<{ n: number }[]>(
+    `SELECT COUNT(*) AS n FROM import_job_items
+     WHERE job_id = ? AND status IN ('imported', 'skipped')`,
+    [jobId]
+  )
+  return Number(rows[0]?.n ?? 0)
+}
+
+export async function queueRefreshAllImport(jobId: string): Promise<number> {
+  const reset = await resetCompletedJobItems(jobId)
+  await updateImportJob(jobId, {
+    status: 'queued',
+    processed: 0,
+    imported: 0,
+    skipped: 0,
+    failed: 0,
+    error_log: null,
+    started_at: null,
+    finished_at: null,
+  })
+  return reset
+}
+
 export async function findImportJobWithSkippedItems(
   sourceId: string
 ): Promise<ImportJobRow | null> {
