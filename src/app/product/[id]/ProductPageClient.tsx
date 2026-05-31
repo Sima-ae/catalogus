@@ -17,6 +17,7 @@ import { getCurrencySymbol } from '@/lib/currency'
 import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
+import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 
 type ProductReview = {
@@ -384,6 +385,7 @@ export default function ProductPageClient() {
                     priority
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                   />
+                  <ProductImageWatermark variant="gallery" />
                 </button>
               ) : (
                 <div
@@ -448,14 +450,17 @@ export default function ProductPageClient() {
                   </button>
                 </>
               ) : null}
-              {/* eslint-disable-next-line @next/next/no-img-element -- full-resolution lightbox */}
-              <img
-                key={product.gallery[selectedImage]}
-                src={product.gallery[selectedImage]}
-                alt={`${product.name} — image ${selectedImage + 1}`}
-                className="relative z-10 max-h-[92vh] max-w-[min(calc(96vw-5rem),1400px)] w-auto h-auto object-contain select-none pointer-events-none"
-                draggable={false}
-              />
+              <div className="relative z-10 flex max-h-[92vh] max-w-[min(calc(96vw-5rem),1400px)] items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- full-resolution lightbox */}
+                <img
+                  key={product.gallery[selectedImage]}
+                  src={product.gallery[selectedImage]}
+                  alt={`${product.name} — image ${selectedImage + 1}`}
+                  className="max-h-[92vh] max-w-full w-auto h-auto object-contain select-none pointer-events-none"
+                  draggable={false}
+                />
+                <ProductImageWatermark variant="lightbox" />
+              </div>
             </div>
           ) : null}
 
