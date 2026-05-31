@@ -18,8 +18,43 @@ export function extractYupooStyleCode(text: string): string | null {
   return null
 }
 
+const YUPOO_TITLE_META_RE =
+  /\s*(?:货号|款号|型号|尺码|尺寸|颜色|colour|color|size|sizes|available\s+sizes?)\s*[：:]/i
+
+const YUPOO_TITLE_SKU_LABEL_RE =
+  /\s*(?:Style\s*(?:No\.?|#|code)?|Item\s*(?:No\.?|#)?|SKU\s*[：:#]?)\s*[：:]?\s*\S/i
+
+/** Strip Yupoo metadata (CN/EN) and keep the product name portion. */
+export function sanitizeYupooAlbumTitle(text: string): string {
+  let t = String(text ?? '').trim()
+  if (!t) return ''
+
+  for (const re of [YUPOO_TITLE_META_RE, YUPOO_TITLE_SKU_LABEL_RE]) {
+    const idx = t.search(re)
+    if (idx > 0) t = t.slice(0, idx).trim()
+  }
+
+  t = t.replace(/[\u4e00-\u9fff].*$/, '').trim()
+  t = t.replace(/\s+\d{2}(?:\.\d)?(?:\s+\d{2}(?:\.\d)?){2,}.*$/, '').trim()
+  t = t.replace(/[""」』]/g, '"').replace(/[「『]/g, '"')
+  t = t.replace(/\s+/g, ' ').trim()
+  t = t.replace(/^[\s|｜\-–—:：,，.]+/, '').trim()
+  t = t.replace(/[\s|｜\-–—:：,，.]+$/, '').trim()
+
+  return t.length > 120 ? t.slice(0, 120).trim() : t
+}
+
+function isUsableDisplayTitle(title: string): boolean {
+  const t = title.trim()
+  if (t.length < 3) return false
+  if (/^imported product$/i.test(t)) return false
+  if (isSkuOnlyTitle(t)) return true
+  return /[a-zA-Z]{2,}/.test(t)
+}
+
 /**
- * Product name = Yupoo numeric style code (category thumb / album title), not marketing copy.
+ * Product name from Yupoo album — descriptive title when available (e.g. Air Jordan 14 "GymRed"),
+ * otherwise numeric style code for SKU-only albums.
  */
 export function resolveYupooProductTitle(options: {
   albumTitle: string
@@ -27,23 +62,43 @@ export function resolveYupooProductTitle(options: {
   thumbTitle?: string | null
 }): string {
   const description = String(options.description ?? '').trim()
-  const candidates = [
+  const firstDescLine = description.split(/\r?\n/)[0]?.trim() ?? ''
+
+  const descriptiveCandidates = [
+    options.albumTitle,
+    options.thumbTitle,
+    firstDescLine,
+  ]
+
+  for (const candidate of descriptiveCandidates) {
+    const sanitized = sanitizeYupooAlbumTitle(String(candidate ?? ''))
+    if (sanitized && isUsableDisplayTitle(sanitized) && !isSkuOnlyTitle(sanitized)) {
+      return sanitized
+    }
+  }
+
+  const numericCandidates = [
     options.thumbTitle,
     options.albumTitle,
     extractYupooStyleCode(options.albumTitle ?? ''),
-    extractYupooStyleCode(description.split(/\r?\n/)[0] ?? ''),
+    extractYupooStyleCode(firstDescLine),
     extractYupooStyleCode(description),
   ]
 
-  for (const candidate of candidates) {
+  for (const candidate of numericCandidates) {
     const value = String(candidate ?? '').trim()
     if (!value) continue
     if (isSkuOnlyTitle(value)) return value.replace(/\s+/g, '')
   }
 
-  for (const candidate of candidates) {
+  for (const candidate of numericCandidates) {
     const code = extractYupooStyleCode(String(candidate ?? ''))
     if (code) return code
+  }
+
+  for (const candidate of descriptiveCandidates) {
+    const sanitized = sanitizeYupooAlbumTitle(String(candidate ?? ''))
+    if (sanitized.length >= 3) return sanitized
   }
 
   return 'Imported product'

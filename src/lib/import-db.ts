@@ -7,7 +7,6 @@ import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
   cleanImportDescription,
-  extractYupooStyleCode,
   resolveYupooProductTitle,
 } from '@/lib/yupoo/import-text'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
@@ -28,15 +27,11 @@ export function buildProductInputFromImport(
 
   const rawTitle = translated.enTitle || album.title
   const rawDescription = translated.enDescription || album.description
-  let name = resolveYupooProductTitle({
+  const name = resolveYupooProductTitle({
     albumTitle: rawTitle,
     description: rawDescription,
     thumbTitle,
   })
-  if (!/^\d{5,}/.test(name)) {
-    const fromSku = extractYupooStyleCode(buildSku(album))
-    if (fromSku) name = fromSku
-  }
   const description = cleanImportDescription(rawDescription, name, brandName)
   const short_description =
     catalogCardDescription(name, description, undefined, brandName).slice(0, 280) ||

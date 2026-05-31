@@ -11,8 +11,6 @@ import {
 import { brandSkuPrefix } from '@/lib/product-sku'
 import {
   extractYupooStyleCode,
-  isSkuOnlyTitle,
-  resolveYupooProductTitle,
 } from '@/lib/yupoo/import-text'
 
 function extractSkuHint(title: string): string | null {
@@ -89,12 +87,6 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     $('.showalbumheader .sku, .showalbumheader .code, .album_code').first().text().trim() ||
     ''
 
-  const title = resolveYupooProductTitle({
-    albumTitle: h1,
-    description,
-    thumbTitle: isSkuOnlyTitle(headerCode) ? headerCode : extractYupooStyleCode(headerCode),
-  })
-
   const imageCandidates: string[] = []
 
   for (const url of collectFromHtml(html, albumUrl)) {
@@ -129,10 +121,10 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
   return {
     albumId,
     albumUrl,
-    title,
+    title: h1 || 'Untitled',
     description,
     images,
-    skuHint: extractSkuHint(title),
+    skuHint: extractSkuHint(h1) || extractSkuHint(headerCode),
   }
 }
 

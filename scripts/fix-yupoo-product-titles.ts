@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Restore Yupoo numeric style codes as product names (e.g. 1308230).
+ * Fix Yupoo product names (especially "Imported product" placeholders).
  *
  *   npm run db:fix-yupoo-titles
  *   npm run db:fix-yupoo-titles -- --dry-run
@@ -11,9 +11,9 @@ import { queryDb } from '@/lib/db'
 import {
   catalogCardDescription,
   cleanImportDescription,
-  extractYupooStyleCode,
   isSkuOnlyTitle,
   resolveYupooProductTitle,
+  sanitizeYupooAlbumTitle,
 } from '@/lib/yupoo/import-text'
 
 function loadDotEnv() {
@@ -52,34 +52,36 @@ type JobItemRow = {
   raw_json: string | null
 }
 
-function styleCodeFromSku(sku: string | null): string | null {
-  if (!sku) return null
-  const m = String(sku).trim().match(/^(\d{5,}[a-zA-Z]?)-/)
-  return m?.[1] && isSkuOnlyTitle(m[1]) ? m[1] : null
-}
-
-function titleFromRawJson(raw: string | null): string | null {
-  if (!raw) return null
+function albumFieldsFromRawJson(raw: string | null): {
+  title: string | null
+  description: string | null
+  enTitle: string | null
+  enDescription: string | null
+} {
+  if (!raw) {
+    return { title: null, description: null, enTitle: null, enDescription: null }
+  }
   try {
     const data = JSON.parse(raw) as {
-      album?: { title?: string }
-      translated?: { rawTitle?: string; enTitle?: string }
+      album?: { title?: string; description?: string }
+      translated?: { enTitle?: string; enDescription?: string; rawTitle?: string }
     }
-    const candidates = [
-      data.album?.title,
-      data.translated?.rawTitle,
-      data.translated?.enTitle,
-    ]
-    for (const c of candidates) {
-      const t = String(c ?? '').trim()
-      if (isSkuOnlyTitle(t)) return t.replace(/\s+/g, '')
-      const code = extractYupooStyleCode(t)
-      if (code) return code
+    return {
+      title: data.album?.title?.trim() || data.translated?.rawTitle?.trim() || null,
+      description: data.album?.description?.trim() || null,
+      enTitle: data.translated?.enTitle?.trim() || null,
+      enDescription: data.translated?.enDescription?.trim() || null,
     }
   } catch {
-    return null
+    return { title: null, description: null, enTitle: null, enDescription: null }
   }
-  return null
+}
+
+function needsTitleFix(name: string): boolean {
+  const t = name.trim()
+  if (!t || /^imported product$/i.test(t)) return true
+  if (isSkuOnlyTitle(t)) return false
+  return false
 }
 
 async function main() {
@@ -107,37 +109,53 @@ async function main() {
   for (const row of products) {
     scanned++
     const current = String(row.name ?? '').trim()
-    if (isSkuOnlyTitle(current)) continue
+    if (!needsTitleFix(current)) continue
 
     const albumId = String(row.source_album_id ?? '').trim()
     const job = albumId ? byAlbum.get(albumId) : undefined
+    const raw = albumFieldsFromRawJson(job?.raw_json ?? null)
+
+    const albumTitle =
+      raw.enTitle ||
+      raw.title ||
+      job?.album_title ||
+      sanitizeYupooAlbumTitle(String(row.description ?? '')) ||
+      current
+
+    const descriptionSource =
+      raw.enDescription || raw.description || String(row.description ?? '')
 
     const resolved = resolveYupooProductTitle({
-      albumTitle: current,
-      description: String(row.description ?? ''),
-      thumbTitle:
-        job?.album_title ||
-        titleFromRawJson(job?.raw_json ?? null) ||
-        styleCodeFromSku(row.sku),
+      albumTitle,
+      description: descriptionSource,
+      thumbTitle: job?.album_title,
     })
 
-    if (!isSkuOnlyTitle(resolved) || resolved === current) continue
+    if (!resolved || resolved === current || /^imported product$/i.test(resolved)) continue
 
     const brand = row.brand?.trim() || null
-    const description = cleanImportDescription(String(row.description ?? ''), resolved, brand)
+    const cleanedDescription = cleanImportDescription(
+      descriptionSource || String(row.description ?? ''),
+      resolved,
+      brand
+    )
+    const description =
+      cleanedDescription ||
+      String(row.description ?? '').trim() ||
+      resolved
     const short_description =
       catalogCardDescription(resolved, description, row.short_description, brand).slice(0, 280) ||
       null
 
     updated++
     if (dryRun) {
-      console.log(`[dry-run] ${row.id}: "${current.slice(0, 60)}…" → "${resolved}"`)
+      console.log(`[dry-run] ${row.id}: "${current}" → "${resolved}"`)
       continue
     }
 
     await queryDb(
       `UPDATE products SET name = ?, description = ?, short_description = ? WHERE id = ?`,
-      [resolved, description || null, short_description, row.id]
+      [resolved, description, short_description, row.id]
     )
     console.log(`updated ${row.id} → ${resolved}`)
   }
