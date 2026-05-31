@@ -21,8 +21,12 @@ type CategoryRecord = {
   name: string
   slug: string
   description?: string | null
+  parent_id?: string | null
+  parent_name?: string | null
   active?: number | boolean
 }
+
+type ParentOption = { id: string; name: string; parent_id?: string | null }
 
 export default function CategoryForm({
   categoryId,
@@ -38,10 +42,30 @@ export default function CategoryForm({
   const [slug, setSlug] = useState(initialSlug)
   const [slugManual, setSlugManual] = useState(Boolean(initialSlug))
   const [description, setDescription] = useState('')
+  const [parentId, setParentId] = useState<string>('')
+  const [parentOptions, setParentOptions] = useState<ParentOption[]>([])
   const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAdmin || !user) return
+    fetch(appPath('/api/admin/categories'), {
+      headers: adminAuthHeaders(user),
+      cache: 'no-store',
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return
+        setParentOptions(
+          data
+            .filter((c: ParentOption) => !c.parent_id)
+            .map((c: ParentOption) => ({ id: c.id, name: c.name, parent_id: c.parent_id }))
+        )
+      })
+      .catch(() => {})
+  }, [isAdmin, user])
 
   useEffect(() => {
     if (!isEdit || !categoryId || authLoading || !isAdmin || !user) return
@@ -62,6 +86,7 @@ export default function CategoryForm({
         setSlug(data.slug)
         setSlugManual(true)
         setDescription(data.description ? String(data.description) : '')
+        setParentId(data.parent_id ? String(data.parent_id) : '')
         setActive(data.active === false || data.active === 0 ? false : true)
       })
       .catch((e) => {
@@ -89,7 +114,13 @@ export default function CategoryForm({
 
     setSaving(true)
     setError(null)
-    const payload = { name, slug, description, active }
+    const payload = {
+      name,
+      slug,
+      description,
+      active,
+      parent_id: parentId || null,
+    }
     const url = isEdit
       ? appPath(`/api/admin/categories/${categoryId}`)
       : appPath('/api/admin/categories')
@@ -118,6 +149,8 @@ export default function CategoryForm({
       setSaving(false)
     }
   }
+
+  const selectableParents = parentOptions.filter((p) => p.id !== categoryId)
 
   if (!isAdmin) {
     return (
@@ -163,6 +196,24 @@ export default function CategoryForm({
           }}
           required
         />
+      </div>
+      <div>
+        <label className="form-label">Parent category</label>
+        <select
+          className="input w-full"
+          value={parentId}
+          onChange={(e) => setParentId(e.target.value)}
+        >
+          <option value="">None (top-level category)</option>
+          {selectableParents.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <p className={`text-xs mt-1 ${t.muted}`}>
+          Choose a parent to create a subcategory (e.g. SHOES → SNEAKERS).
+        </p>
       </div>
       <div>
         <label className="form-label">Description</label>

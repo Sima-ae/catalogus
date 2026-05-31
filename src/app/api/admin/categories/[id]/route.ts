@@ -60,6 +60,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     return NextResponse.json(serializeCategory(result.row as Record<string, unknown>))
   } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('Parent category') || message.includes('own parent')) {
+      return jsonError(message, 400)
+    }
     console.error('Category PATCH error:', error)
     return jsonError(getDbErrorMessage(error, 'Failed to save category'), 503)
   }

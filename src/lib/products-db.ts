@@ -594,42 +594,84 @@ export async function bulkDeleteProducts(productIds: string[]): Promise<number> 
 }
 
 export async function listCategories(activeOnly = false) {
+  const base = `SELECT c.*, p.name AS parent_name
+    FROM categories c
+    LEFT JOIN categories p ON p.id = c.parent_id`
   if (activeOnly) {
     return queryDb<any[]>(
-      'SELECT * FROM categories WHERE active = 1 ORDER BY COALESCE(sort_order, 9999), name ASC'
+      `${base} WHERE c.active = 1 ORDER BY COALESCE(c.sort_order, 9999), c.name ASC`
     )
   }
-  return queryDb<any[]>('SELECT * FROM categories ORDER BY name ASC')
+  return queryDb<any[]>(`${base} ORDER BY c.name ASC`)
 }
 
-export async function insertCategory(input: { name: string; slug: string; description?: string }) {
+async function assertValidCategoryParent(
+  categoryId: string | null,
+  parentId: string | null | undefined
+) {
+  const parent = parentId?.trim() || null
+  if (!parent) return null
+  if (categoryId && parent === categoryId) {
+    throw new Error('A category cannot be its own parent')
+  }
+  const parentRow = await getCategoryById(parent)
+  if (!parentRow) {
+    throw new Error('Parent category not found')
+  }
+  if (categoryId && parentRow.parent_id === categoryId) {
+    throw new Error('Invalid parent category (circular reference)')
+  }
+  return parent
+}
+
+export async function insertCategory(input: {
+  name: string
+  slug: string
+  description?: string
+  parent_id?: string | null
+}) {
+  const parent_id = await assertValidCategoryParent(null, input.parent_id)
   const id = randomUUID()
   await queryDb(
-    'INSERT INTO categories (id, name, slug, description, active) VALUES (?, ?, ?, ?, 1)',
-    [id, input.name, input.slug, input.description || null]
+    'INSERT INTO categories (id, name, slug, description, parent_id, active) VALUES (?, ?, ?, ?, ?, 1)',
+    [id, input.name, input.slug, input.description || null, parent_id]
   )
-  const rows = await queryDb<any[]>('SELECT * FROM categories WHERE id = ? LIMIT 1', [id])
+  const rows = await queryDb<any[]>(
+    `SELECT c.*, p.name AS parent_name
+     FROM categories c
+     LEFT JOIN categories p ON p.id = c.parent_id
+     WHERE c.id = ? LIMIT 1`,
+    [id]
+  )
   return rows[0]
 }
 
 export async function getCategoryById(id: string) {
-  const rows = await queryDb<any[]>('SELECT * FROM categories WHERE id = ? LIMIT 1', [id])
+  const rows = await queryDb<any[]>(
+    `SELECT c.*, p.name AS parent_name
+     FROM categories c
+     LEFT JOIN categories p ON p.id = c.parent_id
+     WHERE c.id = ? LIMIT 1`,
+    [id]
+  )
   return rows[0] ?? null
 }
 
 export async function updateCategoryById(
   id: string,
-  input: { name: string; slug: string; description?: string; active?: boolean }
+  input: { name: string; slug: string; description?: string; active?: boolean; parent_id?: string | null }
 ) {
   const prev = await getCategoryById(id)
+  const parent_id = await assertValidCategoryParent(id, input.parent_id)
 
   await queryDb(
-    'UPDATE categories SET name = ?, slug = ?, description = ?, active = ? WHERE id = ?',
+    'UPDATE categories SET name = ?, slug = ?, description = ?, active = ?, parent_id = ? WHERE id = ?',
     [
       input.name,
       input.slug,
       input.description || null,
       input.active === false ? 0 : 1,
+      parent_id,
       id,
     ]
   )

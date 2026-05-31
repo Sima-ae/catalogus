@@ -44,12 +44,17 @@ export async function POST(request: NextRequest) {
       name: input.name,
       slug: input.slug,
       description: input.description,
+      parent_id: input.parent_id,
     })
 
     return NextResponse.json(serializeCategory(row as Record<string, unknown>), {
       status: 201,
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes('Parent category') || message.includes('own parent')) {
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
     const code = (error as { code?: string })?.code
     if (code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'A category with this slug already exists' }, { status: 409 })

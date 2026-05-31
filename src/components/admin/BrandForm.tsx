@@ -9,6 +9,7 @@ import { slugifyCategory } from '@/lib/category-slug'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
+import BrandSubcategoriesEditor from '@/components/admin/BrandSubcategoriesEditor'
 
 type BrandFormProps = {
   brandId?: string
@@ -220,6 +221,9 @@ export default function BrandForm({
           <p className={t.body}>{description || '—'}</p>
         </div>
         {categoryPicker}
+        {brandId ? (
+          <BrandSubcategoriesEditor brandId={brandId} readOnly />
+        ) : null}
         <div>
           <p className={`text-xs uppercase tracking-wide ${t.muted}`}>Status</p>
           <p className={t.body}>{active ? 'Active' : 'Inactive'}</p>
@@ -237,69 +241,80 @@ export default function BrandForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card space-y-4 max-w-xl">
-      {error && (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            t.isDark
-              ? 'border-red-500/40 bg-red-500/10 text-red-300'
-              : 'border-red-300 bg-red-50 text-red-700'
-          }`}
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
-      <div>
-        <label className="form-label">Name *</label>
-        <input
-          className="input w-full"
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <label className="form-label">Slug *</label>
-        <input
-          className="input w-full"
-          value={slug}
-          onChange={(e) => {
-            setSlugManual(true)
-            setSlug(e.target.value)
-          }}
-          required
-        />
-      </div>
-      <div>
-        <label className="form-label">Description</label>
-        <textarea
-          className="input w-full"
-          rows={3}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
-      {categoryPicker}
-      {isEdit && (
-        <label className="flex items-center gap-2 form-check-label cursor-pointer">
+    <>
+      <form onSubmit={handleSubmit} className="card space-y-4 max-w-xl">
+        {error && (
+          <div
+            className={`rounded-lg border px-4 py-3 text-sm ${
+              t.isDark
+                ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                : 'border-red-300 bg-red-50 text-red-700'
+            }`}
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+        <div>
+          <label className="form-label">Name *</label>
           <input
-            type="checkbox"
-            checked={active}
-            onChange={(e) => setActive(e.target.checked)}
-            className={`rounded ${t.isDark ? 'border-dark-500' : 'border-gray-400'}`}
+            className="input w-full"
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            required
           />
-          Active in catalog
-        </label>
-      )}
-      <div className="flex items-center gap-3 pt-2">
-        <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Saving...' : isEdit ? 'Save changes' : 'Create brand'}
-        </button>
-        <Link href={appPath('/admin/brands')} className="btn-secondary">
-          Cancel
-        </Link>
-      </div>
-    </form>
+        </div>
+        <div>
+          <label className="form-label">Slug *</label>
+          <input
+            className="input w-full"
+            value={slug}
+            onChange={(e) => {
+              setSlugManual(true)
+              setSlug(e.target.value)
+            }}
+            required
+          />
+        </div>
+        <div>
+          <label className="form-label">Description</label>
+          <textarea
+            className="input w-full"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        {categoryPicker}
+        {isEdit && (
+          <label className="flex items-center gap-2 form-check-label cursor-pointer">
+            <input
+              type="checkbox"
+              checked={active}
+              onChange={(e) => setActive(e.target.checked)}
+              className={`rounded ${t.isDark ? 'border-dark-500' : 'border-gray-400'}`}
+            />
+            Active in catalog
+          </label>
+        )}
+        <div className="flex items-center gap-3 pt-2">
+          <button type="submit" className="btn-primary" disabled={saving}>
+            {saving ? 'Saving...' : isEdit ? 'Save changes' : 'Create brand'}
+          </button>
+          <Link href={appPath('/admin/brands')} className="btn-secondary">
+            Cancel
+          </Link>
+        </div>
+      </form>
+      {isEdit && brandId ? (
+        <div className="mt-4 max-w-xl">
+          <BrandSubcategoriesEditor brandId={brandId} />
+        </div>
+      ) : !isEdit ? (
+        <p className={`text-sm mt-3 max-w-xl ${t.muted}`}>
+          After creating the brand, open Edit to add subcategories such as MEN or WOMEN.
+        </p>
+      ) : null}
+    </>
   )
 }

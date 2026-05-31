@@ -127,6 +127,7 @@ export default function AdminCategoriesPage() {
             <thead>
               <tr className={`border-b ${t.rowBorder}`}>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Name</th>
+                <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Parent</th>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Slug</th>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Status</th>
                 <th className={`text-left py-3 px-4 font-medium ${t.tableHead}`}>Description</th>
@@ -136,7 +137,17 @@ export default function AdminCategoriesPage() {
             <tbody>
               {categories.map((c) => (
                 <tr key={c.id} className={`border-b ${t.rowBorder}`}>
-                  <td className={`py-3 px-4 font-semibold ${t.tableCell}`}>{c.name}</td>
+                  <td className={`py-3 px-4 font-semibold ${t.tableCell}`}>
+                    {c.parent_name ? (
+                      <span className={t.muted}>
+                        <span className="mr-1">↳</span>
+                        {c.name}
+                      </span>
+                    ) : (
+                      c.name
+                    )}
+                  </td>
+                  <td className={`py-3 px-4 ${t.body}`}>{c.parent_name || '—'}</td>
                   <td className={`py-3 px-4 font-mono text-sm ${t.body}`}>{c.slug}</td>
                   <td className={`py-3 px-4 ${t.body}`}>{c.active ? 'Active' : 'Inactive'}</td>
                   <td className={`py-3 px-4 max-w-xs truncate ${t.muted}`}>{c.description || '—'}</td>

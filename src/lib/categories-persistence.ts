@@ -25,13 +25,20 @@ export async function createCategory(input: {
   name: string
   slug: string
   description?: string
+  parent_id?: string | null
 }): Promise<CategoryRecord> {
   return (await insertCategory(input)) as CategoryRecord
 }
 
 export async function saveCategory(
   id: string,
-  input: { name: string; slug: string; description?: string; active?: boolean }
+  input: {
+    name: string
+    slug: string
+    description?: string
+    active?: boolean
+    parent_id?: string | null
+  }
 ): Promise<
   | { ok: true; row: CategoryRecord }
   | { ok: false; status: number; error: string }

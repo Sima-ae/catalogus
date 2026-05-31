@@ -5,6 +5,8 @@ export type DbCategory = {
   name: string
   slug: string
   description?: string | null
+  parent_id?: string | null
+  parent_name?: string | null
   active?: number | boolean
 }
 
@@ -13,6 +15,8 @@ export type AdminCategoryRow = {
   name: string
   slug: string
   description: string | null
+  parent_id: string | null
+  parent_name: string | null
   active: boolean
 }
 
@@ -23,9 +27,16 @@ export function mapDbCategoriesToAdminRows(dbCategories: DbCategory[]): AdminCat
       name: c.name,
       slug: c.slug,
       description: c.description ? String(c.description) : null,
+      parent_id: c.parent_id ? String(c.parent_id) : null,
+      parent_name: c.parent_name ? String(c.parent_name) : null,
       active: c.active === false || c.active === 0 ? false : true,
     }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => {
+      const aParent = a.parent_name || ''
+      const bParent = b.parent_name || ''
+      if (aParent !== bParent) return aParent.localeCompare(bParent)
+      return a.name.localeCompare(b.name)
+    })
 }
 
 export function parseCategoryBody(body: Record<string, unknown>) {
@@ -38,6 +49,11 @@ export function parseCategoryBody(body: Record<string, unknown>) {
   const description = body.description ? String(body.description).trim() : undefined
   const active =
     body.active === false || body.active === 'false' || body.active === 0 ? false : true
+  const parentRaw = body.parent_id ?? body.parentId
+  const parent_id =
+    parentRaw == null || parentRaw === '' || parentRaw === 'none'
+      ? null
+      : String(parentRaw).trim()
 
-  return { name, slug, description, active }
+  return { name, slug, description, active, parent_id }
 }
