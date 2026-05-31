@@ -73,11 +73,7 @@ export default function ImportSourceForm({
           >
             <option value="">Select category</option>
             {categories.map((c) => (
-              <option
-                key={c.id}
-                value={c.id}
-                className={c.isSubcategory ? 'pl-4' : undefined}
-              >
+              <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}

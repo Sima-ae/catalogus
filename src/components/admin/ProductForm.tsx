@@ -10,8 +10,8 @@ import { arrayToLines, parseProductBody, pipeToLines } from '@/lib/product-body'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
+import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
 
-type CategoryOption = { id: string; name: string; slug: string }
 type BrandOption = { id: string; name: string; slug: string }
 
 const defaultForm = {
@@ -68,7 +68,7 @@ export default function ProductForm({
   const productsPath = isSeller ? '/seller/products' : '/admin/products'
   const authHeaders = useMemo(() => catalogAuthHeaders(user), [user])
   const [form, setForm] = useState(defaultForm)
-  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<BrandOption[]>([])
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
@@ -79,7 +79,25 @@ export default function ProductForm({
     fetch(appPath('/api/categories'))
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setCategories(data)
+        if (Array.isArray(data)) {
+          setCategories(
+            buildCategoryPickerOptions(
+              data.map(
+                (c: {
+                  id: string
+                  name: string
+                  parent_id?: string | null
+                  parent_name?: string | null
+                }) => ({
+                  id: c.id,
+                  name: c.name,
+                  parent_id: c.parent_id,
+                  parent_name: c.parent_name,
+                })
+              )
+            )
+          )
+        }
       })
       .catch(() => {})
     fetch(appPath('/api/brands'))
@@ -248,10 +266,11 @@ export default function ProductForm({
             <option value="">Select category</option>
             {categories.map((c) => (
               <option key={c.id} value={c.name}>
-                {c.name}
+                {c.label}
               </option>
             ))}
-            {form.category && !categories.some((c) => c.name === form.category) && (
+            {form.category &&
+              !categories.some((c) => c.name === form.category) && (
               <option value={form.category}>{form.category}</option>
             )}
           </select>

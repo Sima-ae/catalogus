@@ -9,8 +9,10 @@ export type CategoryTreeRow = {
 export type CategoryPickerOption = {
   id: string
   name: string
-  /** Label for &lt;option&gt; / UI — indented for subcategories. */
+  /** Short label for &lt;select&gt; (indented ↳ for subcategories). */
   label: string
+  /** Unambiguous label for lists (e.g. SOCCER › SHOES). */
+  listLabel: string
   depth: number
   parent_id: string | null
   parent_name: string | null
@@ -81,11 +83,15 @@ export function buildCategoryPickerOptions(rows: CategoryTreeRow[]): CategoryPic
   const visit = (parentId: string | null, depth: number) => {
     for (const row of childrenByParent.get(parentId) ?? []) {
       const isSubcategory = depth > 0
+      const listLabel = isSubcategory
+        ? formatCategoryDisplayName(row.name, row.parent_name)
+        : row.name
       const indent = isSubcategory ? `${'  '.repeat(depth)}↳ ` : ''
       options.push({
         id: row.id,
         name: row.name,
-        label: `${indent}${row.name}`,
+        label: isSubcategory ? `${indent}${listLabel}` : listLabel,
+        listLabel,
         depth,
         parent_id: row.parent_id,
         parent_name: row.parent_name,
@@ -101,10 +107,14 @@ export function buildCategoryPickerOptions(rows: CategoryTreeRow[]): CategoryPic
     const seen = new Set(options.map((o) => o.id))
     for (const row of normalized) {
       if (!seen.has(row.id)) {
+        const listLabel = row.parent_id
+          ? formatCategoryDisplayName(row.name, row.parent_name)
+          : row.name
         options.push({
           id: row.id,
           name: row.name,
-          label: row.name,
+          label: listLabel,
+          listLabel,
           depth: 0,
           parent_id: row.parent_id,
           parent_name: row.parent_name,

@@ -10,6 +10,11 @@ import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
 import BrandSubcategoriesEditor from '@/components/admin/BrandSubcategoriesEditor'
+import CategoryCheckboxList from '@/components/admin/CategoryCheckboxList'
+import {
+  buildCategoryPickerOptions,
+  type CategoryPickerOption,
+} from '@/lib/category-picker'
 
 type BrandFormProps = {
   brandId?: string
@@ -17,8 +22,6 @@ type BrandFormProps = {
   initialSlug?: string
   readOnly?: boolean
 }
-
-type CategoryOption = { id: string; name: string; slug: string }
 
 type BrandRecord = {
   id: string
@@ -47,19 +50,40 @@ export default function BrandForm({
   const [description, setDescription] = useState('')
   const [active, setActive] = useState(true)
   const [categoryIds, setCategoryIds] = useState<string[]>([])
-  const [allCategories, setAllCategories] = useState<CategoryOption[]>([])
+  const [allCategories, setAllCategories] = useState<CategoryPickerOption[]>([])
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch(appPath('/api/categories'))
+    if (!isAdmin || !user) return
+    fetch(appPath('/api/admin/categories'), {
+      headers: adminAuthHeaders(user),
+      cache: 'no-store',
+    })
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setAllCategories(data)
+        if (!Array.isArray(data)) return
+        setAllCategories(
+          buildCategoryPickerOptions(
+            data.map(
+              (c: {
+                id: string
+                name: string
+                parent_id?: string | null
+                parent_name?: string | null
+              }) => ({
+                id: c.id,
+                name: c.name,
+                parent_id: c.parent_id,
+                parent_name: c.parent_name,
+              })
+            )
+          )
+        )
       })
       .catch(() => {})
-  }, [])
+  }, [isAdmin, user])
 
   useEffect(() => {
     if (!isEdit || !brandId || authLoading || !isAdmin || !user) return
@@ -111,7 +135,7 @@ export default function BrandForm({
 
   const selectedCategoryNames = allCategories
     .filter((c) => categoryIds.includes(c.id))
-    .map((c) => c.name)
+    .map((c) => c.listLabel)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -181,26 +205,12 @@ export default function BrandForm({
           {selectedCategoryNames.length ? selectedCategoryNames.join(', ') : 'All categories (none selected)'}
         </p>
       ) : (
-        <div
-          className={`max-h-48 overflow-y-auto rounded-lg border p-3 space-y-2 ${
-            t.isDark ? 'border-dark-600 bg-dark-800' : 'border-gray-200 bg-gray-50'
-          }`}
-        >
-          {allCategories.map((c) => (
-            <label
-              key={c.id}
-              className="flex items-center gap-2 text-sm cursor-pointer form-check-label"
-            >
-              <input
-                type="checkbox"
-                checked={categoryIds.includes(c.id)}
-                onChange={() => toggleCategory(c.id)}
-                className={`rounded ${t.isDark ? 'border-dark-500' : 'border-gray-400'}`}
-              />
-              {c.name}
-            </label>
-          ))}
-        </div>
+        <CategoryCheckboxList
+          options={allCategories}
+          selectedIds={categoryIds}
+          onToggle={toggleCategory}
+          readOnly={readOnly}
+        />
       )}
     </div>
   )
