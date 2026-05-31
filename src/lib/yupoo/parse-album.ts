@@ -11,6 +11,8 @@ import {
 import { brandSkuPrefix } from '@/lib/product-sku'
 import {
   extractYupooStyleCode,
+  isYupooShopTagline,
+  sanitizeYupooAlbumTitle,
 } from '@/lib/yupoo/import-text'
 
 function extractSkuHint(title: string): string | null {
@@ -58,11 +60,39 @@ function collectFromHtml(html: string, pageUrl: string): string[] {
 export function parseAlbumPage(html: string, albumUrl: string, albumId: string): YupooAlbumData {
   const $ = cheerio.load(html)
 
-  const h1 =
-    $('h1').first().text().trim() ||
-    $('.album__title').first().text().trim() ||
-    $('title').text().split('|')[0]?.trim() ||
-    ''
+  const titleCandidates: string[] = []
+
+  $('.showalbumheader h1, .showalbum__title, .album__title').each((_, el) => {
+    const t = $(el).text().replace(/\s+/g, ' ').trim()
+    if (t) titleCandidates.push(t)
+  })
+
+  $('h1').each((_, el) => {
+    const t = $(el).text().replace(/\s+/g, ' ').trim()
+    if (t) titleCandidates.push(t)
+  })
+
+  const docTitle = $('title').text().split('|')[0]?.replace(/\s+/g, ' ').trim()
+  if (docTitle) titleCandidates.push(docTitle)
+
+  const ogTitle = $('meta[property="og:title"]').attr('content')?.split('|')[0]?.trim()
+  if (ogTitle) titleCandidates.push(ogTitle)
+
+  let h1 = ''
+  for (const candidate of titleCandidates) {
+    if (isYupooShopTagline(candidate)) continue
+    const sanitized = sanitizeYupooAlbumTitle(candidate)
+    if (sanitized && /[a-zA-Z]{2,}/.test(sanitized)) {
+      h1 = candidate
+      break
+    }
+  }
+  if (!h1) {
+    h1 =
+      titleCandidates.find((t) => !isYupooShopTagline(t)) ||
+      titleCandidates[0] ||
+      ''
+  }
 
   const descriptionParts: string[] = []
   $(

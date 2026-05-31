@@ -24,10 +24,30 @@ const YUPOO_TITLE_META_RE =
 const YUPOO_TITLE_SKU_LABEL_RE =
   /\s*(?:Style\s*(?:No\.?|#|code)?|Item\s*(?:No\.?|#)?|SKU\s*[：:#]?)\s*[：:]?\s*\S/i
 
+const YUPOO_SHOP_TAGLINE_RE =
+  /(?:厂家直销|批发|免费代发|南方\s*pk|又拍|yupoo|supplier\s+product\s+catalog|factory\s+direct|wholesale|free\s+shipping|dropship)/i
+
+/** Yupoo store header / footer text — not a product name. */
+export function isYupooShopTagline(text: string): boolean {
+  const t = String(text ?? '').trim()
+  if (!t) return false
+  if (YUPOO_SHOP_TAGLINE_RE.test(t)) return true
+  if (/^southern\s+pk\b/i.test(t)) return true
+  if (
+    /^(wholesale|factory|free shipping|dropshipping)\b/i.test(t) &&
+    !/\b(jordan|nike|adidas|dunk|yeezy|air max|kobe|samba|gazelle)\b/i.test(t)
+  ) {
+    return true
+  }
+  return false
+}
+
 /** Strip Yupoo metadata (CN/EN) and keep the product name portion. */
 export function sanitizeYupooAlbumTitle(text: string): string {
   let t = String(text ?? '').trim()
   if (!t) return ''
+
+  if (isYupooShopTagline(t)) return ''
 
   for (const re of [YUPOO_TITLE_META_RE, YUPOO_TITLE_SKU_LABEL_RE]) {
     const idx = t.search(re)
@@ -41,6 +61,8 @@ export function sanitizeYupooAlbumTitle(text: string): string {
   t = t.replace(/^[\s|｜\-–—:：,，.]+/, '').trim()
   t = t.replace(/[\s|｜\-–—:：,，.]+$/, '').trim()
 
+  if (isYupooShopTagline(t)) return ''
+
   return t.length > 120 ? t.slice(0, 120).trim() : t
 }
 
@@ -48,6 +70,7 @@ function isUsableDisplayTitle(title: string): boolean {
   const t = title.trim()
   if (t.length < 3) return false
   if (/^imported product$/i.test(t)) return false
+  if (isYupooShopTagline(t)) return false
   if (isSkuOnlyTitle(t)) return true
   return /[a-zA-Z]{2,}/.test(t)
 }
@@ -71,7 +94,9 @@ export function resolveYupooProductTitle(options: {
   ]
 
   for (const candidate of descriptiveCandidates) {
-    const sanitized = sanitizeYupooAlbumTitle(String(candidate ?? ''))
+    const raw = String(candidate ?? '').trim()
+    if (!raw || isYupooShopTagline(raw)) continue
+    const sanitized = sanitizeYupooAlbumTitle(raw)
     if (sanitized && isUsableDisplayTitle(sanitized) && !isSkuOnlyTitle(sanitized)) {
       return sanitized
     }

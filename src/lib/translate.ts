@@ -1,7 +1,5 @@
 /** Free Google Translate (no API key). Rate-limit calls in batch jobs. */
 
-import { isSkuOnlyTitle } from '@/lib/yupoo/import-text'
-
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -55,11 +53,11 @@ export async function translateProductText(
   let translationFailed = false
 
   try {
-    if (rawTitle && !isSkuOnlyTitle(rawTitle)) {
-      enTitle = await translateText(rawTitle)
-      if (delayMs > 0) await sleep(delayMs)
+    // Product names come from the raw Yupoo album title (sanitized) — not machine translation.
+    // Translating full CN titles often yields shop taglines like "Southern PK wholesale…".
+    if (rawDescription) {
+      enDescription = await translateText(rawDescription)
     }
-    enDescription = rawDescription ? await translateText(rawDescription) : ''
   } catch {
     translationFailed = true
     enTitle = rawTitle

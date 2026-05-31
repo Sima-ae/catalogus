@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Fix Yupoo product names (especially "Imported product" placeholders).
+ * Fix Yupoo product names (bad translations, "Imported product", shop taglines).
  *
  *   npm run db:fix-yupoo-titles
  *   npm run db:fix-yupoo-titles -- --dry-run
@@ -12,6 +12,7 @@ import {
   catalogCardDescription,
   cleanImportDescription,
   isSkuOnlyTitle,
+  isYupooShopTagline,
   resolveYupooProductTitle,
   sanitizeYupooAlbumTitle,
 } from '@/lib/yupoo/import-text'
@@ -54,34 +55,84 @@ type JobItemRow = {
 
 function albumFieldsFromRawJson(raw: string | null): {
   title: string | null
+  rawTitle: string | null
   description: string | null
   enTitle: string | null
   enDescription: string | null
 } {
   if (!raw) {
-    return { title: null, description: null, enTitle: null, enDescription: null }
+    return {
+      title: null,
+      rawTitle: null,
+      description: null,
+      enTitle: null,
+      enDescription: null,
+    }
   }
   try {
     const data = JSON.parse(raw) as {
       album?: { title?: string; description?: string }
-      translated?: { enTitle?: string; enDescription?: string; rawTitle?: string }
+      translated?: {
+        rawTitle?: string
+        enTitle?: string
+        enDescription?: string
+        rawDescription?: string
+      }
     }
+    const albumTitle = data.album?.title?.trim() || null
+    const rawTitle = data.translated?.rawTitle?.trim() || albumTitle
     return {
-      title: data.album?.title?.trim() || data.translated?.rawTitle?.trim() || null,
+      title: albumTitle,
+      rawTitle,
       description: data.album?.description?.trim() || null,
       enTitle: data.translated?.enTitle?.trim() || null,
       enDescription: data.translated?.enDescription?.trim() || null,
     }
   } catch {
-    return { title: null, description: null, enTitle: null, enDescription: null }
+    return {
+      title: null,
+      rawTitle: null,
+      description: null,
+      enTitle: null,
+      enDescription: null,
+    }
   }
 }
 
 function needsTitleFix(name: string): boolean {
   const t = name.trim()
   if (!t || /^imported product$/i.test(t)) return true
+  if (isYupooShopTagline(t)) return true
   if (isSkuOnlyTitle(t)) return false
+  const sanitized = sanitizeYupooAlbumTitle(t)
+  if (!sanitized || sanitized.toLowerCase() === t.toLowerCase()) {
+    if (/supplier product catalog|factory direct|wholesale|free shipping/i.test(t)) return true
+  }
   return false
+}
+
+function pickAlbumTitle(
+  raw: ReturnType<typeof albumFieldsFromRawJson>,
+  job: JobItemRow | undefined,
+  row: ProductRow
+): string {
+  const candidates = [
+    raw.rawTitle,
+    raw.title,
+    job?.album_title,
+  ].filter((v): v is string => Boolean(v?.trim()))
+
+  for (const candidate of candidates) {
+    if (isYupooShopTagline(candidate)) continue
+    const sanitized = sanitizeYupooAlbumTitle(candidate)
+    if (sanitized && /[a-zA-Z]{2,}/.test(sanitized)) return candidate
+  }
+
+  for (const candidate of candidates) {
+    if (!isYupooShopTagline(candidate)) return candidate
+  }
+
+  return sanitizeYupooAlbumTitle(String(row.description ?? '')) || row.name
 }
 
 async function main() {
@@ -115,15 +166,9 @@ async function main() {
     const job = albumId ? byAlbum.get(albumId) : undefined
     const raw = albumFieldsFromRawJson(job?.raw_json ?? null)
 
-    const albumTitle =
-      raw.enTitle ||
-      raw.title ||
-      job?.album_title ||
-      sanitizeYupooAlbumTitle(String(row.description ?? '')) ||
-      current
-
+    const albumTitle = pickAlbumTitle(raw, job, row)
     const descriptionSource =
-      raw.enDescription || raw.description || String(row.description ?? '')
+      raw.description || raw.enDescription || String(row.description ?? '')
 
     const resolved = resolveYupooProductTitle({
       albumTitle,
@@ -131,7 +176,14 @@ async function main() {
       thumbTitle: job?.album_title,
     })
 
-    if (!resolved || resolved === current || /^imported product$/i.test(resolved)) continue
+    if (
+      !resolved ||
+      resolved === current ||
+      /^imported product$/i.test(resolved) ||
+      isYupooShopTagline(resolved)
+    ) {
+      continue
+    }
 
     const brand = row.brand?.trim() || null
     const cleanedDescription = cleanImportDescription(
@@ -149,7 +201,7 @@ async function main() {
 
     updated++
     if (dryRun) {
-      console.log(`[dry-run] ${row.id}: "${current}" → "${resolved}"`)
+      console.log(`[dry-run] ${row.id}: "${current.slice(0, 70)}" → "${resolved}"`)
       continue
     }
 

@@ -25,11 +25,11 @@ export function buildProductInputFromImport(
   const mainImage = uniqueImages[0] || ''
   const gallery = uniqueImages.slice(1)
 
-  const rawTitle = translated.enTitle || album.title
+  const rawTitle = translated.rawTitle || album.title
   const rawDescription = translated.enDescription || album.description
   const name = resolveYupooProductTitle({
     albumTitle: rawTitle,
-    description: rawDescription,
+    description: album.description,
     thumbTitle,
   })
   const description = cleanImportDescription(rawDescription, name, brandName)
