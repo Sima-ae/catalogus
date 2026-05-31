@@ -1,6 +1,7 @@
 'use client'
 
 import { useAppTheme } from '@/lib/theme-classes'
+import type { CategoryPickerOption } from '@/lib/category-picker'
 
 export type ImportSourceFormValues = {
   name: string
@@ -9,7 +10,6 @@ export type ImportSourceFormValues = {
   catalog_brand_id: string
 }
 
-type CategoryOption = { id: string; name: string }
 type BrandOption = { id: string; name: string }
 
 type Props = {
@@ -19,7 +19,7 @@ type Props = {
   onCancel?: () => void
   submitLabel: string
   saving: boolean
-  categories: CategoryOption[]
+  categories: CategoryPickerOption[]
   brands: BrandOption[]
 }
 
@@ -37,6 +37,8 @@ export default function ImportSourceForm({
 
   const set = (patch: Partial<ImportSourceFormValues>) =>
     onChange({ ...values, ...patch })
+
+  const selectedCategory = categories.find((c) => c.id === values.catalog_category_id)
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -64,18 +66,27 @@ export default function ImportSourceForm({
         <label className="block space-y-1">
           <span className={`text-sm ${t.muted}`}>Catalog category</span>
           <select
-            className="input w-full"
+            className="input w-full font-sans"
             value={values.catalog_category_id}
             onChange={(e) => set({ catalog_category_id: e.target.value })}
             required
           >
             <option value="">Select category</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+              <option
+                key={c.id}
+                value={c.id}
+                className={c.isSubcategory ? 'pl-4' : undefined}
+              >
+                {c.label}
               </option>
             ))}
           </select>
+          {selectedCategory?.isSubcategory && selectedCategory.parent_name ? (
+            <p className={`text-xs mt-1 ${t.muted}`}>
+              Subcategory of {selectedCategory.parent_name}
+            </p>
+          ) : null}
         </label>
         <label className="block space-y-1">
           <span className={`text-sm ${t.muted}`}>Catalog brand (optional)</span>

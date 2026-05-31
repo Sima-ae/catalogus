@@ -1,4 +1,10 @@
 import { slugifyCategory } from '@/lib/category-slug'
+import {
+  buildCategoryPickerOptions,
+  formatCategoryDisplayName,
+  sortCategoryTreeRows,
+  type CategoryTreeRow,
+} from '@/lib/category-picker'
 
 export type DbCategory = {
   id: string
@@ -21,40 +27,7 @@ export type AdminCategoryRow = {
 }
 
 export function sortCategoriesForAdminList(rows: AdminCategoryRow[]): AdminCategoryRow[] {
-  const childrenByParent = new Map<string | null, AdminCategoryRow[]>()
-
-  for (const row of rows) {
-    const key = row.parent_id
-    const list = childrenByParent.get(key) ?? []
-    list.push(row)
-    childrenByParent.set(key, list)
-  }
-
-  for (const list of Array.from(childrenByParent.values())) {
-    list.sort((a: AdminCategoryRow, b: AdminCategoryRow) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-    )
-  }
-
-  const ordered: AdminCategoryRow[] = []
-  const visit = (parentId: string | null) => {
-    for (const row of childrenByParent.get(parentId) ?? []) {
-      ordered.push(row)
-      visit(row.id)
-    }
-  }
-
-  visit(null)
-
-  // Subcategories whose parent is missing from the list — append at end
-  if (ordered.length < rows.length) {
-    const seen = new Set(ordered.map((r) => r.id))
-    for (const row of rows) {
-      if (!seen.has(row.id)) ordered.push(row)
-    }
-  }
-
-  return ordered
+  return sortCategoryTreeRows(rows as CategoryTreeRow[]) as AdminCategoryRow[]
 }
 
 export function mapDbCategoriesToAdminRows(dbCategories: DbCategory[]): AdminCategoryRow[] {
@@ -70,6 +43,8 @@ export function mapDbCategoriesToAdminRows(dbCategories: DbCategory[]): AdminCat
 
   return sortCategoriesForAdminList(rows)
 }
+
+export { buildCategoryPickerOptions, formatCategoryDisplayName }
 
 export function parseCategoryBody(body: Record<string, unknown>) {
   const name = String(body.name || '').trim()

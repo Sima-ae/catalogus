@@ -26,8 +26,12 @@ import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import type { ImportSourceRow } from '@/lib/import-db'
+import {
+  buildCategoryPickerOptions,
+  formatCategoryDisplayName,
+  type CategoryPickerOption,
+} from '@/lib/category-picker'
 
-type CategoryOption = { id: string; name: string }
 type BrandOption = { id: string; name: string }
 
 type SyncResult = {
@@ -57,7 +61,8 @@ export default function AdminImportPage() {
   const t = useAppTheme()
   const { user, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const [sources, setSources] = useState<ImportSourceRow[]>([])
-  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [categories, setCategories] = useState<CategoryPickerOption[]>([])
+  const [categoryLabels, setCategoryLabels] = useState<Map<string, string>>(new Map())
   const [brands, setBrands] = useState<BrandOption[]>([])
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -99,12 +104,30 @@ export default function AdminImportPage() {
   useEffect(() => {
     if (authLoading || !isAdmin || !user) return
 
-    fetch(appPath('/api/categories'))
+    fetch(appPath('/api/admin/categories'), {
+      headers: adminAuthHeaders(user),
+      cache: 'no-store',
+    })
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) {
-          setCategories(data.map((c: CategoryOption) => ({ id: c.id, name: c.name })))
+        if (!Array.isArray(data)) return
+        const picker = buildCategoryPickerOptions(
+          data.map((c: { id: string; name: string; parent_id?: string | null; parent_name?: string | null }) => ({
+            id: c.id,
+            name: c.name,
+            parent_id: c.parent_id,
+            parent_name: c.parent_name,
+          }))
+        )
+        setCategories(picker)
+        const labels = new Map<string, string>()
+        for (const c of picker) {
+          labels.set(
+            c.id,
+            formatCategoryDisplayName(c.name, c.parent_name)
+          )
         }
+        setCategoryLabels(labels)
       })
       .catch(() => {})
 
@@ -459,7 +482,13 @@ export default function AdminImportPage() {
                       {source.yupoo_category_url}
                     </div>
                   </AdminTd>
-                  <AdminTd>{source.category_name || '—'}</AdminTd>
+                  <AdminTd>
+                    {source.catalog_category_id
+                      ? categoryLabels.get(source.catalog_category_id) ||
+                        source.category_name ||
+                        '—'
+                      : source.category_name || '—'}
+                  </AdminTd>
                   <AdminTd>{source.brand_name || '—'}</AdminTd>
                   <AdminTd>
                     {source.last_synced_at
