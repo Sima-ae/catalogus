@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { deleteUser, getUserProfile, updateUser } from '@/lib/users-db'
+import { deleteUser, getUserProfile, updateUser, type UpdateUserInput } from '@/lib/users-db'
 import { clampBadgeRating, type UserListRow } from '@/lib/user-roles'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +35,7 @@ function parseUpdateBody(body: unknown, allowBadge: boolean) {
   const name =
     raw.name === null || raw.name === undefined ? undefined : String(raw.name).trim() || null
   const roleRaw = raw.role != null ? String(raw.role).trim().toLowerCase() : undefined
-  const role =
+  const role: UpdateUserInput['role'] =
     roleRaw === 'admin' || roleRaw === 'buyer' || roleRaw === 'seller' ? roleRaw : undefined
 
   let badge_rating: number | null | undefined = undefined
