@@ -95,10 +95,7 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <AdminPageShell
-      title="Categories"
-      description="Synced with the categories database table. Active categories appear in the shop sidebar and filters."
-    >
+    <AdminPageShell title="Categories">
       <div className="flex justify-end mb-4">
         <Link href={appPath('/admin/categories/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
@@ -120,9 +117,6 @@ export default function AdminCategoriesPage() {
         </div>
       ) : (
         <div className="card overflow-x-auto">
-          <p className={`${t.muted} text-sm mb-4`}>
-            Showing {categories.length} categories from the database.
-          </p>
           <table className="w-full">
             <thead>
               <tr className={`border-b ${t.rowBorder}`}>

@@ -200,13 +200,8 @@ export default function AdminDashboard() {
 
   const recentOrders = useMemo(() => sortNewest(orders).slice(0, RECENT_ORDERS), [orders])
 
-  const greetingName = user?.name?.trim() || user?.email?.split('@')[0] || 'Admin'
-
   return (
-    <AdminPageShell
-      title="Dashboard"
-      description={`Welcome back, ${greetingName}. Here is a snapshot of your catalog and store activity.`}
-    >
+    <AdminPageShell title="Dashboard">
       {error ? <p className="text-red-500 dark:text-red-400 text-sm mb-4">{error}</p> : null}
 
       {loading ? (

@@ -75,10 +75,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <AdminPageShell
-      title="Users"
-      description="Registered accounts, roles, and marketplace badges."
-    >
+    <AdminPageShell title="Users">
       {isSuperAdmin && (
         <div className="card p-4 mb-6 border border-amber-500/30 bg-amber-500/5">
           <p className="text-amber-700 dark:text-amber-200 text-sm font-medium mb-2">

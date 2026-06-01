@@ -8,11 +8,9 @@ import { useTheme } from '@/lib/theme'
 
 export default function AdminPageShell({
   title,
-  description,
   children,
 }: {
   title: string
-  description?: string
   children: React.ReactNode
 }) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -37,14 +35,7 @@ export default function AdminPageShell({
           leading={<AdminMobileMenuButton onClick={() => setMobileOpen(true)} />}
           actions={<AdminHeaderActions />}
         />
-        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">
-          {description ? (
-            <p className={`mb-4 sm:mb-6 text-sm sm:text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              {description}
-            </p>
-          ) : null}
-          {children}
-        </main>
+        <main className="flex-1 p-4 sm:p-6 overflow-x-hidden app-readable">{children}</main>
       </div>
     </div>
   )

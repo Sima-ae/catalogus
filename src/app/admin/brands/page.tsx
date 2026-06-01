@@ -91,10 +91,7 @@ export default function AdminBrandsPage() {
   }
 
   return (
-    <AdminPageShell
-      title="Brands"
-      description="Synced with the brands database table. Active brands appear in the shop brand filter."
-    >
+    <AdminPageShell title="Brands">
       <div className="flex justify-end mb-4">
         <Link href={appPath('/admin/brands/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
@@ -116,9 +113,6 @@ export default function AdminBrandsPage() {
         </div>
       ) : (
         <div className="card overflow-x-auto">
-          <p className={`${t.muted} text-sm mb-4`}>
-            Showing {brands.length} brands from the database.
-          </p>
           <table className="w-full">
             <thead>
               <tr className={`border-b ${t.rowBorder}`}>

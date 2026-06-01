@@ -37,7 +37,7 @@ export default function AdminOrdersPage() {
   }, [])
 
   return (
-    <AdminPageShell title="Orders" description="All customer orders.">
+    <AdminPageShell title="Orders">
       {loading ? (
         <p className={t.muted}>Loading...</p>
       ) : orders.length === 0 ? (

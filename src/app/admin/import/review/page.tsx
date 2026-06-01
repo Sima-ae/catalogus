@@ -132,10 +132,7 @@ export default function AdminImportReviewPage() {
   }
 
   return (
-    <AdminPageShell
-      title="Import review"
-      description="Draft products imported from Yupoo. Edit details or publish when ready."
-    >
+    <AdminPageShell title="Import review">
       <div className="flex flex-wrap gap-3 mb-6">
         <Link href={appPath('/admin/import')} className="btn-secondary">
           Import sources

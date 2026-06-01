@@ -66,8 +66,7 @@ export default function SellerProductsPage() {
 
   return (
     <DashboardShell title="My products" nav={sellerNav}>
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <p className={t.muted}>Add, edit, and delete your own catalog listings.</p>
+      <div className="flex flex-wrap items-center justify-end gap-4 mb-6">
         <Link href={appPath('/seller/products/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
           Add product

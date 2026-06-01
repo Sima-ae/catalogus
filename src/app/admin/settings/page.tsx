@@ -63,10 +63,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <AdminPageShell
-      title="Settings"
-      description="Store branding and customer-facing options. Payment keys stay in server environment variables only."
-    >
+    <AdminPageShell title="Settings">
       <SiteAccessSettings />
       <CatalogModeSettings />
       <ProductCardDisplaySettings />

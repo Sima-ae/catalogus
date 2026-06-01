@@ -41,12 +41,7 @@ export default function BuyerDashboard() {
 
   return (
     <DashboardShell title="Buyer Dashboard" nav={nav}>
-      <h2 className={`text-2xl font-bold mb-2 ${t.heading}`}>Welcome, {user?.name}</h2>
-      <p className={`mb-6 ${t.muted}`}>
-        {catalogMode
-          ? 'Browse products in catalog mode.'
-          : 'Browse products, manage your cart, and checkout.'}
-      </p>
+      <h2 className={`text-2xl font-bold mb-6 ${t.heading}`}>Welcome, {user?.name}</h2>
       <UserBadgeCard user={user} />
 
       <div

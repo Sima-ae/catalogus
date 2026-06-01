@@ -5,7 +5,7 @@ import ProductForm from '@/components/admin/ProductForm'
 
 export default function NewProductPage() {
   return (
-    <AdminPageShell title="Add product" description="Create a new catalog product">
+    <AdminPageShell title="Add product">
       <ProductForm mode="create" portal="admin" />
     </AdminPageShell>
   )

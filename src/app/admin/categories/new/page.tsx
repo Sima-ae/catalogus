@@ -21,7 +21,7 @@ function NewCategoryForm() {
 
 export default function NewCategoryPage() {
   return (
-    <AdminPageShell title="Add category" description="Create a product category">
+    <AdminPageShell title="Add category">
       <Suspense fallback={<p className="text-gray-600 dark:text-gray-400">Loading...</p>}>
         <NewCategoryForm />
       </Suspense>

@@ -9,7 +9,7 @@ export default function EditProductPage() {
   const id = typeof params.id === 'string' ? params.id : ''
 
   return (
-    <AdminPageShell title="Edit product" description="Update product details">
+    <AdminPageShell title="Edit product">
       <ProductForm mode="edit" productId={id} portal="admin" />
     </AdminPageShell>
   )

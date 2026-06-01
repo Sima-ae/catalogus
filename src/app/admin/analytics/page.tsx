@@ -63,7 +63,7 @@ export default function AdminAnalyticsPage() {
   const currency = getCurrencySymbol()
 
   return (
-    <AdminPageShell title="Analytics" description="Overview from your store data.">
+    <AdminPageShell title="Analytics">
       {loading && <p className={t.muted}>Loading...</p>}
       {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
       {!loading && !error && (

@@ -45,8 +45,7 @@ export default function SellerDashboard() {
 
   return (
     <DashboardShell title="Seller Dashboard" nav={sellerNav}>
-      <h2 className={`text-2xl font-bold mb-2 ${t.heading}`}>Welcome, {user?.name}</h2>
-      <p className={`mb-6 ${t.muted}`}>Manage your listings and track sales.</p>
+      <h2 className={`text-2xl font-bold mb-6 ${t.heading}`}>Welcome, {user?.name}</h2>
       <UserBadgeCard user={user} title="Your seller reputation" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

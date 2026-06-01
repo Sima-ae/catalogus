@@ -381,10 +381,7 @@ export default function AdminImportPage() {
   }
 
   return (
-    <AdminPageShell
-      title="Import"
-      description="Add category URLs, start a sync job, then run the worker on the VPS."
-    >
+    <AdminPageShell title="Import">
       <div className="flex flex-wrap gap-3 mb-6">
         <Link href={appPath('/admin/import/review')} className="btn-secondary">
           Review import queue

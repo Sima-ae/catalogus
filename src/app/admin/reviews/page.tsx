@@ -33,7 +33,7 @@ export default function AdminReviewsPage() {
   }, [])
 
   return (
-    <AdminPageShell title="Reviews" description="Customer product reviews and ratings.">
+    <AdminPageShell title="Reviews">
       {loading && <p className={t.muted}>Loading...</p>}
       {error && <p className="text-red-500 dark:text-red-400">{error}</p>}
       {!loading && !error && reviews.length === 0 && (
