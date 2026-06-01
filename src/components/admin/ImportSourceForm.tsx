@@ -54,7 +54,7 @@ export default function ImportSourceForm({
           />
         </label>
         <label className="block space-y-1 md:col-span-2">
-          <span className={`text-sm ${t.muted}`}>Yupoo category URL</span>
+          <span className={`text-sm ${t.muted}`}>URL</span>
           <input
             className="input w-full"
             value={values.yupoo_category_url}

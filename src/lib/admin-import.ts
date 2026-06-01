@@ -18,7 +18,7 @@ export function parseImportSourceBody(body: unknown): ImportSourceInput | null {
 
 export function validateImportSourceInput(input: ImportSourceInput): string | null {
   if (!input.name || !input.yupoo_category_url) {
-    return 'Name and Yupoo category URL are required'
+    return 'Name and URL are required'
   }
   if (!input.catalog_category_id) {
     return 'Catalog category is required'
