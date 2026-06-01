@@ -65,13 +65,19 @@ export default function PricelistTable({
 
   return (
     <div className={`overflow-x-auto rounded-xl border ${border}`}>
-      <table className="w-full min-w-[640px] text-sm">
+      <table className="w-full min-w-[640px] text-sm table-fixed">
+        <colgroup>
+          <col className="w-28" />
+          <col className="w-[22%]" />
+          <col />
+          <col className="w-52" />
+        </colgroup>
         <thead className={head}>
           <tr>
-            <th className="px-4 py-3 text-left font-semibold w-20">Image</th>
-            <th className="px-4 py-3 text-left font-semibold">Title</th>
-            <th className="px-4 py-3 text-left font-semibold w-32">SKU</th>
-            <th className="px-4 py-3 text-left font-semibold w-52">Price</th>
+            <th className="px-3 py-3 text-left font-semibold">Image</th>
+            <th className="px-3 py-3 text-left font-semibold">Title</th>
+            <th className="px-3 py-3 text-left font-semibold">SKU</th>
+            <th className="px-3 py-3 text-left font-semibold">Price</th>
             {showStar ? <th className="px-4 py-3 w-12" aria-label="Pricelist" /> : null}
             {canManageItems ? <th className="px-4 py-3 w-24" /> : null}
           </tr>
@@ -255,23 +261,28 @@ function PricelistTableRow({
 
   return (
     <tr className={`border-t ${border} ${isDark ? 'hover:bg-dark-800/50' : 'hover:bg-gray-50'}`}>
-      <td className="px-4 py-3">
+      <td className="px-3 py-3">
         <PricelistProductThumb
           productId={row.product_id}
           imageUrl={row.image_url}
           alt={row.name}
+          className="relative w-20 h-20 rounded overflow-hidden bg-gray-100"
+          sizes="80px"
         />
       </td>
-      <td className="px-4 py-3">
+      <td className="px-3 py-3 min-w-0">
         <Link
           href={appPath(`/product/${row.product_id}`)}
-          className={`font-medium hover:underline ${isDark ? 'text-white' : 'text-gray-900'}`}
+          title={row.name}
+          className={`block truncate font-medium hover:underline ${isDark ? 'text-white' : 'text-gray-900'}`}
         >
           {row.name}
         </Link>
       </td>
-      <td className={`px-4 py-3 font-mono text-xs ${muted}`}>{row.sku}</td>
-      <td className="px-4 py-3">
+      <td className={`px-3 py-3 font-mono text-xs truncate ${muted}`} title={row.sku}>
+        {row.sku}
+      </td>
+      <td className="px-3 py-3">
         {showSellerPriceInput ? (
           <div className="flex flex-col gap-1 max-w-[12rem]">
             <div className="flex items-center gap-1.5">

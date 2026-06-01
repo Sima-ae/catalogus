@@ -157,10 +157,12 @@ export default function PricelistPageClient() {
       </div>
 
       {isGuest ? (
-        <p className={`text-sm ${muted}`}>
-          Enter all prices in the empty fields below. Changes save when you leave each field or tap the
-          check button.
-        </p>
+        <div className={`text-sm ${muted}`}>
+          <p>Enter all prices in the empty fields below.</p>
+          <p className="mt-1 text-xs text-red-500">
+            Changes save when you leave each field or tap the check button.
+          </p>
+        </div>
       ) : null}
 
       {canManageSharePassword && listOwnerIdForShare ? (
