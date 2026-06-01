@@ -142,7 +142,10 @@ export function usePricelist(initialOwner?: string) {
   }
 
   const isGuest = accessMode === 'guest'
-  const canEditPrices = !isGuest && user?.role === 'seller'
+  const canEditPrices =
+    !isGuest &&
+    Boolean(user) &&
+    (user?.role === 'seller' || user?.role === 'admin')
   const canManageItems =
     !isGuest &&
     (user?.role === 'admin' || user?.role === 'buyer' || user?.role === 'seller')

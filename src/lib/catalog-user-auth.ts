@@ -157,6 +157,11 @@ export async function canSetPricelistPrices(
   actor: CatalogActor,
   listOwnerId: string
 ): Promise<boolean> {
-  if (actor.role !== 'seller') return false
-  return canViewPricelist(actor, listOwnerId)
+  if (actor.role === 'seller') {
+    return canViewPricelist(actor, listOwnerId)
+  }
+  if (canActAsPricelistAdmin(actor)) {
+    return canViewPricelist(actor, listOwnerId)
+  }
+  return false
 }

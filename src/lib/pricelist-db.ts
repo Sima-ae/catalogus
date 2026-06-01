@@ -160,6 +160,11 @@ export async function listPricelistRows(
         displayCurrency = dp.currency
       }
     } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
+      const own = await getSellerProductPrice(viewer.userId, item.product_id)
+      if (own) {
+        sellerUnit = own.unit_price
+        sellerCurrency = own.currency
+      }
       const prices = await queryDb<{ unit_price: string; currency: string }[]>(
         `SELECT unit_price, currency FROM seller_product_prices
          WHERE product_id = ?
