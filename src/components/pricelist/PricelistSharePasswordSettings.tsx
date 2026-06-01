@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import { useTheme } from '@/lib/theme'
-import { buildPricelistShareUrl } from '@/components/pricelist/PricelistAccessGate'
+import { buildPricelistShareUrl } from '@/lib/pricelist-share-url'
 import {
   isPlatformPricelistOwner,
   PRICELIST_OWNER_QUERY_PLATFORM,

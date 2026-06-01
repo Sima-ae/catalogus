@@ -83,16 +83,7 @@ export async function resolvePricelistAccess(
     : false
 
   if (unlocked) {
-    return { ok: true, ownerId, mode: 'guest', actor: null }
-  }
-
-  if (actor) {
-    return {
-      ok: false,
-      status: 403,
-      error: 'You cannot access this pricelist',
-      ownerId,
-    }
+    return { ok: true, ownerId, mode: 'guest', actor: actor ?? null }
   }
 
   if (settings.has_password) {
@@ -101,6 +92,15 @@ export async function resolvePricelistAccess(
       status: 401,
       error: 'Pricelist password required',
       requiresPassword: true,
+      ownerId,
+    }
+  }
+
+  if (actor) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'You cannot access this pricelist',
       ownerId,
     }
   }

@@ -6,23 +6,30 @@ import type { PricelistRow } from '@/lib/pricelist-db'
 import { formatPrice } from '@/lib/format-price'
 import { appPath } from '@/lib/paths'
 import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
+import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 
 type Props = {
   items: PricelistRow[]
   canEditPrices: boolean
   canManageItems: boolean
+  showStar: boolean
+  ownerQuery?: string
   isDark: boolean
   onSavePrice: (productId: string, price: number) => Promise<void>
   onRemove: (productId: string) => Promise<void>
+  onStarChange?: () => void
 }
 
 export default function PricelistTable({
   items,
   canEditPrices,
   canManageItems,
+  showStar,
+  ownerQuery,
   isDark,
   onSavePrice,
   onRemove,
+  onStarChange,
 }: Props) {
   const border = isDark ? 'border-dark-700' : 'border-gray-200'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
@@ -37,6 +44,7 @@ export default function PricelistTable({
             <th className="px-4 py-3 text-left font-semibold">Title</th>
             <th className="px-4 py-3 text-left font-semibold w-32">SKU</th>
             <th className="px-4 py-3 text-left font-semibold w-44">Price</th>
+            {showStar ? <th className="px-4 py-3 w-12" aria-label="Pricelist" /> : null}
             {canManageItems ? <th className="px-4 py-3 w-24" /> : null}
           </tr>
         </thead>
@@ -47,11 +55,14 @@ export default function PricelistTable({
               row={row}
               canEditPrices={canEditPrices}
               canManageItems={canManageItems}
+              showStar={showStar}
+              ownerQuery={ownerQuery}
               isDark={isDark}
               muted={muted}
               border={border}
               onSavePrice={onSavePrice}
               onRemove={onRemove}
+              onStarChange={onStarChange}
             />
           ))}
         </tbody>
@@ -64,20 +75,26 @@ function PricelistTableRow({
   row,
   canEditPrices,
   canManageItems,
+  showStar,
+  ownerQuery,
   isDark,
   muted,
   border,
   onSavePrice,
   onRemove,
+  onStarChange,
 }: {
   row: PricelistRow
   canEditPrices: boolean
   canManageItems: boolean
+  showStar: boolean
+  ownerQuery?: string
   isDark: boolean
   muted: string
   border: string
   onSavePrice: (productId: string, price: number) => Promise<void>
   onRemove: (productId: string) => Promise<void>
+  onStarChange?: () => void
 }) {
   const initial =
     canEditPrices && row.seller_unit_price != null ? String(row.seller_unit_price) : ''
@@ -156,6 +173,20 @@ function PricelistTableRow({
           <span className={isDark ? 'text-white' : 'text-gray-900'}>{displayPrice}</span>
         )}
       </td>
+      {showStar ? (
+        <td className="px-4 py-3">
+          <PricelistStarButton
+            productId={row.product_id}
+            size="sm"
+            variant="inline"
+            ownerQuery={ownerQuery}
+            assumedOnList
+            onListChange={(onList) => {
+              if (!onList) onStarChange?.()
+            }}
+          />
+        </td>
+      ) : null}
       {canManageItems ? (
         <td className="px-4 py-3">
           <button

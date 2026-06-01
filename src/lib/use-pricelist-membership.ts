@@ -6,34 +6,56 @@ import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
 
-export function usePricelistMembership(productId: string) {
+type Options = {
+  /** Pricelist owner query (`platform` or user id) when not using the actor default list. */
+  ownerQuery?: string
+  /** Skip membership fetch when the product is already known to be on this list. */
+  assumedOnList?: boolean
+}
+
+export function usePricelistMembership(productId: string, options?: Options) {
   const { user, loading: authLoading } = useAuth()
-  const [onList, setOnList] = useState(false)
+  const ownerQuery = options?.ownerQuery
+  const assumedOnList = options?.assumedOnList ?? false
+  const [onList, setOnList] = useState(assumedOnList)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const canUse =
     !authLoading &&
     Boolean(user) &&
-    (user?.role === 'admin' || user?.role === 'buyer' || user?.role === 'seller')
+    (user?.role === 'admin' || user?.role === 'buyer')
+
+  const membershipOwnerQuery = (): string => {
+    if (ownerQuery) return ownerQuery
+    if (user?.role === 'admin') return PRICELIST_OWNER_QUERY_PLATFORM
+    return user?.id ?? ''
+  }
 
   const load = useCallback(async () => {
     if (!user || !productId || !canUse) {
       setOnList(false)
       return
     }
+    if (assumedOnList) {
+      setOnList(true)
+      return
+    }
     setLoading(true)
     try {
-      const res = await fetch(
-        appPath(`/api/pricelist/membership?productId=${encodeURIComponent(productId)}`),
-        { headers: catalogAuthHeaders(user), cache: 'no-store' }
-      )
+      const owner = membershipOwnerQuery()
+      const q = new URLSearchParams({ productId })
+      if (owner) q.set('owner', owner)
+      const res = await fetch(appPath(`/api/pricelist/membership?${q}`), {
+        headers: catalogAuthHeaders(user),
+        cache: 'no-store',
+      })
       const data = await res.json()
       if (res.ok) setOnList(Boolean(data.onList))
     } finally {
       setLoading(false)
     }
-  }, [user, productId, canUse])
+  }, [user, productId, canUse, assumedOnList, ownerQuery])
 
   useEffect(() => {
     load()
@@ -43,19 +65,20 @@ export function usePricelistMembership(productId: string) {
     if (!user || !productId) return { needsLogin: true as const }
     setBusy(true)
     try {
+      const owner = membershipOwnerQuery()
       if (onList) {
-        const ownerQ =
-          user.role === 'admin' ? `&owner=${PRICELIST_OWNER_QUERY_PLATFORM}` : ''
-        const res = await fetch(
-          appPath(`/api/pricelist/items?productId=${encodeURIComponent(productId)}${ownerQ}`),
-          { method: 'DELETE', headers: catalogAuthHeaders(user) }
-        )
+        const params = new URLSearchParams({ productId })
+        if (owner) params.set('owner', owner)
+        const res = await fetch(appPath(`/api/pricelist/items?${params}`), {
+          method: 'DELETE',
+          headers: catalogAuthHeaders(user),
+        })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to remove')
         setOnList(false)
       } else {
         const body: Record<string, string> = { productId }
-        if (user.role === 'admin') body.ownerId = PRICELIST_OWNER_QUERY_PLATFORM
+        if (owner) body.ownerId = owner
         const res = await fetch(appPath('/api/pricelist/items'), {
           method: 'POST',
           headers: { ...catalogAuthHeaders(user), 'Content-Type': 'application/json' },
