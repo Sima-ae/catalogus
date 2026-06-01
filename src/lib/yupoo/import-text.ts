@@ -360,6 +360,9 @@ export function cleanImportDescription(
   result = stripDuplicateSkuPrefix(result, title)
   result = stripProductTrademarkBoilerplate(result, brandName)
   result = stripChineseIconsAndDecorations(result)
+  result = result
+    .replace(/\bshipping\s+from\s+guangzhou\b/gi, ' ')
+    .replace(/\bfree\s+shipping\b/gi, ' ')
   return result.replace(/\s+/g, ' ').trim()
 }
 

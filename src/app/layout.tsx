@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { CatalogModeProvider } from '@/lib/catalog-mode-context'
+import { ProductCardDisplayProvider } from '@/lib/product-card-display-context'
 import { CartProvider } from '@/lib/cart'
 import { ThemeProvider } from '@/lib/theme'
 import { AuthProvider } from '@/lib/auth-local'
@@ -36,9 +37,11 @@ export default function RootLayout({
             <SiteAccessGuard>
               <ThemeProvider>
                 <CatalogModeProvider>
-                  <CartProvider>
-                    {children}
-                  </CartProvider>
+                  <ProductCardDisplayProvider>
+                    <CartProvider>
+                      {children}
+                    </CartProvider>
+                  </ProductCardDisplayProvider>
                 </CatalogModeProvider>
               </ThemeProvider>
             </SiteAccessGuard>

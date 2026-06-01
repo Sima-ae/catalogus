@@ -16,7 +16,8 @@ VALUES
   (UUID(), 'support_email', '', 'Support contact email'),
   (UUID(), 'currency', 'EUR', 'Checkout currency code'),
   (UUID(), 'tax_rate', '0', 'Tax rate percentage'),
-  (UUID(), 'catalog_mode', 'false', 'Browse-only storefront when true')
+  (UUID(), 'catalog_mode', 'false', 'Browse-only storefront when true'),
+  (UUID(), 'product_card_show_details', 'true', 'Show price and short description on shop product cards')
 ON DUPLICATE KEY UPDATE
   value = IF(VALUES(value) <> '', VALUES(value), value),
   updated_at = CURRENT_TIMESTAMP;

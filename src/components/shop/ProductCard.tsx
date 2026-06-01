@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Product } from '@/lib/types'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
+import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
@@ -19,6 +20,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
   const { catalogMode } = useCatalogMode()
+  const { showCardDetails } = useProductCardDisplay()
   const [isAdding, setIsAdding] = useState(false)
   
   const handleAddToCart = async () => {
@@ -78,7 +80,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </h3>
         </Link>
         
-        {cardDescription ? (
+        {showCardDetails && cardDescription ? (
           <p className={`text-xs line-clamp-2 leading-tight transition-colors ${
             theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
           }`}>
@@ -86,6 +88,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </p>
         ) : null}
 
+        {showCardDetails ? (
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-2 min-w-0">
             {product.original_price &&
@@ -135,6 +138,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
         </div>
+        ) : null}
       </div>
     </div>
   )

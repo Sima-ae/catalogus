@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import CatalogModeSettings from '@/components/admin/CatalogModeSettings'
+import ProductCardDisplaySettings from '@/components/admin/ProductCardDisplaySettings'
 import SiteAccessSettings from '@/components/admin/SiteAccessSettings'
 import { appPath } from '@/lib/paths'
 import type { SiteSettings } from '@/lib/site-settings'
@@ -68,6 +69,7 @@ export default function AdminSettingsPage() {
     >
       <SiteAccessSettings />
       <CatalogModeSettings />
+      <ProductCardDisplaySettings />
 
       {loading ? (
         <p className={t.muted}>Loading...</p>
