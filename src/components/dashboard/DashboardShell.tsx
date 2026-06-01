@@ -7,8 +7,6 @@ import { useAuth } from '@/lib/auth-local'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
-import RoleBadge from '@/components/users/RoleBadge'
-import UserStarRating from '@/components/users/UserStarRating'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import DashboardHeaderActions from '@/components/dashboard/DashboardHeaderActions'
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
@@ -23,13 +21,12 @@ interface DashboardShellProps {
 
 export default function DashboardShell({ title, nav, children }: DashboardShellProps) {
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { signOut } = useAuth()
   const { theme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const isDark = theme === 'dark'
   const shellClass = isDark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
-  const panelClass = isDark ? 'bg-dark-800' : 'bg-gray-100'
   const borderClass = isDark ? 'border-dark-800' : 'border-gray-200'
   const navIdle = isDark
     ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
@@ -51,15 +48,6 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
         </div>
       </div>
       <p className={`text-sm mb-4 lg:hidden ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
-      <div className={`mb-6 p-4 rounded-lg ${panelClass}`}>
-        {user ? (
-          <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
-        ) : null}
-        <div className={user ? 'mt-2' : undefined}>
-          <UserStarRating rating={user?.badge_rating} size="sm" showValue={false} />
-        </div>
-        <p className={`text-xs mt-2 truncate ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{user?.email}</p>
-      </div>
       <nav className="space-y-2 flex-1">
         {nav.map((item) => (
           <Link

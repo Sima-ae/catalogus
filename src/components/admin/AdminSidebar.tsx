@@ -1,14 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/lib/auth-local'
 import { useTheme } from '@/lib/theme'
 import { appPath, isAppPath } from '@/lib/paths'
 import { APP_COPYRIGHT } from '@/lib/brand'
 import BrandLogo from '@/components/brand/BrandLogo'
-import RoleBadge from '@/components/users/RoleBadge'
 import {
   HomeIcon,
   CubeIcon,
@@ -61,14 +58,12 @@ export default function AdminSidebar({
   onMobileClose?: () => void
 }) {
   const pathname = usePathname()
-  const { user } = useAuth()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
   const shellClass = isDark
     ? 'bg-dark-900 border-dark-800'
     : 'bg-white border-gray-200'
-  const panelClass = isDark ? 'bg-dark-800' : 'bg-gray-100'
   const mutedText = isDark ? 'text-gray-400' : 'text-gray-600'
   const navIdle = isDark
     ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
@@ -92,12 +87,6 @@ export default function AdminSidebar({
           )}
         </div>
       </div>
-
-      {user ? (
-        <div className={`mb-6 p-4 rounded-lg ${panelClass}`}>
-          <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
-        </div>
-      ) : null}
 
       <nav className="space-y-2 flex-1">
         {navigation.map((item) => {
