@@ -1,12 +1,18 @@
 import type { NextRequest } from 'next/server'
+import { randomUUID } from 'crypto'
 import type { CatalogActor } from '@/lib/catalog-user-auth'
 import {
-  canManagePricelistItems,
   canSetPricelistPrices,
+  canManagePricelistItems,
   canViewPricelist,
   defaultPricelistOwnerForActor,
 } from '@/lib/catalog-user-auth'
 import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
+import {
+  readPricelistContributorId,
+  getPricelistContributorCookieOptions,
+  PRICELIST_CONTRIBUTOR_COOKIE,
+} from '@/lib/pricelist-access-cookie'
 import {
   resolvePricelistAccess,
   type PricelistAccessContext,
@@ -66,4 +72,50 @@ export async function assertSetPrices(
     return { ok: false, status: 403, error: 'You cannot set prices on this pricelist' }
   }
   return { ok: true }
+}
+
+export type PricelistPriceActor =
+  | { kind: 'guest'; contributorId: string; setContributorCookie?: string }
+  | { kind: 'user'; userId: string }
+
+/** Resolve who may save a price row (logged-in seller/admin or share-link guest). */
+export async function resolvePricelistPriceActor(
+  request: NextRequest,
+  access: Extract<PricelistAccessContext, { ok: true }>
+): Promise<
+  { ok: true; actor: PricelistPriceActor } | { ok: false; status: number; error: string }
+> {
+  if (access.mode === 'guest') {
+    const existing = readPricelistContributorId(request.headers.get('cookie'))
+    const contributorId = existing ?? randomUUID()
+    return {
+      ok: true,
+      actor: {
+        kind: 'guest',
+        contributorId,
+        setContributorCookie: existing ? undefined : contributorId,
+      },
+    }
+  }
+
+  if (!access.actor) {
+    return { ok: false, status: 401, error: 'Sign in required' }
+  }
+
+  const perm = await assertSetPrices(access.actor, access.ownerId)
+  if (!perm.ok) return perm
+
+  return { ok: true, actor: { kind: 'user', userId: access.actor.userId } }
+}
+
+export function applyPricelistContributorCookie(
+  response: { cookies: { set: (name: string, value: string, options: object) => void } },
+  contributorId: string | undefined
+): void {
+  if (!contributorId) return
+  response.cookies.set(
+    PRICELIST_CONTRIBUTOR_COOKIE,
+    contributorId,
+    getPricelistContributorCookieOptions()
+  )
 }

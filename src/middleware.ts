@@ -8,6 +8,8 @@ import {
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 
+import { isPricelistSharePath, isPricelistApiPath } from '@/lib/pricelist-share-path'
+
 const GATE_PATH = '/site-access-gate'
 
 function isStaticAsset(pathname: string): boolean {
@@ -26,9 +28,6 @@ function isSiteAccessApi(pathname: string): boolean {
   return pathname.startsWith('/api/site-access/')
 }
 
-function isPricelistAccessApi(pathname: string): boolean {
-  return pathname.startsWith('/api/pricelist/access/')
-}
 
 /** Deploy/diagnostics only — must not require the site-access cookie. */
 function isPublicApi(pathname: string): boolean {
@@ -107,7 +106,7 @@ export async function middleware(request: NextRequest) {
   if (
     isStaticAsset(pathname) ||
     isSiteAccessApi(pathname) ||
-    isPricelistAccessApi(pathname) ||
+    isPricelistApiPath(pathname) ||
     isPublicApi(pathname)
   ) {
     return NextResponse.next()
@@ -131,6 +130,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === GATE_PATH) {
+    return NextResponse.next()
+  }
+
+  if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
     return NextResponse.next()
   }
 

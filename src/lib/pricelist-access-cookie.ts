@@ -1,9 +1,11 @@
 import { getCookieSecret } from '@/lib/site-access-cookie'
 
 export const PRICELIST_UNLOCK_COOKIE = 'rcc_pricelist_unlock'
+export const PRICELIST_CONTRIBUTOR_COOKIE = 'rcc_pricelist_contributor'
 
 const SESSION_MAX_AGE_SEC = 60 * 60 * 12
 const REMEMBER_MAX_AGE_SEC = 60 * 60 * 24 * 30
+const CONTRIBUTOR_MAX_AGE_SEC = 60 * 60 * 24 * 30
 
 const textEncoder = new TextEncoder()
 
@@ -105,20 +107,7 @@ export async function verifyPricelistUnlockToken(
 }
 
 export function readPricelistUnlockCookie(cookieHeader: string | null): string | undefined {
-  if (!cookieHeader) return undefined
-  for (const part of cookieHeader.split(';')) {
-    const trimmed = part.trim()
-    const eq = trimmed.indexOf('=')
-    if (eq === -1) continue
-    if (trimmed.slice(0, eq) !== PRICELIST_UNLOCK_COOKIE) continue
-    const raw = trimmed.slice(eq + 1)
-    try {
-      return decodeURIComponent(raw)
-    } catch {
-      return raw
-    }
-  }
-  return undefined
+  return readCookieValue(cookieHeader, PRICELIST_UNLOCK_COOKIE)
 }
 
 export function getPricelistUnlockCookieOptions(maxAge: number) {
@@ -129,4 +118,40 @@ export function getPricelistUnlockCookieOptions(maxAge: number) {
     path: '/',
     maxAge,
   }
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function readPricelistContributorId(cookieHeader: string | null): string | undefined {
+  const raw = readCookieValue(cookieHeader, PRICELIST_CONTRIBUTOR_COOKIE)
+  if (!raw || !UUID_RE.test(raw)) return undefined
+  return raw
+}
+
+export function getPricelistContributorCookieOptions(maxAge = CONTRIBUTOR_MAX_AGE_SEC) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge,
+  }
+}
+
+function readCookieValue(cookieHeader: string | null, name: string): string | undefined {
+  if (!cookieHeader) return undefined
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim()
+    const eq = trimmed.indexOf('=')
+    if (eq === -1) continue
+    if (trimmed.slice(0, eq) !== name) continue
+    const raw = trimmed.slice(eq + 1)
+    try {
+      return decodeURIComponent(raw)
+    } catch {
+      return raw
+    }
+  }
+  return undefined
 }

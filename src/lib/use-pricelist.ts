@@ -111,10 +111,13 @@ export function usePricelist(initialOwner?: string) {
   }, [ownerId, loadItems])
 
   const savePrice = async (productId: string, unitPrice: number) => {
-    if (!user) return
     const res = await fetch(appPath('/api/pricelist/prices'), {
       method: 'PUT',
-      headers: { ...catalogAuthHeaders(user), 'Content-Type': 'application/json' },
+      headers: {
+        ...(user ? catalogAuthHeaders(user) : {}),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
       body: JSON.stringify({
         productId,
         ownerId: ownerQuery,
@@ -143,9 +146,8 @@ export function usePricelist(initialOwner?: string) {
 
   const isGuest = accessMode === 'guest'
   const canEditPrices =
-    !isGuest &&
-    Boolean(user) &&
-    (user?.role === 'seller' || user?.role === 'admin')
+    isGuest ||
+    (Boolean(user) && (user?.role === 'seller' || user?.role === 'admin'))
   const canManageItems =
     !isGuest &&
     (user?.role === 'admin' || user?.role === 'buyer' || user?.role === 'seller')

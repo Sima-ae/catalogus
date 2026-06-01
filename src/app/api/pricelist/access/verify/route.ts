@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCookieSecret } from '@/lib/site-access-cookie'
 import { getDbErrorMessage } from '@/lib/db-errors'
@@ -5,7 +6,10 @@ import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
 import {
   createPricelistUnlockToken,
   getPricelistUnlockCookieOptions,
+  getPricelistContributorCookieOptions,
   PRICELIST_UNLOCK_COOKIE,
+  PRICELIST_CONTRIBUTOR_COOKIE,
+  readPricelistContributorId,
 } from '@/lib/pricelist-access-cookie'
 import {
   getPricelistShareSettings,
@@ -62,6 +66,13 @@ export async function POST(request: NextRequest) {
 
     const res = NextResponse.json({ ok: true, ownerId: listOwnerId })
     res.cookies.set(PRICELIST_UNLOCK_COOKIE, unlock.token, getPricelistUnlockCookieOptions(unlock.maxAge))
+    if (!readPricelistContributorId(request.headers.get('cookie'))) {
+      res.cookies.set(
+        PRICELIST_CONTRIBUTOR_COOKIE,
+        randomUUID(),
+        getPricelistContributorCookieOptions()
+      )
+    }
     return res
   } catch (error) {
     console.error('Pricelist access verify:', error)

@@ -1,19 +1,42 @@
+import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { starTargetOwnerForActor, verifyCatalogActor } from '@/lib/catalog-user-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
+import { starTargetOwnerForActor, verifyCatalogActor } from '@/lib/catalog-user-auth'
 import { addPricelistItem, listPricelistRows, removePricelistItem } from '@/lib/pricelist-db'
 import { assertManageItems, requirePricelistAccess } from '@/lib/pricelist-api'
+import {
+  readPricelistContributorId,
+  getPricelistContributorCookieOptions,
+  PRICELIST_CONTRIBUTOR_COOKIE,
+} from '@/lib/pricelist-access-cookie'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-function viewerFromAccess(access: Awaited<ReturnType<typeof requirePricelistAccess>>) {
-  if (!access.ok) return null
+function viewerFromAccess(
+  request: NextRequest,
+  access: Extract<Awaited<ReturnType<typeof requirePricelistAccess>>, { ok: true }>
+) {
   if (access.mode === 'guest') {
-    return { userId: '', role: 'guest' as const }
+    const contributorId = readPricelistContributorId(request.headers.get('cookie')) ?? ''
+    return { userId: contributorId, role: 'guest' as const }
   }
   if (!access.actor) return null
   return { userId: access.actor.userId, role: access.actor.role }
+}
+
+function ensureGuestContributorCookie(
+  request: NextRequest,
+  response: NextResponse,
+  access: Extract<Awaited<ReturnType<typeof requirePricelistAccess>>, { ok: true }>
+): void {
+  if (access.mode !== 'guest') return
+  if (readPricelistContributorId(request.headers.get('cookie'))) return
+  response.cookies.set(
+    PRICELIST_CONTRIBUTOR_COOKIE,
+    randomUUID(),
+    getPricelistContributorCookieOptions()
+  )
 }
 
 export async function GET(request: NextRequest) {
@@ -31,18 +54,20 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const viewer = viewerFromAccess(access)
+  const viewer = viewerFromAccess(request, access)
   if (!viewer) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
   try {
     const items = await listPricelistRows(access.ownerId, viewer)
-    return NextResponse.json({
+    const res = NextResponse.json({
       ownerId: access.ownerId,
       items,
       mode: access.mode,
     })
+    ensureGuestContributorCookie(request, res, access)
+    return res
   } catch (error) {
     console.error('Pricelist items GET:', error)
     return NextResponse.json(

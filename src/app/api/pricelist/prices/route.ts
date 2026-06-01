@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyCatalogActor } from '@/lib/catalog-user-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { parseUnitPrice, upsertSellerProductPrice } from '@/lib/pricelist-db'
-import { assertSetPrices, requirePricelistAccess } from '@/lib/pricelist-api'
+import {
+  applyPricelistContributorCookie,
+  requirePricelistAccess,
+  resolvePricelistPriceActor,
+} from '@/lib/pricelist-api'
 import { queryDb } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -16,11 +19,6 @@ async function getShopCurrency(): Promise<string> {
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await verifyCatalogActor(request)
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status })
-  }
-
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
@@ -38,31 +36,40 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Valid unit price is required' }, { status: 400 })
   }
 
-  const access = await requirePricelistAccess(request, ownerParam || null)
-  if (!access.ok || !access.actor) {
-    return NextResponse.json({ error: access.ok ? 'Sign in required' : access.error }, { status: access.ok ? 401 : access.status })
+  const access = await requirePricelistAccess(request, ownerParam || null, { allowGuest: true })
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status })
   }
 
-  const pricePerm = await assertSetPrices(access.actor, access.ownerId)
-  if (!pricePerm.ok) {
-    return NextResponse.json({ error: pricePerm.error }, { status: pricePerm.status })
+  const priceActor = await resolvePricelistPriceActor(request, access)
+  if (!priceActor.ok) {
+    return NextResponse.json({ error: priceActor.error }, { status: priceActor.status })
   }
+
+  const sellerId =
+    priceActor.actor.kind === 'guest'
+      ? priceActor.actor.contributorId
+      : priceActor.actor.userId
 
   try {
     const currency = await getShopCurrency()
     await upsertSellerProductPrice({
-      sellerId: auth.actor.userId,
+      sellerId,
       productId,
       unitPrice,
       currency,
-      updatedBy: auth.actor.userId,
+      updatedBy: sellerId,
     })
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: true,
       unitPrice,
       currency,
       productId,
     })
+    if (priceActor.actor.kind === 'guest') {
+      applyPricelistContributorCookie(res, priceActor.actor.setContributorCookie)
+    }
+    return res
   } catch (error) {
     console.error('Pricelist prices PUT:', error)
     return NextResponse.json(

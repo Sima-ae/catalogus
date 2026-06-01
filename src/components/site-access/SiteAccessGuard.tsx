@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
+import { isPricelistSharePath } from '@/lib/pricelist-share-path'
 
 type Status = { required: boolean; unlocked: boolean }
 
@@ -36,6 +37,8 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     }
   }, [pathname])
 
+  const pricelistShare = isPricelistSharePath(pathname || '', searchParams.get('owner'))
+
   useEffect(() => {
     if (!status) return
 
@@ -48,11 +51,11 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
       return
     }
 
-    if (status.required && !status.unlocked) {
+    if (status.required && !status.unlocked && !pricelistShare) {
       const from = pathname || '/'
       router.replace(`${gatePath}?from=${encodeURIComponent(from)}`)
     }
-  }, [status, onGate, pathname, router, gatePath, searchParams])
+  }, [status, onGate, pathname, router, gatePath, searchParams, pricelistShare])
 
   if (!status) {
     return (
@@ -62,7 +65,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     )
   }
 
-  if (status.required && !status.unlocked && !onGate) {
+  if (status.required && !status.unlocked && !onGate && !pricelistShare) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
         Redirecting...

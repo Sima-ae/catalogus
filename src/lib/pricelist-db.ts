@@ -150,10 +150,20 @@ export async function listPricelistRows(
         displayUnit = sp.unit_price
         displayCurrency = sp.currency
       }
-    } else if (
-      (viewer.role === 'buyer' && listOwnerId === viewer.userId) ||
-      viewer.role === 'guest'
-    ) {
+    } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
+      const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
+      if (dp) {
+        displayUnit = dp.unit_price
+        displayCurrency = dp.currency
+      }
+    } else if (viewer.role === 'guest') {
+      if (viewer.userId) {
+        const sp = await getSellerProductPrice(viewer.userId, item.product_id)
+        if (sp) {
+          sellerUnit = sp.unit_price
+          sellerCurrency = sp.currency
+        }
+      }
       const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
       if (dp) {
         displayUnit = dp.unit_price

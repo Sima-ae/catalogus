@@ -150,7 +150,10 @@ export default function PricelistPageClient() {
       </div>
 
       {isGuest ? (
-        <p className={`text-sm ${muted}`}>View-only access via share password.</p>
+        <p className={`text-sm ${muted}`}>
+          Enter your prices in the table below. Changes save when you leave each field or tap the
+          check button.
+        </p>
       ) : null}
 
       {canManageSharePassword && listOwnerIdForShare ? (
