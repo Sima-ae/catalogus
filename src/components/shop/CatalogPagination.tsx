@@ -25,9 +25,6 @@ export default function CatalogPagination({
   const safePage = Math.min(Math.max(1, page), totalPages)
   const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
   const end = Math.min(safePage * pageSize, totalItems)
-
-  if (totalItems === 0) return null
-
   const [gotoValue, setGotoValue] = useState('')
 
   useEffect(() => {
@@ -67,6 +64,8 @@ export default function CatalogPagination({
       </button>
     </form>
   )
+
+  if (totalItems === 0) return null
 
   const statusText = (
     <>
