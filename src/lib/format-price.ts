@@ -5,6 +5,17 @@ import {
   type ShopCurrencyCode,
 } from '@/lib/currency'
 
+let activeShopCurrencyCode: ShopCurrencyCode = DEFAULT_SHOP_CURRENCY
+
+/** Set from ShopCurrencyProvider after loading public settings. */
+export function setActiveShopCurrencyCode(code: string | null | undefined) {
+  activeShopCurrencyCode = normalizeCurrencyCode(code ?? DEFAULT_SHOP_CURRENCY)
+}
+
+export function getActiveShopCurrencyCode(): ShopCurrencyCode {
+  return activeShopCurrencyCode
+}
+
 /** True when price is 0, empty, or not a positive number. */
 export function isZeroPrice(value: number | string | null | undefined): boolean {
   if (value == null || value === '') return true
@@ -16,7 +27,7 @@ export function isZeroPrice(value: number | string | null | undefined): boolean 
 }
 
 export type FormatPriceOptions = {
-  /** Override symbol (e.g. "$"). Defaults from `currencyCode`. */
+  /** Override symbol (e.g. "€"). Defaults from `currencyCode`. */
   currency?: string
   /** ISO code from settings / locale (USD, EUR, …). */
   currencyCode?: string | null
@@ -30,7 +41,7 @@ function resolveCurrencySymbol(options: FormatPriceOptions): string {
   if (options.currency !== undefined && options.currency !== '') {
     return options.currency
   }
-  return getCurrencySymbol(options.currencyCode ?? DEFAULT_SHOP_CURRENCY)
+  return getCurrencySymbol(options.currencyCode ?? activeShopCurrencyCode)
 }
 
 /** Amount or zero label only — pair with a separate currency symbol. */

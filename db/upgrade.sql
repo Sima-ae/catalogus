@@ -228,6 +228,9 @@ CREATE TABLE IF NOT EXISTS seller_pricelist_access (
   KEY idx_spa_seller (seller_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Storefront currency: euro everywhere (was USD in older installs)
+UPDATE settings SET value = 'EUR' WHERE `key` = 'currency';
+
 CREATE TABLE IF NOT EXISTS pricelist_share_settings (
   list_owner_id VARCHAR(36) NOT NULL,
   password_hash VARCHAR(255) NULL,

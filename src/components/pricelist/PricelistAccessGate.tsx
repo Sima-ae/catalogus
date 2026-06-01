@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-local'
+import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import {
@@ -45,10 +46,11 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
     const res = await fetch(appPath(`/api/pricelist/access/status${q}`), {
       credentials: 'include',
       cache: 'no-store',
+      headers: catalogAuthHeaders(user),
     })
     const data = await res.json()
     setStatus(data)
-  }, [ownerParam])
+  }, [ownerParam, user])
 
   useEffect(() => {
     if (authLoading) return

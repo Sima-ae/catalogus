@@ -100,13 +100,17 @@ export async function verifyCatalogActor(
   }
 }
 
+function canActAsPricelistAdmin(actor: CatalogActor): boolean {
+  return actor.role === 'admin' || actor.isSuperAdmin
+}
+
 export function defaultPricelistOwnerForActor(actor: CatalogActor): string {
-  if (actor.role === 'admin') return PLATFORM_PRICELIST_OWNER_ID
+  if (canActAsPricelistAdmin(actor)) return PLATFORM_PRICELIST_OWNER_ID
   return actor.userId
 }
 
 export function starTargetOwnerForActor(actor: CatalogActor): string {
-  if (actor.role === 'admin') return PLATFORM_PRICELIST_OWNER_ID
+  if (canActAsPricelistAdmin(actor)) return PLATFORM_PRICELIST_OWNER_ID
   return actor.userId
 }
 
@@ -115,7 +119,7 @@ export async function canViewPricelist(
   listOwnerId: string
 ): Promise<boolean> {
   if (isPlatformPricelistOwner(listOwnerId)) {
-    if (actor.role === 'admin') return true
+    if (canActAsPricelistAdmin(actor)) return true
     if (actor.role === 'seller') {
       return hasApprovedSellerAccess(actor.userId, PLATFORM_PRICELIST_OWNER_ID)
     }
@@ -136,7 +140,7 @@ export async function canManagePricelistItems(
   listOwnerId: string
 ): Promise<boolean> {
   if (isPlatformPricelistOwner(listOwnerId)) {
-    return actor.role === 'admin'
+    return canActAsPricelistAdmin(actor)
   }
   return listOwnerId === actor.userId
 }

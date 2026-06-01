@@ -13,7 +13,7 @@ import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, 
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
-import { getCurrencySymbol } from '@/lib/currency'
+import { useShopCurrency } from '@/lib/shop-currency-context'
 import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
@@ -53,6 +53,7 @@ export default function ProductPageClient() {
   const [headerSearch, setHeaderSearch] = useState('')
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
+  const { symbol: currencySymbol } = useShopCurrency()
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const canEditProduct = !authLoading && (isAdmin || isSuperAdmin)
   const [editOpen, setEditOpen] = useState(false)
@@ -703,7 +704,7 @@ export default function ProductPageClient() {
                   }`}
                   aria-hidden
                 >
-                  {getCurrencySymbol()}
+                  {currencySymbol}
                 </span>
                 <span className="text-3xl font-bold text-primary-500">
                   {formatPriceAmount(selectedLicenseOption?.price)}

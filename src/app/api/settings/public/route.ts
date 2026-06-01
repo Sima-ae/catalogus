@@ -14,6 +14,7 @@ export async function GET() {
       site_name: settings.site_name,
       site_tagline: settings.site_tagline,
       support_email: settings.support_email,
+      currency: settings.currency,
     })
   } catch (error) {
     logDbRouteError('Public settings fetch error', error)

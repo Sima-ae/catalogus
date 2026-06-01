@@ -118,7 +118,7 @@ export default function ShopSettingsPage() {
             <Row label="Site name" value={settings.site_name || APP_NAME} isDark={isDark} />
             <Row
               label="Currency"
-              value={settings.currency || 'USD'}
+              value={settings.currency || 'EUR'}
               icon={CurrencyEuroIcon}
               isDark={isDark}
             />

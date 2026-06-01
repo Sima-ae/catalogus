@@ -8,7 +8,7 @@ export const SHOP_CURRENCY_SYMBOLS: Record<ShopCurrencyCode, string> = {
 }
 
 /** Default storefront currency until per-locale / settings wiring is added. */
-export const DEFAULT_SHOP_CURRENCY: ShopCurrencyCode = 'USD'
+export const DEFAULT_SHOP_CURRENCY: ShopCurrencyCode = 'EUR'
 
 const CODE_ALIASES: Record<string, ShopCurrencyCode> = {
   USD: 'USD',

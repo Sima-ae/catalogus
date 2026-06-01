@@ -28,7 +28,7 @@ import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice } from '@/lib/format-price'
-import { getCurrencySymbol } from '@/lib/currency'
+import { useShopCurrency } from '@/lib/shop-currency-context'
 import { appPath } from '@/lib/paths'
 import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
 import { useAppTheme } from '@/lib/theme-classes'
@@ -106,7 +106,7 @@ const quickLinks = [
 export default function AdminDashboard() {
   const t = useAppTheme()
   const { user } = useAuth()
-  const currency = getCurrencySymbol()
+  const { symbol: currency } = useShopCurrency()
 
   const [products, setProducts] = useState<Product[]>([])
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)

@@ -7,6 +7,7 @@ import { ProductCardDisplayProvider } from '@/lib/product-card-display-context'
 import { CartProvider } from '@/lib/cart'
 import { ThemeProvider } from '@/lib/theme'
 import { AuthProvider } from '@/lib/auth-local'
+import { ShopCurrencyProvider } from '@/lib/shop-currency-context'
 import SiteAccessGuard from '@/components/site-access/SiteAccessGuard'
 import ContentProtection from '@/components/ContentProtection'
 import { buildRootMetadata } from '@/lib/site-metadata'
@@ -39,7 +40,7 @@ export default function RootLayout({
                 <CatalogModeProvider>
                   <ProductCardDisplayProvider>
                     <CartProvider>
-                      {children}
+                      <ShopCurrencyProvider>{children}</ShopCurrencyProvider>
                     </CartProvider>
                   </ProductCardDisplayProvider>
                 </CatalogModeProvider>
