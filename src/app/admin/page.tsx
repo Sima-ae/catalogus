@@ -123,32 +123,45 @@ export default function AdminDashboard() {
 
     try {
       const headers = adminAuthHeaders(user)
-      const [productsRes, ordersRes, usersRes] = await Promise.all([
+      const [latestRes, statsRes, ordersRes, usersRes] = await Promise.all([
         fetch(appPath('/api/products?page=1&limit=10&scope=admin'), { headers, cache: 'no-store' }),
+        fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
         fetch(appPath('/api/orders'), { cache: 'no-store' }),
-        fetch(appPath('/api/users'), { cache: 'no-store' }),
+        fetch(appPath('/api/admin/users'), { headers, cache: 'no-store' }),
       ])
 
-      const productsData = await parseJsonResponse<
-        | { items?: Product[]; dashboardStats?: ProductDashboardStats; error?: string }
+      const latestData = await parseJsonResponse<
+        | { items?: Product[]; error?: string }
         | Product[]
-      >(productsRes)
-      if (!productsRes.ok) {
+      >(latestRes)
+      if (!latestRes.ok) {
         throw new Error(
-          !Array.isArray(productsData) && productsData.error
-            ? productsData.error
+          !Array.isArray(latestData) && latestData.error
+            ? latestData.error
             : 'Failed to load products'
         )
       }
 
-      if (isCatalogProductsPage(productsData)) {
-        setProducts(productsData.items)
-        setProductStats(productsData.dashboardStats ?? null)
-      } else if (Array.isArray(productsData)) {
-        setProducts(productsData)
-        setProductStats(null)
+      if (isCatalogProductsPage(latestData)) {
+        setProducts(latestData.items)
+      } else if (Array.isArray(latestData)) {
+        setProducts(sortNewest(latestData).slice(0, LATEST_PRODUCTS))
       } else {
         throw new Error('Failed to load products')
+      }
+
+      if (statsRes.ok) {
+        const statsData = await parseJsonResponse<
+          | { dashboardStats?: ProductDashboardStats; error?: string }
+          | Product[]
+        >(statsRes)
+        if (isCatalogProductsPage(statsData)) {
+          setProductStats(statsData.dashboardStats ?? null)
+        } else {
+          setProductStats(null)
+        }
+      } else {
+        setProductStats(null)
       }
 
       let ordersData: Order[] = []
@@ -159,7 +172,7 @@ export default function AdminDashboard() {
 
       let usersData: UserRow[] = []
       if (usersRes.ok) {
-        const parsed = await parseJsonResponse<UserRow[]>(usersRes)
+        const parsed = await parseJsonResponse<UserRow[] | { error?: string }>(usersRes)
         if (Array.isArray(parsed)) usersData = parsed
       }
 
@@ -180,17 +193,15 @@ export default function AdminDashboard() {
     const active = productStats?.active ?? products.filter((p) => p.status === 'active').length
     const draft = productStats?.draft ?? products.filter((p) => p.status === 'draft').length
     const inactive = productStats?.inactive ?? products.filter((p) => p.status === 'inactive').length
-    const importDrafts =
-      productStats?.importDrafts ??
-      products.filter((p) => p.status === 'draft' && p.source_album_id).length
+    const catalogTotal = productStats?.total ?? active + draft + inactive
     const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0)
     const pendingOrders = orders.filter((o) => o.status === 'pending').length
 
     return {
+      catalogTotal,
       active,
       draft,
       inactive,
-      importDrafts,
       revenue,
       pendingOrders,
     }
@@ -216,7 +227,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
             <StatCard
               title="Catalog"
-              value={productStats?.total ?? products.length}
+              value={stats.catalogTotal}
               change={`${stats.active} live · ${stats.draft} draft · ${stats.inactive} inactive`}
               icon={<CubeIcon className="w-6 h-6 text-white" />}
               accentColor="bg-pink-500"
@@ -244,11 +255,7 @@ export default function AdminDashboard() {
             <StatCard
               title="Users"
               value={userCount}
-              change={
-                stats.importDrafts > 0
-                  ? `${stats.importDrafts} drafts in import queue`
-                  : 'Registered accounts'
-              }
+              change="Registered accounts"
               icon={<UsersIcon className="w-6 h-6 text-white" />}
               accentColor="bg-blue-500"
             />
@@ -279,7 +286,7 @@ export default function AdminDashboard() {
                   <h2 className={`text-lg font-semibold ${t.heading}`}>Latest products</h2>
                   <p className={`text-sm ${t.muted}`}>
                     Most recently added or updated — showing {latestProducts.length} of{' '}
-                    {productStats?.total ?? products.length}
+                    {stats.catalogTotal}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
