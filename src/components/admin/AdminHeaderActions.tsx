@@ -32,30 +32,14 @@ export default function AdminHeaderActions() {
         <BuildingOfficeIcon className="w-4 h-4 lg:w-5 lg:h-5 shrink-0" />
         <span className="hidden md:inline whitespace-nowrap">Visit Site</span>
       </Link>
-      <div
-        className={`hidden lg:flex items-center gap-2 p-1.5 rounded-lg shrink-0 ${
-          isDark ? 'hover:bg-dark-800' : 'hover:bg-gray-100'
-        }`}
-      >
-        <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center shrink-0">
-          <span className="text-white text-sm font-medium">
-            {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
-          </span>
-        </div>
-        <div className="text-left hidden xl:block min-w-0 max-w-[8rem]">
-          <p className={`text-sm font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {user?.name || 'Admin'}
-          </p>
-          {user ? (
-            <RoleBadge
-              role={user.role}
-              email={user.email}
-              is_super_admin={user.is_super_admin}
-              className="mt-0.5"
-            />
-          ) : null}
-        </div>
-      </div>
+      {user ? (
+        <RoleBadge
+          role={user.role}
+          email={user.email}
+          is_super_admin={user.is_super_admin}
+          className="hidden lg:inline-flex shrink-0"
+        />
+      ) : null}
       <button
         type="button"
         onClick={() => signOut()}

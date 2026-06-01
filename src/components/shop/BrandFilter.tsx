@@ -23,12 +23,16 @@ export default function BrandFilter({
   if (selectedCategory === 'All' || brands.length <= 1) return null
 
   return (
-    <div className={centered ? 'mt-2 w-full' : 'mt-4'}>
+    <div
+      className={
+        centered ? 'mt-2 flex w-full min-w-0 justify-center' : 'mt-4 w-full min-w-0'
+      }
+    >
       <FilterPillsScroll
         items={brands}
         selected={selectedBrand}
         onChange={onBrandChange}
-        showArrows
+        showArrows={brands.length > 5}
         ariaLabel="Brands"
         centered={centered}
       />

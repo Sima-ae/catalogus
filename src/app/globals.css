@@ -115,8 +115,9 @@ body.app-protected [contenteditable='true'] {
   }
 
   .role-badge[data-role='admin'] {
-    background-color: #10b981;
+    background-color: #000000;
     color: #ffffff;
+    border: 1px solid #3f3f46;
   }
 
   .role-badge[data-role='super_admin'] {
@@ -133,13 +134,31 @@ body.app-protected [contenteditable='true'] {
     @apply bg-neutral-100 text-black;
   }
 
-  /* Catalog filter pills — avoid clipping descenders inside horizontal scroll */
+  /* Catalog filter pills — horizontal scroll on mobile/tablet */
   .filter-pills-scroll {
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
 
   .filter-pills-scroll::-webkit-scrollbar {
     display: none;
+  }
+
+  @media (max-width: 639px) {
+    .filter-pills-scroll {
+      scroll-padding-inline: 0.75rem;
+    }
+  }
+
+  .filter-pills-scroll .filter-pill-active {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+
+  .filter-pills-scroll .filter-pill-inactive:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border-color: #000000 !important;
   }
 
   .card {
@@ -159,11 +178,13 @@ body.app-protected [contenteditable='true'] {
     @apply text-gray-900;
   }
 
-  html.light .app-readable .text-white:not(.nav-active):not(.role-badge):not(.btn-primary):not(
-      [class*='bg-primary']
-    ):not([class*='bg-green']):not([class*='bg-red']):not([class*='bg-yellow']):not(
-      [class*='bg-blue']
-    ):not([class*='bg-purple']):not([class*='bg-pink']):not([class*='bg-black']) {
+  html.light .app-readable .text-white:not(.nav-active):not(.role-badge):not(.filter-pill-active):not(
+      .filter-pill-inactive:hover
+    ):not(.btn-primary):not([class*='bg-primary']):not([class*='bg-green']):not(
+      [class*='bg-red']
+    ):not([class*='bg-yellow']):not([class*='bg-blue']):not([class*='bg-purple']):not(
+      [class*='bg-pink']
+    ):not([class*='bg-black']) {
     @apply text-gray-900;
   }
 

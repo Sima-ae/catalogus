@@ -47,7 +47,7 @@ export const ROLE_BADGE_STYLES: Record<
   },
   admin: {
     label: 'Admin',
-    className: 'bg-emerald-500 text-white',
+    className: 'bg-black text-white border border-gray-700',
   },
   buyer: {
     label: 'Buyer',

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/lib/theme'
 
 type Props = {
@@ -11,7 +11,7 @@ type Props = {
   ariaLabel?: string
   /** Catalog pill styling (homepage / new). */
   centered?: boolean
-  /** Center the pill group on the page (categories). Full-width row when "full" (brands). */
+  /** @deprecated Use centered scroll layout only — kept for API compatibility. */
   alignGroup?: 'center' | 'full'
 }
 
@@ -24,7 +24,6 @@ export default function FilterPillsScroll({
   showArrows = false,
   ariaLabel = 'Filter',
   centered = false,
-  alignGroup = 'full',
 }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef({
@@ -38,12 +37,34 @@ export default function FilterPillsScroll({
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isDragging, setIsDragging] = useState(false)
+  const [edges, setEdges] = useState({ left: false, right: false })
+  const [overflows, setOverflows] = useState(false)
 
   const scrollStep = () => {
     const el = scrollContainerRef.current
     if (!el) return 280
-    return Math.max(280, Math.floor(el.clientWidth * 0.8))
+    return Math.max(200, Math.floor(el.clientWidth * 0.75))
   }
+
+  const updateEdges = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (!el) {
+      setEdges({ left: false, right: false })
+      setOverflows(false)
+      return
+    }
+    const max = el.scrollWidth - el.clientWidth
+    const hasOverflow = max > 2
+    setOverflows(hasOverflow)
+    if (!hasOverflow) {
+      setEdges({ left: false, right: false })
+      return
+    }
+    setEdges({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft < max - 4,
+    })
+  }, [])
 
   const scrollPrev = () => {
     scrollContainerRef.current?.scrollBy({ left: -scrollStep(), behavior: 'smooth' })
@@ -53,7 +74,19 @@ export default function FilterPillsScroll({
     scrollContainerRef.current?.scrollBy({ left: scrollStep(), behavior: 'smooth' })
   }
 
-  /** Scroll the active pill into view horizontally — never scroll the page vertically. */
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    updateEdges()
+    el.addEventListener('scroll', updateEdges, { passive: true })
+    const ro = new ResizeObserver(updateEdges)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', updateEdges)
+      ro.disconnect()
+    }
+  }, [items, updateEdges])
+
   useEffect(() => {
     const el = scrollContainerRef.current
     if (!el) return
@@ -67,7 +100,8 @@ export default function FilterPillsScroll({
       left: Math.min(maxLeft, Math.max(0, targetLeft)),
       behavior: 'smooth',
     })
-  }, [selected, items])
+    requestAnimationFrame(updateEdges)
+  }, [selected, items, updateEdges])
 
   const endDrag = () => {
     if (!dragRef.current.active) return
@@ -120,6 +154,7 @@ export default function FilterPillsScroll({
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
     endDrag()
+    updateEdges()
   }
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -131,13 +166,11 @@ export default function FilterPillsScroll({
     const active = selected === item
     if (centered) {
       if (active) {
-        return isDark
-          ? 'bg-dark-700 text-white shadow-md ring-1 ring-dark-600'
-          : 'bg-white text-gray-900 shadow-md ring-1 ring-gray-200/80'
+        return 'filter-pill-active bg-black !text-white shadow-md ring-1 ring-black/10'
       }
       return isDark
-        ? 'bg-dark-800/90 text-gray-300 hover:bg-dark-700 hover:text-white'
-        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/90 hover:text-gray-900'
+        ? 'filter-pill-inactive bg-dark-800/80 text-gray-300 ring-1 ring-dark-700/80 hover:bg-black hover:!text-white'
+        : 'filter-pill-inactive bg-white text-gray-800 ring-1 ring-gray-200/90 shadow-sm hover:bg-black hover:!text-white'
     }
     if (active) return 'nav-active shadow-md'
     return isDark
@@ -145,28 +178,27 @@ export default function FilterPillsScroll({
       : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:text-gray-900'
   }
 
-  const arrowClass = `shrink-0 flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 hover:scale-105 ${
+  const arrowClass = `shrink-0 flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-200 ${
     isDark
       ? 'border-dark-600 bg-dark-900 text-white hover:bg-dark-800'
-      : 'border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50 hover:text-gray-900'
+      : 'border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:text-gray-900'
   }`
 
-  const centerGroup = centered && alignGroup === 'center' && !showArrows
+  const fadeFrom = isDark ? 'from-dark-950' : 'from-gray-50'
+  const showFades = centered && (edges.left || edges.right)
 
   const pills = (
     <div
       ref={scrollContainerRef}
-      className={`filter-pills-scroll flex flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth touch-pan-y ${
-        centerGroup
-          ? 'w-max max-w-full justify-center gap-2 px-1 py-1.5'
-          : centered
-            ? 'min-w-0 flex-1 justify-start gap-2 px-1 py-1.5'
-            : 'min-w-0 gap-3 py-0.5'
-      } ${!centered && showArrows ? 'px-16' : ''}`}
+      className={`filter-pills-scroll flex w-full min-w-0 flex-nowrap items-center overflow-x-auto overflow-y-visible scroll-smooth snap-x snap-mandatory touch-pan-x py-1 ${
+        centered
+          ? `${overflows ? 'justify-start' : 'justify-center'} gap-2 px-2`
+          : 'justify-start gap-3 py-0.5'
+      } ${!centered && showArrows ? 'px-14' : ''}`}
       style={{
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
-        cursor: isDragging ? 'grabbing' : undefined,
+        cursor: isDragging ? 'grabbing' : 'grab',
         WebkitOverflowScrolling: 'touch',
       }}
       role="tablist"
@@ -184,10 +216,10 @@ export default function FilterPillsScroll({
           role="tab"
           aria-selected={selected === item}
           onClick={() => onChange(item)}
-          className={`inline-flex shrink-0 items-center justify-center rounded-full font-medium whitespace-nowrap transition-all duration-200 leading-snug ${
+          className={`inline-flex shrink-0 snap-center items-center justify-center rounded-full font-semibold uppercase tracking-wide whitespace-nowrap transition-all duration-200 ${
             centered
-              ? 'min-h-[2.125rem] px-3.5 py-2 text-xs sm:min-h-[2.25rem] sm:px-4 sm:py-2 sm:text-sm'
-              : 'px-4 py-2.5 text-sm'
+              ? 'min-h-[2.25rem] px-4 py-2 text-[0.6875rem] sm:min-h-[2.375rem] sm:px-4 sm:py-2 sm:text-xs'
+              : 'snap-start px-4 py-2.5 text-sm'
           } ${pillClass(item)}`}
         >
           {item}
@@ -196,19 +228,14 @@ export default function FilterPillsScroll({
     </div>
   )
 
-  if (centerGroup) {
-    return <div className="flex w-full justify-center overflow-visible">{pills}</div>
-  }
-
   if (centered) {
-    const fadeFrom = isDark ? 'from-dark-950' : 'from-gray-50'
     return (
-      <div className="flex w-full max-w-full items-stretch gap-1.5 sm:gap-2">
-        {showArrows ? (
+      <div className="flex w-full max-w-full min-w-0 items-center justify-center gap-1 sm:gap-2">
+        {showArrows && edges.left ? (
           <button
             type="button"
             onClick={scrollPrev}
-            className={`${arrowClass} self-center`}
+            className={`${arrowClass} hidden sm:flex shrink-0`}
             aria-label={`Scroll ${ariaLabel} left`}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -216,26 +243,26 @@ export default function FilterPillsScroll({
             </svg>
           </button>
         ) : null}
-        <div className="relative min-w-0 flex-1">
-          {showArrows ? (
-            <>
-              <div
-                className={`pointer-events-none absolute inset-y-0 left-0 z-[1] w-6 sm:w-10 bg-gradient-to-r ${fadeFrom} to-transparent`}
-                aria-hidden
-              />
-              <div
-                className={`pointer-events-none absolute inset-y-0 right-0 z-[1] w-6 sm:w-10 bg-gradient-to-l ${fadeFrom} to-transparent`}
-                aria-hidden
-              />
-            </>
+        <div className="relative min-w-0 w-full max-w-full flex-1">
+          {showFades && edges.left ? (
+            <div
+              className={`pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 sm:w-12 bg-gradient-to-r ${fadeFrom} to-transparent`}
+              aria-hidden
+            />
+          ) : null}
+          {showFades && edges.right ? (
+            <div
+              className={`pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 sm:w-12 bg-gradient-to-l ${fadeFrom} to-transparent`}
+              aria-hidden
+            />
           ) : null}
           {pills}
         </div>
-        {showArrows ? (
+        {showArrows && edges.right ? (
           <button
             type="button"
             onClick={scrollNext}
-            className={`${arrowClass} self-center`}
+            className={`${arrowClass} hidden sm:flex shrink-0`}
             aria-label={`Scroll ${ariaLabel} right`}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -248,29 +275,33 @@ export default function FilterPillsScroll({
   }
 
   return (
-    <div className="relative overflow-visible py-0.5">
+    <div className="relative w-full min-w-0 overflow-hidden py-0.5">
       {showArrows ? (
         <>
-          <button
-            type="button"
-            onClick={scrollPrev}
-            className={`absolute left-1 top-1/2 z-10 -translate-y-1/2 ${arrowClass} h-9 w-9`}
-            aria-label={`Scroll ${ariaLabel} left`}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            onClick={scrollNext}
-            className={`absolute right-1 top-1/2 z-10 -translate-y-1/2 ${arrowClass} h-9 w-9`}
-            aria-label={`Scroll ${ariaLabel} right`}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          {edges.left ? (
+            <button
+              type="button"
+              onClick={scrollPrev}
+              className={`absolute left-0 top-1/2 z-10 -translate-y-1/2 ${arrowClass}`}
+              aria-label={`Scroll ${ariaLabel} left`}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          ) : null}
+          {edges.right ? (
+            <button
+              type="button"
+              onClick={scrollNext}
+              className={`absolute right-0 top-1/2 z-10 -translate-y-1/2 ${arrowClass}`}
+              aria-label={`Scroll ${ariaLabel} right`}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : null}
         </>
       ) : null}
       {pills}

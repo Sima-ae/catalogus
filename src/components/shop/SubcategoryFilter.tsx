@@ -20,7 +20,11 @@ export default function SubcategoryFilter({
   const items = ['All', ...subcategoryOptions]
 
   return (
-    <div className={centered ? 'mt-2 w-full' : 'mt-3'}>
+    <div
+      className={
+        centered ? 'mt-2 flex w-full min-w-0 justify-center' : 'mt-3 w-full min-w-0'
+      }
+    >
       <FilterPillsScroll
         items={items}
         selected={selectedSubcategory}

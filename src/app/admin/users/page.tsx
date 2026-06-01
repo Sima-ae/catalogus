@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { EyeIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
+import UserForm from '@/components/admin/UserForm'
 import AdminEmptyState from '@/components/admin/AdminEmptyState'
 import {
   AdminTable,
@@ -14,23 +17,27 @@ import {
 import RoleBadge from '@/components/users/RoleBadge'
 import UserStarRating, { UserStarRatingEditor } from '@/components/users/UserStarRating'
 import { useAuth } from '@/lib/auth-local'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { useAppTheme } from '@/lib/theme-classes'
 import { appPath } from '@/lib/paths'
-import type { UserListRow } from '@/lib/user-roles'
+import { isSuperAdminUser, type UserListRow } from '@/lib/user-roles'
 
 export default function AdminUsersPage() {
   const t = useAppTheme()
-  const { user, isSuperAdmin } = useAuth()
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const [users, setUsers] = useState<UserListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [ratingError, setRatingError] = useState('')
+  const [showAddUser, setShowAddUser] = useState(false)
 
-  const loadUsers = () => {
+  const loadUsers = useCallback(() => {
+    if (!user) return
     setLoading(true)
-    fetch(appPath('/api/users'))
+    fetch(appPath('/api/admin/users'), { headers: adminAuthHeaders(user), cache: 'no-store' })
       .then(async (r) => {
         const d = await r.json()
         if (!r.ok) throw new Error(d.error || 'Failed to load users')
@@ -38,11 +45,12 @@ export default function AdminUsersPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }
+  }, [user])
 
   useEffect(() => {
+    if (!isAdmin) return
     loadUsers()
-  }, [])
+  }, [isAdmin, loadUsers])
 
   const saveRating = async (targetUser: UserListRow, rating: number | null) => {
     if (!isSuperAdmin || !user?.email) return
@@ -74,8 +82,63 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleDelete = async (target: UserListRow) => {
+    if (!isSuperAdmin) return
+    if (target.id === user?.id) {
+      alert('You cannot delete your own account')
+      return
+    }
+    if (isSuperAdminUser(target)) {
+      alert('Super admin account cannot be deleted')
+      return
+    }
+    if (!confirm(`Delete user ${target.email}? This cannot be undone.`)) return
+
+    setDeletingId(target.id)
+    try {
+      const res = await fetch(appPath(`/api/admin/users/${target.id}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      setUsers((prev) => prev.filter((u) => u.id !== target.id))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const canEditUser = (u: UserListRow) => isAdmin && (!isSuperAdminUser(u) || isSuperAdmin)
+
   return (
     <AdminPageShell title="Users">
+      {isAdmin && !showAddUser && (
+        <div className="flex justify-end mb-4">
+          <button
+            type="button"
+            className="btn-primary flex items-center gap-2"
+            onClick={() => setShowAddUser(true)}
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add user
+          </button>
+        </div>
+      )}
+
+      {isAdmin && showAddUser && (
+        <div className="mb-6">
+          <UserForm
+            onCreated={(created) => {
+              setUsers((prev) => [created, ...prev])
+              setShowAddUser(false)
+            }}
+            onCancel={() => setShowAddUser(false)}
+          />
+        </div>
+      )}
+
       {isSuperAdmin && (
         <div className="card p-4 mb-6 border border-amber-500/30 bg-amber-500/5">
           <p className="text-amber-700 dark:text-amber-200 text-sm font-medium mb-2">
@@ -112,6 +175,7 @@ export default function AdminUsersPage() {
             <AdminTh>Name</AdminTh>
             <AdminTh>Role</AdminTh>
             <AdminTh>Badge</AdminTh>
+            <AdminTh align="right">Actions</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
             {users.map((u) => {
@@ -138,6 +202,39 @@ export default function AdminUsersPage() {
                     ) : (
                       <UserStarRating rating={u.badge_rating} size="sm" />
                     )}
+                  </AdminTd>
+                  <AdminTd align="right">
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <Link
+                        href={appPath(`/admin/users/${u.id}`)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${t.body} ${t.rowHover}`}
+                      >
+                        <EyeIcon className="w-4 h-4" />
+                        View
+                      </Link>
+                      {canEditUser(u) && (
+                        <Link
+                          href={appPath(`/admin/users/${u.id}/edit`)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${t.body} ${t.rowHover}`}
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                          Edit
+                        </Link>
+                      )}
+                      {isSuperAdmin && u.id !== user?.id && !isSuperAdminUser(u) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(u)}
+                          disabled={deletingId === u.id}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${
+                            t.isDark ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'
+                          } disabled:opacity-50`}
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                          {deletingId === u.id ? '…' : 'Delete'}
+                        </button>
+                      )}
+                    </div>
                   </AdminTd>
                 </AdminTr>
               )
