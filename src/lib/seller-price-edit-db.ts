@@ -99,11 +99,6 @@ export async function approvePriceEditRequest(
     [reviewerId, requestId]
   )
 
-  await queryDb(
-    `UPDATE seller_product_prices SET locked = 0 WHERE seller_id = ? AND product_id = ?`,
-    [req.seller_id, req.product_id]
-  )
-
   const updated = await queryDb<SellerPriceEditRequestRow[]>(
     `SELECT id, seller_id, product_id, list_owner_id, status, requested_at, reviewed_by, reviewed_at
      FROM seller_price_edit_requests WHERE id = ? LIMIT 1`,
@@ -136,10 +131,10 @@ export async function assertSellerMayUpdatePrice(
 ): Promise<{ ok: true; isNew: boolean } | { ok: false; error: string }> {
   const state = await getSellerPriceLockState(sellerId, productId)
   if (!state.hasPrice) return { ok: true, isNew: true }
-  if (state.locked) {
-    return { ok: false, error: 'Price is locked. Request super admin approval to edit.' }
+  return {
+    ok: false,
+    error: 'Price is locked. Contact an admin to change it.',
   }
-  return { ok: true, isNew: false }
 }
 
 export async function lockSellerPriceAfterSave(sellerId: string, productId: string): Promise<void> {

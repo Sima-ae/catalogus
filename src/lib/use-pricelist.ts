@@ -111,7 +111,7 @@ export function usePricelist(initialOwner?: string) {
     loadItems()
   }, [ownerId, loadItems])
 
-  const savePrice = async (productId: string, unitPrice: number) => {
+  const savePrice = async (productId: string, unitPrice: number, priceSellerId?: string) => {
     const res = await fetch(appPath('/api/pricelist/prices'), {
       method: 'PUT',
       headers: {
@@ -123,6 +123,7 @@ export function usePricelist(initialOwner?: string) {
         productId,
         ownerId: ownerQuery,
         unitPrice,
+        ...(priceSellerId ? { sellerId: priceSellerId } : {}),
       }),
     })
     const data = await res.json()

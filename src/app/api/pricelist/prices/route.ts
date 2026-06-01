@@ -32,6 +32,7 @@ export async function PUT(request: NextRequest) {
   const raw = body as Record<string, unknown>
   const productId = String(raw.productId ?? '').trim()
   const ownerParam = String(raw.ownerId ?? '').trim()
+  const sellerIdParam = String(raw.sellerId ?? '').trim()
   const unitPrice = parseUnitPrice(raw.unitPrice)
 
   if (!productId) {
@@ -57,6 +58,8 @@ export async function PUT(request: NextRequest) {
       : priceActor.actor.userId
 
   const isSellerActor = access.mode === 'full' && access.actor?.role === 'seller'
+  const isAdminActor = access.mode === 'full' && access.actor?.role === 'admin'
+
   if (isSellerActor) {
     const mayUpdate = await assertSellerMayUpdatePrice(sellerId, productId)
     if (!mayUpdate.ok) {
@@ -64,23 +67,32 @@ export async function PUT(request: NextRequest) {
     }
   }
 
+  const targetSellerId =
+    isAdminActor && sellerIdParam ? sellerIdParam : sellerId
+  const updatedBy =
+    access.mode === 'full' && access.actor ? access.actor.userId : targetSellerId
+
   try {
     const currency = await getShopCurrency()
     await upsertSellerProductPrice({
-      sellerId,
+      sellerId: targetSellerId,
       productId,
       unitPrice,
       currency,
-      updatedBy: sellerId,
+      updatedBy,
     })
     if (isSellerActor) {
       await lockSellerPriceAfterSave(sellerId, productId)
+    }
+    if (isAdminActor && targetSellerId !== access.actor!.userId) {
+      await clearPendingEditRequestsForPrice(targetSellerId, productId)
     }
     const res = NextResponse.json({
       ok: true,
       unitPrice,
       currency,
       productId,
+      sellerId: targetSellerId,
     })
     if (priceActor.actor.kind === 'guest') {
       applyPricelistContributorCookie(res, priceActor.actor.setContributorCookie)

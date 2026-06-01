@@ -20,7 +20,7 @@ type Props = {
   isSeller?: boolean
   canApprovePriceEdits?: boolean
   canClearPrice?: boolean
-  onSavePrice: (productId: string, price: number) => Promise<void>
+  onSavePrice: (productId: string, price: number, priceSellerId?: string) => Promise<void>
   onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
   onRequestPriceEdit?: (productId: string) => Promise<void>
   onApprovePriceEdit?: (requestId: string) => Promise<void>
@@ -135,7 +135,7 @@ function PricelistTableRow({
   canClearPrice: boolean
   muted: string
   border: string
-  onSavePrice: (productId: string, price: number) => Promise<void>
+  onSavePrice: (productId: string, price: number, priceSellerId?: string) => Promise<void>
   onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
   onRequestPriceEdit?: (productId: string) => Promise<void>
   onApprovePriceEdit?: (requestId: string) => Promise<void>
@@ -151,8 +151,10 @@ function PricelistTableRow({
   const [savedFlash, setSavedFlash] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const showPriceInput = canEditPrices && row.can_edit_price !== false
-  const showLockedSellerPrice = isSeller && canEditPrices && row.price_locked && !showPriceInput
+  const showPriceInput = canEditPrices && row.can_edit_price !== false && !isSeller
+  const showSellerPriceInput = isSeller && canEditPrices && row.can_edit_price !== false
+  const showLockedSellerPrice =
+    isSeller && canEditPrices && row.seller_unit_price != null && !showSellerPriceInput
   const sellerPriceDisplay =
     row.seller_unit_price != null
       ? formatPrice(row.seller_unit_price, { currencyCode: row.seller_currency || 'EUR' })
@@ -207,7 +209,7 @@ function PricelistTableRow({
     setSaving(true)
     setError(null)
     try {
-      await onSavePrice(row.product_id, parsed)
+      await onSavePrice(row.product_id, parsed, row.price_seller_id)
       savedValueRef.current = String(parsed)
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 1500)
@@ -270,7 +272,7 @@ function PricelistTableRow({
       </td>
       <td className={`px-4 py-3 font-mono text-xs ${muted}`}>{row.sku}</td>
       <td className="px-4 py-3">
-        {showPriceInput ? (
+        {showSellerPriceInput ? (
           <div className="flex flex-col gap-1 max-w-[12rem]">
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1 min-w-0">
@@ -323,6 +325,91 @@ function PricelistTableRow({
             </div>
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
+        ) : showPriceInput ? (
+          <div className="flex flex-col gap-1 max-w-[12rem]">
+            {canApprovePriceEdits && row.pending_edit_requests?.length ? (
+              <div className="flex flex-col gap-0.5 mb-0.5">
+                {row.pending_edit_requests.map((req) => (
+                  <span
+                    key={req.id}
+                    className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}
+                  >
+                    Edit requested by {req.seller_label}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1 min-w-0">
+                <span
+                  className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`}
+                  aria-hidden
+                >
+                  {currencySymbol}
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value)
+                    setError(null)
+                  }}
+                  onBlur={() => void handleSave()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      void handleSave()
+                    }
+                  }}
+                  placeholder="0.00"
+                  className={inputClass}
+                  aria-label={`Price for ${row.name}`}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving || !value.trim()}
+                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1.5 border transition-colors disabled:opacity-40 ${
+                  savedFlash
+                    ? 'border-green-500/50 bg-green-500/10 text-green-600'
+                    : isDark
+                      ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+                title="Save price"
+                aria-label="Save price"
+              >
+                {saving ? (
+                  <span className="text-xs px-0.5">…</span>
+                ) : (
+                  <CheckIcon className="w-4 h-4" aria-hidden />
+                )}
+              </button>
+            </div>
+            {canApprovePriceEdits && row.pending_edit_requests?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {row.pending_edit_requests.map((req) => (
+                  <button
+                    key={req.id}
+                    type="button"
+                    onClick={() => void handleApprove(req.id)}
+                    disabled={approvingId === req.id}
+                    className={`text-xs px-2 py-0.5 rounded border transition-colors disabled:opacity-50 ${
+                      isDark
+                        ? 'border-primary-500/40 text-primary-300 hover:bg-primary-500/10'
+                        : 'border-primary-500/50 text-primary-700 hover:bg-primary-50'
+                    }`}
+                    title={`Mark edit request from ${req.seller_label} as handled`}
+                  >
+                    {approvingId === req.id ? 'Saving…' : `Mark handled (${req.seller_label})`}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {error ? <span className="text-xs text-red-500">{error}</span> : null}
+          </div>
         ) : showLockedSellerPrice ? (
           <div className="flex flex-col gap-1 max-w-[14rem]">
             <span className={isDark ? 'text-white tabular-nums' : 'text-gray-900 tabular-nums'}>
@@ -330,7 +417,7 @@ function PricelistTableRow({
             </span>
             {row.edit_request_pending ? (
               <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                Edit pending approval
+                Edit requested — admin will update
               </span>
             ) : onRequestPriceEdit ? (
               <button
@@ -351,28 +438,6 @@ function PricelistTableRow({
         ) : (
           <div className="flex flex-col gap-1">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>{displayPrice}</span>
-            {canApprovePriceEdits && row.pending_edit_requests?.length ? (
-              <div className="flex flex-col gap-1">
-                {row.pending_edit_requests.map((req) => (
-                  <button
-                    key={req.id}
-                    type="button"
-                    onClick={() => void handleApprove(req.id)}
-                    disabled={approvingId === req.id}
-                    className={`self-start text-xs px-2 py-0.5 rounded border transition-colors disabled:opacity-50 ${
-                      isDark
-                        ? 'border-primary-500/40 text-primary-300 hover:bg-primary-500/10'
-                        : 'border-primary-500/50 text-primary-700 hover:bg-primary-50'
-                    }`}
-                    title={`Approve edit for ${req.seller_label}`}
-                  >
-                    {approvingId === req.id
-                      ? 'Approving…'
-                      : `Approve ${req.seller_label}`}
-                  </button>
-                ))}
-              </div>
-            ) : null}
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         )}

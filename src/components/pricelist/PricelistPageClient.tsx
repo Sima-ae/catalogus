@@ -60,6 +60,9 @@ export default function PricelistPageClient() {
   const isPlatformList =
     ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
 
+  const isAdmin = user?.role === 'admin'
+  const canManagePriceEditRequests = isAdmin && isPlatformList && !isGuest
+
   const listOwnerIdForShare =
     ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
       ? PLATFORM_PRICELIST_OWNER_ID
@@ -206,12 +209,12 @@ export default function PricelistPageClient() {
           ownerQuery={ownerQuery}
           isDark={isDark}
           isSeller={isSeller}
-          canApprovePriceEdits={Boolean(isSuperAdmin)}
+          canApprovePriceEdits={canManagePriceEditRequests}
           canClearPrice={Boolean(isSuperAdmin)}
           onSavePrice={savePrice}
           onClearPrice={isSuperAdmin ? clearPrice : undefined}
           onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
-          onApprovePriceEdit={isSuperAdmin ? approvePriceEdit : undefined}
+          onApprovePriceEdit={canManagePriceEditRequests ? approvePriceEdit : undefined}
           onRemove={removeItem}
           onStarChange={() => void reloadPricelist()}
         />

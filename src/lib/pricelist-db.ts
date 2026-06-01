@@ -171,9 +171,10 @@ export async function listPricelistRows(
 
   const rows: PricelistRow[] = []
   const productIds = items.map((i) => i.product_id)
-  const pendingByProduct = viewer.isSuperAdmin
-    ? groupPendingByProduct(await listPendingEditRequestsForProducts(listOwnerId, productIds))
-    : new Map<string, PricelistRow['pending_edit_requests']>()
+  const pendingByProduct =
+    viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
+      ? groupPendingByProduct(await listPendingEditRequestsForProducts(listOwnerId, productIds))
+      : new Map<string, PricelistRow['pending_edit_requests']>()
 
   for (const item of items) {
     let sellerUnit: number | null = null
@@ -194,15 +195,14 @@ export async function listPricelistRows(
         sellerCurrency = sp.currency
         displayUnit = sp.unit_price
         displayCurrency = sp.currency
-        priceLocked = sp.locked
-        canEditPrice = !sp.locked
+        priceLocked = true
+        canEditPrice = false
       } else {
         canEditPrice = true
       }
       const pending = await getPendingEditRequest(viewer.userId, item.product_id, listOwnerId)
       if (pending) {
         editRequestPending = true
-        canEditPrice = false
       }
     } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
       const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
@@ -225,6 +225,7 @@ export async function listPricelistRows(
         displayCurrency = dp.currency
       }
     } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
+      canEditPrice = true
       const own = await getSellerProductPrice(viewer.userId, item.product_id)
       if (own) {
         sellerUnit = own.unit_price

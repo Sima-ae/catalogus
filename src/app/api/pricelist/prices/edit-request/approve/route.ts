@@ -11,9 +11,6 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
-  if (!auth.actor.isSuperAdmin) {
-    return NextResponse.json({ error: 'Super admin access required' }, { status: 403 })
-  }
 
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object') {
