@@ -212,7 +212,7 @@ export function usePricelist(initialOwner?: string) {
 
   const currentOwnerLabel =
     owners.find((o) => o.id === ownerId)?.label ||
-    (ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM ? 'See my requests below!' : 'Pricelist')
+    (ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM ? 'See my request(s) below!' : 'Pricelist')
 
   return {
     owners,

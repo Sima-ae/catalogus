@@ -99,7 +99,7 @@ export default function PricelistPageClient() {
   const showOwnerSelect = owners.length > 1
   const [searchQuery, setSearchQuery] = useState('')
 
-  const subtitle = isPlatformList ? 'See my requests below!' : currentOwnerLabel
+  const subtitle = isPlatformList ? 'See my request(s) below!' : currentOwnerLabel
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -158,7 +158,7 @@ export default function PricelistPageClient() {
 
       {isGuest ? (
         <p className={`text-sm ${muted}`}>
-          Enter your prices in the table below. Changes save when you leave each field or tap the
+          Enter all prices in the empty fields below. Changes save when you leave each field or tap the
           check button.
         </p>
       ) : null}
