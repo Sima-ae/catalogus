@@ -303,3 +303,29 @@ WHERE IFNULL(@shoes_soccer_swap_done, '') <> '1'
   AND NOT EXISTS (
     SELECT 1 FROM settings WHERE `key` = 'migration_shoes_soccer_swapped'
   );
+
+-- Seller prices: lock after first save; super admin approves edit requests.
+ALTER TABLE seller_product_prices
+  ADD COLUMN IF NOT EXISTS locked TINYINT(1) NOT NULL DEFAULT 0 AFTER updated_by;
+
+UPDATE seller_product_prices spp
+INNER JOIN users u ON u.id = spp.seller_id AND u.role = 'seller'
+SET spp.locked = 1
+WHERE spp.locked = 0;
+
+CREATE TABLE IF NOT EXISTS seller_price_edit_requests (
+  id VARCHAR(36) NOT NULL,
+  seller_id VARCHAR(36) NOT NULL,
+  product_id VARCHAR(36) NOT NULL,
+  list_owner_id VARCHAR(36) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_by VARCHAR(36) NULL,
+  reviewed_at TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  KEY idx_sper_list (list_owner_id, status),
+  KEY idx_sper_seller_product (seller_id, product_id),
+  CONSTRAINT fk_sper_product
+    FOREIGN KEY (product_id) REFERENCES products(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -5,6 +5,10 @@ import {
   PLATFORM_PRICELIST_OWNER_ID,
 } from '@/lib/pricelist-constants'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
+import {
+  getPendingEditRequest,
+  listPendingEditRequestsForProducts,
+} from '@/lib/seller-price-edit-db'
 import { parseProductJsonField } from '@/lib/product-serialize'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
 
@@ -19,6 +23,18 @@ export type PricelistRow = {
   seller_currency: string | null
   display_unit_price: number | null
   display_currency: string | null
+  /** Seller-only: price saved and locked until super admin approves edit. */
+  price_locked?: boolean
+  edit_request_pending?: boolean
+  can_edit_price?: boolean
+  /** Super admin: pending edit requests from sellers for this product row. */
+  pending_edit_requests?: Array<{
+    id: string
+    seller_id: string
+    seller_label: string
+  }>
+  /** User id whose price is shown in the editable field (for super-admin clear). */
+  price_seller_id?: string
 }
 
 export async function isProductOnPricelist(
@@ -61,15 +77,19 @@ export async function removePricelistItem(ownerUserId: string, productId: string
 export async function getSellerProductPrice(
   sellerId: string,
   productId: string
-): Promise<{ unit_price: number; currency: string } | null> {
-  const rows = await queryDb<{ unit_price: string; currency: string }[]>(
-    `SELECT unit_price, currency FROM seller_product_prices
+): Promise<{ unit_price: number; currency: string; locked: boolean } | null> {
+  const rows = await queryDb<{ unit_price: string; currency: string; locked: number | boolean }[]>(
+    `SELECT unit_price, currency, COALESCE(locked, 0) AS locked FROM seller_product_prices
      WHERE seller_id = ? AND product_id = ? LIMIT 1`,
     [sellerId, productId]
   )
   const row = rows[0]
   if (!row) return null
-  return { unit_price: Number(row.unit_price), currency: row.currency }
+  return {
+    unit_price: Number(row.unit_price),
+    currency: row.currency,
+    locked: row.locked === 1 || row.locked === true,
+  }
 }
 
 export async function upsertSellerProductPrice(input: {
@@ -89,6 +109,17 @@ export async function upsertSellerProductPrice(input: {
        updated_at = CURRENT_TIMESTAMP`,
     [input.sellerId, input.productId, input.unitPrice, input.currency, input.updatedBy]
   )
+}
+
+export async function deleteSellerProductPrice(
+  sellerId: string,
+  productId: string
+): Promise<boolean> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `DELETE FROM seller_product_prices WHERE seller_id = ? AND product_id = ?`,
+    [sellerId, productId]
+  )
+  return (result?.affectedRows ?? 0) > 0
 }
 
 async function getBuyerDisplayPrice(
@@ -111,7 +142,11 @@ async function getBuyerDisplayPrice(
 
 export async function listPricelistRows(
   listOwnerId: string,
-  viewer: { userId: string; role: 'admin' | 'buyer' | 'seller' | 'guest' }
+  viewer: {
+    userId: string
+    role: 'admin' | 'buyer' | 'seller' | 'guest'
+    isSuperAdmin?: boolean
+  }
 ): Promise<PricelistRow[]> {
   const items = await queryDb<
     {
@@ -135,6 +170,10 @@ export async function listPricelistRows(
   )
 
   const rows: PricelistRow[] = []
+  const productIds = items.map((i) => i.product_id)
+  const pendingByProduct = viewer.isSuperAdmin
+    ? groupPendingByProduct(await listPendingEditRequestsForProducts(listOwnerId, productIds))
+    : new Map<string, PricelistRow['pending_edit_requests']>()
 
   for (const item of items) {
     let sellerUnit: number | null = null
@@ -142,13 +181,28 @@ export async function listPricelistRows(
     let displayUnit: number | null = null
     let displayCurrency: string | null = null
 
+    let priceLocked: boolean | undefined
+    let editRequestPending: boolean | undefined
+    let canEditPrice: boolean | undefined
+    let priceSellerId: string | undefined
+
     if (viewer.role === 'seller') {
+      priceSellerId = viewer.userId
       const sp = await getSellerProductPrice(viewer.userId, item.product_id)
       if (sp) {
         sellerUnit = sp.unit_price
         sellerCurrency = sp.currency
         displayUnit = sp.unit_price
         displayCurrency = sp.currency
+        priceLocked = sp.locked
+        canEditPrice = !sp.locked
+      } else {
+        canEditPrice = true
+      }
+      const pending = await getPendingEditRequest(viewer.userId, item.product_id, listOwnerId)
+      if (pending) {
+        editRequestPending = true
+        canEditPrice = false
       }
     } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
       const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
@@ -158,6 +212,7 @@ export async function listPricelistRows(
       }
     } else if (viewer.role === 'guest') {
       if (viewer.userId) {
+        priceSellerId = viewer.userId
         const sp = await getSellerProductPrice(viewer.userId, item.product_id)
         if (sp) {
           sellerUnit = sp.unit_price
@@ -174,9 +229,10 @@ export async function listPricelistRows(
       if (own) {
         sellerUnit = own.unit_price
         sellerCurrency = own.currency
+        priceSellerId = viewer.userId
       }
-      const prices = await queryDb<{ unit_price: string; currency: string }[]>(
-        `SELECT unit_price, currency FROM seller_product_prices
+      const prices = await queryDb<{ unit_price: string; currency: string; seller_id: string }[]>(
+        `SELECT unit_price, currency, seller_id FROM seller_product_prices
          WHERE product_id = ?
          ORDER BY updated_at DESC LIMIT 1`,
         [item.product_id]
@@ -184,6 +240,9 @@ export async function listPricelistRows(
       if (prices[0]) {
         displayUnit = Number(prices[0].unit_price)
         displayCurrency = prices[0].currency
+        if (!priceSellerId) {
+          priceSellerId = prices[0].seller_id
+        }
       }
     }
 
@@ -205,10 +264,31 @@ export async function listPricelistRows(
       seller_currency: sellerCurrency,
       display_unit_price: displayUnit,
       display_currency: displayCurrency,
+      price_locked: priceLocked,
+      edit_request_pending: editRequestPending,
+      can_edit_price: canEditPrice,
+      pending_edit_requests: pendingByProduct.get(item.product_id),
+      price_seller_id: priceSellerId,
     })
   }
 
   return rows
+}
+
+function groupPendingByProduct(
+  requests: Awaited<ReturnType<typeof listPendingEditRequestsForProducts>>
+): Map<string, NonNullable<PricelistRow['pending_edit_requests']>> {
+  const map = new Map<string, NonNullable<PricelistRow['pending_edit_requests']>>()
+  for (const r of requests) {
+    const list = map.get(r.product_id) ?? []
+    list.push({
+      id: r.id,
+      seller_id: r.seller_id,
+      seller_label: r.seller_label?.trim() || r.seller_id,
+    })
+    map.set(r.product_id, list)
+  }
+  return map
 }
 
 export function parseUnitPrice(value: unknown): number | null {

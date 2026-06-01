@@ -34,10 +34,14 @@ export default function PricelistPageClient() {
     viewMode,
     setViewMode,
     savePrice,
+    clearPrice,
+    requestPriceEdit,
+    approvePriceEdit,
     removeItem,
     canEditPrices,
     currentOwnerLabel,
     isGuest,
+    isSeller,
     reload: reloadPricelist,
   } = usePricelist(initialOwner)
 
@@ -201,7 +205,13 @@ export default function PricelistPageClient() {
           showStar={canShowStar}
           ownerQuery={ownerQuery}
           isDark={isDark}
+          isSeller={isSeller}
+          canApprovePriceEdits={Boolean(isSuperAdmin)}
+          canClearPrice={Boolean(isSuperAdmin)}
           onSavePrice={savePrice}
+          onClearPrice={isSuperAdmin ? clearPrice : undefined}
+          onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
+          onApprovePriceEdit={isSuperAdmin ? approvePriceEdit : undefined}
           onRemove={removeItem}
           onStarChange={() => void reloadPricelist()}
         />

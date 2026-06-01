@@ -22,7 +22,11 @@ function viewerFromAccess(
     return { userId: contributorId, role: 'guest' as const }
   }
   if (!access.actor) return null
-  return { userId: access.actor.userId, role: access.actor.role }
+  return {
+    userId: access.actor.userId,
+    role: access.actor.role,
+    isSuperAdmin: access.actor.isSuperAdmin,
+  }
 }
 
 function ensureGuestContributorCookie(

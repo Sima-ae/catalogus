@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { parseUnitPrice, upsertSellerProductPrice } from '@/lib/pricelist-db'
+import { parseUnitPrice, upsertSellerProductPrice, deleteSellerProductPrice } from '@/lib/pricelist-db'
 import {
   applyPricelistContributorCookie,
   requirePricelistAccess,
   resolvePricelistPriceActor,
 } from '@/lib/pricelist-api'
-import { queryDb } from '@/lib/db'
+import {
+  assertSellerMayUpdatePrice,
+  lockSellerPriceAfterSave,
+  clearPendingEditRequestsForPrice,
+} from '@/lib/seller-price-edit-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -51,6 +56,14 @@ export async function PUT(request: NextRequest) {
       ? priceActor.actor.contributorId
       : priceActor.actor.userId
 
+  const isSellerActor = access.mode === 'full' && access.actor?.role === 'seller'
+  if (isSellerActor) {
+    const mayUpdate = await assertSellerMayUpdatePrice(sellerId, productId)
+    if (!mayUpdate.ok) {
+      return NextResponse.json({ error: mayUpdate.error, code: 'PRICE_LOCKED' }, { status: 403 })
+    }
+  }
+
   try {
     const currency = await getShopCurrency()
     await upsertSellerProductPrice({
@@ -60,6 +73,9 @@ export async function PUT(request: NextRequest) {
       currency,
       updatedBy: sellerId,
     })
+    if (isSellerActor) {
+      await lockSellerPriceAfterSave(sellerId, productId)
+    }
     const res = NextResponse.json({
       ok: true,
       unitPrice,
@@ -74,6 +90,47 @@ export async function PUT(request: NextRequest) {
     console.error('Pricelist prices PUT:', error)
     return NextResponse.json(
       { error: getDbErrorMessage(error, 'Failed to save price') },
+      { status: 503 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+  }
+
+  const raw = body as Record<string, unknown>
+  const productId = String(raw.productId ?? '').trim()
+  const ownerParam = String(raw.ownerId ?? '').trim()
+  const sellerIdParam = String(raw.sellerId ?? '').trim()
+
+  if (!productId) {
+    return NextResponse.json({ error: 'productId is required' }, { status: 400 })
+  }
+
+  const access = await requirePricelistAccess(request, ownerParam || null)
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status })
+  }
+  if (!access.actor?.isSuperAdmin) {
+    return NextResponse.json({ error: 'Only super admin can clear prices' }, { status: 403 })
+  }
+
+  const targetSellerId = sellerIdParam || access.actor.userId
+
+  try {
+    const removed = await deleteSellerProductPrice(targetSellerId, productId)
+    if (!removed) {
+      return NextResponse.json({ error: 'Price not found' }, { status: 404 })
+    }
+    await clearPendingEditRequestsForPrice(targetSellerId, productId)
+    return NextResponse.json({ ok: true, productId, sellerId: targetSellerId })
+  } catch (error) {
+    console.error('Pricelist prices DELETE:', error)
+    return NextResponse.json(
+      { error: getDbErrorMessage(error, 'Failed to clear price') },
       { status: 503 }
     )
   }

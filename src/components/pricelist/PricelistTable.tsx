@@ -17,7 +17,13 @@ type Props = {
   showStar: boolean
   ownerQuery?: string
   isDark: boolean
+  isSeller?: boolean
+  canApprovePriceEdits?: boolean
+  canClearPrice?: boolean
   onSavePrice: (productId: string, price: number) => Promise<void>
+  onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
+  onRequestPriceEdit?: (productId: string) => Promise<void>
+  onApprovePriceEdit?: (requestId: string) => Promise<void>
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
 }
@@ -43,7 +49,13 @@ export default function PricelistTable({
   showStar,
   ownerQuery,
   isDark,
+  isSeller = false,
+  canApprovePriceEdits = false,
+  canClearPrice = false,
   onSavePrice,
+  onClearPrice,
+  onRequestPriceEdit,
+  onApprovePriceEdit,
   onRemove,
   onStarChange,
 }: Props) {
@@ -67,16 +79,22 @@ export default function PricelistTable({
         <tbody>
           {items.map((row) => (
             <PricelistTableRow
-              key={`${row.item_id}-${row.seller_unit_price ?? 'x'}`}
+              key={`${row.item_id}-${row.seller_unit_price ?? 'x'}-${row.edit_request_pending ? 'p' : ''}`}
               row={row}
               canEditPrices={canEditPrices}
               canManageItems={canManageItems}
               showStar={showStar}
               ownerQuery={ownerQuery}
               isDark={isDark}
+              isSeller={isSeller}
+              canApprovePriceEdits={canApprovePriceEdits}
+              canClearPrice={canClearPrice}
               muted={muted}
               border={border}
               onSavePrice={onSavePrice}
+              onClearPrice={onClearPrice}
+              onRequestPriceEdit={onRequestPriceEdit}
+              onApprovePriceEdit={onApprovePriceEdit}
               onRemove={onRemove}
               onStarChange={onStarChange}
             />
@@ -94,9 +112,15 @@ function PricelistTableRow({
   showStar,
   ownerQuery,
   isDark,
+  isSeller,
+  canApprovePriceEdits,
+  canClearPrice,
   muted,
   border,
   onSavePrice,
+  onClearPrice,
+  onRequestPriceEdit,
+  onApprovePriceEdit,
   onRemove,
   onStarChange,
 }: {
@@ -106,9 +130,15 @@ function PricelistTableRow({
   showStar: boolean
   ownerQuery?: string
   isDark: boolean
+  isSeller: boolean
+  canApprovePriceEdits: boolean
+  canClearPrice: boolean
   muted: string
   border: string
   onSavePrice: (productId: string, price: number) => Promise<void>
+  onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
+  onRequestPriceEdit?: (productId: string) => Promise<void>
+  onApprovePriceEdit?: (requestId: string) => Promise<void>
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
 }) {
@@ -116,15 +146,24 @@ function PricelistTableRow({
   const savedValueRef = useRef(editablePriceSeed(row))
   const [value, setValue] = useState(() => editablePriceSeed(row))
   const [saving, setSaving] = useState(false)
+  const [requesting, setRequesting] = useState(false)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const showPriceInput = canEditPrices && row.can_edit_price !== false
+  const showLockedSellerPrice = isSeller && canEditPrices && row.price_locked && !showPriceInput
+  const sellerPriceDisplay =
+    row.seller_unit_price != null
+      ? formatPrice(row.seller_unit_price, { currencyCode: row.seller_currency || 'EUR' })
+      : '—'
 
   useEffect(() => {
     const next = editablePriceSeed(row)
     savedValueRef.current = next
     setValue(next)
     setError(null)
-  }, [row.product_id, row.seller_unit_price, row.display_unit_price])
+  }, [row.product_id, row.seller_unit_price, row.display_unit_price, row.can_edit_price])
 
   const displayPrice =
     row.display_unit_price != null
@@ -134,7 +173,33 @@ function PricelistTableRow({
   const handleSave = useCallback(async () => {
     const parsed = parsePriceInput(value)
     if (parsed === null) {
-      if (value.trim()) setError('Invalid price')
+      if (!value.trim()) {
+        const hadSaved = savedValueRef.current.trim() !== ''
+        if (hadSaved && canClearPrice && onClearPrice) {
+          setSaving(true)
+          setError(null)
+          try {
+            await onClearPrice(row.product_id, row.price_seller_id)
+            savedValueRef.current = ''
+            setValue('')
+            setSavedFlash(true)
+            window.setTimeout(() => setSavedFlash(false), 1500)
+          } catch (e) {
+            setValue(savedValueRef.current)
+            setError(e instanceof Error ? e.message : 'Clear failed')
+          } finally {
+            setSaving(false)
+          }
+        } else if (hadSaved) {
+          setValue(savedValueRef.current)
+          if (!canClearPrice) {
+            setError('Only super admin can clear a price')
+            window.setTimeout(() => setError(null), 3000)
+          }
+        }
+        return
+      }
+      setError('Invalid price')
       return
     }
     const savedParsed = parsePriceInput(savedValueRef.current)
@@ -151,7 +216,36 @@ function PricelistTableRow({
     } finally {
       setSaving(false)
     }
-  }, [onSavePrice, row.product_id, value])
+  }, [canClearPrice, onClearPrice, onSavePrice, row.price_seller_id, row.product_id, value])
+
+  const handleRequestEdit = useCallback(async () => {
+    if (!onRequestPriceEdit) return
+    setRequesting(true)
+    setError(null)
+    try {
+      await onRequestPriceEdit(row.product_id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Request failed')
+    } finally {
+      setRequesting(false)
+    }
+  }, [onRequestPriceEdit, row.product_id])
+
+  const handleApprove = useCallback(
+    async (requestId: string) => {
+      if (!onApprovePriceEdit) return
+      setApprovingId(requestId)
+      setError(null)
+      try {
+        await onApprovePriceEdit(requestId)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Approve failed')
+      } finally {
+        setApprovingId(null)
+      }
+    },
+    [onApprovePriceEdit]
+  )
 
   const inputClass = `w-full min-w-[4.5rem] pl-7 pr-2 py-1.5 rounded border text-sm tabular-nums ${
     isDark ? 'bg-dark-900 border-dark-600 text-white' : 'bg-white border-gray-300 text-gray-900'
@@ -176,7 +270,7 @@ function PricelistTableRow({
       </td>
       <td className={`px-4 py-3 font-mono text-xs ${muted}`}>{row.sku}</td>
       <td className="px-4 py-3">
-        {canEditPrices ? (
+        {showPriceInput ? (
           <div className="flex flex-col gap-1 max-w-[12rem]">
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1 min-w-0">
@@ -229,8 +323,58 @@ function PricelistTableRow({
             </div>
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
+        ) : showLockedSellerPrice ? (
+          <div className="flex flex-col gap-1 max-w-[14rem]">
+            <span className={isDark ? 'text-white tabular-nums' : 'text-gray-900 tabular-nums'}>
+              {sellerPriceDisplay}
+            </span>
+            {row.edit_request_pending ? (
+              <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
+                Edit pending approval
+              </span>
+            ) : onRequestPriceEdit ? (
+              <button
+                type="button"
+                onClick={() => void handleRequestEdit()}
+                disabled={requesting}
+                className={`self-start text-xs px-2 py-0.5 rounded border transition-colors disabled:opacity-50 ${
+                  isDark
+                    ? 'border-dark-600 text-gray-300 hover:bg-dark-800'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {requesting ? 'Sending…' : 'Request edit'}
+              </button>
+            ) : null}
+            {error ? <span className="text-xs text-red-500">{error}</span> : null}
+          </div>
         ) : (
-          <span className={isDark ? 'text-white' : 'text-gray-900'}>{displayPrice}</span>
+          <div className="flex flex-col gap-1">
+            <span className={isDark ? 'text-white' : 'text-gray-900'}>{displayPrice}</span>
+            {canApprovePriceEdits && row.pending_edit_requests?.length ? (
+              <div className="flex flex-col gap-1">
+                {row.pending_edit_requests.map((req) => (
+                  <button
+                    key={req.id}
+                    type="button"
+                    onClick={() => void handleApprove(req.id)}
+                    disabled={approvingId === req.id}
+                    className={`self-start text-xs px-2 py-0.5 rounded border transition-colors disabled:opacity-50 ${
+                      isDark
+                        ? 'border-primary-500/40 text-primary-300 hover:bg-primary-500/10'
+                        : 'border-primary-500/50 text-primary-700 hover:bg-primary-50'
+                    }`}
+                    title={`Approve edit for ${req.seller_label}`}
+                  >
+                    {approvingId === req.id
+                      ? 'Approving…'
+                      : `Approve ${req.seller_label}`}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {error ? <span className="text-xs text-red-500">{error}</span> : null}
+          </div>
         )}
       </td>
       {showStar ? (

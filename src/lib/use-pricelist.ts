@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import {
@@ -129,6 +130,61 @@ export function usePricelist(initialOwner?: string) {
     await loadItems()
   }
 
+  const clearPrice = async (productId: string, priceSellerId?: string) => {
+    if (!user) return
+    const res = await fetch(appPath('/api/pricelist/prices'), {
+      method: 'DELETE',
+      headers: {
+        ...adminAuthHeaders(user),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        productId,
+        ownerId: ownerQuery,
+        sellerId: priceSellerId,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to clear price')
+    await loadItems()
+  }
+
+  const requestPriceEdit = async (productId: string) => {
+    if (!user) return
+    const res = await fetch(appPath('/api/pricelist/prices/edit-request'), {
+      method: 'POST',
+      headers: {
+        ...catalogAuthHeaders(user),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        productId,
+        ownerId: ownerQuery,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to request edit')
+    await loadItems()
+  }
+
+  const approvePriceEdit = async (requestId: string) => {
+    if (!user) return
+    const res = await fetch(appPath('/api/pricelist/prices/edit-request/approve'), {
+      method: 'POST',
+      headers: {
+        ...adminAuthHeaders(user),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ requestId }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to approve edit')
+    await loadItems()
+  }
+
   const removeItem = async (productId: string) => {
     if (!user) return
     const q =
@@ -145,6 +201,7 @@ export function usePricelist(initialOwner?: string) {
   }
 
   const isGuest = accessMode === 'guest'
+  const isSeller = user?.role === 'seller'
   const canEditPrices =
     isGuest ||
     (Boolean(user) && (user?.role === 'seller' || user?.role === 'admin'))
@@ -166,6 +223,9 @@ export function usePricelist(initialOwner?: string) {
     viewMode,
     setViewMode,
     savePrice,
+    clearPrice,
+    requestPriceEdit,
+    approvePriceEdit,
     removeItem,
     canEditPrices,
     canManageItems,
@@ -173,5 +233,7 @@ export function usePricelist(initialOwner?: string) {
     reload: loadItems,
     accessMode,
     isGuest,
+    isSeller,
+    ownerQuery,
   }
 }
