@@ -49,6 +49,15 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
       </div>
       <p className={`text-sm mb-4 lg:hidden ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
       <nav className="space-y-2 flex-1">
+        <Link
+          href={appPath('/pricelist')}
+          onClick={() => setMobileOpen(false)}
+          className={`block px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
+            pathname === appPath('/pricelist') ? 'nav-active' : navIdle
+          }`}
+        >
+          Pricelist
+        </Link>
         {nav.map((item) => (
           <Link
             key={item.href}

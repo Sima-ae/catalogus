@@ -23,6 +23,7 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
+  { name: 'Pricelist', href: '/pricelist', icon: DocumentTextIcon },
   { name: 'Products', href: '/admin/products', icon: CubeIcon },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
   { name: 'Users', href: '/admin/users', icon: UsersIcon },

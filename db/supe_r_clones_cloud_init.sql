@@ -237,6 +237,50 @@ CREATE TABLE IF NOT EXISTS wishlist_items (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- pricelist_items (platform owner id is fixed in app constants)
+CREATE TABLE IF NOT EXISTS pricelist_items (
+  id VARCHAR(36) NOT NULL,
+  owner_user_id VARCHAR(36) NOT NULL,
+  product_id VARCHAR(36) NOT NULL,
+  added_by_user_id VARCHAR(36) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pricelist_owner_product (owner_user_id, product_id),
+  KEY idx_pricelist_owner (owner_user_id),
+  KEY idx_pricelist_product (product_id),
+  CONSTRAINT fk_pricelist_product
+    FOREIGN KEY (product_id) REFERENCES products(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seller_product_prices (
+  seller_id VARCHAR(36) NOT NULL,
+  product_id VARCHAR(36) NOT NULL,
+  unit_price DECIMAL(12, 2) NOT NULL,
+  currency VARCHAR(8) NOT NULL DEFAULT 'EUR',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by VARCHAR(36) NULL,
+  PRIMARY KEY (seller_id, product_id),
+  KEY idx_seller_prices_product (product_id),
+  CONSTRAINT fk_seller_prices_product
+    FOREIGN KEY (product_id) REFERENCES products(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS seller_pricelist_access (
+  id VARCHAR(36) NOT NULL,
+  seller_id VARCHAR(36) NOT NULL,
+  list_owner_id VARCHAR(36) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  approved_by VARCHAR(36) NULL,
+  approved_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_seller_list_owner (seller_id, list_owner_id),
+  KEY idx_spa_list_owner (list_owner_id),
+  KEY idx_spa_seller (seller_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- downloads
 CREATE TABLE IF NOT EXISTS downloads (
   id VARCHAR(36) NOT NULL,

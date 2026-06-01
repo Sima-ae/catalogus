@@ -21,6 +21,7 @@ import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
+import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 
 type ProductReview = {
   id: string
@@ -420,7 +421,10 @@ export default function ProductPageClient() {
               </div>
             ) : null}
 
-            <div ref={mainGalleryRef} className="min-w-0 flex-1">
+            <div ref={mainGalleryRef} className="min-w-0 flex-1 relative">
+              <div className="absolute top-3 right-3 z-20">
+                <PricelistStarButton productId={product.id} />
+              </div>
               {product.gallery[selectedImage] ? (
                 <button
                   type="button"

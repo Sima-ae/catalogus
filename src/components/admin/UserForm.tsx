@@ -8,6 +8,7 @@ import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
 import { isSuperAdminUser, type UserListRow } from '@/lib/user-roles'
+import SellerPricelistAccessPanel from '@/components/admin/SellerPricelistAccessPanel'
 
 type Props = {
   userId?: string
@@ -148,6 +149,7 @@ export default function UserForm({
   const title = isCreate ? 'Add user' : effectiveReadOnly ? 'User details' : 'Edit user'
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="card space-y-4 max-w-xl">
       <h2 className="card-section-title">{title}</h2>
       {effectiveReadOnly && targetSuperAdmin && !isSuperAdmin && (
@@ -261,5 +263,9 @@ export default function UserForm({
         )}
       </div>
     </form>
+    {isEdit && userId && (form.role === 'seller' || form.role === 'buyer') ? (
+      <SellerPricelistAccessPanel userId={userId} userRole={form.role} />
+    ) : null}
+  </>
   )
 }
