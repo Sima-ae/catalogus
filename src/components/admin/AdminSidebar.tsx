@@ -93,25 +93,11 @@ export default function AdminSidebar({
         </div>
       </div>
 
-      <div className={`mb-6 p-4 rounded-lg ${panelClass}`}>
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-lg">
-              {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className={`font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {user?.name || 'Admin User'}
-            </p>
-            {user && (
-              <div className="mt-1">
-                <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
-              </div>
-            )}
-          </div>
+      {user ? (
+        <div className={`mb-6 p-4 rounded-lg ${panelClass}`}>
+          <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
         </div>
-      </div>
+      ) : null}
 
       <nav className="space-y-2 flex-1">
         {navigation.map((item) => {

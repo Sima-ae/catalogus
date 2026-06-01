@@ -52,15 +52,10 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
       </div>
       <p className={`text-sm mb-4 lg:hidden ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
       <div className={`mb-6 p-4 rounded-lg ${panelClass}`}>
-        <p className={`font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          {user?.name || 'User'}
-        </p>
-        {user && (
-          <div className="mt-2">
-            <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
-          </div>
-        )}
-        <div className="mt-2">
+        {user ? (
+          <RoleBadge role={user.role} email={user.email} is_super_admin={user.is_super_admin} />
+        ) : null}
+        <div className={user ? 'mt-2' : undefined}>
           <UserStarRating rating={user?.badge_rating} size="sm" showValue={false} />
         </div>
         <p className={`text-xs mt-2 truncate ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{user?.email}</p>
