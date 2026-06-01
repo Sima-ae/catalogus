@@ -53,6 +53,9 @@ type Props = {
   productId?: string
   initial?: Partial<Product>
   portal?: 'admin' | 'seller'
+  variant?: 'page' | 'modal'
+  onSaved?: (product: Product) => void
+  onCancel?: () => void
 }
 
 export default function ProductForm({
@@ -60,6 +63,9 @@ export default function ProductForm({
   productId,
   initial,
   portal = 'admin',
+  variant = 'page',
+  onSaved,
+  onCancel,
 }: Props) {
   const router = useRouter()
   const t = useAppTheme()
@@ -190,7 +196,8 @@ export default function ProductForm({
       const updated = data as Product
       setForm(mapProductToForm(updated))
       setSaved(true)
-      if (mode === 'create') {
+      onSaved?.(updated)
+      if (mode === 'create' && variant === 'page') {
         router.push(appPath(productsPath))
         router.refresh()
       }
@@ -206,7 +213,10 @@ export default function ProductForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
+    <form
+      onSubmit={handleSubmit}
+      className={variant === 'modal' ? 'space-y-6' : 'space-y-8 max-w-3xl'}
+    >
       {error && (
         <div
           className={`rounded-lg border px-4 py-3 text-sm ${
@@ -497,13 +507,19 @@ export default function ProductForm({
         <Field label="Download URL" name="download_url" value={form.download_url} onChange={onChange} />
       </section>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? 'Saving...' : mode === 'create' ? 'Create product' : 'Save changes'}
         </button>
-        <Link href={appPath(productsPath)} className="btn-secondary">
-          {mode === 'edit' ? 'Back to products' : 'Cancel'}
-        </Link>
+        {variant === 'modal' ? (
+          <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+        ) : (
+          <Link href={appPath(productsPath)} className="btn-secondary">
+            {mode === 'edit' ? 'Back to products' : 'Cancel'}
+          </Link>
+        )}
       </div>
     </form>
   )

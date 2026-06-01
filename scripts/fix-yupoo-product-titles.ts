@@ -11,7 +11,7 @@ import { resolve } from 'path'
 import { queryDb } from '@/lib/db'
 import { fetchHtml, sleep } from '@/lib/yupoo/client'
 import { parseAlbumPage } from '@/lib/yupoo/parse-album'
-import { resolveYupooProductTitleAsync } from '@/lib/yupoo/product-title'
+import { resolveYupooProductTitleAsync, titleNeedsEnglishCleanup } from '@/lib/yupoo/product-title'
 import {
   catalogCardDescription,
   cleanImportDescription,
@@ -88,6 +88,7 @@ function needsTitleFix(name: string): boolean {
   const t = name.trim()
   if (isPlaceholderProductTitle(t)) return true
   if (isYupooShopTagline(t)) return true
+  if (titleNeedsEnglishCleanup(t)) return true
   if (isSkuOnlyTitle(t)) return false
   if (/supplier product catalog|factory direct|wholesale|free shipping/i.test(t)) return true
   return false
@@ -128,11 +129,13 @@ async function resolveTitleForProduct(
   allowFetch: boolean
 ): Promise<{ name: string; descriptionSource: string } | null> {
   const raw = albumFieldsFromRawJson(job?.raw_json ?? null)
+  const current = String(row.name ?? '').trim()
   const localTitle = pickLocalAlbumTitle(raw, job)
+  const albumTitle = localTitle || (needsTitleFix(current) ? current : '')
   let descriptionSource = raw.description || String(row.description ?? '')
 
   let resolved = await resolveYupooProductTitleAsync({
-    albumTitle: localTitle,
+    albumTitle,
     description: descriptionSource,
     thumbTitle: job?.album_title,
     fallbackSku: row.sku,
@@ -171,7 +174,8 @@ async function resolveTitleForProduct(
     !resolved ||
     isPlaceholderProductTitle(resolved) ||
     isYupooShopTagline(resolved) ||
-    resolved === row.name.trim()
+    titleNeedsEnglishCleanup(resolved) ||
+    (resolved === current && !titleNeedsEnglishCleanup(current))
   ) {
     return null
   }

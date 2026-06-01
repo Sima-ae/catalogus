@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -9,7 +9,7 @@ import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
-import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
 import { parseJsonResponse } from '@/lib/fetch-json'
@@ -19,6 +19,8 @@ import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
+import { useAuth } from '@/lib/auth-local'
+import ProductEditModal from '@/components/admin/ProductEditModal'
 
 type ProductReview = {
   id: string
@@ -50,6 +52,9 @@ export default function ProductPageClient() {
   const [headerSearch, setHeaderSearch] = useState('')
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
+  const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
+  const canEditProduct = !authLoading && (isAdmin || isSuperAdmin)
+  const [editOpen, setEditOpen] = useState(false)
   const thumbListRef = useRef<HTMLDivElement>(null)
   const mainGalleryRef = useRef<HTMLDivElement>(null)
   const [thumbColumnHeight, setThumbColumnHeight] = useState<number | null>(null)
@@ -86,6 +91,19 @@ export default function ProductPageClient() {
     const active = list.querySelector<HTMLElement>('[aria-selected="true"]')
     active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [selectedImage, product?.gallery.length])
+
+  const reloadProduct = useCallback(async () => {
+    if (!productId) return
+    try {
+      const res = await fetch(appPath(`/api/products/${productId}`), { cache: 'no-store' })
+      const data = await parseJsonResponse<Record<string, unknown> & { error?: string }>(res)
+      if (!res.ok) return
+      setProduct(toProductPageView(data))
+      setSelectedImage(0)
+    } catch {
+      /* keep current view */
+    }
+  }, [productId])
 
   useEffect(() => {
     if (!productId) {
@@ -313,6 +331,30 @@ export default function ProductPageClient() {
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
     } overflow-x-hidden`}>
+      {canEditProduct ? (
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className={`fixed top-4 right-4 z-40 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-lg transition-colors ${
+            theme === 'dark'
+              ? 'border-dark-600 bg-dark-800 text-white hover:bg-dark-700'
+              : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
+          }`}
+        >
+          <PencilSquareIcon className="h-4 w-4 shrink-0" aria-hidden />
+          Edit product
+        </button>
+      ) : null}
+
+      <ProductEditModal
+        productId={productId}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => {
+          void reloadProduct()
+        }}
+      />
+
       <Sidebar open={mobileOpen} onClose={close} />
 
       <div className="flex-1 flex flex-col min-w-0">

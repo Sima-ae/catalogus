@@ -224,7 +224,21 @@ const CN_MARKETING_PHRASES = [
   '一比一',
   '超高品质',
   '顶级品质',
+  '顶级版本',
+  '顶级原装',
+  '真猫眼',
+  '顶配',
+  '最高版本',
 ] as const
+
+/** Remove Yupoo seller marketing Chinese from product titles (keep color/model han for translation). */
+export function stripChineseMarketingFromTitle(text: string): string {
+  let result = String(text ?? '')
+  for (const phrase of CN_MARKETING_PHRASES) {
+    result = result.replace(new RegExp(escapeRegExp(phrase), 'g'), ' ')
+  }
+  return result.replace(/\s+/g, ' ').trim()
+}
 
 function stripInlineChineseNoise(text: string): string {
   let result = text

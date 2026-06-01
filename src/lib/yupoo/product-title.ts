@@ -1,15 +1,24 @@
-import { translateText } from '@/lib/translate'
+import { translateText, sleep } from '@/lib/translate'
 import {
   isPlaceholderProductTitle,
   isYupooShopTagline,
   resolveYupooProductTitle,
   sanitizeYupooAlbumTitle,
+  stripChineseMarketingFromTitle,
   stripTitleDecorations,
 } from '@/lib/yupoo/import-text'
 
 export { stripTitleDecorations } from '@/lib/yupoo/import-text'
 
 const HAN_SEGMENT_RE = /[\u4e00-\u9fff]+/
+
+/** Title still has Chinese or decorative symbols — needs cleanup. */
+export function titleNeedsEnglishCleanup(text: string): boolean {
+  const t = String(text ?? '').trim()
+  if (!t) return false
+  if (HAN_SEGMENT_RE.test(t)) return true
+  return t !== stripTitleDecorations(t)
+}
 
 /** Translate Chinese runs in a title; leave Latin model names / color codes unchanged. */
 export async function translateChineseSegmentsInTitle(text: string): Promise<string> {
@@ -25,6 +34,7 @@ export async function translateChineseSegmentsInTitle(text: string): Promise<str
       try {
         const en = await translateText(part, 'zh-CN', 'en')
         if (en.trim()) out.push(en.trim())
+        await sleep(350)
       } catch {
         /* drop untranslatable han */
       }
@@ -42,6 +52,7 @@ export async function finalizeYupooProductTitle(raw: string): Promise<string> {
   if (!t || isPlaceholderProductTitle(t) || isYupooShopTagline(t)) return t
 
   t = stripTitleDecorations(t, { preserveHan: true })
+  t = stripChineseMarketingFromTitle(t)
   t = await translateChineseSegmentsInTitle(t)
   t = stripTitleDecorations(t)
   t = t.replace(/[\u4e00-\u9fff]+/g, ' ').replace(/\s+/g, ' ').trim()
