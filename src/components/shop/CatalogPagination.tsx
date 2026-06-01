@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useAppTheme } from '@/lib/theme-classes'
 
 export const CATALOG_PAGE_SIZE = 60
@@ -27,6 +28,46 @@ export default function CatalogPagination({
 
   if (totalItems === 0) return null
 
+  const [gotoValue, setGotoValue] = useState('')
+
+  useEffect(() => {
+    setGotoValue(String(safePage))
+  }, [safePage])
+
+  const gotoPage = useMemo(() => {
+    const parsed = parseInt(gotoValue.trim(), 10)
+    if (!Number.isFinite(parsed)) return null
+    return Math.min(totalPages, Math.max(1, parsed))
+  }, [gotoValue, totalPages])
+
+  const goToInput = (
+    <form
+      className="flex items-center justify-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (gotoPage == null) return
+        if (gotoPage === safePage) return
+        onPageChange(gotoPage)
+      }}
+    >
+      <label className={`text-sm ${t.muted}`} htmlFor={`catalog-goto-${centered ? 'center' : 'side'}`}>
+        Page
+      </label>
+      <input
+        id={`catalog-goto-${centered ? 'center' : 'side'}`}
+        inputMode="numeric"
+        pattern="[0-9]*"
+        className="input w-20 text-sm"
+        value={gotoValue}
+        onChange={(e) => setGotoValue(e.target.value)}
+        aria-label="Go to page number"
+      />
+      <button type="submit" className="btn-secondary text-sm" disabled={gotoPage == null}>
+        Go
+      </button>
+    </form>
+  )
+
   const statusText = (
     <>
       Showing <strong className={t.heading}>{start}</strong>–
@@ -43,7 +84,7 @@ export default function CatalogPagination({
   )
 
   const navButtons = (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex flex-wrap items-center justify-center gap-2">
       <button
         type="button"
         className="btn-secondary text-sm"
@@ -60,6 +101,7 @@ export default function CatalogPagination({
       >
         Next
       </button>
+      {goToInput}
     </div>
   )
 
