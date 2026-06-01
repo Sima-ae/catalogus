@@ -7,30 +7,33 @@ import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
   cleanImportDescription,
-  resolveYupooProductTitle,
 } from '@/lib/yupoo/import-text'
+import { resolveYupooProductTitleAsync } from '@/lib/yupoo/product-title'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
 
-export function buildProductInputFromImport(
+export async function buildProductInputFromImport(
   album: YupooAlbumData,
   translated: TranslatedProductText,
   categoryName: string,
   brandName: string | null,
   thumbTitle?: string | null,
   catalogCategoryId?: string | null
-): ProductInput {
+): Promise<ProductInput> {
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
   const uniqueImages = cleanProductGalleryUrls(album.images)
   const mainImage = uniqueImages[0] || ''
   const gallery = uniqueImages.slice(1)
+  const sku = buildSku(album, brandName)
 
   const rawTitle = translated.rawTitle || album.title
   const rawDescription = translated.enDescription || album.description
-  const name = resolveYupooProductTitle({
+  const name = await resolveYupooProductTitleAsync({
     albumTitle: rawTitle,
     description: album.description,
     thumbTitle,
+    fallbackSku: sku,
+    fallbackAlbumId: album.albumId,
   })
   const description = cleanImportDescription(rawDescription, name, brandName)
   const short_description =
@@ -54,7 +57,7 @@ export function buildProductInputFromImport(
     source_album_id: album.albumId,
     author: APP_DEFAULT_AUTHOR,
     author_icon: APP_DEFAULT_AUTHOR_ICON,
-    sku: buildSku(album, brandName),
+    sku,
     status: 'draft',
     featured: false,
   }

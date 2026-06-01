@@ -42,10 +42,39 @@ export function isYupooShopTagline(text: string): boolean {
   return false
 }
 
-/** Strip Yupoo metadata (CN/EN) and keep the product name portion. */
-export function sanitizeYupooAlbumTitle(text: string): string {
+/** Placeholder names that must never be stored as product titles. */
+export function isPlaceholderProductTitle(name: string): boolean {
+  const t = String(name ?? '').trim().toLowerCase()
+  return !t || t === 'imported product' || t === 'untitled' || t === 'untitled product'
+}
+
+/** Emoji, icons, and decorative symbols — not allowed in product titles. */
+const TITLE_DECORATION_RE =
+  /(?:[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u26FF]|[\u2700-\u27BF]|[\uFE00-\uFE0F]|\u200D|\u20E3)/g
+
+const TITLE_LEGACY_DECORATION_RE = /[\u24B6-\u24FF\u32A0-\u33FF]/g
+
+/** Remove emoji, icons, and decorative punctuation from product titles. */
+export function stripTitleDecorations(text: string, options?: { preserveHan?: boolean }): string {
   let t = String(text ?? '').trim()
   if (!t) return ''
+
+  t = t.replace(TITLE_DECORATION_RE, '').replace(TITLE_LEGACY_DECORATION_RE, '')
+  t = t.replace(/[「『]/g, '"').replace(/[」''』]/g, '"')
+  t = t.replace(/[—–]/g, '-')
+  t = t.replace(/[\u3000-\u303f\uff00-\uffef]/g, ' ')
+  const disallowed = options?.preserveHan
+    ? /[^a-zA-Z0-9\s"'.-\u4e00-\u9fff]/g
+    : /[^a-zA-Z0-9\s"'.-]/g
+  t = t.replace(disallowed, ' ')
+  t = t.replace(/\s+/g, ' ').trim()
+  return t
+}
+
+/** Strip Yupoo metadata (CN/EN); keeps Chinese for later translation in finalizeYupooProductTitle. */
+export function sanitizeYupooAlbumTitle(text: string): string {
+  let t = String(text ?? '').trim()
+  if (!t || isPlaceholderProductTitle(t)) return ''
 
   if (isYupooShopTagline(t)) return ''
 
@@ -54,12 +83,7 @@ export function sanitizeYupooAlbumTitle(text: string): string {
     if (idx > 0) t = t.slice(0, idx).trim()
   }
 
-  t = t.replace(/[\u4e00-\u9fff].*$/, '').trim()
   t = t.replace(/\s+\d{2}(?:\.\d)?(?:\s+\d{2}(?:\.\d)?){2,}.*$/, '').trim()
-  t = t.replace(/[""」』]/g, '"').replace(/[「『]/g, '"')
-  t = t.replace(/\s+/g, ' ').trim()
-  t = t.replace(/^[\s|｜\-–—:：,，.]+/, '').trim()
-  t = t.replace(/[\s|｜\-–—:：,，.]+$/, '').trim()
 
   if (isYupooShopTagline(t)) return ''
 
@@ -69,20 +93,33 @@ export function sanitizeYupooAlbumTitle(text: string): string {
 function isUsableDisplayTitle(title: string): boolean {
   const t = title.trim()
   if (t.length < 3) return false
-  if (/^imported product$/i.test(t)) return false
+  if (isPlaceholderProductTitle(t)) return false
   if (isYupooShopTagline(t)) return false
   if (isSkuOnlyTitle(t)) return true
-  return /[a-zA-Z]{2,}/.test(t)
+  return /[a-zA-Z]{2,}/.test(t) || /[\u4e00-\u9fff]{2,}/.test(t)
+}
+
+function fallbackProductTitle(options: {
+  fallbackSku?: string | null
+  fallbackAlbumId?: string | null
+}): string {
+  const fromSku = extractYupooStyleCode(String(options.fallbackSku ?? ''))
+  if (fromSku) return fromSku
+  const albumId = String(options.fallbackAlbumId ?? '').trim()
+  if (albumId) return albumId
+  return 'Product'
 }
 
 /**
  * Product name from Yupoo album — descriptive title when available (e.g. Air Jordan 14 "GymRed"),
- * otherwise numeric style code for SKU-only albums.
+ * otherwise numeric style code for SKU-only albums. Never returns "Imported product".
  */
 export function resolveYupooProductTitle(options: {
   albumTitle: string
   description?: string
   thumbTitle?: string | null
+  fallbackSku?: string | null
+  fallbackAlbumId?: string | null
 }): string {
   const description = String(options.description ?? '').trim()
   const firstDescLine = description.split(/\r?\n/)[0]?.trim() ?? ''
@@ -95,7 +132,7 @@ export function resolveYupooProductTitle(options: {
 
   for (const candidate of descriptiveCandidates) {
     const raw = String(candidate ?? '').trim()
-    if (!raw || isYupooShopTagline(raw)) continue
+    if (!raw || isYupooShopTagline(raw) || isPlaceholderProductTitle(raw)) continue
     const sanitized = sanitizeYupooAlbumTitle(raw)
     if (sanitized && isUsableDisplayTitle(sanitized) && !isSkuOnlyTitle(sanitized)) {
       return sanitized
@@ -122,11 +159,13 @@ export function resolveYupooProductTitle(options: {
   }
 
   for (const candidate of descriptiveCandidates) {
-    const sanitized = sanitizeYupooAlbumTitle(String(candidate ?? ''))
-    if (sanitized.length >= 3) return sanitized
+    const raw = String(candidate ?? '').trim()
+    if (!raw || isPlaceholderProductTitle(raw) || isYupooShopTagline(raw)) continue
+    const sanitized = sanitizeYupooAlbumTitle(raw)
+    if (sanitized.length >= 3 && !isPlaceholderProductTitle(sanitized)) return sanitized
   }
 
-  return 'Imported product'
+  return fallbackProductTitle(options)
 }
 
 /** Remove leading SKU / numeric prefix already shown as the product name. */

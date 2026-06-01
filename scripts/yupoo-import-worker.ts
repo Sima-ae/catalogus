@@ -85,7 +85,7 @@ async function buildImportInput(
 
   const translated = await translateProductText(album.title, album.description, 500)
 
-  const input = buildProductInputFromImport(
+  const input = await buildProductInputFromImport(
     album,
     translated,
     source.category_name!,
