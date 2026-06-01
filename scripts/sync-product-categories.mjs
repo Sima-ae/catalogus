@@ -61,7 +61,10 @@ const STEPS = [
        LIMIT 1
      )
    SET p.category_id = c.id, p.category = c.name
-   WHERE p.category_id IS NULL AND TRIM(IFNULL(p.category, '')) <> ''`,
+   WHERE p.category_id IS NULL AND TRIM(IFNULL(p.category, '')) <> ''
+     AND (
+       SELECT COUNT(*) FROM categories c3 WHERE c3.active = 1 AND c3.name = p.category
+     ) = 1`,
   `UPDATE products p
    INNER JOIN categories c
      ON c.slug = LOWER(REPLACE(TRIM(p.category), ' ', '-')) AND c.active = 1

@@ -28,10 +28,22 @@ ALTER TABLE products
 ALTER TABLE products
   ADD KEY IF NOT EXISTS idx_products_category_id (category_id);
 
+-- Link category_id from category name only when the name is unique among active categories.
+-- (Avoids mixing top-level SHOES with SOCCER › SHOES.)
 UPDATE products p
 INNER JOIN categories c ON c.active = 1 AND c.name = p.category
 SET p.category_id = c.id
-WHERE p.category_id IS NULL OR p.category_id <> c.id;
+WHERE p.category_id IS NULL
+  AND TRIM(IFNULL(p.category, '')) <> ''
+  AND (
+    SELECT COUNT(*) FROM categories c2 WHERE c2.active = 1 AND c2.name = p.category
+  ) = 1;
+
+-- Keep category label in sync when category_id is already set.
+UPDATE products p
+INNER JOIN categories c ON c.id = p.category_id AND c.active = 1
+SET p.category = c.name
+WHERE p.category IS NULL OR p.category <> c.name;
 
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS compatibility TEXT NULL AFTER requirements;
@@ -238,3 +250,56 @@ CREATE TABLE IF NOT EXISTS pricelist_share_settings (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (list_owner_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One-time fix: products were linked to top-level SHOES vs SOCCER › SHOES (same name).
+SET @shoes_soccer_swap_done := (
+  SELECT value FROM settings WHERE `key` = 'migration_shoes_soccer_swapped' LIMIT 1
+);
+SET @top_shoes_id := (
+  SELECT id FROM categories WHERE active = 1 AND name = 'SHOES' AND parent_id IS NULL LIMIT 1
+);
+SET @soccer_shoes_id := (
+  SELECT c.id
+  FROM categories c
+  INNER JOIN categories parent ON parent.id = c.parent_id
+    AND parent.active = 1
+    AND parent.name = 'SOCCER'
+    AND parent.parent_id IS NULL
+  WHERE c.active = 1 AND c.name = 'SHOES'
+  LIMIT 1
+);
+
+UPDATE products
+SET category_id = IF(category_id = @top_shoes_id, @soccer_shoes_id, @top_shoes_id)
+WHERE IFNULL(@shoes_soccer_swap_done, '') <> '1'
+  AND @top_shoes_id IS NOT NULL
+  AND @soccer_shoes_id IS NOT NULL
+  AND @top_shoes_id <> @soccer_shoes_id
+  AND category_id IN (@top_shoes_id, @soccer_shoes_id);
+
+UPDATE import_sources
+SET catalog_category_id = IF(
+  catalog_category_id = @top_shoes_id,
+  @soccer_shoes_id,
+  @top_shoes_id
+)
+WHERE IFNULL(@shoes_soccer_swap_done, '') <> '1'
+  AND @top_shoes_id IS NOT NULL
+  AND @soccer_shoes_id IS NOT NULL
+  AND @top_shoes_id <> @soccer_shoes_id
+  AND catalog_category_id IN (@top_shoes_id, @soccer_shoes_id);
+
+INSERT INTO settings (id, `key`, value, description)
+SELECT
+  UUID(),
+  'migration_shoes_soccer_swapped',
+  '1',
+  'Swapped product assignments between top-level SHOES and SOCCER › SHOES'
+FROM DUAL
+WHERE IFNULL(@shoes_soccer_swap_done, '') <> '1'
+  AND @top_shoes_id IS NOT NULL
+  AND @soccer_shoes_id IS NOT NULL
+  AND @top_shoes_id <> @soccer_shoes_id
+  AND NOT EXISTS (
+    SELECT 1 FROM settings WHERE `key` = 'migration_shoes_soccer_swapped'
+  );
