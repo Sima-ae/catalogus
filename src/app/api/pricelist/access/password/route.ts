@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCatalogActor } from '@/lib/catalog-user-auth'
-import { canManagePricelistItems } from '@/lib/catalog-user-auth'
+import { isPricelistOwner } from '@/lib/catalog-user-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { parsePricelistOwnerParam, isPlatformPricelistOwner } from '@/lib/pricelist-constants'
 import { starTargetOwnerForActor } from '@/lib/catalog-user-auth'
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
     ? parsePricelistOwnerParam(ownerParam) ?? starTargetOwnerForActor(auth.actor)
     : starTargetOwnerForActor(auth.actor)
 
-  if (!(await canManagePricelistItems(auth.actor, listOwnerId))) {
-    return NextResponse.json({ error: 'You cannot manage this pricelist' }, { status: 403 })
+  if (!isPricelistOwner(auth.actor, listOwnerId)) {
+    return NextResponse.json({ error: 'Only the list owner can manage share settings' }, { status: 403 })
   }
 
   try {
@@ -56,8 +56,8 @@ export async function PUT(request: NextRequest) {
     ? parsePricelistOwnerParam(ownerParam) ?? starTargetOwnerForActor(auth.actor)
     : starTargetOwnerForActor(auth.actor)
 
-  if (!(await canManagePricelistItems(auth.actor, listOwnerId))) {
-    return NextResponse.json({ error: 'You cannot manage this pricelist' }, { status: 403 })
+  if (!isPricelistOwner(auth.actor, listOwnerId)) {
+    return NextResponse.json({ error: 'Only the list owner can manage share settings' }, { status: 403 })
   }
 
   const clear = raw.clear === true || raw.password === null

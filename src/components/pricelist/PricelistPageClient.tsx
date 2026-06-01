@@ -7,6 +7,7 @@ import { useTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/auth-local'
 import { usePricelist } from '@/lib/use-pricelist'
 import {
+  isPlatformPricelistOwner,
   PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
 } from '@/lib/pricelist-constants'
@@ -21,7 +22,7 @@ export default function PricelistPageClient() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
-  const { user, isAdmin, isSuperAdmin } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const {
     owners,
     ownerId,
@@ -53,16 +54,17 @@ export default function PricelistPageClient() {
   const isPlatformList =
     ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
 
-  const canManageSharePassword =
-    !isGuest &&
-    ((isPlatformList && (isAdmin || isSuperAdmin)) ||
-      (user?.role === 'buyer' && ownerId === user.id) ||
-      (user?.role === 'seller' && ownerId === user.id))
-
   const listOwnerIdForShare =
     ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
       ? PLATFORM_PRICELIST_OWNER_ID
       : ownerId
+
+  const canManageSharePassword =
+    !isGuest &&
+    Boolean(user) &&
+    (isPlatformPricelistOwner(listOwnerIdForShare)
+      ? isSuperAdmin
+      : listOwnerIdForShare === user.id)
 
   const heading = isDark ? 'text-white' : 'text-gray-900'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'

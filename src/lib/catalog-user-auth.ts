@@ -145,6 +145,14 @@ export async function canManagePricelistItems(
   return listOwnerId === actor.userId
 }
 
+/** Share password + link settings — list owner only (not sellers/admins filling prices). */
+export function isPricelistOwner(actor: CatalogActor, listOwnerId: string): boolean {
+  if (isPlatformPricelistOwner(listOwnerId)) {
+    return actor.isSuperAdmin
+  }
+  return listOwnerId === actor.userId
+}
+
 export async function canSetPricelistPrices(
   actor: CatalogActor,
   listOwnerId: string

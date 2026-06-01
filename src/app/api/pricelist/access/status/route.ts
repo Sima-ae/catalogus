@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tryVerifyCatalogActor } from '@/lib/catalog-user-auth'
-import { canManagePricelistItems } from '@/lib/catalog-user-auth'
+import { isPricelistOwner } from '@/lib/catalog-user-auth'
 import { resolvePricelistAccess, resolveOwnerIdFromParam } from '@/lib/pricelist-access'
 import { getPricelistShareSettings } from '@/lib/pricelist-share-db'
 import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       mode: access.mode,
       loggedIn: Boolean(actor),
       hasPassword: settings.has_password,
-      canManagePassword: actor ? await canManagePricelistItems(actor, ownerId) : false,
+      canManagePassword: actor ? isPricelistOwner(actor, ownerId) : false,
     })
   }
 
