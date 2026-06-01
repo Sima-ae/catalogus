@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server'
 import type { CatalogActor } from '@/lib/catalog-user-auth'
 import {
   canManagePricelistItems,
@@ -6,6 +7,13 @@ import {
   defaultPricelistOwnerForActor,
 } from '@/lib/catalog-user-auth'
 import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
+import {
+  resolvePricelistAccess,
+  type PricelistAccessContext,
+  type PricelistAccessMode,
+} from '@/lib/pricelist-access'
+
+export type { PricelistAccessContext, PricelistAccessMode }
 
 export async function resolveListOwnerId(
   actor: CatalogActor,
@@ -19,6 +27,25 @@ export async function resolveListOwnerId(
   }
 
   return { ok: true, ownerId }
+}
+
+export async function requirePricelistAccess(
+  request: NextRequest,
+  ownerParam: string | null | undefined,
+  options?: { allowGuest?: boolean }
+): Promise<PricelistAccessContext> {
+  const access = await resolvePricelistAccess(request, ownerParam)
+  if (!access.ok) return access
+  if (access.mode === 'guest' && !options?.allowGuest) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Sign in required for this action',
+      requiresLogin: true,
+      ownerId: access.ownerId,
+    }
+  }
+  return access
 }
 
 export async function assertManageItems(

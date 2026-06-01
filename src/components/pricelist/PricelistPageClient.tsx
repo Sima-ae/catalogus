@@ -1,6 +1,8 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/auth-local'
 import { usePricelist } from '@/lib/use-pricelist'
@@ -11,6 +13,7 @@ import {
 import PricelistViewToggle from '@/components/pricelist/PricelistViewToggle'
 import PricelistTable from '@/components/pricelist/PricelistTable'
 import PricelistGrid from '@/components/pricelist/PricelistGrid'
+import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -18,7 +21,7 @@ export default function PricelistPageClient() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
-  const { user } = useAuth()
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const {
     owners,
     ownerId,
@@ -32,6 +35,7 @@ export default function PricelistPageClient() {
     removeItem,
     canEditPrices,
     currentOwnerLabel,
+    isGuest,
   } = usePricelist(initialOwner)
 
   const ownerQuery =
@@ -40,10 +44,25 @@ export default function PricelistPageClient() {
       : ownerId
 
   const canRemoveItems =
-    (user?.role === 'admin' &&
+    !isGuest &&
+    ((user?.role === 'admin' &&
       (ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID)) ||
-    (user?.role === 'buyer' && ownerId === user.id) ||
-    (user?.role === 'seller' && ownerId === user.id)
+      (user?.role === 'buyer' && ownerId === user.id) ||
+      (user?.role === 'seller' && ownerId === user.id))
+
+  const isPlatformList =
+    ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
+
+  const canManageSharePassword =
+    !isGuest &&
+    ((isPlatformList && (isAdmin || isSuperAdmin)) ||
+      (user?.role === 'buyer' && ownerId === user.id) ||
+      (user?.role === 'seller' && ownerId === user.id))
+
+  const listOwnerIdForShare =
+    ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
+      ? PLATFORM_PRICELIST_OWNER_ID
+      : ownerId
 
   const heading = isDark ? 'text-white' : 'text-gray-900'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
@@ -52,15 +71,47 @@ export default function PricelistPageClient() {
     : 'bg-white border-gray-300 text-gray-900'
 
   const showOwnerSelect = owners.length > 1
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const subtitle = isPlatformList ? 'See my requests below!' : currentOwnerLabel
+
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return items
+    return items.filter(
+      (row) =>
+        row.name.toLowerCase().includes(q) || row.sku.toLowerCase().includes(q)
+    )
+  }, [items, searchQuery])
+
+  const searchInputClass = isDark
+    ? 'bg-dark-800 border-dark-600 text-white placeholder-gray-500'
+    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+        <div className="shrink-0 lg:min-w-[10rem]">
           <h1 className={`text-2xl font-bold ${heading}`}>Pricelist</h1>
-          <p className={`mt-1 text-sm ${muted}`}>{currentOwnerLabel}</p>
+          <p className={`mt-1 text-sm ${muted}`}>{subtitle}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+
+        <div className="relative flex-1 w-full min-w-0 max-w-xl mx-auto">
+          <MagnifyingGlassIcon
+            className={`pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 ${muted}`}
+            aria-hidden
+          />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by title or SKU…"
+            className={`w-full rounded-lg border py-2.5 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${searchInputClass}`}
+            aria-label="Search pricelist"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-3 shrink-0 lg:min-w-[12rem]">
           {showOwnerSelect ? (
             <select
               value={ownerId}
@@ -78,6 +129,17 @@ export default function PricelistPageClient() {
           <PricelistViewToggle mode={viewMode} onChange={setViewMode} isDark={isDark} />
         </div>
       </div>
+
+      {isGuest ? (
+        <p className={`text-sm ${muted}`}>View-only access via share password.</p>
+      ) : null}
+
+      {canManageSharePassword && listOwnerIdForShare ? (
+        <PricelistSharePasswordSettings
+          ownerId={listOwnerIdForShare}
+          ownerQuery={ownerQuery}
+        />
+      ) : null}
 
       {error ? (
         <p className="text-red-500 text-sm" role="alert">
@@ -101,9 +163,17 @@ export default function PricelistPageClient() {
             Use the star icon on product pages to add items.
           </p>
         </div>
+      ) : filteredItems.length === 0 ? (
+        <div
+          className={`text-center py-16 rounded-xl border ${
+            isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
+          }`}
+        >
+          <p className={muted}>No products match your search.</p>
+        </div>
       ) : viewMode === 'table' ? (
         <PricelistTable
-          items={items}
+          items={filteredItems}
           canEditPrices={canEditPrices}
           canManageItems={canRemoveItems}
           isDark={isDark}
@@ -111,7 +181,7 @@ export default function PricelistPageClient() {
           onRemove={removeItem}
         />
       ) : (
-        <PricelistGrid items={items} isDark={isDark} />
+        <PricelistGrid items={filteredItems} isDark={isDark} />
       )}
     </div>
   )

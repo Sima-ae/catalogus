@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyCatalogActor } from '@/lib/catalog-user-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { parseUnitPrice, upsertSellerProductPrice } from '@/lib/pricelist-db'
-import { assertSetPrices, resolveListOwnerId } from '@/lib/pricelist-api'
+import { assertSetPrices, requirePricelistAccess } from '@/lib/pricelist-api'
 import { queryDb } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
@@ -38,12 +38,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Valid unit price is required' }, { status: 400 })
   }
 
-  const resolved = await resolveListOwnerId(auth.actor, ownerParam || null)
-  if (!resolved.ok) {
-    return NextResponse.json({ error: resolved.error }, { status: resolved.status })
+  const access = await requirePricelistAccess(request, ownerParam || null)
+  if (!access.ok || !access.actor) {
+    return NextResponse.json({ error: access.ok ? 'Sign in required' : access.error }, { status: access.ok ? 401 : access.status })
   }
 
-  const pricePerm = await assertSetPrices(auth.actor, resolved.ownerId)
+  const pricePerm = await assertSetPrices(access.actor, access.ownerId)
   if (!pricePerm.ok) {
     return NextResponse.json({ error: pricePerm.error }, { status: pricePerm.status })
   }

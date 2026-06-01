@@ -43,10 +43,23 @@ export function usePricelist(initialOwner?: string) {
 
   const ownerQuery = resolveOwnerQuery(ownerId, owners)
 
+  const [accessMode, setAccessMode] = useState<'full' | 'guest'>('full')
+
   const loadOwners = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setOwners([])
+      if (initialOwner) {
+        let def = initialOwner
+        if (def === PLATFORM_PRICELIST_OWNER_ID) {
+          def = PRICELIST_OWNER_QUERY_PLATFORM
+        }
+        setOwnerId((prev) => prev || def)
+      }
+      return
+    }
     const res = await fetch(appPath('/api/pricelist/owners'), {
       headers: catalogAuthHeaders(user),
+      credentials: 'include',
       cache: 'no-store',
     })
     const data = await res.json()
@@ -63,7 +76,7 @@ export function usePricelist(initialOwner?: string) {
   }, [user, initialOwner])
 
   const loadItems = useCallback(async () => {
-    if (!user || !ownerId) return
+    if (!ownerId) return
     setLoading(true)
     setError(null)
     try {
@@ -72,12 +85,14 @@ export function usePricelist(initialOwner?: string) {
           ? `owner=${PRICELIST_OWNER_QUERY_PLATFORM}`
           : `owner=${encodeURIComponent(ownerId)}`
       const res = await fetch(appPath(`/api/pricelist/items?${q}`), {
-        headers: catalogAuthHeaders(user),
+        headers: user ? catalogAuthHeaders(user) : {},
+        credentials: 'include',
         cache: 'no-store',
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load pricelist')
       setItems(data.items || [])
+      setAccessMode(data.mode === 'guest' ? 'guest' : 'full')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load pricelist')
       setItems([])
@@ -87,14 +102,13 @@ export function usePricelist(initialOwner?: string) {
   }, [user, ownerId, ownerQuery])
 
   useEffect(() => {
-    if (!user) return
     loadOwners().catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
   }, [user, loadOwners])
 
   useEffect(() => {
-    if (!user || !ownerId) return
+    if (!ownerId) return
     loadItems()
-  }, [user, ownerId, loadItems])
+  }, [ownerId, loadItems])
 
   const savePrice = async (productId: string, unitPrice: number) => {
     if (!user) return
@@ -127,15 +141,15 @@ export function usePricelist(initialOwner?: string) {
     await loadItems()
   }
 
-  const canEditPrices = user?.role === 'seller'
+  const isGuest = accessMode === 'guest'
+  const canEditPrices = !isGuest && user?.role === 'seller'
   const canManageItems =
-    user?.role === 'admin' ||
-    user?.role === 'buyer' ||
-    user?.role === 'seller'
+    !isGuest &&
+    (user?.role === 'admin' || user?.role === 'buyer' || user?.role === 'seller')
 
   const currentOwnerLabel =
     owners.find((o) => o.id === ownerId)?.label ||
-    (ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM ? 'Platform pricelist' : 'Pricelist')
+    (ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM ? 'See my requests below!' : 'Pricelist')
 
   return {
     owners,
@@ -152,5 +166,7 @@ export function usePricelist(initialOwner?: string) {
     canManageItems,
     currentOwnerLabel,
     reload: loadItems,
+    accessMode,
+    isGuest,
   }
 }

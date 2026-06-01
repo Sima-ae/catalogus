@@ -281,6 +281,14 @@ CREATE TABLE IF NOT EXISTS seller_pricelist_access (
   KEY idx_spa_seller (seller_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS pricelist_share_settings (
+  list_owner_id VARCHAR(36) NOT NULL,
+  password_hash VARCHAR(255) NULL,
+  version INT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (list_owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- downloads
 CREATE TABLE IF NOT EXISTS downloads (
   id VARCHAR(36) NOT NULL,

@@ -26,6 +26,10 @@ function isSiteAccessApi(pathname: string): boolean {
   return pathname.startsWith('/api/site-access/')
 }
 
+function isPricelistAccessApi(pathname: string): boolean {
+  return pathname.startsWith('/api/pricelist/access/')
+}
+
 /** Deploy/diagnostics only — must not require the site-access cookie. */
 function isPublicApi(pathname: string): boolean {
   return pathname === '/api/health/db' || pathname === '/api/yupoo-image'
@@ -100,7 +104,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308)
   }
 
-  if (isStaticAsset(pathname) || isSiteAccessApi(pathname) || isPublicApi(pathname)) {
+  if (
+    isStaticAsset(pathname) ||
+    isSiteAccessApi(pathname) ||
+    isPricelistAccessApi(pathname) ||
+    isPublicApi(pathname)
+  ) {
     return NextResponse.next()
   }
 

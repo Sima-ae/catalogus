@@ -5,6 +5,8 @@ import {
   PLATFORM_PRICELIST_OWNER_ID,
 } from '@/lib/pricelist-constants'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
+import { parseProductJsonField } from '@/lib/product-serialize'
+import { resolveProductDisplayImages } from '@/lib/product-image-url'
 
 export type PricelistRow = {
   item_id: string
@@ -109,7 +111,7 @@ async function getBuyerDisplayPrice(
 
 export async function listPricelistRows(
   listOwnerId: string,
-  viewer: { userId: string; role: 'admin' | 'buyer' | 'seller' }
+  viewer: { userId: string; role: 'admin' | 'buyer' | 'seller' | 'guest' }
 ): Promise<PricelistRow[]> {
   const items = await queryDb<
     {
@@ -118,10 +120,13 @@ export async function listPricelistRows(
       name: string
       sku: string
       image_url: string
+      gallery_images: unknown
+      source_url: string | null
       created_at: string
     }[]
   >(
-    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.image_url, pi.created_at
+    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.image_url, p.gallery_images,
+            p.source_url, pi.created_at
      FROM pricelist_items pi
      INNER JOIN products p ON p.id = pi.product_id
      WHERE pi.owner_user_id = ?
@@ -145,7 +150,10 @@ export async function listPricelistRows(
         displayUnit = sp.unit_price
         displayCurrency = sp.currency
       }
-    } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
+    } else if (
+      (viewer.role === 'buyer' && listOwnerId === viewer.userId) ||
+      viewer.role === 'guest'
+    ) {
       const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
       if (dp) {
         displayUnit = dp.unit_price
@@ -164,12 +172,19 @@ export async function listPricelistRows(
       }
     }
 
+    const gallery = parseProductJsonField(item.gallery_images)
+    const { main } = resolveProductDisplayImages(
+      item.image_url,
+      gallery,
+      item.source_url
+    )
+
     rows.push({
       item_id: item.item_id,
       product_id: item.product_id,
       name: item.name,
       sku: item.sku,
-      image_url: item.image_url,
+      image_url: main,
       created_at: item.created_at,
       seller_unit_price: sellerUnit,
       seller_currency: sellerCurrency,

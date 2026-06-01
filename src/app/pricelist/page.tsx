@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense } from 'react'
-import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import PricelistAccessGate from '@/components/pricelist/PricelistAccessGate'
 import PricelistPageClient from '@/components/pricelist/PricelistPageClient'
 
 function PricelistFallback() {
@@ -14,12 +14,12 @@ function PricelistFallback() {
 
 export default function PricelistPage() {
   return (
-    <ProtectedRoute requiredRole="buyer">
+    <PricelistAccessGate>
       <main className="min-h-screen p-4 sm:p-6 app-readable">
         <Suspense fallback={<PricelistFallback />}>
           <PricelistPageClient />
         </Suspense>
       </main>
-    </ProtectedRoute>
+    </PricelistAccessGate>
   )
 }

@@ -1,11 +1,10 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import { formatPrice } from '@/lib/format-price'
-import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { appPath } from '@/lib/paths'
+import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 
 type Props = {
   items: PricelistRow[]
@@ -24,15 +23,13 @@ export default function PricelistGrid({ items, isDark }: Props) {
           href={appPath(`/product/${row.product_id}`)}
           className={`rounded-xl border overflow-hidden ${card} hover:shadow-lg transition-shadow`}
         >
-          <div className="relative aspect-[3/4] bg-gray-100">
-            <Image
-              src={row.image_url || '/placeholder.png'}
-              alt={row.name}
-              fill
-              className="object-contain p-2"
-              unoptimized={shouldUnoptimizeProductImage(row.image_url)}
-            />
-          </div>
+          <PricelistProductThumb
+            imageUrl={row.image_url}
+            alt={row.name}
+            linked={false}
+            className="relative aspect-[3/4] w-full bg-gray-100"
+            sizes="(max-width: 640px) 50vw, 25vw"
+          />
           <div className="p-3 space-y-1">
             <p className={`font-semibold text-sm line-clamp-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
               {row.name}

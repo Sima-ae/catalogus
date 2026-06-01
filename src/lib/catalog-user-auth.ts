@@ -26,6 +26,11 @@ type DbUser = {
   is_super_admin?: number | boolean
 }
 
+export async function tryVerifyCatalogActor(request: NextRequest): Promise<CatalogActor | null> {
+  const result = await verifyCatalogActor(request)
+  return result.ok ? result.actor : null
+}
+
 export async function verifyCatalogActor(
   request: NextRequest
 ): Promise<{ ok: true; actor: CatalogActor } | { ok: false; status: number; error: string }> {

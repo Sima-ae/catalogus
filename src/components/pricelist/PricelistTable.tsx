@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import { formatPrice } from '@/lib/format-price'
-import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { appPath } from '@/lib/paths'
+import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 
 type Props = {
   items: PricelistRow[]
@@ -111,15 +110,11 @@ function PricelistTableRow({
   return (
     <tr className={`border-t ${border} ${isDark ? 'hover:bg-dark-800/50' : 'hover:bg-gray-50'}`}>
       <td className="px-4 py-3">
-        <Link href={appPath(`/product/${row.product_id}`)} className="block relative w-14 h-14 rounded overflow-hidden bg-gray-100">
-          <Image
-            src={row.image_url || '/placeholder.png'}
-            alt=""
-            fill
-            className="object-contain"
-            unoptimized={shouldUnoptimizeProductImage(row.image_url)}
-          />
-        </Link>
+        <PricelistProductThumb
+          productId={row.product_id}
+          imageUrl={row.image_url}
+          alt={row.name}
+        />
       </td>
       <td className="px-4 py-3">
         <Link
