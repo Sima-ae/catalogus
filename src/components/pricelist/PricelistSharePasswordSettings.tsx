@@ -1,6 +1,7 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
@@ -8,13 +9,34 @@ import { useTheme } from '@/lib/theme'
 import { buildPricelistShareUrl } from '@/components/pricelist/PricelistAccessGate'
 import {
   isPlatformPricelistOwner,
-  PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
 } from '@/lib/pricelist-constants'
 
 type Props = {
   ownerId: string
   ownerQuery: string
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return ok
+    } catch {
+      return false
+    }
+  }
 }
 
 export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: Props) {
@@ -27,14 +49,21 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [origin, setOrigin] = useState('')
 
   const isPlatform =
     isPlatformPricelistOwner(ownerId) || ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
 
-  const shareUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${buildPricelistShareUrl(ownerId)}`
-      : buildPricelistShareUrl(ownerId)
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin)
+  }, [])
+
+  const sharePath = buildPricelistShareUrl(ownerId)
+  const shareUrl = useMemo(
+    () => (origin ? `${origin}${sharePath}` : sharePath),
+    [origin, sharePath]
+  )
 
   useEffect(() => {
     if (!user) return
@@ -55,6 +84,17 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
   }, [user, ownerId, ownerQuery])
+
+  const handleCopyLink = useCallback(async () => {
+    const ok = await copyToClipboard(shareUrl)
+    if (ok) {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } else {
+      setError('Could not copy link')
+      window.setTimeout(() => setError(null), 3000)
+    }
+  }, [shareUrl])
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault()
@@ -77,7 +117,7 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setHasPassword(Boolean(data.hasPassword))
       setPassword('')
-      setMessage(data.hasPassword ? 'Share password saved.' : 'Share password removed.')
+      setMessage(data.hasPassword ? 'Password saved.' : 'Password removed.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save')
     } finally {
@@ -86,55 +126,88 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
   }
 
   const panel = isDark ? 'bg-dark-800 border-dark-700' : 'bg-gray-50 border-gray-200'
+  const inputClass = `min-w-0 flex-1 px-2 py-1.5 rounded-md border text-xs ${
+    isDark ? 'bg-dark-900 border-dark-600 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+  }`
+  const linkBoxClass = `min-w-0 flex-1 px-2 py-1.5 rounded-md border text-xs truncate text-left transition-colors ${
+    isDark
+      ? 'bg-dark-900 border-dark-600 text-gray-300 hover:border-primary-500/50 hover:bg-dark-800'
+      : 'bg-white border-gray-300 text-gray-800 hover:border-primary-400 hover:bg-gray-50'
+  }`
+  const muted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const label = isDark ? 'text-gray-300' : 'text-gray-700'
 
   return (
-    <div className={`rounded-xl border p-4 ${panel}`}>
-      <h2 className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        {isPlatform ? 'Platform pricelist share password' : 'Share password'}
-      </h2>
-      <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+    <div className={`rounded-lg border p-3 ${panel}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <h2 className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          {isPlatform ? 'Platform share password' : 'Share password'}
+        </h2>
+        {hasPassword && !loading ? (
+          <span className="text-[10px] uppercase tracking-wide text-green-600">Active</span>
+        ) : null}
+      </div>
+      <p className={`text-[11px] leading-snug mt-0.5 ${muted}`}>
         {isPlatform
-          ? 'Super admin and admin: set one password for the shared platform pricelist. Visitors who are not signed in must enter this password (not the site password) to view the list at the share link below.'
-          : 'Visitors without an account can open your pricelist only with this password (not the site password). Leave empty and save to require sign-in only.'}
+          ? 'Guests use this password at the link below (not your site login).'
+          : 'Guests need this password at your link (not site login). Empty + save = sign-in only.'}
       </p>
 
       {loading ? (
-        <p className={`text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading…</p>
+        <p className={`text-xs mt-2 ${muted}`}>Loading…</p>
       ) : (
-        <form onSubmit={handleSave} className="mt-4 space-y-3">
+        <form onSubmit={handleSave} className="mt-2 flex flex-wrap items-center gap-2">
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={hasPassword ? 'New password (leave empty to remove)' : 'Set share password'}
-            className={`w-full max-w-sm px-3 py-2 rounded-lg border text-sm ${
-              isDark
-                ? 'bg-dark-900 border-dark-600 text-white'
-                : 'bg-white border-gray-300 text-gray-900'
-            }`}
+            placeholder={hasPassword ? 'New password' : 'Set password'}
+            className={`${inputClass} max-w-[14rem] sm:max-w-xs`}
             autoComplete="new-password"
           />
-          <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={saving} className="btn-primary text-sm px-4 py-2 disabled:opacity-50">
-              {saving ? 'Saving…' : hasPassword ? 'Update password' : 'Set password'}
-            </button>
-          </div>
-          {message ? <p className="text-sm text-green-600">{message}</p> : null}
-          {error ? <p className="text-sm text-red-500">{error}</p> : null}
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : hasPassword ? 'Update' : 'Set'}
+          </button>
+          {message ? <span className="text-xs text-green-600">{message}</span> : null}
+          {error ? <span className="text-xs text-red-500">{error}</span> : null}
         </form>
       )}
 
-      <div className="mt-4">
-        <p className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          Share link
-        </p>
-        <code
-          className={`block mt-1 text-xs break-all p-2 rounded ${
-            isDark ? 'bg-dark-900 text-gray-300' : 'bg-white text-gray-800 border border-gray-200'
-          }`}
-        >
-          {shareUrl}
-        </code>
+      <div className="mt-2.5">
+        <p className={`text-[11px] font-medium ${label}`}>Share link</p>
+        <div className="mt-1 flex items-stretch gap-1.5">
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className={`${linkBoxClass} cursor-pointer`}
+            title="Click to copy link"
+            aria-label="Copy share link"
+          >
+            {shareUrl}
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="btn-secondary shrink-0 inline-flex items-center gap-1 text-xs px-2.5 py-1.5"
+            aria-label="Copy share link"
+          >
+            {copied ? (
+              <>
+                <CheckIcon className="w-3.5 h-3.5 text-green-500" aria-hidden />
+                Copied
+              </>
+            ) : (
+              <>
+                <ClipboardDocumentIcon className="w-3.5 h-3.5" aria-hidden />
+                Copy
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )
