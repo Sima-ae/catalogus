@@ -1,6 +1,9 @@
+import { MESSAGES_DE } from '@/lib/i18n-de'
 import { MESSAGES_ES } from '@/lib/i18n-es'
+import { MESSAGES_FR } from '@/lib/i18n-fr'
+import { MESSAGES_IT } from '@/lib/i18n-it'
 
-export const SUPPORTED_LOCALES = ['nl', 'en', 'es'] as const
+export const SUPPORTED_LOCALES = ['nl', 'en', 'es', 'fr', 'de', 'it'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 
 export const DEFAULT_LOCALE: Locale = 'nl'
@@ -67,6 +70,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.en': 'English',
     'language.nl': 'Dutch',
     'language.es': 'Spanish',
+    'language.fr': 'French',
+    'language.de': 'German',
+    'language.it': 'Italian',
 
     // Categories
     'category.all': 'All',
@@ -252,6 +258,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.en': 'Engels',
     'language.nl': 'Nederlands',
     'language.es': 'Spaans',
+    'language.fr': 'Frans',
+    'language.de': 'Duits',
+    'language.it': 'Italiaans',
 
     // Categories
     'category.all': 'Alle',
@@ -381,6 +390,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'pricelist.access.verifyFailed': 'Verificatie mislukt. Probeer opnieuw.',
   },
   es: MESSAGES_ES,
+  fr: MESSAGES_FR,
+  de: MESSAGES_DE,
+  it: MESSAGES_IT,
 }
 
 export function isLocale(value: string | null | undefined): value is Locale {

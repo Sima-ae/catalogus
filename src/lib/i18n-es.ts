@@ -57,6 +57,9 @@ export const MESSAGES_ES: Record<string, string> = {
   'language.en': 'Inglés',
   'language.nl': 'Neerlandés',
   'language.es': 'Español',
+  'language.fr': 'Francés',
+  'language.de': 'Alemán',
+  'language.it': 'Italiano',
 
   // Categories
   'category.all': 'Todos',
