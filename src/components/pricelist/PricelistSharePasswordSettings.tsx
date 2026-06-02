@@ -139,76 +139,92 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
   const label = isDark ? 'text-gray-300' : 'text-gray-700'
 
+  const title = isPlatform ? t('pricelist.share.titlePlatform') : t('pricelist.share.title')
+  const hint = isPlatform ? t('pricelist.share.hintPlatform') : t('pricelist.share.hintOwner')
+
   return (
-    <div className={`rounded-lg border p-3 ${panel}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <h2 className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          {isPlatform ? t('pricelist.share.titlePlatform') : t('pricelist.share.title')}
-        </h2>
-        {hasPassword && !loading ? (
-          <span className="text-[10px] uppercase tracking-wide text-green-600">
-            {t('pricelist.share.active')}
-          </span>
-        ) : null}
-      </div>
-      <p className={`text-[11px] leading-snug mt-0.5 ${muted}`}>
-        {isPlatform ? t('pricelist.share.hintPlatform') : t('pricelist.share.hintOwner')}
-      </p>
-
-      {loading ? (
-        <p className={`text-xs mt-2 ${muted}`}>{t('loading.generic')}</p>
-      ) : (
-        <form onSubmit={handleSave} className="mt-2 flex flex-wrap items-center gap-2">
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={hasPassword ? t('pricelist.share.newPassword') : t('pricelist.share.setPassword')}
-            className={`${inputClass} max-w-[14rem] sm:max-w-xs`}
-            autoComplete="new-password"
-          />
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
-          >
-            {saving ? t('pricelist.saving') : hasPassword ? t('pricelist.share.update') : t('pricelist.share.set')}
-          </button>
-          {message ? <span className="text-xs text-green-600">{message}</span> : null}
-          {error ? <span className="text-xs text-red-500">{error}</span> : null}
-        </form>
-      )}
-
-      <div className="mt-2.5">
-        <p className={`text-[11px] font-medium ${label}`}>{t('pricelist.share.linkLabel')}</p>
-        <div className="mt-1 flex items-stretch gap-1.5">
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className={`${linkBoxClass} cursor-pointer`}
-            title={t('pricelist.share.copyTitle')}
-            aria-label={t('pricelist.share.copy')}
-          >
-            {shareUrl}
-          </button>
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            className="btn-secondary shrink-0 inline-flex items-center gap-1 text-xs px-2.5 py-1.5"
-            aria-label={t('pricelist.share.copy')}
-          >
-            {copied ? (
-              <>
-                <CheckIcon className="w-3.5 h-3.5 text-green-500" aria-hidden />
-                {t('pricelist.share.copied')}
-              </>
+    <div className={`rounded-lg border p-3 sm:p-4 ${panel}`}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 sm:gap-y-2.5">
+        {/* Left: password */}
+        <div className="grid grid-rows-[auto_auto_1fr] gap-2 min-w-0">
+          <h2 className={`text-xs font-semibold leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            {title}
+          </h2>
+          <p className={`text-[11px] leading-snug ${muted}`}>{hint}</p>
+          <div className="min-w-0">
+            {loading ? (
+              <p className={`text-xs ${muted}`}>{t('loading.generic')}</p>
             ) : (
-              <>
-                <ClipboardDocumentIcon className="w-3.5 h-3.5" aria-hidden />
-                {t('pricelist.share.copy')}
-              </>
+              <form onSubmit={handleSave} className="flex flex-col gap-1.5">
+                <div className="flex items-stretch gap-1.5">
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={
+                      hasPassword ? t('pricelist.share.newPassword') : t('pricelist.share.setPassword')
+                    }
+                    className={`${inputClass} w-full`}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
+                  >
+                    {saving
+                      ? t('pricelist.saving')
+                      : hasPassword
+                        ? t('pricelist.share.update')
+                        : t('pricelist.share.set')}
+                  </button>
+                </div>
+                {message ? <span className="text-xs text-green-600">{message}</span> : null}
+                {error ? <span className="text-xs text-red-500">{error}</span> : null}
+              </form>
             )}
-          </button>
+          </div>
+        </div>
+
+        {/* Right: share link */}
+        <div className="grid grid-rows-[auto_auto_1fr] gap-2 min-w-0">
+          <div className="flex items-center justify-end min-h-[1.125rem]">
+            {hasPassword && !loading ? (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600">
+                {t('pricelist.share.active')}
+              </span>
+            ) : null}
+          </div>
+          <p className={`text-[11px] font-medium leading-snug ${label}`}>{t('pricelist.share.linkLabel')}</p>
+          <div className="flex items-stretch gap-1.5 min-w-0">
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className={`${linkBoxClass} cursor-pointer`}
+              title={t('pricelist.share.copyTitle')}
+              aria-label={t('pricelist.share.copy')}
+            >
+              {shareUrl}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="btn-secondary shrink-0 inline-flex items-center gap-1 text-xs px-2.5 py-1.5"
+              aria-label={t('pricelist.share.copy')}
+            >
+              {copied ? (
+                <>
+                  <CheckIcon className="w-3.5 h-3.5 text-green-500" aria-hidden />
+                  {t('pricelist.share.copied')}
+                </>
+              ) : (
+                <>
+                  <ClipboardDocumentIcon className="w-3.5 h-3.5" aria-hidden />
+                  {t('pricelist.share.copy')}
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

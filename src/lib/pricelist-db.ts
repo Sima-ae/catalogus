@@ -20,6 +20,8 @@ export type PricelistRow = {
   category: string
   brand: string
   image_url: string
+  /** Main + gallery images for lightbox (display URLs). */
+  gallery_urls: string[]
   created_at: string
   seller_unit_price: number | null
   seller_currency: string | null
@@ -252,11 +254,14 @@ export async function listPricelistRows(
     }
 
     const gallery = parseProductJsonField(item.gallery_images)
-    const { main } = resolveProductDisplayImages(
+    const { main, gallery: galleryRest } = resolveProductDisplayImages(
       item.image_url,
       gallery,
       item.source_url
     )
+    const gallery_urls = main
+      ? [main, ...(galleryRest ?? [])]
+      : [...(galleryRest ?? [])]
 
     rows.push({
       item_id: item.item_id,
@@ -266,6 +271,7 @@ export async function listPricelistRows(
       category: item.category?.trim() || '—',
       brand: item.brand?.trim() || '—',
       image_url: main,
+      gallery_urls,
       created_at: item.created_at,
       seller_unit_price: sellerUnit,
       seller_currency: sellerCurrency,

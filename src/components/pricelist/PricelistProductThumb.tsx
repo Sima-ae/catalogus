@@ -2,29 +2,25 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { PhotoIcon } from '@heroicons/react/24/outline'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { pricelistImageSrc } from '@/lib/pricelist-image'
-import { appPath } from '@/lib/paths'
 
 type Props = {
-  productId?: string
   imageUrl: string
   alt: string
   className?: string
   sizes?: string
-  /** When false, render only the image box (parent provides the link). */
-  linked?: boolean
+  /** Opens product gallery lightbox instead of navigating away. */
+  onOpenGallery?: () => void
 }
 
 export default function PricelistProductThumb({
-  productId,
   imageUrl,
   alt,
   className = 'relative w-14 h-14 rounded overflow-hidden bg-gray-100',
   sizes = '56px',
-  linked = true,
+  onOpenGallery,
 }: Props) {
   const [failed, setFailed] = useState(false)
   const src = pricelistImageSrc(imageUrl)
@@ -49,11 +45,16 @@ export default function PricelistProductThumb({
     </>
   )
 
-  if (linked && productId) {
+  if (onOpenGallery) {
     return (
-      <Link href={appPath(`/product/${productId}`)} className={`block shrink-0 ${className}`}>
+      <button
+        type="button"
+        onClick={onOpenGallery}
+        className={`block shrink-0 cursor-zoom-in text-left ${className}`}
+        aria-label={alt}
+      >
         {inner}
-      </Link>
+      </button>
     )
   }
 

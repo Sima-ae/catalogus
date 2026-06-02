@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { PricelistRow } from '@/lib/pricelist-db'
 import { useSearchParams } from 'next/navigation'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
@@ -15,6 +16,7 @@ import {
 import PricelistViewToggle from '@/components/pricelist/PricelistViewToggle'
 import PricelistTable from '@/components/pricelist/PricelistTable'
 import PricelistGrid from '@/components/pricelist/PricelistGrid'
+import PricelistProductLightbox from '@/components/pricelist/PricelistProductLightbox'
 import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import AppFooter from '@/components/layout/AppFooter'
@@ -84,6 +86,17 @@ export default function PricelistPageClient() {
   const showOwnerSelect = owners.length > 1
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [lightbox, setLightbox] = useState<{
+    name: string
+    images: string[]
+    initialIndex: number
+  } | null>(null)
+
+  const openGallery = useCallback((row: PricelistRow) => {
+    const images = row.gallery_urls?.length ? row.gallery_urls : row.image_url ? [row.image_url] : []
+    if (!images.length) return
+    setLightbox({ name: row.name, images, initialIndex: 0 })
+  }, [])
 
   const subtitle = isPlatformList
     ? t('pricelist.subtitle.platform')
@@ -235,6 +248,7 @@ export default function PricelistPageClient() {
             onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
             onApprovePriceEdit={canManagePriceEditRequests ? approvePriceEdit : undefined}
             onRemove={removeItem}
+            onOpenGallery={openGallery}
           />
           <CatalogPagination {...paginationProps} centered />
           <AppFooter />
@@ -242,11 +256,19 @@ export default function PricelistPageClient() {
       ) : (
         <>
           <CatalogPagination {...paginationProps} centered />
-          <PricelistGrid items={paginatedItems} isDark={isDark} />
+          <PricelistGrid items={paginatedItems} isDark={isDark} onOpenGallery={openGallery} />
           <CatalogPagination {...paginationProps} centered />
           <AppFooter />
         </>
       )}
+
+      <PricelistProductLightbox
+        open={lightbox != null}
+        productName={lightbox?.name ?? ''}
+        images={lightbox?.images ?? []}
+        initialIndex={lightbox?.initialIndex ?? 0}
+        onClose={() => setLightbox(null)}
+      />
     </div>
   )
 }

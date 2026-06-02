@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { CheckIcon } from '@heroicons/react/24/outline'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import { formatPrice } from '@/lib/format-price'
 import { useShopCurrency } from '@/lib/shop-currency-context'
-import { appPath } from '@/lib/paths'
 import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import { useI18n } from '@/lib/i18n-context'
@@ -28,6 +26,7 @@ type Props = {
   onApprovePriceEdit?: (requestId: string) => Promise<void>
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
+  onOpenGallery?: (row: PricelistRow) => void
 }
 
 function editablePriceSeed(row: PricelistRow): string {
@@ -60,6 +59,7 @@ export default function PricelistTable({
   onApprovePriceEdit,
   onRemove,
   onStarChange,
+  onOpenGallery,
 }: Props) {
   const { t } = useI18n()
   const border = isDark ? 'border-dark-700' : 'border-gray-200'
@@ -124,6 +124,7 @@ export default function PricelistTable({
               onApprovePriceEdit={onApprovePriceEdit}
               onRemove={onRemove}
               onStarChange={onStarChange}
+              onOpenGallery={onOpenGallery}
             />
           ))}
         </tbody>
@@ -150,6 +151,7 @@ function PricelistTableRow({
   onApprovePriceEdit,
   onRemove,
   onStarChange,
+  onOpenGallery,
 }: {
   row: PricelistRow
   canEditPrices: boolean
@@ -168,6 +170,7 @@ function PricelistTableRow({
   onApprovePriceEdit?: (requestId: string) => Promise<void>
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
+  onOpenGallery?: (row: PricelistRow) => void
 }) {
   const { t } = useI18n()
   const { symbol: currencySymbol } = useShopCurrency()
@@ -238,7 +241,9 @@ function PricelistTableRow({
     setError(null)
     try {
       await onSavePrice(row.product_id, parsed, row.price_seller_id)
-      savedValueRef.current = String(parsed)
+      const savedText = String(parsed)
+      savedValueRef.current = savedText
+      setValue(savedText)
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 1500)
     } catch (e) {
@@ -281,25 +286,64 @@ function PricelistTableRow({
     isDark ? 'bg-dark-900 border-dark-600 text-white' : 'bg-white border-gray-300 text-gray-900'
   }`
 
+  const currentParsed = parsePriceInput(value.trim())
+  const savedParsed = parsePriceInput(savedValueRef.current.trim())
+  const inputFilled = currentParsed !== null
+  const checkSaved =
+    savedFlash ||
+    (savedParsed !== null && currentParsed !== null && currentParsed === savedParsed)
+
+  const priceInputClass = inputFilled
+    ? `w-full min-w-[4.5rem] pl-7 pr-2 py-1 rounded border text-sm tabular-nums font-semibold ${
+        isDark
+          ? 'bg-dark-900 border-green-500/60 text-green-400'
+          : 'bg-white border-green-500 text-green-700'
+      }`
+    : inputClass
+
+  const priceCurrencyClass = inputFilled
+    ? 'pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs font-medium text-green-600 dark:text-green-400'
+    : `pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`
+
+  const checkButtonClass = checkSaved
+    ? 'shrink-0 inline-flex items-center justify-center rounded-md p-1 border border-green-500 bg-green-500/15 text-green-600 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400 transition-colors disabled:opacity-40'
+    : `shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
+        isDark
+          ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
+          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+      }`
+
   return (
     <tr className={`border-t ${border} ${isDark ? 'hover:bg-dark-800/50' : 'hover:bg-gray-50'}`}>
       <td className="px-3 py-1 align-middle">
         <PricelistProductThumb
-          productId={row.product_id}
           imageUrl={row.image_url}
           alt={row.name}
           className="relative w-20 h-20 rounded overflow-hidden bg-gray-100"
           sizes="80px"
+          onOpenGallery={onOpenGallery ? () => onOpenGallery(row) : undefined}
         />
       </td>
       <td className="px-3 py-1.5 min-w-0 align-middle">
-        <Link
-          href={appPath(`/product/${row.product_id}`)}
-          title={row.name}
-          className={`block truncate font-medium leading-snug hover:underline ${isDark ? 'text-white' : 'text-gray-900'}`}
-        >
-          {row.name}
-        </Link>
+        {onOpenGallery ? (
+          <button
+            type="button"
+            onClick={() => onOpenGallery(row)}
+            title={row.name}
+            className={`block w-full truncate text-left font-medium leading-snug hover:underline cursor-zoom-in ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}
+          >
+            {row.name}
+          </button>
+        ) : (
+          <span
+            title={row.name}
+            className={`block truncate font-medium leading-snug ${isDark ? 'text-white' : 'text-gray-900'}`}
+          >
+            {row.name}
+          </span>
+        )}
       </td>
       <td className={`px-3 py-1.5 font-mono text-xs truncate align-middle leading-snug ${muted}`} title={row.sku}>
         {row.sku}
@@ -321,10 +365,7 @@ function PricelistTableRow({
           <div className="flex flex-col gap-0.5 max-w-[12rem]">
             <div className="flex items-center gap-1">
               <div className="relative flex-1 min-w-0">
-                <span
-                  className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`}
-                  aria-hidden
-                >
+                <span className={priceCurrencyClass} aria-hidden>
                   {currencySymbol}
                 </span>
                 <input
@@ -343,7 +384,7 @@ function PricelistTableRow({
                     }
                   }}
                   placeholder={t('pricelist.pricePlaceholder')}
-                  className={inputClass}
+                  className={priceInputClass}
                   aria-label={t('pricelist.savePriceFor', { name: row.name })}
                 />
               </div>
@@ -351,13 +392,7 @@ function PricelistTableRow({
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={saving || !value.trim()}
-                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
-                  savedFlash
-                    ? 'border-green-500/50 bg-green-500/10 text-green-600'
-                    : isDark
-                      ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
+                className={checkButtonClass}
                 title={t('pricelist.savePrice')}
                 aria-label={t('pricelist.savePrice')}
               >
@@ -386,10 +421,7 @@ function PricelistTableRow({
             ) : null}
             <div className="flex items-center gap-1">
               <div className="relative flex-1 min-w-0">
-                <span
-                  className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`}
-                  aria-hidden
-                >
+                <span className={priceCurrencyClass} aria-hidden>
                   {currencySymbol}
                 </span>
                 <input
@@ -408,7 +440,7 @@ function PricelistTableRow({
                     }
                   }}
                   placeholder={t('pricelist.pricePlaceholder')}
-                  className={inputClass}
+                  className={priceInputClass}
                   aria-label={t('pricelist.savePriceFor', { name: row.name })}
                 />
               </div>
@@ -416,13 +448,7 @@ function PricelistTableRow({
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={saving || !value.trim()}
-                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
-                  savedFlash
-                    ? 'border-green-500/50 bg-green-500/10 text-green-600'
-                    : isDark
-                      ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
+                className={checkButtonClass}
                 title={t('pricelist.savePrice')}
                 aria-label={t('pricelist.savePrice')}
               >
