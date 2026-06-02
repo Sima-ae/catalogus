@@ -7,6 +7,7 @@ type ShopHeroSearchProps = {
   value?: string
   onChange?: (value: string) => void
   onSubmit?: (value: string) => void
+  className?: string
 }
 
 export default function ShopHeroSearch({
@@ -14,12 +15,13 @@ export default function ShopHeroSearch({
   value,
   onChange,
   onSubmit,
+  className = '',
 }: ShopHeroSearchProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
   return (
-    <div className="relative w-full">
+    <div className={`relative w-full ${className}`.trim()}>
       <svg
         className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
         fill="none"

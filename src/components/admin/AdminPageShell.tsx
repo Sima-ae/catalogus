@@ -32,6 +32,8 @@ export default function AdminPageShell({
           searchPlaceholder="Search your route..."
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
+          searchClassName="max-w-[12.5rem] sm:max-w-[13.5rem] lg:max-w-[14rem] xl:max-w-[15rem] mx-auto"
+          headerGridClassName="lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.25fr)]"
           leading={<AdminMobileMenuButton onClick={() => setMobileOpen(true)} />}
           actions={<AdminHeaderActions />}
         />

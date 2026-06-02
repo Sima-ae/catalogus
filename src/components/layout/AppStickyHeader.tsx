@@ -19,6 +19,10 @@ export type AppStickyHeaderProps = {
   /** Replaces default title + social proof block */
   leftContent?: ReactNode
   className?: string
+  /** Narrower search field (e.g. admin header with many action buttons). */
+  searchClassName?: string
+  /** Override the lg 3-column grid template. */
+  headerGridClassName?: string
 }
 
 export default function AppStickyHeader({
@@ -33,6 +37,8 @@ export default function AppStickyHeader({
   leading,
   leftContent,
   className = '',
+  searchClassName,
+  headerGridClassName,
 }: AppStickyHeaderProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -40,9 +46,11 @@ export default function AppStickyHeader({
   const shellBg = isDark ? 'bg-dark-900/95' : 'bg-gray-50/95'
   const cardBg = isDark ? 'bg-dark-900/80 border-dark-800' : 'bg-white border-gray-200'
 
-  const gridCols = showSearch
-    ? 'lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1.28fr)_minmax(0,1.12fr)]'
-    : 'lg:grid-cols-[minmax(0,1fr)_auto]'
+  const gridCols =
+    headerGridClassName ??
+    (showSearch
+      ? 'lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1.28fr)_minmax(0,1.12fr)]'
+      : 'lg:grid-cols-[minmax(0,1fr)_auto]')
 
   const defaultLeft = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
@@ -83,6 +91,7 @@ export default function AppStickyHeader({
                 value={searchValue}
                 onChange={onSearchChange}
                 onSubmit={onSearchSubmit}
+                className={searchClassName}
               />
             </div>
           ) : null}
