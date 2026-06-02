@@ -2,18 +2,22 @@
 
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { RoundFlag } from '@/components/i18n/RoundFlag'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { useI18n } from '@/lib/i18n-context'
 import { useLanguagePicker } from '@/lib/language-picker-context'
-import { SUPPORTED_LOCALES, type Locale } from '@/lib/i18n'
+import { type Locale } from '@/lib/i18n'
+import { LOCALE_REGISTRY, getLocaleNativeName } from '@/lib/i18n-locale-registry'
+import { localizedPath, parseLocaleFromPathname } from '@/lib/i18n-routing'
 
 export default function LanguageSwitcherModal() {
   const { open, closePicker } = useLanguagePicker()
   const { locale, setLocale, t } = useI18n()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -39,8 +43,14 @@ export default function LanguageSwitcherModal() {
 
   const selectLocale = (next: Locale) => {
     closePicker()
-    if (next !== locale) {
-      setLocale(next)
+    const { pathnameWithoutLocale } = parseLocaleFromPathname(pathname ?? '/')
+    const query = searchParams.toString()
+    const target =
+      localizedPath(pathnameWithoutLocale, next) + (query ? `?${query}` : '')
+    setLocale(next)
+    if (next !== locale || target !== pathname) {
+      router.push(target)
+    } else {
       router.refresh()
     }
   }
@@ -85,8 +95,8 @@ export default function LanguageSwitcherModal() {
 
         <div className="max-h-[min(70vh,32rem)] overflow-y-auto p-4 sm:p-5">
           <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-1.5">
-            {SUPPORTED_LOCALES.map((code) => {
-              const label = t(`language.${code}`)
+            {LOCALE_REGISTRY.map(({ code }) => {
+              const label = getLocaleNativeName(code)
               const active = code === locale
               return (
                 <button

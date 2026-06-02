@@ -9,8 +9,15 @@ import {
 } from '@/lib/site-access-cookie'
 
 import { isPricelistSharePath, isPricelistApiPath } from '@/lib/pricelist-share-path'
+import {
+  LOCALE_COOKIE,
+  localizedPath,
+  parseLocaleFromPathname,
+  resolveLocaleFromCookie,
+} from '@/lib/i18n-routing'
 
 const GATE_PATH = '/site-access-gate'
+const LOCALE_HEADER = 'x-catalogus-locale'
 
 function isStaticAsset(pathname: string): boolean {
   if (pathname.startsWith('/_next/static') || pathname.startsWith('/_next/image')) {
@@ -22,6 +29,40 @@ function isStaticAsset(pathname: string): boolean {
   if (pathname === '/favicon.ico') return true
   const publicExt = ['.ico', '.png', '.svg', '.webp', '.jpg', '.jpeg', '.gif', '.woff2', '.woff']
   return publicExt.some((ext) => pathname.endsWith(ext))
+}
+
+function shouldSkipLocaleRouting(pathname: string): boolean {
+  if (pathname === GATE_PATH || pathname.startsWith(`${GATE_PATH}/`)) return true
+  if (pathname.startsWith('/api/')) return true
+  return false
+}
+
+/** Prefix URLs with locale slug (/en/...) and rewrite internally without the prefix. */
+function applyLocaleRouting(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl
+  if (shouldSkipLocaleRouting(pathname)) return null
+
+  const { locale: pathLocale, pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+  const cookieLocale = resolveLocaleFromCookie(request.cookies.get(LOCALE_COOKIE)?.value)
+
+  if (pathLocale) {
+    const url = request.nextUrl.clone()
+    url.pathname = pathnameWithoutLocale
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set(LOCALE_HEADER, pathLocale)
+    const res = NextResponse.rewrite(url, { request: { headers: requestHeaders } })
+    res.cookies.set(LOCALE_COOKIE, pathLocale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+    return res
+  }
+
+  const url = request.nextUrl.clone()
+  url.pathname = localizedPath(pathname, cookieLocale)
+  url.search = search
+  return NextResponse.redirect(url)
 }
 
 function isSiteAccessApi(pathname: string): boolean {
@@ -126,7 +167,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!required || allowed) {
-    return NextResponse.next()
+    const localeResponse = applyLocaleRouting(request)
+    return localeResponse ?? NextResponse.next()
   }
 
   if (pathname === GATE_PATH) {

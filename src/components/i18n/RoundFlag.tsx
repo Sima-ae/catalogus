@@ -1,6 +1,7 @@
 'use client'
 
 import { appPath } from '@/lib/paths'
+import { getLocaleFlag } from '@/lib/i18n-locale-registry'
 
 type Props = {
   code: string
@@ -10,10 +11,11 @@ type Props = {
 
 /** Circular country flag (same treatment as inkoop.autos language picker). */
 export function RoundFlag({ code, size = 24, className = '' }: Props) {
+  const flag = getLocaleFlag(code)
   return (
     // eslint-disable-next-line @next/next/no-img-element -- local SVG; reliable circle clip on mobile
     <img
-      src={appPath(`/flags/${code}.svg`)}
+      src={appPath(`/flags/${flag}.svg`)}
       alt=""
       width={size}
       height={size}

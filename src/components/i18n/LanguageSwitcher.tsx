@@ -1,7 +1,8 @@
 'use client'
 
 import { RoundFlag } from '@/components/i18n/RoundFlag'
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@/lib/i18n'
+import { DEFAULT_LOCALE } from '@/lib/i18n'
+import { getLocaleSlug } from '@/lib/i18n-locale-registry'
 import { useI18n } from '@/lib/i18n-context'
 import { useLanguagePicker } from '@/lib/language-picker-context'
 
@@ -22,8 +23,8 @@ export default function LanguageSwitcher({
   const { locale, t } = useI18n()
   const { openPicker } = useLanguagePicker()
 
-  const currentCode =
-    SUPPORTED_LOCALES.find((l) => l === locale) ?? DEFAULT_LOCALE
+  const currentCode = locale ?? DEFAULT_LOCALE
+  const slugLabel = getLocaleSlug(currentCode).toUpperCase()
 
   const flagSize = variant === 'sidebar' ? 22 : compact ? 18 : 20
 
@@ -60,7 +61,7 @@ export default function LanguageSwitcher({
       aria-haspopup="dialog"
     >
       <RoundFlag code={currentCode} size={flagSize} />
-      <span className={codeClass}>{currentCode.toUpperCase()}</span>
+      <span className={codeClass}>{slugLabel}</span>
     </button>
   )
 }

@@ -5,23 +5,58 @@ import { MESSAGES_IT } from '@/lib/i18n-it'
 import { MESSAGES_GR } from '@/lib/i18n-gr'
 import { MESSAGES_PT } from '@/lib/i18n-pt'
 import { MESSAGES_MA } from '@/lib/i18n-ma'
+import { MESSAGES_DZ } from '@/lib/i18n-dz'
 import { MESSAGES_CZ } from '@/lib/i18n-cz'
 import { MESSAGES_PL } from '@/lib/i18n-pl'
 import { MESSAGES_BG } from '@/lib/i18n-bg'
 import { MESSAGES_HU } from '@/lib/i18n-hu'
 import { MESSAGES_RO } from '@/lib/i18n-ro'
 import { MESSAGES_TR } from '@/lib/i18n-tr'
+import { MESSAGES_SR } from '@/lib/i18n-sr'
+import { MESSAGES_SQ } from '@/lib/i18n-sq'
+import { MESSAGES_DA } from '@/lib/i18n-da'
+import { MESSAGES_FI } from '@/lib/i18n-fi'
+import { MESSAGES_SK } from '@/lib/i18n-sk'
+import { MESSAGES_BA } from '@/lib/i18n-ba'
+import { MESSAGES_MK } from '@/lib/i18n-mk'
+import { MESSAGES_SV } from '@/lib/i18n-sv'
+import { MESSAGES_UK } from '@/lib/i18n-uk'
+import { MESSAGES_HE } from '@/lib/i18n-he'
+import { MESSAGES_HY } from '@/lib/i18n-hy'
+import { MESSAGES_JA } from '@/lib/i18n-ja'
+import { MESSAGES_HR } from '@/lib/i18n-hr'
+import { MESSAGES_ME } from '@/lib/i18n-me'
+import { MESSAGES_LT } from '@/lib/i18n-lt'
+import { MESSAGES_NB } from '@/lib/i18n-nb'
+import { MESSAGES_RU } from '@/lib/i18n-ru'
+import { MESSAGES_AZ } from '@/lib/i18n-az'
+import { MESSAGES_ZH } from '@/lib/i18n-zh'
+import { MESSAGES_KA } from '@/lib/i18n-ka'
+import { MESSAGES_EG } from '@/lib/i18n-eg'
+import { MESSAGES_AT } from '@/lib/i18n-at'
+import { MESSAGES_PS } from '@/lib/i18n-ps'
+import type { Locale } from '@/lib/i18n-locale-registry'
+import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 
-export const SUPPORTED_LOCALES = ['nl', 'en', 'es', 'fr', 'de', 'it', 'pt', 'gr', 'tr', 'ma', 'cz', 'pl', 'bg', 'hu', 'ro'] as const
-export type Locale = (typeof SUPPORTED_LOCALES)[number]
+export {
+  SUPPORTED_LOCALES,
+  DEFAULT_LOCALE,
+  LOCALE_REGISTRY,
+  getLocaleMeta,
+  getLocaleFlag,
+  getLocaleNativeName,
+  getLocaleSlug,
+  localeFromSlug,
+  isLocaleSlug,
+  isLocale,
+  type Locale,
+} from '@/lib/i18n-locale-registry'
 
-export const DEFAULT_LOCALE: Locale = 'nl'
-
-export const LOCALE_COOKIE = 'catalogus_locale'
+export { LOCALE_COOKIE, localizedPath, parseLocaleFromPathname } from '@/lib/i18n-routing'
 
 type Messages = Record<string, string>
 
-export const MESSAGES: Record<Locale, Messages> = {
+const MESSAGES: Partial<Record<Locale, Messages>> = {
   en: {
     // Shop / nav
     'nav.home': 'Home',
@@ -424,19 +459,41 @@ export const MESSAGES: Record<Locale, Messages> = {
   gr: MESSAGES_GR,
   tr: MESSAGES_TR,
   ma: MESSAGES_MA,
+  dz: MESSAGES_DZ,
   cz: MESSAGES_CZ,
   pl: MESSAGES_PL,
   bg: MESSAGES_BG,
   hu: MESSAGES_HU,
   ro: MESSAGES_RO,
-}
-
-export function isLocale(value: string | null | undefined): value is Locale {
-  return Boolean(value) && (SUPPORTED_LOCALES as readonly string[]).includes(String(value))
+  sr: MESSAGES_SR,
+  sq: MESSAGES_SQ,
+  da: MESSAGES_DA,
+  fi: MESSAGES_FI,
+  sk: MESSAGES_SK,
+  ba: MESSAGES_BA,
+  mk: MESSAGES_MK,
+  sv: MESSAGES_SV,
+  uk: MESSAGES_UK,
+  he: MESSAGES_HE,
+  hy: MESSAGES_HY,
+  ja: MESSAGES_JA,
+  hr: MESSAGES_HR,
+  me: MESSAGES_ME,
+  lt: MESSAGES_LT,
+  nb: MESSAGES_NB,
+  ru: MESSAGES_RU,
+  az: MESSAGES_AZ,
+  zh: MESSAGES_ZH,
+  ka: MESSAGES_KA,
+  eg: MESSAGES_EG,
+  at: MESSAGES_AT,
+  ps: MESSAGES_PS,
 }
 
 export function getMessages(locale: Locale): Messages {
-  return MESSAGES[locale] ?? MESSAGES[DEFAULT_LOCALE]
+  const bundle = MESSAGES[locale]
+  if (bundle) return bundle
+  return MESSAGES.en ?? MESSAGES[DEFAULT_LOCALE]!
 }
 
 export function formatMessage(
