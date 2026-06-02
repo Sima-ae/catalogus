@@ -4,9 +4,10 @@ type Props = {
   mode: 'table' | 'grid'
   onChange: (mode: 'table' | 'grid') => void
   isDark?: boolean
+  t: (key: string) => string
 }
 
-export default function PricelistViewToggle({ mode, onChange, isDark }: Props) {
+export default function PricelistViewToggle({ mode, onChange, isDark, t }: Props) {
   const base = isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-100 text-gray-700'
   const active = isDark ? 'bg-white text-gray-900' : 'bg-white text-gray-900 shadow-sm'
 
@@ -19,7 +20,7 @@ export default function PricelistViewToggle({ mode, onChange, isDark }: Props) {
           mode === 'table' ? active : 'hover:opacity-80'
         }`}
       >
-        Table
+        {t('pricelist.view.table')}
       </button>
       <button
         type="button"
@@ -28,7 +29,7 @@ export default function PricelistViewToggle({ mode, onChange, isDark }: Props) {
           mode === 'grid' ? active : 'hover:opacity-80'
         }`}
       >
-        Grid
+        {t('pricelist.view.grid')}
       </button>
     </div>
   )

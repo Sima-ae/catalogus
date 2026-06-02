@@ -9,6 +9,8 @@ import { useShopCurrency } from '@/lib/shop-currency-context'
 import { appPath } from '@/lib/paths'
 import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
+import { useI18n } from '@/lib/i18n-context'
+import { getTopCategoryLabel } from '@/lib/i18n-categories'
 
 type Props = {
   items: PricelistRow[]
@@ -59,6 +61,7 @@ export default function PricelistTable({
   onRemove,
   onStarChange,
 }: Props) {
+  const { t } = useI18n()
   const border = isDark ? 'border-dark-700' : 'border-gray-200'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
   const head = isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-50 text-gray-700'
@@ -76,13 +79,27 @@ export default function PricelistTable({
         </colgroup>
         <thead className={head}>
           <tr>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Image</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Title</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">SKU</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Category</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Brand</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Price</th>
-            {showStar ? <th className="px-3 py-2 w-12" aria-label="Pricelist" /> : null}
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.image')}
+            </th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.title')}
+            </th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.sku')}
+            </th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.category')}
+            </th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.brand')}
+            </th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.price')}
+            </th>
+            {showStar ? (
+              <th className="px-3 py-2 w-12" aria-label={t('pricelist.col.starAria')} />
+            ) : null}
             {canManageItems ? <th className="px-3 py-2 w-24" /> : null}
           </tr>
         </thead>
@@ -152,6 +169,7 @@ function PricelistTableRow({
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
 }) {
+  const { t } = useI18n()
   const { symbol: currencySymbol } = useShopCurrency()
   const savedValueRef = useRef(editablePriceSeed(row))
   const [value, setValue] = useState(() => editablePriceSeed(row))
@@ -198,20 +216,20 @@ function PricelistTableRow({
             window.setTimeout(() => setSavedFlash(false), 1500)
           } catch (e) {
             setValue(savedValueRef.current)
-            setError(e instanceof Error ? e.message : 'Clear failed')
+            setError(e instanceof Error ? e.message : t('pricelist.error.clearFailed'))
           } finally {
             setSaving(false)
           }
         } else if (hadSaved) {
           setValue(savedValueRef.current)
           if (!canClearPrice) {
-            setError('Only super admin can clear a price')
+            setError(t('pricelist.error.onlySuperAdminClear'))
             window.setTimeout(() => setError(null), 3000)
           }
         }
         return
       }
-      setError('Invalid price')
+      setError(t('pricelist.error.invalidPrice'))
       return
     }
     const savedParsed = parsePriceInput(savedValueRef.current)
@@ -224,11 +242,11 @@ function PricelistTableRow({
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 1500)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      setError(e instanceof Error ? e.message : t('pricelist.error.saveFailed'))
     } finally {
       setSaving(false)
     }
-  }, [canClearPrice, onClearPrice, onSavePrice, row.price_seller_id, row.product_id, value])
+  }, [canClearPrice, onClearPrice, onSavePrice, row.price_seller_id, row.product_id, value, t])
 
   const handleRequestEdit = useCallback(async () => {
     if (!onRequestPriceEdit) return
@@ -237,7 +255,7 @@ function PricelistTableRow({
     try {
       await onRequestPriceEdit(row.product_id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Request failed')
+      setError(e instanceof Error ? e.message : t('pricelist.error.requestFailed'))
     } finally {
       setRequesting(false)
     }
@@ -251,7 +269,7 @@ function PricelistTableRow({
       try {
         await onApprovePriceEdit(requestId)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Approve failed')
+        setError(e instanceof Error ? e.message : t('pricelist.error.approveFailed'))
       } finally {
         setApprovingId(null)
       }
@@ -288,9 +306,9 @@ function PricelistTableRow({
       </td>
       <td
         className={`px-3 py-1.5 text-xs truncate align-middle leading-snug ${muted}`}
-        title={row.category}
+        title={getTopCategoryLabel(row.category, t)}
       >
-        {row.category}
+        {getTopCategoryLabel(row.category, t)}
       </td>
       <td
         className={`px-3 py-1.5 text-xs truncate align-middle leading-snug ${muted}`}
@@ -324,9 +342,9 @@ function PricelistTableRow({
                       void handleSave()
                     }
                   }}
-                  placeholder="0.00"
+                  placeholder={t('pricelist.pricePlaceholder')}
                   className={inputClass}
-                  aria-label={`Price for ${row.name}`}
+                  aria-label={t('pricelist.savePriceFor', { name: row.name })}
                 />
               </div>
               <button
@@ -340,8 +358,8 @@ function PricelistTableRow({
                       ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
                       : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
-                title="Save price"
-                aria-label="Save price"
+                title={t('pricelist.savePrice')}
+                aria-label={t('pricelist.savePrice')}
               >
                 {saving ? (
                   <span className="text-xs px-0.5">…</span>
@@ -361,7 +379,7 @@ function PricelistTableRow({
                     key={req.id}
                     className={`text-xs leading-tight ${isDark ? 'text-amber-400' : 'text-amber-600'}`}
                   >
-                    Edit requested by {req.seller_label}
+                    {t('pricelist.editRequestedBy', { seller: req.seller_label })}
                   </span>
                 ))}
               </div>
@@ -389,9 +407,9 @@ function PricelistTableRow({
                       void handleSave()
                     }
                   }}
-                  placeholder="0.00"
+                  placeholder={t('pricelist.pricePlaceholder')}
                   className={inputClass}
-                  aria-label={`Price for ${row.name}`}
+                  aria-label={t('pricelist.savePriceFor', { name: row.name })}
                 />
               </div>
               <button
@@ -405,8 +423,8 @@ function PricelistTableRow({
                       ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
                       : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
-                title="Save price"
-                aria-label="Save price"
+                title={t('pricelist.savePrice')}
+                aria-label={t('pricelist.savePrice')}
               >
                 {saving ? (
                   <span className="text-xs px-0.5">…</span>
@@ -428,9 +446,11 @@ function PricelistTableRow({
                         ? 'border-primary-500/40 text-primary-300 hover:bg-primary-500/10'
                         : 'border-primary-500/50 text-primary-700 hover:bg-primary-50'
                     }`}
-                    title={`Mark edit request from ${req.seller_label} as handled`}
+                    title={t('pricelist.markHandledTitle', { seller: req.seller_label })}
                   >
-                    {approvingId === req.id ? 'Saving…' : `Mark handled (${req.seller_label})`}
+                    {approvingId === req.id
+                      ? t('pricelist.saving')
+                      : t('pricelist.markHandled', { seller: req.seller_label })}
                   </button>
                 ))}
               </div>
@@ -444,7 +464,7 @@ function PricelistTableRow({
             </span>
             {row.edit_request_pending ? (
               <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
-                Edit requested — admin will update
+                {t('pricelist.editRequestedAdmin')}
               </span>
             ) : onRequestPriceEdit ? (
               <button
@@ -457,7 +477,7 @@ function PricelistTableRow({
                     : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                {requesting ? 'Sending…' : 'Request edit'}
+                {requesting ? t('pricelist.sending') : t('pricelist.requestEdit')}
               </button>
             ) : null}
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
@@ -490,7 +510,7 @@ function PricelistTableRow({
             onClick={() => onRemove(row.product_id)}
             className={`text-xs ${muted} hover:text-red-500`}
           >
-            Remove
+            {t('pricelist.remove')}
           </button>
         </td>
       ) : null}

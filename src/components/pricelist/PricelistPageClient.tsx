@@ -18,7 +18,9 @@ import PricelistGrid from '@/components/pricelist/PricelistGrid'
 import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import AppFooter from '@/components/layout/AppFooter'
+import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 import { useI18n } from '@/lib/i18n-context'
+import { translatePricelistOwnerLabel } from '@/lib/i18n-pricelist'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -83,7 +85,12 @@ export default function PricelistPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const subtitle = isPlatformList ? 'See my request(s) below!' : currentOwnerLabel
+  const subtitle = isPlatformList
+    ? t('pricelist.subtitle.platform')
+    : translatePricelistOwnerLabel(
+        owners.find((o) => o.id === ownerId) ?? { label: currentOwnerLabel },
+        t
+      )
 
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -129,7 +136,7 @@ export default function PricelistPageClient() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
         <div className="shrink-0 lg:min-w-[10rem]">
-          <h1 className={`text-2xl font-bold ${heading}`}>Pricelist</h1>
+          <h1 className={`text-2xl font-bold ${heading}`}>{t('pricelist.title')}</h1>
           <p className={`mt-1 text-sm ${muted}`}>{subtitle}</p>
         </div>
 
@@ -142,37 +149,36 @@ export default function PricelistPageClient() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title or SKU…"
+            placeholder={t('pricelist.search.placeholder')}
             className={`w-full rounded-lg border py-2.5 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${searchInputClass}`}
-            aria-label="Search pricelist"
+            aria-label={t('pricelist.search.aria')}
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-3 shrink-0 lg:min-w-[12rem]">
+        <div className="flex flex-nowrap items-center justify-end gap-2 sm:gap-3 shrink-0 lg:min-w-[12rem]">
           {showOwnerSelect ? (
             <select
               value={ownerId}
               onChange={(e) => setOwnerId(e.target.value)}
-              className={`rounded-lg border px-3 py-2 text-sm min-w-[12rem] ${selectClass}`}
-              aria-label="Select pricelist"
+              className={`rounded-lg border px-3 py-2 text-sm min-w-[8rem] sm:min-w-[12rem] max-w-full ${selectClass}`}
+              aria-label={t('pricelist.selectOwner.aria')}
             >
               {owners.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.label}
+                  {translatePricelistOwnerLabel(o, t)}
                 </option>
               ))}
             </select>
           ) : null}
-          <PricelistViewToggle mode={viewMode} onChange={setViewMode} isDark={isDark} />
+          <PricelistViewToggle mode={viewMode} onChange={setViewMode} isDark={isDark} t={t} />
+          <LanguageSwitcher compact />
         </div>
       </div>
 
       {isGuest ? (
         <div className={`text-sm ${muted}`}>
-          <p>Enter all prices in the empty fields below.</p>
-          <p className="mt-1 text-xs text-red-500">
-            Changes are automatically saved when you leave each field or tap the check button.
-          </p>
+          <p>{t('pricelist.guest.line1')}</p>
+          <p className="mt-1 text-xs text-red-500">{t('pricelist.guest.line2')}</p>
         </div>
       ) : null}
 
@@ -200,10 +206,8 @@ export default function PricelistPageClient() {
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
           }`}
         >
-          <p className={muted}>No products on this pricelist yet.</p>
-          <p className={`text-sm mt-2 ${muted}`}>
-            Use the star icon on product pages to add items.
-          </p>
+          <p className={muted}>{t('pricelist.empty.none')}</p>
+          <p className={`text-sm mt-2 ${muted}`}>{t('pricelist.empty.starHint')}</p>
         </div>
       ) : filteredItems.length === 0 ? (
         <div
@@ -211,7 +215,7 @@ export default function PricelistPageClient() {
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
           }`}
         >
-          <p className={muted}>No products match your search.</p>
+          <p className={muted}>{t('pricelist.empty.search')}</p>
         </div>
       ) : viewMode === 'table' ? (
         <>

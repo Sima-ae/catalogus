@@ -11,6 +11,7 @@ import {
   isPlatformPricelistOwner,
   PRICELIST_OWNER_QUERY_PLATFORM,
 } from '@/lib/pricelist-constants'
+import { useI18n } from '@/lib/i18n-context'
 
 type Props = {
   ownerId: string
@@ -42,6 +43,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: Props) {
   const { user } = useAuth()
   const { theme } = useTheme()
+  const { t } = useI18n()
   const isDark = theme === 'dark'
   const [hasPassword, setHasPassword] = useState(false)
   const [password, setPassword] = useState('')
@@ -91,7 +93,7 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } else {
-      setError('Could not copy link')
+      setError(t('pricelist.share.copyError'))
       window.setTimeout(() => setError(null), 3000)
     }
   }, [shareUrl])
@@ -117,7 +119,7 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setHasPassword(Boolean(data.hasPassword))
       setPassword('')
-      setMessage(data.hasPassword ? 'Password saved.' : 'Password removed.')
+      setMessage(data.hasPassword ? t('pricelist.share.saved') : t('pricelist.share.removed'))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save')
     } finally {
@@ -141,27 +143,27 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
     <div className={`rounded-lg border p-3 ${panel}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <h2 className={`text-xs font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          {isPlatform ? 'Platform share password' : 'Share password'}
+          {isPlatform ? t('pricelist.share.titlePlatform') : t('pricelist.share.title')}
         </h2>
         {hasPassword && !loading ? (
-          <span className="text-[10px] uppercase tracking-wide text-green-600">Active</span>
+          <span className="text-[10px] uppercase tracking-wide text-green-600">
+            {t('pricelist.share.active')}
+          </span>
         ) : null}
       </div>
       <p className={`text-[11px] leading-snug mt-0.5 ${muted}`}>
-        {isPlatform
-          ? 'Guests use this password at the link below (not your site login).'
-          : 'Guests need this password at your link (not site login). Empty + save = sign-in only.'}
+        {isPlatform ? t('pricelist.share.hintPlatform') : t('pricelist.share.hintOwner')}
       </p>
 
       {loading ? (
-        <p className={`text-xs mt-2 ${muted}`}>Loading…</p>
+        <p className={`text-xs mt-2 ${muted}`}>{t('loading.generic')}</p>
       ) : (
         <form onSubmit={handleSave} className="mt-2 flex flex-wrap items-center gap-2">
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder={hasPassword ? 'New password' : 'Set password'}
+            placeholder={hasPassword ? t('pricelist.share.newPassword') : t('pricelist.share.setPassword')}
             className={`${inputClass} max-w-[14rem] sm:max-w-xs`}
             autoComplete="new-password"
           />
@@ -170,7 +172,7 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
             disabled={saving}
             className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : hasPassword ? 'Update' : 'Set'}
+            {saving ? t('pricelist.saving') : hasPassword ? t('pricelist.share.update') : t('pricelist.share.set')}
           </button>
           {message ? <span className="text-xs text-green-600">{message}</span> : null}
           {error ? <span className="text-xs text-red-500">{error}</span> : null}
@@ -178,14 +180,14 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       )}
 
       <div className="mt-2.5">
-        <p className={`text-[11px] font-medium ${label}`}>Share link</p>
+        <p className={`text-[11px] font-medium ${label}`}>{t('pricelist.share.linkLabel')}</p>
         <div className="mt-1 flex items-stretch gap-1.5">
           <button
             type="button"
             onClick={handleCopyLink}
             className={`${linkBoxClass} cursor-pointer`}
-            title="Click to copy link"
-            aria-label="Copy share link"
+            title={t('pricelist.share.copyTitle')}
+            aria-label={t('pricelist.share.copy')}
           >
             {shareUrl}
           </button>
@@ -193,17 +195,17 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
             type="button"
             onClick={handleCopyLink}
             className="btn-secondary shrink-0 inline-flex items-center gap-1 text-xs px-2.5 py-1.5"
-            aria-label="Copy share link"
+            aria-label={t('pricelist.share.copy')}
           >
             {copied ? (
               <>
                 <CheckIcon className="w-3.5 h-3.5 text-green-500" aria-hidden />
-                Copied
+                {t('pricelist.share.copied')}
               </>
             ) : (
               <>
                 <ClipboardDocumentIcon className="w-3.5 h-3.5" aria-hidden />
-                Copy
+                {t('pricelist.share.copy')}
               </>
             )}
           </button>

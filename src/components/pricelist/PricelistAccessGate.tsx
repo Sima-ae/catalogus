@@ -91,7 +91,7 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
       setPassword('')
       await loadStatus()
     } catch {
-      setVerifyError('Unable to verify. Try again.')
+      setVerifyError(t('pricelist.access.verifyFailed'))
     } finally {
       if (!ok) setVerifying(false)
     }
@@ -122,9 +122,9 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
 
   const passwordHint = sharePasswordConfigured
     ? ownerParam === PRICELIST_OWNER_QUERY_PLATFORM
-      ? 'Enter the platform pricelist share password (not your site or account password).'
-      : 'Enter the pricelist share password from the list owner (not your site or account password).'
-    : 'This list does not have a share password yet. Sign in if you have access, or ask the owner for the link once a password is set.'
+      ? t('pricelist.access.hintPlatform')
+      : t('pricelist.access.hintOwner')
+    : t('pricelist.access.noPassword')
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-dark-900/95 backdrop-blur-sm px-4">
@@ -154,7 +154,7 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
               ) : null}
               <div>
                 <label htmlFor="pricelist-share-password" className="sr-only">
-                  Pricelist share password
+                  {t('pricelist.access.passwordLabel')}
                 </label>
                 <input
                   id="pricelist-share-password"
@@ -164,7 +164,7 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
                   required={sharePasswordConfigured}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Pricelist password"
+                  placeholder={t('pricelist.access.passwordPlaceholder')}
                   className="w-full px-4 py-3 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
@@ -175,31 +175,31 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
                   onChange={(e) => setRemember(e.target.checked)}
                   className="rounded border-dark-500"
                 />
-                Remember on this device (30 days)
+                {t('pricelist.access.remember')}
               </label>
               <button
                 type="submit"
                 disabled={verifying || !sharePasswordConfigured}
                 className="w-full btn-primary py-3 disabled:opacity-50"
               >
-                {verifying ? 'Checking…' : 'View pricelist'}
+                {verifying ? t('loading.checking') : t('pricelist.access.viewPricelist')}
               </button>
             </form>
           </>
         ) : (
           <p className="mt-4 text-sm text-gray-400 text-center">
             {showLoginOnly
-              ? 'Sign in to view this pricelist, or open a shared link with ?owner= (use owner=platform for the platform list).'
-              : status.error || 'You do not have access to this pricelist.'}
+              ? t('pricelist.access.loginRequired')
+              : status.error || t('pricelist.access.denied')}
           </p>
         )}
 
         <div className="mt-6 flex flex-col gap-2 text-center text-sm">
           <Link href={loginHref} className="text-primary-400 hover:underline">
-            Sign in to your account
+            {t('pricelist.access.signIn')}
           </Link>
           <Link href={appPath('/')} className="text-gray-500 hover:text-gray-300">
-            Back to shop
+            {t('pricelist.access.backToShop')}
           </Link>
         </div>
       </div>
