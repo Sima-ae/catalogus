@@ -211,7 +211,7 @@ export default function PricelistPageClient() {
         </div>
       ) : viewMode === 'table' ? (
         <>
-          <CatalogPagination {...paginationProps} alignEnd />
+          <CatalogPagination {...paginationProps} centered />
           <PricelistTable
             items={paginatedItems}
             canEditPrices={canEditPrices}
@@ -232,7 +232,7 @@ export default function PricelistPageClient() {
         </>
       ) : (
         <>
-          <CatalogPagination {...paginationProps} alignEnd />
+          <CatalogPagination {...paginationProps} centered />
           <PricelistGrid items={paginatedItems} isDark={isDark} />
           <CatalogPagination {...paginationProps} centered />
         </>
