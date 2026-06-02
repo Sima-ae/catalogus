@@ -31,9 +31,8 @@ export default function ShopCatalogListing({
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
 
-  return (
+  const listingBody = (
     <>
-      {!centered ? <CatalogProductCount count={totalItems} /> : null}
       <CatalogPagination
         page={safePage}
         totalItems={totalItems}
@@ -55,6 +54,17 @@ export default function ShopCatalogListing({
         centered={centered}
         compact={centered}
       />
+    </>
+  )
+
+  return (
+    <>
+      {!centered ? <CatalogProductCount count={totalItems} /> : null}
+      {centered ? (
+        <div className="flex flex-col gap-6 pb-6">{listingBody}</div>
+      ) : (
+        listingBody
+      )}
     </>
   )
 }
