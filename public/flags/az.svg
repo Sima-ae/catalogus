@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Azerbaijan (simplified): blue/red/green -->
+  <rect width="640" height="160" y="0" fill="#00B5E2"/>
+  <rect width="640" height="160" y="160" fill="#EF3340"/>
+  <rect width="640" height="160" y="320" fill="#509E2F"/>
+</svg>
+

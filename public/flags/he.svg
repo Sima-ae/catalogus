@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Israel (simplified): white with blue bands -->
+  <rect width="640" height="480" fill="#FFFFFF"/>
+  <rect x="0" y="60" width="640" height="60" fill="#0038B8"/>
+  <rect x="0" y="360" width="640" height="60" fill="#0038B8"/>
+</svg>
+

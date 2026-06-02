@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import RoleBadge from '@/components/users/RoleBadge'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
+import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
 type DashboardHeaderActionsProps = {
   children?: ReactNode
@@ -23,6 +24,7 @@ export default function DashboardHeaderActions({ children }: DashboardHeaderActi
           className="hidden sm:inline-flex shrink-0"
         />
       ) : null}
+      <LanguageSwitcher compact />
       <ThemeToggleButton />
     </div>
   )

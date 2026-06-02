@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
 
 export const CATALOG_PAGE_SIZE = 60
 
@@ -27,6 +28,7 @@ export default function CatalogPagination({
   compact = false,
 }: Props) {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const textSize = compact ? 'text-xs' : 'text-sm'
   const btnClass = compact ? 'btn-secondary text-xs px-2.5 py-1' : 'btn-secondary text-sm'
   const inputClass = compact ? 'input w-12 text-xs py-1 px-2' : 'input w-20 text-sm'
@@ -61,7 +63,7 @@ export default function CatalogPagination({
       }}
     >
       <label className={`${textSize} ${t.muted}`} htmlFor={gotoId}>
-        Page
+        {tr('pagination.pageLabel')}
       </label>
       <input
         id={gotoId}
@@ -73,27 +75,22 @@ export default function CatalogPagination({
         aria-label="Go to page number"
       />
       <button type="submit" className={btnClass} disabled={gotoPage == null}>
-        Go
+        {tr('pagination.go')}
       </button>
     </form>
   )
 
   if (totalItems === 0) return null
 
-  const statusText = (
-    <>
-      Showing <strong className={t.heading}>{start}</strong>–
-      <strong className={t.heading}>{end}</strong> of{' '}
-      <strong className={t.heading}>{totalItems}</strong>
-      {totalPages > 1 && (
-        <>
-          {' '}
-          · page <strong className={t.heading}>{safePage}</strong> of{' '}
-          <strong className={t.heading}>{totalPages}</strong>
-        </>
-      )}
-    </>
-  )
+  const statusText = tr('pagination.showing', {
+    start,
+    end,
+    total: totalItems,
+    pagePart:
+      totalPages > 1
+        ? tr('pagination.pagePart', { page: safePage, totalPages })
+        : '',
+  })
 
   const navButtons = (
     <div className={`flex flex-wrap items-center justify-center ${gapClass}`}>
@@ -103,7 +100,7 @@ export default function CatalogPagination({
         disabled={safePage <= 1}
         onClick={() => onPageChange(safePage - 1)}
       >
-        Previous
+        {tr('pagination.previous')}
       </button>
       <button
         type="button"
@@ -111,7 +108,7 @@ export default function CatalogPagination({
         disabled={safePage >= totalPages}
         onClick={() => onPageChange(safePage + 1)}
       >
-        Next
+        {tr('pagination.next')}
       </button>
       {goToInput}
     </div>

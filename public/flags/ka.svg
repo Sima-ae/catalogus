@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Georgia (simplified): white with red cross -->
+  <rect width="640" height="480" fill="#FFFFFF"/>
+  <rect x="280" y="0" width="80" height="480" fill="#E8112D"/>
+  <rect x="0" y="200" width="640" height="80" fill="#E8112D"/>
+</svg>
+

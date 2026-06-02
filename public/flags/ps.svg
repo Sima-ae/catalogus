@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Palestine (simplified): black/white/green with red triangle -->
+  <rect width="640" height="160" y="0" fill="#000000"/>
+  <rect width="640" height="160" y="160" fill="#FFFFFF"/>
+  <rect width="640" height="160" y="320" fill="#007A3D"/>
+  <polygon points="0,0 240,240 0,480" fill="#CE1126"/>
+</svg>
+

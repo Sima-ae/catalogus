@@ -8,6 +8,7 @@ import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
+import { useI18n } from '@/lib/i18n-context'
 
 type AccessStatus = {
   allowed: boolean
@@ -28,10 +29,12 @@ function ownerQueryFromParams(searchParams: URLSearchParams): string | null {
 function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
+  const { t } = useI18n()
   const [status, setStatus] = useState<AccessStatus | null>(null)
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [verifyError, setVerifyError] = useState('')
+  const [verifySuccess, setVerifySuccess] = useState('')
   const [verifying, setVerifying] = useState(false)
 
   const ownerParam = ownerQueryFromParams(searchParams)
@@ -66,8 +69,11 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
   const handleVerify = async (e: FormEvent) => {
     e.preventDefault()
     if (!ownerParam) return
+    if (verifying) return
     setVerifying(true)
     setVerifyError('')
+    setVerifySuccess('')
+    let ok = false
     try {
       const res = await fetch(appPath('/api/pricelist/access/verify'), {
         method: 'POST',
@@ -80,12 +86,14 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
         setVerifyError(data.error || 'Incorrect password')
         return
       }
+      ok = true
+      setVerifySuccess(t('password.correctLoading'))
       setPassword('')
       await loadStatus()
     } catch {
       setVerifyError('Unable to verify. Try again.')
     } finally {
-      setVerifying(false)
+      if (!ok) setVerifying(false)
     }
   }
 
@@ -137,6 +145,11 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
               {verifyError ? (
                 <p className="text-sm text-red-400 text-center" role="alert">
                   {verifyError}
+                </p>
+              ) : null}
+              {verifySuccess ? (
+                <p className="text-sm text-green-400 text-center" role="status">
+                  {verifySuccess}
                 </p>
               ) : null}
               <div>

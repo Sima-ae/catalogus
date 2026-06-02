@@ -10,6 +10,7 @@ import { useTheme } from '@/lib/theme'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import RoleBadge from '@/components/users/RoleBadge'
 import { appPath } from '@/lib/paths'
+import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
 export default function AdminHeaderActions() {
   const { user, signOut } = useAuth()
@@ -18,6 +19,7 @@ export default function AdminHeaderActions() {
 
   return (
     <div className="flex flex-nowrap items-center justify-end gap-1.5 lg:gap-2 w-full min-w-0">
+      <LanguageSwitcher compact />
       <ThemeToggleButton />
       <button
         type="button"

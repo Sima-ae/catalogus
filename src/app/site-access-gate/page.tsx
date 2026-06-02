@@ -4,21 +4,27 @@ import { FormEvent, Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
+import { useI18n } from '@/lib/i18n-context'
 
 function GateForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || '/'
+  const { t } = useI18n()
 
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (loading) return
     setLoading(true)
     setError('')
+    setSuccess('')
+    let ok = false
     try {
       const res = await fetch(appPath('/api/site-access/verify'), {
         method: 'POST',
@@ -31,13 +37,15 @@ function GateForm() {
         setError(data.error || 'Incorrect password')
         return
       }
+      ok = true
+      setSuccess(t('password.correctLoading'))
       const target = from.startsWith('/') ? from : '/'
       router.replace(target)
       router.refresh()
     } catch {
       setError('Unable to verify password. Try again.')
     } finally {
-      setLoading(false)
+      if (!ok) setLoading(false)
     }
   }
 
@@ -62,6 +70,11 @@ function GateForm() {
               {error}
             </p>
           )}
+          {success ? (
+            <p className="text-sm text-green-400 text-center" role="status">
+              {success}
+            </p>
+          ) : null}
 
           <div>
             <label htmlFor="site-access-password" className="sr-only">

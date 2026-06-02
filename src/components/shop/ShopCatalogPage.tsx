@@ -26,6 +26,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { type CatalogMode } from '@/lib/catalog'
 import { buildCatalogProductsUrl, isCatalogProductsPage } from '@/lib/catalog-products'
+import AppFooter from '@/components/layout/AppFooter'
+import { useI18n } from '@/lib/i18n-context'
 
 const EMPTY_ICONS = {
   sparkles: SparklesIcon,
@@ -50,6 +52,7 @@ export type ShopCatalogConfig = {
 }
 
 function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
+  const { t: tr } = useI18n()
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
@@ -72,8 +75,10 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     asideRef,
   } = useShopSidebar()
 
+  const resolvedTitle =
+    config.mode === 'new' ? tr('shop.new.title') : tr('shop.home.title')
   const searchPlaceholder =
-    config.searchPlaceholder ?? `Search in ${config.title.toLowerCase()}...`
+    config.mode === 'new' ? tr('shop.new.searchPlaceholder') : tr('shop.home.searchPlaceholder')
   const emptyVariant = config.emptyVariant ?? 'featured'
   const showSocialProof = config.showSocialProof ?? true
   const showFooterTagline = config.showFooterTagline ?? config.mode === 'new'
@@ -171,7 +176,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <AppStickyHeader
-          title={config.title}
+          title={resolvedTitle}
           showSocialProof={showSocialProof}
           searchPlaceholder={searchPlaceholder}
           searchValue={searchQuery}
@@ -290,6 +295,8 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
               />
             )}
           </div>
+
+          {config.centerCatalog ? <AppFooter /> : null}
 
           {showFooterTagline ? (
             <p className={`mt-10 text-center text-xs ${muted}`}>

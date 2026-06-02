@@ -140,6 +140,7 @@ import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import SidebarCategories from '@/components/layout/SidebarCategories'
+import { useI18n } from '@/lib/i18n-context'
 import {
   HomeIcon,
   CubeIcon,
@@ -152,15 +153,22 @@ import {
 } from '@heroicons/react/24/outline'
 
 const navigation = [
-  { name: 'Home', href: '/', icon: HomeIcon },
-  { name: 'New', href: '/new', icon: CubeIcon },
-]
+  { key: 'nav.home', href: '/', icon: HomeIcon },
+  { key: 'nav.new', href: '/new', icon: CubeIcon },
+] as const
 
-const bottomNavigationBase = [
-  { name: 'Settings', href: '/settings', icon: Cog6ToothIcon, superAdminOnly: true },
-  { name: 'Become a Buyer', href: '/buyer', icon: UserGroupIcon },
-  { name: 'Become a Seller', href: '/seller', icon: ShoppingBagIcon },
-  { name: 'Contact', href: '/contact', icon: EnvelopeIcon },
+type BottomNavItem = {
+  key: string
+  href: string
+  icon: any
+  superAdminOnly?: boolean
+}
+
+const bottomNavigationBase: BottomNavItem[] = [
+  { key: 'nav.settings', href: '/settings', icon: Cog6ToothIcon, superAdminOnly: true },
+  { key: 'nav.becomeBuyer', href: '/buyer', icon: UserGroupIcon },
+  { key: 'nav.becomeSeller', href: '/seller', icon: ShoppingBagIcon },
+  { key: 'nav.contact', href: '/contact', icon: EnvelopeIcon },
 ]
 
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {
@@ -196,12 +204,14 @@ function NavLink({
   isActive,
   isCollapsed,
   theme,
+  label,
   onNavigate,
 }: {
-  item: (typeof navigation)[0]
+  item: { href: string; icon: any }
   isActive: boolean
   isCollapsed: boolean
   theme: string
+  label: string
   onNavigate?: () => void
 }) {
   return (
@@ -215,10 +225,10 @@ function NavLink({
             ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
             : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
       } ${isCollapsed ? 'justify-center' : ''}`}
-      title={isCollapsed ? item.name : undefined}
+      title={isCollapsed ? label : undefined}
     >
       <item.icon className={`w-6 h-6 sm:w-[26px] sm:h-[26px] flex-shrink-0 ${isCollapsed ? '' : 'mr-3'}`} />
-      {!isCollapsed && <span className="text-sm sm:text-base">{item.name}</span>}
+      {!isCollapsed && <span className="text-sm sm:text-base">{label}</span>}
     </Link>
   )
 }
@@ -255,6 +265,7 @@ export default function Sidebar({
   )
   const { theme } = useTheme()
   const { isSuperAdmin, loading: authLoading } = useAuth()
+  const { t } = useI18n()
 
   const bottomNavigation = bottomNavigationBase.filter(
     (item) => !item.superAdminOnly || (!authLoading && isSuperAdmin)
@@ -285,15 +296,16 @@ export default function Sidebar({
         </div>
 
         <div>
-          <ShopCatalogBadge label="Catalog 2026" />
+          <ShopCatalogBadge label={t('badge.catalog2026')} />
         </div>
       </div>
 
       <nav className="space-y-2 shrink-0">
         {navigation.map((item) => (
           <NavLink
-            key={item.name}
+            key={item.key}
             item={item}
+            label={t(item.key)}
             isActive={pathname === item.href || pathname === appPath(item.href)}
             isCollapsed={false}
             theme={theme}
@@ -314,8 +326,9 @@ export default function Sidebar({
         <nav className="space-y-2">
           {bottomNavigation.map((item) => (
             <NavLink
-              key={item.name}
+              key={item.key}
               item={item}
+              label={t(item.key)}
               isActive={pathname === item.href || pathname === appPath(item.href)}
               isCollapsed={false}
               theme={theme}

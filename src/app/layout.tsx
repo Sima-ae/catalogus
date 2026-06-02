@@ -11,6 +11,11 @@ import { ShopCurrencyProvider } from '@/lib/shop-currency-context'
 import SiteAccessGuard from '@/components/site-access/SiteAccessGuard'
 import ContentProtection from '@/components/ContentProtection'
 import { buildRootMetadata } from '@/lib/site-metadata'
+import { cookies } from 'next/headers'
+import { I18nProvider } from '@/lib/i18n-context'
+import { LanguagePickerProvider } from '@/lib/language-picker-context'
+import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
+import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE } from '@/lib/i18n'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,8 +28,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const cookieStore = cookies()
+  const rawLocale = cookieStore.get(LOCALE_COOKIE)?.value
+  const locale = isLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body className={`${inter.className} app-protected transition-colors duration-200`}>
         <ContentProtection />
         <AuthProvider>
@@ -37,13 +46,18 @@ export default function RootLayout({
           >
             <SiteAccessGuard>
               <ThemeProvider>
-                <CatalogModeProvider>
-                  <ProductCardDisplayProvider>
-                    <CartProvider>
-                      <ShopCurrencyProvider>{children}</ShopCurrencyProvider>
-                    </CartProvider>
-                  </ProductCardDisplayProvider>
-                </CatalogModeProvider>
+                <I18nProvider initialLocale={locale}>
+                  <LanguagePickerProvider>
+                    <CatalogModeProvider>
+                      <ProductCardDisplayProvider>
+                        <CartProvider>
+                          <ShopCurrencyProvider>{children}</ShopCurrencyProvider>
+                        </CartProvider>
+                      </ProductCardDisplayProvider>
+                    </CatalogModeProvider>
+                    <LanguageSwitcherModal />
+                  </LanguagePickerProvider>
+                </I18nProvider>
               </ThemeProvider>
             </SiteAccessGuard>
           </Suspense>

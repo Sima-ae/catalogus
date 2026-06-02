@@ -17,6 +17,7 @@ import PricelistTable from '@/components/pricelist/PricelistTable'
 import PricelistGrid from '@/components/pricelist/PricelistGrid'
 import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
 import CatalogPagination from '@/components/shop/CatalogPagination'
+import AppFooter from '@/components/layout/AppFooter'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -230,12 +231,14 @@ export default function PricelistPageClient() {
             onRemove={removeItem}
           />
           <CatalogPagination {...paginationProps} centered />
+          <AppFooter />
         </>
       ) : (
         <>
           <CatalogPagination {...paginationProps} centered />
           <PricelistGrid items={paginatedItems} isDark={isDark} />
           <CatalogPagination {...paginationProps} centered />
+          <AppFooter />
         </>
       )}
     </div>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Lebanon (simplified): red/white/red -->
+  <rect width="640" height="160" y="0" fill="#ED1C24"/>
+  <rect width="640" height="160" y="160" fill="#FFFFFF"/>
+  <rect width="640" height="160" y="320" fill="#ED1C24"/>
+</svg>
+

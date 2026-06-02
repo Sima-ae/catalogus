@@ -5,11 +5,11 @@ import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 import ActivitySpeechBubble from '@/components/shop/ActivitySpeechBubble'
 import {
-  formatMinutesAgo,
   loadOrCreateDailySocialProofFeed,
   minutesSince,
   type StoredSocialProofNotification,
 } from '@/lib/social-proof-activity'
+import { useI18n } from '@/lib/i18n-context'
 
 /** Slower rotation so lines do not flash by too quickly. */
 const ROTATE_MS = 10_000
@@ -25,11 +25,15 @@ function ActivityLine({
   minutesAgo,
   isDark,
   compact,
+  prefix,
+  timeLabel,
 }: {
   notification: StoredSocialProofNotification
   minutesAgo: number
   isDark: boolean
   compact?: boolean
+  prefix: string
+  timeLabel: string
 }) {
   const muted = isDark ? 'text-gray-300' : 'text-gray-600'
   const emphasis = isDark ? 'text-white' : 'text-gray-900'
@@ -40,11 +44,23 @@ function ActivityLine({
         compact ? 'text-xs sm:text-sm truncate' : 'text-sm sm:text-base'
       } ${muted}`}
     >
-      <span>{notification.buyerName} just ordered </span>
+      <span>{prefix}</span>
       <span className={`font-semibold ${emphasis}`}>{notification.productName}</span>
-      <span> — {formatMinutesAgo(minutesAgo)}</span>
+      <span> — {timeLabel}</span>
     </p>
   )
+}
+
+function formatMinutesAgoI18n(minutes: number, t: ReturnType<typeof useI18n>['t']): string {
+  if (minutes < 1) return t('activity.time.justNow')
+  if (minutes === 1) return t('activity.time.minuteAgo')
+  if (minutes < 60) return t('activity.time.minutesAgo', { count: minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours === 1) return t('activity.time.hourAgo')
+  if (hours < 24) return t('activity.time.hoursAgo', { count: hours })
+  const days = Math.floor(hours / 24)
+  if (days === 1) return t('activity.time.dayAgo')
+  return t('activity.time.daysAgo', { count: days })
 }
 
 /** Rotating fictional purchase lines — random buyers, catalog products, daily persistence. */
@@ -55,6 +71,7 @@ export default function RecentPurchaseActivity({
   const isHeader = variant === 'header'
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const { t } = useI18n()
   const [items, setItems] = useState<StoredSocialProofNotification[]>([])
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -118,7 +135,9 @@ export default function RecentPurchaseActivity({
 
   const current = items[index] ?? items[0]
   const minutesAgo = minutesSince(current.purchasedAt)
-  const fullTitle = `${current.buyerName} just ordered ${current.productName} — ${formatMinutesAgo(minutesAgo)}`
+  const timeLabel = formatMinutesAgoI18n(minutesAgo, t)
+  const prefix = t('activity.justOrderedPrefix', { buyer: current.buyerName })
+  const fullTitle = `${prefix}${current.productName} — ${timeLabel}`
 
   return (
     <ActivitySpeechBubble isDark={isDark} compact={isHeader} title={fullTitle}>
@@ -127,6 +146,8 @@ export default function RecentPurchaseActivity({
         minutesAgo={minutesAgo}
         isDark={isDark}
         compact={isHeader}
+        prefix={prefix}
+        timeLabel={timeLabel}
       />
     </ActivitySpeechBubble>
   )

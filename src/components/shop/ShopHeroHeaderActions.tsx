@@ -4,6 +4,7 @@ import { useTheme } from '@/lib/theme'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
+import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
 type ShopHeroHeaderActionsProps = {
   /** Override cart badge (e.g. on product page). */
@@ -42,6 +43,7 @@ export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps 
         className="flex-nowrap shrink-0 gap-1.5 lg:gap-2"
         buttonClassName="btn-primary text-xs lg:text-sm px-2.5 lg:px-3 py-2 inline-flex whitespace-nowrap shrink-0"
       />
+      <LanguageSwitcher compact />
     </div>
   )
 }

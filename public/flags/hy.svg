@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Armenia (simplified): red/blue/orange -->
+  <rect width="640" height="160" y="0" fill="#D90012"/>
+  <rect width="640" height="160" y="160" fill="#0033A0"/>
+  <rect width="640" height="160" y="320" fill="#F2A800"/>
+</svg>
+

@@ -7,6 +7,7 @@ import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { appPath, isAppPath } from '@/lib/paths'
 import { TagIcon } from '@heroicons/react/24/outline'
+import { useI18n } from '@/lib/i18n-context'
 
 type SidebarCategoriesProps = {
   isCollapsed: boolean
@@ -30,10 +31,11 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
   const { theme } = useTheme()
   const { selectedCategory } = useShopCategory()
   const categories = useShopCategoryList()
+  const { t } = useI18n()
 
   if (isCollapsed) {
     return (
-      <div className="py-2 flex justify-center shrink-0" title="Categories">
+      <div className="py-2 flex justify-center shrink-0" title={t('nav.categories')}>
         <TagIcon className={`w-6 h-6 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`} />
       </div>
     )
@@ -46,15 +48,16 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
           theme === 'dark' ? 'text-gray-500' : 'text-gray-500'
         }`}
       >
-        Categories
+        {t('nav.categories')}
       </p>
       <nav
         className="sidebar-category-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-0.5 pr-1 -mr-1"
-        aria-label="Product categories"
+        aria-label={t('nav.categories')}
       >
         {categories.map((category) => {
           const isActive = selectedCategory === category
           const href = categoryHref(pathname, category)
+          const label = category === 'All' ? t('nav.home') : category
           return (
             <Link
               key={category}
@@ -68,7 +71,7 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
-              {category}
+              {label}
             </Link>
           )
         })}

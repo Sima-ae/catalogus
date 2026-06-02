@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <!-- Bosnia and Herzegovina (very simplified): blue + yellow triangle band -->
+  <rect width="640" height="480" fill="#002395"/>
+  <polygon points="640,0 640,480 250,480" fill="#FECB00"/>
+</svg>
+
