@@ -63,6 +63,9 @@ export const MESSAGES_PT: Record<string, string> = {
   'language.pt': 'Português',
   'language.gr': 'Grego',
   'language.tr': 'Turco',
+  'language.ma': 'Árabe marroquino',
+  'language.cz': 'Checo',
+  'language.pl': 'Polaco',
 
   // Categories
   'category.all': 'Todos',
