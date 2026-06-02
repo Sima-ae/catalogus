@@ -1,4 +1,6 @@
-export const SUPPORTED_LOCALES = ['nl', 'en'] as const
+import { MESSAGES_ES } from '@/lib/i18n-es'
+
+export const SUPPORTED_LOCALES = ['nl', 'en', 'es'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 
 export const DEFAULT_LOCALE: Locale = 'nl'
@@ -64,6 +66,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.close': 'Close',
     'language.en': 'English',
     'language.nl': 'Dutch',
+    'language.es': 'Spanish',
 
     // Categories
     'category.all': 'All',
@@ -248,6 +251,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.close': 'Sluiten',
     'language.en': 'Engels',
     'language.nl': 'Nederlands',
+    'language.es': 'Spaans',
 
     // Categories
     'category.all': 'Alle',
@@ -376,6 +380,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     'pricelist.access.backToShop': 'Terug naar de shop',
     'pricelist.access.verifyFailed': 'Verificatie mislukt. Probeer opnieuw.',
   },
+  es: MESSAGES_ES,
 }
 
 export function isLocale(value: string | null | undefined): value is Locale {
