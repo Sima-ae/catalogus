@@ -65,11 +65,13 @@ export default function PricelistTable({
 
   return (
     <div className={`overflow-x-auto rounded-xl border ${border}`}>
-      <table className="w-full min-w-[640px] text-sm table-fixed">
+      <table className="w-full min-w-[760px] text-sm table-fixed">
         <colgroup>
           <col className="w-28" />
-          <col className="w-[22%]" />
+          <col className="w-[18%]" />
           <col />
+          <col className="w-[14%]" />
+          <col className="w-[12%]" />
           <col className="w-52" />
         </colgroup>
         <thead className={head}>
@@ -77,6 +79,8 @@ export default function PricelistTable({
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Image</th>
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Title</th>
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">SKU</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Category</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Brand</th>
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Price</th>
             {showStar ? <th className="px-3 py-2 w-12" aria-label="Pricelist" /> : null}
             {canManageItems ? <th className="px-3 py-2 w-24" /> : null}
@@ -281,6 +285,18 @@ function PricelistTableRow({
       </td>
       <td className={`px-3 py-1.5 font-mono text-xs truncate align-middle leading-snug ${muted}`} title={row.sku}>
         {row.sku}
+      </td>
+      <td
+        className={`px-3 py-1.5 text-xs truncate align-middle leading-snug ${muted}`}
+        title={row.category}
+      >
+        {row.category}
+      </td>
+      <td
+        className={`px-3 py-1.5 text-xs truncate align-middle leading-snug ${muted}`}
+        title={row.brand}
+      >
+        {row.brand}
       </td>
       <td className="px-3 py-1.5 align-middle">
         {showSellerPriceInput ? (

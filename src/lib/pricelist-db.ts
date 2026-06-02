@@ -17,6 +17,8 @@ export type PricelistRow = {
   product_id: string
   name: string
   sku: string
+  category: string
+  brand: string
   image_url: string
   created_at: string
   seller_unit_price: number | null
@@ -154,14 +156,16 @@ export async function listPricelistRows(
       product_id: string
       name: string
       sku: string
+      category: string | null
+      brand: string | null
       image_url: string
       gallery_images: unknown
       source_url: string | null
       created_at: string
     }[]
   >(
-    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.image_url, p.gallery_images,
-            p.source_url, pi.created_at
+    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.brand,
+            p.image_url, p.gallery_images, p.source_url, pi.created_at
      FROM pricelist_items pi
      INNER JOIN products p ON p.id = pi.product_id
      WHERE pi.owner_user_id = ?
@@ -259,6 +263,8 @@ export async function listPricelistRows(
       product_id: item.product_id,
       name: item.name,
       sku: item.sku,
+      category: item.category?.trim() || '—',
+      brand: item.brand?.trim() || '—',
       image_url: main,
       created_at: item.created_at,
       seller_unit_price: sellerUnit,

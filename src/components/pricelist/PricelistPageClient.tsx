@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
@@ -11,11 +11,13 @@ import {
   isPlatformPricelistOwner,
   PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
+  PRICELIST_PAGE_SIZE,
 } from '@/lib/pricelist-constants'
 import PricelistViewToggle from '@/components/pricelist/PricelistViewToggle'
 import PricelistTable from '@/components/pricelist/PricelistTable'
 import PricelistGrid from '@/components/pricelist/PricelistGrid'
 import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
+import CatalogPagination from '@/components/shop/CatalogPagination'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -98,6 +100,7 @@ export default function PricelistPageClient() {
 
   const showOwnerSelect = owners.length > 1
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const subtitle = isPlatformList ? 'See my request(s) below!' : currentOwnerLabel
 
@@ -109,6 +112,32 @@ export default function PricelistPageClient() {
         row.name.toLowerCase().includes(q) || row.sku.toLowerCase().includes(q)
     )
   }, [items, searchQuery])
+
+  const totalFiltered = filteredItems.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PRICELIST_PAGE_SIZE) || 1)
+  const safePage = Math.min(Math.max(1, currentPage), totalPages)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, ownerId])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const paginatedItems = useMemo(() => {
+    const start = (safePage - 1) * PRICELIST_PAGE_SIZE
+    return filteredItems.slice(start, start + PRICELIST_PAGE_SIZE)
+  }, [filteredItems, safePage])
+
+  const paginationProps = {
+    page: safePage,
+    totalItems: totalFiltered,
+    pageSize: PRICELIST_PAGE_SIZE,
+    onPageChange: setCurrentPage,
+  }
 
   const searchInputClass = isDark
     ? 'bg-dark-800 border-dark-600 text-white placeholder-gray-500'
@@ -160,7 +189,7 @@ export default function PricelistPageClient() {
         <div className={`text-sm ${muted}`}>
           <p>Enter all prices in the empty fields below.</p>
           <p className="mt-1 text-xs text-red-500">
-            Changes save when you leave each field or tap the check button.
+            Changes are automatically saved when you leave each field or tap the check button.
           </p>
         </div>
       ) : null}
@@ -203,25 +232,33 @@ export default function PricelistPageClient() {
           <p className={muted}>No products match your search.</p>
         </div>
       ) : viewMode === 'table' ? (
-        <PricelistTable
-          items={filteredItems}
-          canEditPrices={canEditPrices}
-          canManageItems={canRemoveItems}
-          showStar={canShowStar}
-          ownerQuery={ownerQuery}
-          isDark={isDark}
-          isSeller={isSeller}
-          canApprovePriceEdits={canManagePriceEditRequests}
-          canClearPrice={Boolean(isSuperAdmin)}
-          onSavePrice={savePrice}
-          onClearPrice={isSuperAdmin ? clearPrice : undefined}
-          onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
-          onApprovePriceEdit={canManagePriceEditRequests ? approvePriceEdit : undefined}
-          onRemove={removeItem}
-          onStarChange={() => void reloadPricelist()}
-        />
+        <>
+          <CatalogPagination {...paginationProps} alignEnd />
+          <PricelistTable
+            items={paginatedItems}
+            canEditPrices={canEditPrices}
+            canManageItems={canRemoveItems}
+            showStar={canShowStar}
+            ownerQuery={ownerQuery}
+            isDark={isDark}
+            isSeller={isSeller}
+            canApprovePriceEdits={canManagePriceEditRequests}
+            canClearPrice={Boolean(isSuperAdmin)}
+            onSavePrice={savePrice}
+            onClearPrice={isSuperAdmin ? clearPrice : undefined}
+            onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
+            onApprovePriceEdit={canManagePriceEditRequests ? approvePriceEdit : undefined}
+            onRemove={removeItem}
+            onStarChange={() => void reloadPricelist()}
+          />
+          <CatalogPagination {...paginationProps} centered />
+        </>
       ) : (
-        <PricelistGrid items={filteredItems} isDark={isDark} />
+        <>
+          <CatalogPagination {...paginationProps} alignEnd />
+          <PricelistGrid items={paginatedItems} isDark={isDark} />
+          <CatalogPagination {...paginationProps} centered />
+        </>
       )}
     </div>
   )

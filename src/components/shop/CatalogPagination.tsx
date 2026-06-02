@@ -11,6 +11,8 @@ type Props = {
   pageSize?: number
   onPageChange: (page: number) => void
   centered?: boolean
+  /** When true, align pagination controls to the right (status stays on the left). */
+  alignEnd?: boolean
 }
 
 export default function CatalogPagination({
@@ -19,6 +21,7 @@ export default function CatalogPagination({
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
   centered = false,
+  alignEnd = false,
 }: Props) {
   const t = useAppTheme()
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
@@ -115,11 +118,11 @@ export default function CatalogPagination({
 
   return (
     <div
-      className={`flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between ${
-        t.isDark ? 'border-dark-800' : 'border-gray-200'
-      }`}
+      className={`flex flex-col gap-3 py-3 sm:flex-row sm:items-center ${
+        alignEnd ? 'sm:justify-end' : 'sm:justify-between'
+      } ${t.isDark ? 'border-dark-800' : 'border-gray-200'}`}
     >
-      <p className={`text-sm ${t.muted}`}>{statusText}</p>
+      <p className={`text-sm ${t.muted} ${alignEnd ? 'sm:mr-auto' : ''}`}>{statusText}</p>
       {navButtons}
     </div>
   )
