@@ -3,7 +3,7 @@ export const PLATFORM_PRICELIST_OWNER_ID = '00000000-0000-4000-8000-000000000001
 
 export const PRICELIST_OWNER_QUERY_PLATFORM = 'platform'
 
-export const PRICELIST_PAGE_SIZE = 10
+export const PRICELIST_PAGE_SIZE = 20
 
 export function isPlatformPricelistOwner(ownerId: string): boolean {
   return ownerId === PLATFORM_PRICELIST_OWNER_ID
