@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopCategoryList } from '@/lib/use-shop-category-list'
-import { appPath, isAppPath } from '@/lib/paths'
+import { shopCatalogBasePath } from '@/lib/shop-catalog-url'
 import { TagIcon } from '@heroicons/react/24/outline'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
@@ -16,13 +16,7 @@ type SidebarCategoriesProps = {
 }
 
 function categoryHref(pathname: string, category: string): string {
-  const onCatalog =
-    isAppPath(pathname, '/') ||
-    isAppPath(pathname, '/new') ||
-    pathname === '/' ||
-    pathname === '/new'
-
-  const base = onCatalog ? pathname.split('?')[0] : appPath('/')
+  const base = shopCatalogBasePath(pathname)
   if (category === 'All') return base
   return `${base}?category=${encodeURIComponent(category)}`
 }

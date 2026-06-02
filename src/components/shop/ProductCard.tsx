@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { Product } from '@/lib/types'
 import { saveCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { catalogListingKey, isShopCatalogPath, parseCatalogPageParam } from '@/lib/shop-catalog-url'
-import { appPath } from '@/lib/paths'
+import { useLocalizedPath } from '@/lib/use-localized-path'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
@@ -24,6 +24,7 @@ interface ProductCardProps {
 export default function ProductCard({ product }: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const localizedPath = useLocalizedPath()
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
   const { catalogMode } = useCatalogMode()
@@ -72,7 +73,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         : 'bg-white border-gray-200'
     }`}>
       <Link
-        href={appPath(`/product/${product.id}`)}
+        href={localizedPath(`/product/${product.id}`)}
         className="block"
         scroll={false}
         onClick={saveListingScroll}
@@ -97,7 +98,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       
       <div className="space-y-2">
         <Link
-          href={appPath(`/product/${product.id}`)}
+          href={localizedPath(`/product/${product.id}`)}
           className="block"
           scroll={false}
           onClick={saveListingScroll}

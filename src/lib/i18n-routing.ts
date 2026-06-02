@@ -1,4 +1,4 @@
-import { basePath } from '@/lib/paths'
+import { appPath, basePath, isAppPath } from '@/lib/paths'
 import {
   DEFAULT_LOCALE,
   getLocaleSlug,
@@ -64,4 +64,23 @@ export function localizedPathFromWindow(path: string, locale: string): string {
 
 export function resolveLocaleFromCookie(value: string | null | undefined): Locale {
   return isLocale(value) ? value : DEFAULT_LOCALE
+}
+
+/** Match an app route ignoring an optional locale prefix (/nl/product → /product). */
+export function pathnameMatches(pathname: string | null, path: string): boolean {
+  if (!pathname) return false
+  const { pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+  const target = path.startsWith('/') ? path : `/${path}`
+  return (
+    pathnameWithoutLocale === target ||
+    pathnameWithoutLocale === appPath(target) ||
+    isAppPath(pathnameWithoutLocale, target)
+  )
+}
+
+/** Build `path` with the same locale slug as the current URL. */
+export function localizedAppPath(pathname: string | null, path: string): string {
+  const { locale } = parseLocaleFromPathname(pathname ?? '/')
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  return localizedPath(normalized, locale ?? DEFAULT_LOCALE)
 }

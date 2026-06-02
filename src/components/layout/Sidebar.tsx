@@ -136,7 +136,7 @@ import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/auth-local'
 import { APP_COPYRIGHT } from '@/lib/brand'
-import { appPath } from '@/lib/paths'
+import { localizedAppPath, pathnameMatches } from '@/lib/i18n-routing'
 import BrandLogo from '@/components/brand/BrandLogo'
 import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import SidebarCategories from '@/components/layout/SidebarCategories'
@@ -202,6 +202,7 @@ export function SidebarMenuButton({
 
 function NavLink({
   item,
+  pathname,
   isActive,
   isCollapsed,
   theme,
@@ -209,6 +210,7 @@ function NavLink({
   onNavigate,
 }: {
   item: { href: string; icon: any }
+  pathname: string | null
   isActive: boolean
   isCollapsed: boolean
   theme: string
@@ -217,7 +219,7 @@ function NavLink({
 }) {
   return (
     <Link
-      href={appPath(item.href)}
+      href={localizedAppPath(pathname, item.href)}
       onClick={onNavigate}
       className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
         isActive
@@ -306,8 +308,9 @@ export default function Sidebar({
           <NavLink
             key={item.key}
             item={item}
+            pathname={pathname}
             label={t(item.key)}
-            isActive={pathname === item.href || pathname === appPath(item.href)}
+            isActive={pathnameMatches(pathname, item.href)}
             isCollapsed={false}
             theme={theme}
             onNavigate={close}
@@ -332,8 +335,9 @@ export default function Sidebar({
             <NavLink
               key={item.key}
               item={item}
+              pathname={pathname}
               label={t(item.key)}
-              isActive={pathname === item.href || pathname === appPath(item.href)}
+              isActive={pathnameMatches(pathname, item.href)}
               isCollapsed={false}
               theme={theme}
               onNavigate={close}

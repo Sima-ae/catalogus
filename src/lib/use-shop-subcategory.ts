@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
-import { clearCatalogPageParam, isShopCatalogPath } from '@/lib/shop-catalog-url'
+import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
 export type ShopSubcategoryRow = {
   id: string
@@ -83,7 +83,7 @@ export function useShopSubcategory(selectedCategory: string) {
 
   const setSelectedSubcategory = useCallback(
     (subcategory: string) => {
-      const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+      const basePath = shopCatalogBasePath(pathname)
       const params = new URLSearchParams(
         isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
@@ -108,7 +108,7 @@ export function useShopSubcategory(selectedCategory: string) {
       (name) => name.toLowerCase() === raw.toLowerCase()
     )
     if (!valid) {
-      const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+      const basePath = shopCatalogBasePath(pathname)
       const params = new URLSearchParams(
         isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )

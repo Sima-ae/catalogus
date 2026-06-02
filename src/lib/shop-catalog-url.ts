@@ -1,10 +1,24 @@
 import { appPath, isAppPath } from '@/lib/paths'
+import { parseLocaleFromPathname, localizedPath } from '@/lib/i18n-routing'
+import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 
 export const SHOP_CATALOG_PATHS = ['/', '/new'] as const
 
 export function isShopCatalogPath(pathname: string | null): boolean {
   if (!pathname) return false
-  return SHOP_CATALOG_PATHS.some((p) => isAppPath(pathname, p) || pathname === p)
+  const { pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+  return SHOP_CATALOG_PATHS.some(
+    (p) => pathnameWithoutLocale === p || isAppPath(pathnameWithoutLocale, p)
+  )
+}
+
+/** Catalog list URL preserving the locale segment (e.g. /nl/ or /en/new). */
+export function shopCatalogBasePath(pathname: string | null): string {
+  if (pathname && isShopCatalogPath(pathname)) {
+    return pathname.split('?')[0]
+  }
+  const { locale } = parseLocaleFromPathname(pathname ?? '/')
+  return localizedPath('/', locale ?? DEFAULT_LOCALE)
 }
 
 export function parseCatalogPageParam(searchParams: URLSearchParams): number {

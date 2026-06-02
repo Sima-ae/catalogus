@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { appPath } from '@/lib/paths'
+import { localizedAppPath } from '@/lib/i18n-routing'
 import { clearCatalogPageParam, isShopCatalogPath } from '@/lib/shop-catalog-url'
 
 export const SHOP_SEARCH_DEBOUNCE_MS = 300
@@ -56,9 +56,9 @@ export function useShopSearch() {
       const params = new URLSearchParams()
       if (trimmed) params.set('search', trimmed)
       const qs = params.toString()
-      router.push(qs ? `${appPath('/')}?${qs}` : appPath('/'))
+      router.push(qs ? `${localizedAppPath(pathname, '/')}?${qs}` : localizedAppPath(pathname, '/'))
     },
-    [router]
+    [pathname, router]
   )
 
   return {

@@ -5,8 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { useShopCategories } from '@/lib/use-shop-categories'
 import { findParentCategoryName } from '@/lib/shop-category-tree'
-import { appPath } from '@/lib/paths'
-import { clearCatalogPageParam, isShopCatalogPath } from '@/lib/shop-catalog-url'
+import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
 export function useShopCategory() {
   const router = useRouter()
@@ -34,7 +33,7 @@ export function useShopCategory() {
     const parent = findParentCategoryName(categoryRows, raw)
     if (!parent) return
 
-    const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+    const basePath = shopCatalogBasePath(pathname)
     const params = new URLSearchParams(
       isShopCatalogPath(pathname) ? searchParams.toString() : ''
     )
@@ -47,7 +46,7 @@ export function useShopCategory() {
 
   const setSelectedCategory = useCallback(
     (category: string) => {
-      const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+      const basePath = shopCatalogBasePath(pathname)
       const params = new URLSearchParams(
         isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
