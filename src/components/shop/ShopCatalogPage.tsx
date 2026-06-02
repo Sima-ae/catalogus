@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/Sidebar'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import BrandFilter from '@/components/shop/BrandFilter'
@@ -18,6 +19,14 @@ import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSearch } from '@/lib/use-shop-search'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
+import {
+  catalogListingKey,
+} from '@/lib/shop-catalog-url'
+import {
+  consumeCatalogScrollState,
+  restoreCatalogScroll,
+} from '@/lib/catalog-scroll-restore'
 import { APP_NAME } from '@/lib/brand'
 import {
   SparklesIcon,
@@ -62,10 +71,14 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [loading, setLoading] = useState(true)
   const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
+  const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
   const hasLoadedOnce = useRef(false)
-  const prevFilterRef = useRef('')
+  const prevFilterRef = useRef<string | null>(null)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const listingScrollKey = catalogListingKey(pathname ?? '', searchParams)
+  const scrollRestoredRef = useRef(false)
   const { theme } = useTheme()
   const {
     open: sidebarOpen,
@@ -86,8 +99,23 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedBrand}|${debouncedSearch}|${config.mode}`
 
   useEffect(() => {
+    scrollRestoredRef.current = false
+  }, [listingScrollKey])
+
+  useEffect(() => {
+    if (loading || pageLoading || products.length === 0 || scrollRestoredRef.current) return
+    const state = consumeCatalogScrollState(listingScrollKey)
+    if (!state) return
+    scrollRestoredRef.current = true
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => restoreCatalogScroll(state))
+    })
+  }, [loading, pageLoading, products.length, listingScrollKey])
+
+  useEffect(() => {
     let cancelled = false
-    const filtersChanged = prevFilterRef.current !== filterSignature
+    const filtersChanged =
+      prevFilterRef.current !== null && prevFilterRef.current !== filterSignature
     prevFilterRef.current = filterSignature
 
     if (filtersChanged && currentPage !== 1) {
@@ -95,7 +123,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
       return
     }
 
-    const pageToLoad = filtersChanged ? 1 : currentPage
+    const pageToLoad = currentPage
 
     async function loadProducts() {
       if (!hasLoadedOnce.current) setLoading(true)
@@ -124,9 +152,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
         setTotalItems(data.total)
         hasLoadedOnce.current = true
 
-        if (filtersChanged && currentPage !== 1) {
-          setCurrentPage(1)
-        } else if (data.page !== pageToLoad && data.page >= 1) {
+        if (data.page !== pageToLoad && data.page >= 1) {
           setCurrentPage(data.page)
         }
       } catch (err) {
@@ -217,7 +243,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
-                <p className={`text-lg ${muted}`}>Loading products...</p>
+                <p className={`text-lg ${muted}`}>{tr('loading.products')}</p>
               </div>
             ) : error ? (
               <div className="text-center py-12">

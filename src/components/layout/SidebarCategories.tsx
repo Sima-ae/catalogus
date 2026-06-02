@@ -8,6 +8,7 @@ import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { appPath, isAppPath } from '@/lib/paths'
 import { TagIcon } from '@heroicons/react/24/outline'
 import { useI18n } from '@/lib/i18n-context'
+import { getTopCategoryLabel } from '@/lib/i18n-categories'
 
 type SidebarCategoriesProps = {
   isCollapsed: boolean
@@ -57,7 +58,7 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
         {categories.map((category) => {
           const isActive = selectedCategory === category
           const href = categoryHref(pathname, category)
-          const label = category === 'All' ? t('nav.home') : category
+          const label = getTopCategoryLabel(category, t, { allStyle: 'home' })
           return (
             <Link
               key={category}

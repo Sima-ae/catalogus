@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import { RoundFlag } from '@/components/i18n/RoundFlag'
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@/lib/i18n'
 import { useI18n } from '@/lib/i18n-context'
 import { useLanguagePicker } from '@/lib/language-picker-context'
@@ -29,13 +29,7 @@ export default function LanguageSwitcher({ compact = false }: Props) {
       aria-label={t('language.chooseTitle')}
       aria-haspopup="dialog"
     >
-      <Image
-        src={`/flags/${currentCode}.svg`}
-        alt=""
-        width={18}
-        height={18}
-        className="rounded-sm"
-      />
+      <RoundFlag code={currentCode} size={18} />
       <span className="font-medium">{currentCode.toUpperCase()}</span>
     </button>
   )

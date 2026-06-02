@@ -15,7 +15,7 @@ import { cookies } from 'next/headers'
 import { I18nProvider } from '@/lib/i18n-context'
 import { LanguagePickerProvider } from '@/lib/language-picker-context'
 import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
-import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE } from '@/lib/i18n'
+import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE } from '@/lib/i18n'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -31,6 +31,8 @@ export default function RootLayout({
   const cookieStore = cookies()
   const rawLocale = cookieStore.get(LOCALE_COOKIE)?.value
   const locale = isLocale(rawLocale) ? rawLocale : DEFAULT_LOCALE
+  const messages = getMessages(locale)
+  const preloadText = messages['loading.generic'] || 'Loading…'
 
   return (
     <html lang={locale}>
@@ -39,8 +41,9 @@ export default function RootLayout({
         <AuthProvider>
           <Suspense
             fallback={
-              <div className="min-h-screen flex items-center justify-center bg-dark-900">
+              <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-dark-900 text-gray-400 px-4">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+                <p className="text-sm">{preloadText}</p>
               </div>
             }
           >

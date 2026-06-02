@@ -72,9 +72,8 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
   const rawDescription = String(raw.description || '').trim()
   const rawShort = String(raw.short_description ?? '').trim()
   const description = cleanImportDescription(rawDescription, name, brand)
-  const shortDescription = rawShort
-    ? cleanImportDescription(rawShort, name, brand)
-    : description.slice(0, 280)
+  const cleanedShort = rawShort ? cleanImportDescription(rawShort, name, brand) : ''
+  const shortDescription = cleanedShort || description.slice(0, 280) || description
 
   return {
     id: String(raw.id ?? ''),

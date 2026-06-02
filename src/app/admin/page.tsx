@@ -33,6 +33,7 @@ import { appPath } from '@/lib/paths'
 import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
 import { useAppTheme } from '@/lib/theme-classes'
 import type { Product } from '@/lib/types'
+import { useI18n } from '@/lib/i18n-context'
 
 type Order = {
   id: string
@@ -105,6 +106,7 @@ const quickLinks = [
 
 export default function AdminDashboard() {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user } = useAuth()
   const { symbol: currency } = useShopCurrency()
 
@@ -219,7 +221,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500 mx-auto" />
-            <p className={`mt-3 text-sm ${t.muted}`}>Loading dashboard…</p>
+            <p className={`mt-3 text-sm ${t.muted}`}>{tr('loading.dashboard')}</p>
           </div>
         </div>
       ) : (

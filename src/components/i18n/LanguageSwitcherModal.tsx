@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { RoundFlag } from '@/components/i18n/RoundFlag'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { useI18n } from '@/lib/i18n-context'
@@ -84,7 +84,7 @@ export default function LanguageSwitcherModal() {
         </div>
 
         <div className="max-h-[min(60vh,28rem)] overflow-y-auto p-4 sm:p-5">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-1.5">
             {SUPPORTED_LOCALES.map((code) => {
               const label = t(`language.${code}`)
               const active = code === locale
@@ -93,22 +93,18 @@ export default function LanguageSwitcherModal() {
                   key={code}
                   type="button"
                   onClick={() => selectLocale(code)}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors ${
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left transition-colors ${
                     active
-                      ? 'border-primary-500 bg-primary-500/10 ring-2 ring-primary-500/40'
+                      ? isDark
+                        ? 'bg-primary-500/20 text-white'
+                        : 'bg-emerald-50 text-emerald-950'
                       : isDark
-                        ? 'border-dark-600 hover:border-dark-500 hover:bg-dark-800'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'text-gray-200 hover:bg-dark-800'
+                        : 'text-gray-800 hover:bg-gray-100'
                   }`}
                 >
-                  <Image
-                    src={`/flags/${code}.svg`}
-                    alt=""
-                    width={32}
-                    height={32}
-                    className="rounded-sm shadow-sm"
-                  />
-                  <span className={`text-xs sm:text-sm leading-tight ${active ? 'font-semibold' : ''}`}>
+                  <RoundFlag code={code} size={26} />
+                  <span className={`text-sm leading-tight truncate ${active ? 'font-semibold' : 'font-medium'}`}>
                     {label}
                   </span>
                 </button>

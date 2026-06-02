@@ -2,15 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { appPath, isAppPath } from '@/lib/paths'
+import { appPath } from '@/lib/paths'
+import { clearCatalogPageParam, isShopCatalogPath } from '@/lib/shop-catalog-url'
 
-const CATALOG_PATHS = ['/', '/new']
 export const SHOP_SEARCH_DEBOUNCE_MS = 300
-
-function isCatalogPath(pathname: string | null) {
-  if (!pathname) return false
-  return CATALOG_PATHS.some((p) => isAppPath(pathname, p) || pathname === p)
-}
 
 /** Catalog search synced to ?search= in the URL (shareable, survives refresh). */
 export function useShopSearch() {
@@ -39,12 +34,13 @@ export function useShopSearch() {
   }, [searchQuery])
 
   useEffect(() => {
-    if (!isCatalogPath(pathname)) return
+    if (!isShopCatalogPath(pathname)) return
     const current = searchParams.get('search')?.trim() || ''
     if (current === debouncedSearch) return
 
     const basePath = pathname!.split('?')[0]
     const params = new URLSearchParams(searchParams.toString())
+    clearCatalogPageParam(params)
     if (debouncedSearch) params.set('search', debouncedSearch)
     else params.delete('search')
 

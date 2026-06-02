@@ -9,6 +9,7 @@ type Props = {
   onChange: (value: string) => void
   showArrows?: boolean
   ariaLabel?: string
+  getLabel?: (value: string) => string
   /** Catalog pill styling (homepage / new). */
   centered?: boolean
   /** @deprecated Use centered scroll layout only — kept for API compatibility. */
@@ -23,6 +24,7 @@ export default function FilterPillsScroll({
   onChange,
   showArrows = false,
   ariaLabel = 'Filter',
+  getLabel,
   centered = false,
 }: Props) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -222,7 +224,7 @@ export default function FilterPillsScroll({
               : 'snap-start px-4 py-2.5 text-sm'
           } ${pillClass(item)}`}
         >
-          {item}
+          {getLabel ? getLabel(item) : item}
         </button>
       ))}
     </div>

@@ -174,7 +174,10 @@ export function stripDuplicateSkuPrefix(text: string, title: string): string {
   const titleTrim = String(title ?? '').trim()
   if (!result || !titleTrim) return result
 
-  if (result.toLowerCase().startsWith(titleTrim.toLowerCase())) {
+  if (
+    isSkuOnlyTitle(titleTrim) &&
+    result.toLowerCase().startsWith(titleTrim.toLowerCase())
+  ) {
     result = result.slice(titleTrim.length).trim()
   }
 
@@ -350,6 +353,119 @@ export function stripProductTrademarkBoilerplate(
   return result
 }
 
+function isMostlyChineseLine(line: string): boolean {
+  const t = line.trim()
+  if (!t) return true
+  if (isChineseLabelOnlyLine(t)) return true
+  const cjk = (t.match(/[\u4e00-\u9fff]/g) || []).length
+  const latin = (t.match(/[a-zA-Z]/g) || []).length
+  if (cjk > 0 && latin === 0) return true
+  if (cjk >= 4 && latin < 8) return true
+  return false
+}
+
+/** Remove Han script from a line but keep Latin product copy on the same line. */
+function stripCjkFromLine(line: string): string {
+  return line
+    .replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+/g, ' ')
+    .replace(/[：；，。【】！？「」『』【】（）]/g, ' ')
+    .replace(/\(\s*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function cleanDescriptionLine(line: string): string {
+  const t = line.trim()
+  if (!t) return ''
+  if (isSupplierOnlyLine(t)) return ''
+  if (isChineseLabelOnlyLine(t)) return ''
+
+  const cjk = (t.match(/[\u4e00-\u9fff]/g) || []).length
+  const latin = (t.match(/[a-zA-Z]/g) || []).length
+  if (cjk > 0 && latin === 0) return ''
+  if (cjk > 0) return stripCjkFromLine(t)
+  return t
+}
+
+function isSupplierOnlyLine(line: string): boolean {
+  const t = line.trim()
+  if (!t) return true
+  if (/supplier\s+product\s+catalog/i.test(t) && t.length < 200) return true
+  if (/^guang(?:zhou)?\s+keshi\b/i.test(t)) return true
+  if (/^guangtai\b/i.test(t) && t.length < 120) return true
+  if (/^(?:yangli|niuli|quanniuli|quanyangli)\b/i.test(t) && t.length < 80) return true
+  return false
+}
+
+function isSupplierParenLabel(inner: string, brandName?: string | null): boolean {
+  const label = inner.trim()
+  if (!label) return false
+  const brand = String(brandName ?? '').trim()
+  if (brand && label.toLowerCase() === brand.toLowerCase()) return false
+  if (/[\u4e00-\u9fff]/.test(label)) return true
+  if (/yangli|niuli|guangtai|keshi|guangzhou|quanyangli|quanniuli|southern\s*pk/i.test(label)) return true
+  if (/official\s+website|1\s*:\s*1|high[- ]?end|high[- ]?quality/i.test(label)) return true
+  return false
+}
+
+/**
+ * Remove Chinese supplier shop lines/names from descriptions.
+ * Keeps English product copy and brand names — never wipes the whole text unless
+ * the source was supplier-only boilerplate.
+ */
+export function stripSupplierBoilerplateFromDescription(
+  text: string,
+  brandName?: string | null
+): string {
+  const original = String(text ?? '').trim()
+  if (!original) return original
+
+  if (
+    /^guangzhou\s+keshi\s+clothing[\s\S]{0,240}$/i.test(original) &&
+    /supplier\s+product\s+catalog/i.test(original)
+  ) {
+    return ''
+  }
+
+  let result = original
+  result = result.replace(/\s*[-–—|｜]+\s*Supplier\s+Product\s+Catalog\s*$/gi, '')
+  result = result.replace(
+    /guangzhou\s+keshi\s+clothing(?:\s*\[[^\]]*\])?(?:\s*[-–—|｜]\s*)?(?:supplier\s+product\s+catalog)?/gi,
+    ''
+  )
+  result = result.replace(
+    /\[(?:exclusive\s+cross-border\s+supply,\s*affordable\s+and\s+transparent)\]/gi,
+    ''
+  )
+
+  const lines = result.split(/\r?\n/)
+  const kept = lines
+    .map((line) => cleanDescriptionLine(line))
+    .filter((line) => line.length > 0)
+
+  result = kept.length > 0 ? kept.join('\n') : cleanDescriptionLine(result)
+
+  result = result.replace(
+    /^\(([^)]+)\)\s*/i,
+    (match, inner: string) => (isSupplierParenLabel(inner, brandName) ? '' : match)
+  )
+  result = result.replace(/\(\s*high[- ]?end\s+niuli\s*\)/gi, ' ')
+  result = result.replace(/\(\s*high[- ]?end\s+yangli\s*\)/gi, ' ')
+  result = result.replace(/\(\s*[\u4e00-\u9fff]{1,12}\s*\)/g, ' ')
+  result = result.replace(/^high[- ]?quality\s+niuli\s+/i, '')
+  result = result.replace(/^(?:yangli|niuli|guangtai|quanniuli|quanyangli)\s+/i, '')
+  result = result.replace(/^southern\s+pk\b[:\s-]*/i, '')
+
+  result = result
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .trim()
+
+  return result
+}
+
 /** SKU prefix + trademark boilerplate cleanup for import and shop display. */
 export function cleanImportDescription(
   text: string,
@@ -359,6 +475,7 @@ export function cleanImportDescription(
   let result = stripChineseIconsAndDecorations(text)
   result = stripDuplicateSkuPrefix(result, title)
   result = stripProductTrademarkBoilerplate(result, brandName)
+  result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripChineseIconsAndDecorations(result)
   result = result
     .replace(/\bshipping\s+from\s+guangzhou\b/gi, ' ')

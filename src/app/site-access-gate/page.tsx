@@ -117,11 +117,12 @@ function GateForm() {
 }
 
 export default function SiteAccessGatePage() {
+  const { t } = useI18n()
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
-          Loading...
+          {t('loading.generic')}
         </div>
       }
     >

@@ -2,7 +2,10 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Product } from '@/lib/types'
+import { saveCatalogScrollState } from '@/lib/catalog-scroll-restore'
+import { catalogListingKey, isShopCatalogPath } from '@/lib/shop-catalog-url'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
@@ -18,6 +21,8 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
   const { catalogMode } = useCatalogMode()
@@ -48,13 +53,25 @@ export default function ProductCard({ product }: ProductCardProps) {
     product.brand
   )
 
+  const saveListingScroll = () => {
+    if (!isShopCatalogPath(pathname)) return
+    saveCatalogScrollState(catalogListingKey(pathname!, searchParams), product.id)
+  }
+
   return (
-    <div className={`card group cursor-pointer hover:shadow-xl transition-all duration-300 w-full ${
+    <div
+      data-product-id={product.id}
+      className={`card group cursor-pointer hover:shadow-xl transition-all duration-300 w-full ${
       theme === 'dark' 
         ? 'bg-dark-800 border-dark-700' 
         : 'bg-white border-gray-200'
     }`}>
-      <Link href={`/product/${product.id}`} className="block">
+      <Link
+        href={`/product/${product.id}`}
+        className="block"
+        scroll={false}
+        onClick={saveListingScroll}
+      >
         <div className={`relative aspect-[3/4] mb-3 overflow-hidden rounded-lg ${
           theme === 'dark' ? 'bg-dark-900' : 'bg-gray-100'
         }`}>
@@ -74,7 +91,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       </Link>
       
       <div className="space-y-2">
-        <Link href={`/product/${product.id}`} className="block">
+        <Link
+          href={`/product/${product.id}`}
+          className="block"
+          scroll={false}
+          onClick={saveListingScroll}
+        >
           <h3 className={`font-semibold text-xs sm:text-sm line-clamp-2 leading-tight transition-colors ${
             theme === 'dark' 
               ? 'group-hover:text-primary-500' 

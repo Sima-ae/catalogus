@@ -30,6 +30,7 @@ import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
+import { useI18n } from '@/lib/i18n-context'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive'
 
@@ -126,6 +127,7 @@ function statusBadgeClass(status: string, isDark: boolean): string {
 
 export default function AdminProductsPage() {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
@@ -488,7 +490,7 @@ export default function AdminProductsPage() {
       </div>
 
       {loading ? (
-        <p className={t.muted}>Loading products...</p>
+        <p className={t.muted}>{tr('loading.products')}</p>
       ) : products.length === 0 ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">No products yet.</p>

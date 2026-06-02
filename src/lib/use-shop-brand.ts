@@ -3,14 +3,8 @@
 import { useCallback, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
-import { appPath, isAppPath } from '@/lib/paths'
-
-const CATALOG_PATHS = ['/', '/new']
-
-function isCatalogPath(pathname: string | null) {
-  if (!pathname) return false
-  return CATALOG_PATHS.some((p) => isAppPath(pathname, p) || pathname === p)
-}
+import { appPath } from '@/lib/paths'
+import { clearCatalogPageParam, isShopCatalogPath } from '@/lib/shop-catalog-url'
 
 export function useShopBrand() {
   const router = useRouter()
@@ -31,10 +25,11 @@ export function useShopBrand() {
 
   const setSelectedBrand = useCallback(
     (brand: string) => {
-      const basePath = isCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+      const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
       const params = new URLSearchParams(
-        isCatalogPath(pathname) ? searchParams.toString() : ''
+        isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
+      clearCatalogPageParam(params)
       if (brand === 'All') {
         params.delete('brand')
       } else {

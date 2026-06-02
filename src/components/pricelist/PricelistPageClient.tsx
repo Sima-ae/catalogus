@@ -18,12 +18,14 @@ import PricelistGrid from '@/components/pricelist/PricelistGrid'
 import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import AppFooter from '@/components/layout/AppFooter'
+import { useI18n } from '@/lib/i18n-context'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
   const initialOwner = searchParams.get('owner') || undefined
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const { t } = useI18n()
 
   const { user, isSuperAdmin } = useAuth()
   const {
@@ -190,7 +192,7 @@ export default function PricelistPageClient() {
       {loading ? (
         <div className="text-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500 mx-auto" />
-          <p className={`mt-4 text-sm ${muted}`}>Loading pricelist…</p>
+          <p className={`mt-4 text-sm ${muted}`}>{t('loading.pricelist')}</p>
         </div>
       ) : items.length === 0 ? (
         <div

@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { appPath, isAppPath } from '@/lib/paths'
-
-const CATALOG_PATHS = ['/', '/new']
+import { appPath } from '@/lib/paths'
+import { clearCatalogPageParam, isShopCatalogPath } from '@/lib/shop-catalog-url'
 
 export type ShopSubcategoryRow = {
   id: string
@@ -12,10 +11,6 @@ export type ShopSubcategoryRow = {
   productCount: number
 }
 
-function isCatalogPath(pathname: string | null) {
-  if (!pathname) return false
-  return CATALOG_PATHS.some((p) => isAppPath(pathname, p) || pathname === p)
-}
 
 /** Subcategory pills for the current parent category — only rows with products. */
 export function useShopSubcategory(selectedCategory: string) {
@@ -88,10 +83,11 @@ export function useShopSubcategory(selectedCategory: string) {
 
   const setSelectedSubcategory = useCallback(
     (subcategory: string) => {
-      const basePath = isCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+      const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
       const params = new URLSearchParams(
-        isCatalogPath(pathname) ? searchParams.toString() : ''
+        isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
+      clearCatalogPageParam(params)
       if (subcategory === 'All') {
         params.delete('subcategory')
       } else {
@@ -112,9 +108,9 @@ export function useShopSubcategory(selectedCategory: string) {
       (name) => name.toLowerCase() === raw.toLowerCase()
     )
     if (!valid) {
-      const basePath = isCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
+      const basePath = isShopCatalogPath(pathname) ? pathname!.split('?')[0] : appPath('/')
       const params = new URLSearchParams(
-        isCatalogPath(pathname) ? searchParams.toString() : ''
+        isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
       params.delete('subcategory')
       const qs = params.toString()

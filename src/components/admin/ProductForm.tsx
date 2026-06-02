@@ -8,6 +8,7 @@ import { appPath } from '@/lib/paths'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { arrayToLines, parseProductBody, pipeToLines } from '@/lib/product-body'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
@@ -69,6 +70,7 @@ export default function ProductForm({
 }: Props) {
   const router = useRouter()
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user } = useAuth()
   const isSeller = portal === 'seller'
   const productsPath = isSeller ? '/seller/products' : '/admin/products'
@@ -209,7 +211,7 @@ export default function ProductForm({
   }
 
   if (loading) {
-    return <p className={t.muted}>Loading product...</p>
+    return <p className={t.muted}>{tr('loading.generic')}</p>
   }
 
   return (

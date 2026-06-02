@@ -22,6 +22,8 @@ import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
+import { useI18n } from '@/lib/i18n-context'
+import { getTopCategoryLabel } from '@/lib/i18n-categories'
 
 type ProductReview = {
   id: string
@@ -38,6 +40,7 @@ export default function ProductPageClient() {
   const productId = typeof params.id === 'string' ? params.id : ''
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
+  const { t } = useI18n()
   const [product, setProduct] = useState<ProductPageView | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -243,10 +246,10 @@ export default function ProductPageClient() {
     if (needsSize || needsColor) {
       setVariantError(
         needsSize && needsColor
-          ? 'Please select a size and color'
+          ? t('product.select.sizeAndColor')
           : needsSize
-            ? 'Please select a size'
-            : 'Please select a color'
+            ? t('product.select.size')
+            : t('product.select.color')
       )
       return
     }
@@ -279,26 +282,34 @@ export default function ProductPageClient() {
     ? [
         {
           id: 'standard',
-          name: 'Standard License',
+          name: t('product.license.standard'),
           price: product.price,
-          description: 'Use for 1 project',
+          description: t('product.license.standard.desc'),
         },
         {
           id: 'extended',
-          name: 'Extended License',
+          name: t('product.license.extended'),
           price: product.price * 2.5,
-          description: 'Use for multiple projects',
+          description: t('product.license.extended.desc'),
         },
         {
           id: 'unlimited',
-          name: 'Unlimited License',
+          name: t('product.license.unlimited'),
           price: product.price * 4,
-          description: 'Unlimited use',
+          description: t('product.license.unlimited.desc'),
         },
       ]
     : []
 
   const selectedLicenseOption = licenseOptions.find((option) => option.id === selectedLicense)
+
+  const goBackToListing = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+      return
+    }
+    router.push(appPath('/'))
+  }
 
   if (loading) {
     return (
@@ -307,7 +318,7 @@ export default function ProductPageClient() {
           theme === 'dark' ? 'bg-dark-900 text-gray-400' : 'bg-gray-50 text-gray-600'
         }`}
       >
-        Loading product…
+        {t('product.loading')}
       </div>
     )
   }
@@ -322,9 +333,9 @@ export default function ProductPageClient() {
         <p className={theme === 'dark' ? 'text-red-400' : 'text-red-600'}>
           {loadError || 'Product not found'}
         </p>
-        <Link href={appPath('/')} className="btn-primary">
-          Back to shop
-        </Link>
+        <button type="button" onClick={goBackToListing} className="btn-primary">
+          {t('product.backToShop')}
+        </button>
       </div>
     )
   }
@@ -344,7 +355,7 @@ export default function ProductPageClient() {
           }`}
         >
           <PencilSquareIcon className="h-4 w-4 shrink-0" aria-hidden />
-          Edit product
+          {t('product.editProduct')}
         </button>
       ) : null}
 
@@ -361,9 +372,9 @@ export default function ProductPageClient() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <AppStickyHeader
-          title="WELCOME"
+          title={t('shop.home.title')}
           showSocialProof
-          searchPlaceholder="Search products..."
+          searchPlaceholder={t('shop.home.searchPlaceholder')}
           searchValue={headerSearch}
           onSearchChange={setHeaderSearch}
           onSearchSubmit={(query) => {
@@ -405,7 +416,10 @@ export default function ProductPageClient() {
                     type="button"
                     role="tab"
                     aria-selected={selectedImage === index}
-                    aria-label={`Image ${index + 1} of ${product.gallery.length}`}
+                    aria-label={t('product.imageNOfM', {
+                      index: index + 1,
+                      total: product.gallery.length,
+                    })}
                     onClick={() => setSelectedImage(index)}
                     className="product-gallery-thumb-btn"
                   >
@@ -433,7 +447,7 @@ export default function ProductPageClient() {
                   className={`product-gallery-main relative block w-full aspect-[3/4] max-h-[min(75vh,720px)] cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                     theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
                   }`}
-                  aria-label={`View ${product.name} image full size`}
+                  aria-label={t('product.viewImageFullSize', { name: product.name })}
                 >
                   <Image
                     src={product.gallery[selectedImage]}
@@ -452,7 +466,7 @@ export default function ProductPageClient() {
                     theme === 'dark' ? 'bg-dark-800 text-gray-500' : 'bg-gray-100 text-gray-400'
                   }`}
                 >
-                  No image
+                  {t('product.noImage')}
                 </div>
               )}
             </div>
@@ -472,14 +486,14 @@ export default function ProductPageClient() {
               <button
                 type="button"
                 className="absolute inset-0 bg-black/85 backdrop-blur-sm"
-                aria-label="Close image"
+                aria-label={t('product.closeImage')}
                 onClick={closeLightbox}
               />
               <button
                 type="button"
                 onClick={() => setLightboxOpen(false)}
                 className="absolute top-4 right-4 z-20 rounded-lg bg-black/60 p-2 text-white hover:bg-black/80 transition-colors"
-                aria-label="Close"
+                aria-label={t('product.close')}
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
@@ -492,7 +506,7 @@ export default function ProductPageClient() {
                       goToPreviousImage()
                     }}
                     className="absolute left-2 sm:left-6 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
-                    aria-label="Previous image"
+                    aria-label={t('product.previousImage')}
                   >
                     <ChevronLeftIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
@@ -503,7 +517,7 @@ export default function ProductPageClient() {
                       goToNextImage()
                     }}
                     className="absolute right-2 sm:right-6 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition-colors"
-                    aria-label="Next image"
+                    aria-label={t('product.nextImage')}
                   >
                     <ChevronRightIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
@@ -526,26 +540,27 @@ export default function ProductPageClient() {
           {/* Right Column - Product Details */}
           <div className="space-y-6">
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link
-                href={appPath('/')}
+              <button
+                type="button"
+                onClick={goBackToListing}
                 className={`transition-colors shrink-0 ${
                   theme === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'
                 }`}
-                aria-label="Back to shop"
+                aria-label={t('product.backToShop')}
               >
                 <ArrowLeftIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-              </Link>
+              </button>
               <nav
                 className={`flex items-center flex-wrap gap-x-2 gap-y-1 text-sm min-w-0 ${
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                 }`}
-                aria-label="Breadcrumb"
+                aria-label={t('product.breadcrumb')}
               >
                 <Link
                   href={appPath('/')}
                   className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
                 >
-                  Home
+                  {t('nav.home')}
                 </Link>
                 {product.category.trim() ? (
                   <>
@@ -556,7 +571,7 @@ export default function ProductPageClient() {
                       href={product.categoryHref}
                       className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
                     >
-                      {product.category}
+                      {getTopCategoryLabel(product.category, t)}
                     </Link>
                   </>
                 ) : null}
@@ -602,13 +617,13 @@ export default function ProductPageClient() {
                   }`}>{product.rating}</span>
                 </div>
                 <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                  ({product.reviewCount} reviews)
+                  {t('product.reviewsCount', { count: product.reviewCount })}
                 </span>
                 {!catalogMode && (
                   <>
                     <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>•</span>
                     <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                      {product.downloads} downloads
+                      {t('product.downloads', { count: product.downloads })}
                     </span>
                   </>
                 )}
@@ -644,11 +659,11 @@ export default function ProductPageClient() {
                   <TruckIcon className="w-5 h-5 text-primary-500" />
                   <span className={`font-medium ${
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Instant Download</span>
+                  }`}>{t('product.instantDownload')}</span>
                 </div>
                 <p className={`text-sm ${
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}>Get your files immediately after purchase</p>
+                }`}>{t('product.instantDownload.subtitle')}</p>
               </div>
 
               <div className={`rounded-lg p-4 border ${
@@ -660,11 +675,11 @@ export default function ProductPageClient() {
                   <ShieldCheckIcon className="w-5 h-5 text-primary-500" />
                   <span className={`font-medium ${
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}>Secure Payment</span>
+                  }`}>{t('product.securePayment')}</span>
                 </div>
                 <p className={`text-sm ${
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}>SSL encrypted, secure checkout</p>
+                }`}>{t('product.securePayment.subtitle')}</p>
               </div>
             </div>
             )}
@@ -677,13 +692,13 @@ export default function ProductPageClient() {
             }`}>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>SKU:</span>
+                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>{t('product.meta.sku')}</span>
                   <span className={`ml-2 ${
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}>{product.sku}</span>
                 </div>
                 <div>
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Version:</span>
+                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>{t('product.meta.version')}</span>
                   <span className={`ml-2 ${
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}>{product.version}</span>
@@ -706,9 +721,15 @@ export default function ProductPageClient() {
                 >
                   {currencySymbol}
                 </span>
-                <span className="text-3xl font-bold text-primary-500">
-                  {formatPriceAmount(selectedLicenseOption?.price)}
-                </span>
+                {isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
+                  <span className="text-3xl font-bold text-primary-500">
+                    {t('product.priceOnRequest')}
+                  </span>
+                ) : (
+                  <span className="text-3xl font-bold text-primary-500">
+                    {formatPriceAmount(selectedLicenseOption?.price)}
+                  </span>
+                )}
                 {product.original_price &&
                   !isZeroPrice(product.original_price) &&
                   product.original_price > product.price &&
@@ -788,7 +809,7 @@ export default function ProductPageClient() {
                   <div className="space-y-3 mb-6">
                     <label className={`text-sm font-medium ${
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                    }`}>License Type:</label>
+                    }`}>{t('product.licenseType')}</label>
                     {licenseOptions.map((option) => (
                       <label key={option.id} className="flex items-center space-x-3 cursor-pointer">
                         <input
@@ -819,17 +840,17 @@ export default function ProductPageClient() {
                   <div className="space-y-4">
                     {inCart ? (
                       <div className="text-center">
-                        <div className="text-green-400 mb-2">✓ Added to Cart</div>
+                        <div className="text-green-400 mb-2">{t('product.addedToCart')}</div>
                         <div className={`text-sm ${
                           theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
                         }`}>
-                          Quantity in cart: {quantityInCart}
+                          {t('product.quantityInCart', { count: quantityInCart })}
                         </div>
                         <Link
                           href={appPath('/cart')}
                           className="btn-primary w-full mt-3"
                         >
-                          View Cart
+                          {t('product.viewCart')}
                         </Link>
                       </div>
                     ) : (
@@ -837,7 +858,7 @@ export default function ProductPageClient() {
                         <div className="flex items-center space-x-3">
                           <label className={`text-sm font-medium ${
                             theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                          }`}>Quantity:</label>
+                          }`}>{t('product.quantity')}</label>
                           <div className={`flex items-center border rounded-lg ${
                             theme === 'dark' ? 'border-dark-600' : 'border-gray-300'
                           }`}>
@@ -877,7 +898,7 @@ export default function ProductPageClient() {
                           disabled={isAdding}
                           className="btn-primary w-full py-3 text-lg font-medium"
                         >
-                          {isAdding ? 'Adding to Cart...' : 'Add to Cart'}
+                          {isAdding ? t('product.addingToCart') : t('product.addToCart')}
                         </button>
                       </>
                     )}
@@ -890,13 +911,13 @@ export default function ProductPageClient() {
               <div>
                 <Link
                   href={product.categoryHref}
-                  className={`inline-block text-sm px-2 py-1 rounded transition-colors ${
+                  className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
                     theme === 'dark'
                       ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
                       : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
                   }`}
                 >
-                  {product.category}
+                  {getTopCategoryLabel(product.category, t)}
                 </Link>
               </div>
             ) : null}
@@ -910,7 +931,7 @@ export default function ProductPageClient() {
               theme === 'dark' ? 'text-white border-dark-700' : 'text-gray-900 border-gray-200'
             }`}
           >
-            Reviews
+            {t('product.reviews')}
           </h2>
 
           {reviews.length > 0 ? (
@@ -959,10 +980,10 @@ export default function ProductPageClient() {
                   theme === 'dark' ? 'text-white' : 'text-gray-900'
                 }`}
               >
-                Customer Reviews
+                {t('product.customerReviews')}
               </h3>
               <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
-                No reviews for this product yet.
+                {t('product.noReviewsYet')}
               </p>
             </div>
           )}
