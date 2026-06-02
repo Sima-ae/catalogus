@@ -20,11 +20,10 @@ import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSearch } from '@/lib/use-shop-search'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
+import { catalogListingKey } from '@/lib/shop-catalog-url'
 import {
-  catalogListingKey,
-} from '@/lib/shop-catalog-url'
-import {
-  consumeCatalogScrollState,
+  consumeCatalogNavState,
+  getCatalogNavState,
   restoreCatalogScroll,
 } from '@/lib/catalog-scroll-restore'
 import { APP_NAME } from '@/lib/brand'
@@ -104,13 +103,31 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
   useEffect(() => {
     if (loading || pageLoading || products.length === 0 || scrollRestoredRef.current) return
-    const state = consumeCatalogScrollState(listingScrollKey)
+
+    const state = consumeCatalogNavState(listingScrollKey)
     if (!state) return
+
+    if (
+      state.productId &&
+      !products.some((p) => p.id === state.productId) &&
+      currentPage !== state.page
+    ) {
+      setCurrentPage(state.page)
+      return
+    }
+
     scrollRestoredRef.current = true
     requestAnimationFrame(() => {
       requestAnimationFrame(() => restoreCatalogScroll(state))
     })
-  }, [loading, pageLoading, products.length, listingScrollKey])
+  }, [
+    loading,
+    pageLoading,
+    products,
+    listingScrollKey,
+    currentPage,
+    setCurrentPage,
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -123,7 +140,14 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
       return
     }
 
-    const pageToLoad = currentPage
+    const pendingNav = getCatalogNavState()
+    const pageToLoad =
+      pendingNav?.listingKey === listingScrollKey ? pendingNav.page : currentPage
+
+    if (pageToLoad !== currentPage) {
+      setCurrentPage(pageToLoad)
+      return
+    }
 
     async function loadProducts() {
       if (!hasLoadedOnce.current) setLoading(true)
@@ -183,6 +207,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     selectedCategory,
     selectedSubcategory,
     reloadToken,
+    listingScrollKey,
   ])
 
   const isDark = theme === 'dark'

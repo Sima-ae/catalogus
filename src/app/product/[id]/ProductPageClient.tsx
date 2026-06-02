@@ -12,6 +12,7 @@ import { useTheme } from '@/lib/theme'
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
+import { getCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { useShopCurrency } from '@/lib/shop-currency-context'
 import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
@@ -304,6 +305,11 @@ export default function ProductPageClient() {
   const selectedLicenseOption = licenseOptions.find((option) => option.id === selectedLicense)
 
   const goBackToListing = () => {
+    const nav = getCatalogNavState()
+    if (nav?.returnUrl) {
+      router.replace(nav.returnUrl, { scroll: false })
+      return
+    }
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back()
       return

@@ -4,8 +4,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Product } from '@/lib/types'
-import { saveCatalogScrollState } from '@/lib/catalog-scroll-restore'
-import { catalogListingKey, isShopCatalogPath } from '@/lib/shop-catalog-url'
+import { saveCatalogNavState } from '@/lib/catalog-scroll-restore'
+import { catalogListingKey, isShopCatalogPath, parseCatalogPageParam } from '@/lib/shop-catalog-url'
+import { appPath } from '@/lib/paths'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
@@ -54,8 +55,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   )
 
   const saveListingScroll = () => {
-    if (!isShopCatalogPath(pathname)) return
-    saveCatalogScrollState(catalogListingKey(pathname!, searchParams), product.id)
+    if (!pathname || !isShopCatalogPath(pathname)) return
+    const listingKey = catalogListingKey(pathname, searchParams)
+    const qs = searchParams.toString()
+    const returnUrl = `${pathname}${qs ? `?${qs}` : ''}`
+    const page = parseCatalogPageParam(searchParams)
+    saveCatalogNavState(listingKey, returnUrl, product.id, page)
   }
 
   return (
@@ -67,7 +72,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         : 'bg-white border-gray-200'
     }`}>
       <Link
-        href={`/product/${product.id}`}
+        href={appPath(`/product/${product.id}`)}
         className="block"
         scroll={false}
         onClick={saveListingScroll}
@@ -92,7 +97,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       
       <div className="space-y-2">
         <Link
-          href={`/product/${product.id}`}
+          href={appPath(`/product/${product.id}`)}
           className="block"
           scroll={false}
           onClick={saveListingScroll}
