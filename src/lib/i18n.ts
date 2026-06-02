@@ -2,8 +2,11 @@ import { MESSAGES_DE } from '@/lib/i18n-de'
 import { MESSAGES_ES } from '@/lib/i18n-es'
 import { MESSAGES_FR } from '@/lib/i18n-fr'
 import { MESSAGES_IT } from '@/lib/i18n-it'
+import { MESSAGES_GR } from '@/lib/i18n-gr'
+import { MESSAGES_PT } from '@/lib/i18n-pt'
+import { MESSAGES_TR } from '@/lib/i18n-tr'
 
-export const SUPPORTED_LOCALES = ['nl', 'en', 'es', 'fr', 'de', 'it'] as const
+export const SUPPORTED_LOCALES = ['nl', 'en', 'es', 'fr', 'de', 'it', 'pt', 'gr', 'tr'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 
 export const DEFAULT_LOCALE: Locale = 'nl'
@@ -73,6 +76,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.fr': 'French',
     'language.de': 'German',
     'language.it': 'Italian',
+    'language.pt': 'Portuguese',
+    'language.gr': 'Greek',
+    'language.tr': 'Turkish',
 
     // Categories
     'category.all': 'All',
@@ -261,6 +267,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.fr': 'Frans',
     'language.de': 'Duits',
     'language.it': 'Italiaans',
+    'language.pt': 'Portugees',
+    'language.gr': 'Grieks',
+    'language.tr': 'Turks',
 
     // Categories
     'category.all': 'Alle',
@@ -393,6 +402,9 @@ export const MESSAGES: Record<Locale, Messages> = {
   fr: MESSAGES_FR,
   de: MESSAGES_DE,
   it: MESSAGES_IT,
+  pt: MESSAGES_PT,
+  gr: MESSAGES_GR,
+  tr: MESSAGES_TR,
 }
 
 export function isLocale(value: string | null | undefined): value is Locale {

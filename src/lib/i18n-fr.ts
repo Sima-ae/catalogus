@@ -60,6 +60,9 @@ export const MESSAGES_FR: Record<string, string> = {
   'language.fr': 'Français',
   'language.de': 'Allemand',
   'language.it': 'Italien',
+  'language.pt': 'Portugais',
+  'language.gr': 'Grec',
+  'language.tr': 'Turc',
 
   // Categories
   'category.all': 'Tous',
