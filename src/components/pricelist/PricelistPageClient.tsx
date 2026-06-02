@@ -6,7 +6,6 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/auth-local'
 import { usePricelist } from '@/lib/use-pricelist'
-import { canCuratePricelistWithStar } from '@/lib/pricelist-permissions'
 import {
   isPlatformPricelistOwner,
   PLATFORM_PRICELIST_OWNER_ID,
@@ -44,7 +43,6 @@ export default function PricelistPageClient() {
     currentOwnerLabel,
     isGuest,
     isSeller,
-    reload: reloadPricelist,
   } = usePricelist(initialOwner)
 
   const ownerQuery =
@@ -52,12 +50,7 @@ export default function PricelistPageClient() {
       ? PRICELIST_OWNER_QUERY_PLATFORM
       : ownerId
 
-  const canRemoveItems =
-    !isGuest &&
-    ((user?.role === 'admin' &&
-      (ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID)) ||
-      (user?.role === 'buyer' && ownerId === user.id) ||
-      (user?.role === 'seller' && ownerId === user.id))
+  const canRemoveItems = Boolean(isSuperAdmin) && !isGuest
 
   const isPlatformList =
     ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
@@ -76,21 +69,6 @@ export default function PricelistPageClient() {
     (isPlatformPricelistOwner(listOwnerIdForShare)
       ? isSuperAdmin
       : listOwnerIdForShare === user?.id)
-
-  const catalogActor =
-    user && !isGuest
-      ? {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-          name: user.name ?? null,
-          isSuperAdmin: Boolean(isSuperAdmin),
-        }
-      : null
-
-  const canShowStar =
-    Boolean(catalogActor) &&
-    canCuratePricelistWithStar(catalogActor!, listOwnerIdForShare)
 
   const heading = isDark ? 'text-white' : 'text-gray-900'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
@@ -238,7 +216,7 @@ export default function PricelistPageClient() {
             items={paginatedItems}
             canEditPrices={canEditPrices}
             canManageItems={canRemoveItems}
-            showStar={canShowStar}
+            showStar={false}
             ownerQuery={ownerQuery}
             isDark={isDark}
             isSeller={isSeller}
@@ -249,7 +227,6 @@ export default function PricelistPageClient() {
             onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
             onApprovePriceEdit={canManagePriceEditRequests ? approvePriceEdit : undefined}
             onRemove={removeItem}
-            onStarChange={() => void reloadPricelist()}
           />
           <CatalogPagination {...paginationProps} centered />
         </>

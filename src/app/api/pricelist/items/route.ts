@@ -151,9 +151,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: access.ok ? 'Sign in required' : access.error }, { status: access.ok ? 401 : access.status })
   }
 
-  const manage = await assertManageItems(auth.actor, access.ownerId)
-  if (!manage.ok) {
-    return NextResponse.json({ error: manage.error }, { status: manage.status })
+  if (!access.actor.isSuperAdmin) {
+    return NextResponse.json({ error: 'Super admin access required' }, { status: 403 })
   }
 
   try {
