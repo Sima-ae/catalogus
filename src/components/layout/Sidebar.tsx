@@ -141,6 +141,7 @@ import BrandLogo from '@/components/brand/BrandLogo'
 import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import SidebarCategories from '@/components/layout/SidebarCategories'
 import { useI18n } from '@/lib/i18n-context'
+import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 import {
   HomeIcon,
   CubeIcon,
@@ -323,6 +324,9 @@ export default function Sidebar({
       </div>
 
       <div className={`pt-4 mt-auto shrink-0 border-t ${theme === 'dark' ? 'border-dark-800' : 'border-gray-200'}`}>
+        <div className="mb-3 lg:hidden">
+          <LanguageSwitcher variant="sidebar" />
+        </div>
         <nav className="space-y-2">
           {bottomNavigation.map((item) => (
             <NavLink

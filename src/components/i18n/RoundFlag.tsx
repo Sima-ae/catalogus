@@ -1,6 +1,6 @@
 'use client'
 
-import Image from 'next/image'
+import { appPath } from '@/lib/paths'
 
 type Props = {
   code: string
@@ -11,18 +11,16 @@ type Props = {
 /** Circular country flag (same treatment as inkoop.autos language picker). */
 export function RoundFlag({ code, size = 24, className = '' }: Props) {
   return (
-    <span
-      className={`relative shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-black/10 ${className}`}
+    // eslint-disable-next-line @next/next/no-img-element -- local SVG; reliable circle clip on mobile
+    <img
+      src={appPath(`/flags/${code}.svg`)}
+      alt=""
+      width={size}
+      height={size}
+      className={`shrink-0 rounded-full object-cover bg-gray-100 ring-1 ring-black/10 ${className}`}
       style={{ width: size, height: size }}
-      aria-hidden
-    >
-      <Image
-        src={`/flags/${code}.svg`}
-        alt=""
-        fill
-        className="object-cover"
-        sizes={`${size}px`}
-      />
-    </span>
+      loading="lazy"
+      decoding="async"
+    />
   )
 }

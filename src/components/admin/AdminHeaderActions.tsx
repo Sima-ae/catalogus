@@ -19,7 +19,7 @@ export default function AdminHeaderActions() {
 
   return (
     <div className="flex flex-nowrap items-center justify-end gap-1.5 lg:gap-2 w-full min-w-0">
-      <LanguageSwitcher compact />
+      <LanguageSwitcher compact iconOnlyOnMobile />
       <ThemeToggleButton />
       <button
         type="button"

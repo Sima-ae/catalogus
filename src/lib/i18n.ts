@@ -60,6 +60,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     // Language names
     'language.chooseTitle': 'Choose your language',
+    'language.menu': 'Language',
     'language.close': 'Close',
     'language.en': 'English',
     'language.nl': 'Dutch',
@@ -168,6 +169,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     // Language names
     'language.chooseTitle': 'Kies uw taal',
+    'language.menu': 'Taal',
     'language.close': 'Sluiten',
     'language.en': 'Engels',
     'language.nl': 'Nederlands',

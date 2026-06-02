@@ -24,7 +24,7 @@ export default function DashboardHeaderActions({ children }: DashboardHeaderActi
           className="hidden sm:inline-flex shrink-0"
         />
       ) : null}
-      <LanguageSwitcher compact />
+      <LanguageSwitcher compact iconOnlyOnMobile />
       <ThemeToggleButton />
     </div>
   )

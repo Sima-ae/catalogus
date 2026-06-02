@@ -83,8 +83,8 @@ export default function LanguageSwitcherModal() {
           </button>
         </div>
 
-        <div className="max-h-[min(60vh,28rem)] overflow-y-auto p-4 sm:p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-1.5">
+        <div className="max-h-[min(70vh,32rem)] overflow-y-auto p-4 sm:p-5">
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-1.5">
             {SUPPORTED_LOCALES.map((code) => {
               const label = t(`language.${code}`)
               const active = code === locale
@@ -93,18 +93,18 @@ export default function LanguageSwitcherModal() {
                   key={code}
                   type="button"
                   onClick={() => selectLocale(code)}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left transition-colors ${
+                  className={`flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors touch-manipulation ${
                     active
                       ? isDark
                         ? 'bg-primary-500/20 text-white'
                         : 'bg-emerald-50 text-emerald-950'
                       : isDark
-                        ? 'text-gray-200 hover:bg-dark-800'
-                        : 'text-gray-800 hover:bg-gray-100'
+                        ? 'text-gray-200 hover:bg-dark-800 active:bg-dark-700'
+                        : 'text-gray-800 hover:bg-gray-100 active:bg-gray-200'
                   }`}
                 >
-                  <RoundFlag code={code} size={26} />
-                  <span className={`text-sm leading-tight truncate ${active ? 'font-semibold' : 'font-medium'}`}>
+                  <RoundFlag code={code} size={28} />
+                  <span className={`text-sm sm:text-base leading-tight truncate ${active ? 'font-semibold' : 'font-medium'}`}>
                     {label}
                   </span>
                 </button>
