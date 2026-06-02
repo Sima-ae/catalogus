@@ -61,47 +61,47 @@ export default function LanguageSwitcherModal() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-6"
+      className="fixed inset-0 z-[10050] flex items-start justify-center overflow-y-auto p-3 pt-4 sm:p-4 sm:pt-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="language-picker-title"
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
         aria-label={t('language.close')}
         onClick={closePicker}
       />
 
       <div
-        className={`relative z-10 flex max-h-[min(92vh,44rem)] w-full max-w-2xl flex-col rounded-2xl border shadow-2xl ${shellClass}`}
+        className={`relative z-10 w-full max-w-2xl shrink-0 rounded-2xl border shadow-2xl ${shellClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className={`flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3 sm:px-5 ${
+          className={`flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2 sm:px-4 ${
             isDark ? 'border-dark-700' : 'border-gray-200'
           }`}
         >
-          <h2 id="language-picker-title" className="text-base sm:text-lg font-semibold">
+          <h2 id="language-picker-title" className="text-sm sm:text-base font-semibold">
             {t('language.chooseTitle')}
           </h2>
           <button
             type="button"
             onClick={closePicker}
-            className={`rounded-lg p-2 transition-colors ${
+            className={`rounded-lg p-1.5 transition-colors ${
               isDark ? 'hover:bg-dark-800 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
             }`}
             aria-label={t('language.close')}
           >
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        <div className="p-2.5 sm:p-3">
           <div
-            className="grid grid-cols-3 gap-1 sm:gap-1.5"
+            className="grid grid-cols-3 gap-0.5 sm:gap-1"
             style={{
-              gridTemplateRows: `repeat(${LOCALE_PICKER_ROWS}, minmax(2.75rem, auto))`,
+              gridTemplateRows: `repeat(${LOCALE_PICKER_ROWS}, minmax(2rem, auto))`,
             }}
           >
             {LOCALE_REGISTRY.map(({ code }) => {
@@ -113,7 +113,7 @@ export default function LanguageSwitcherModal() {
                   type="button"
                   onClick={() => selectLocale(code)}
                   title={label}
-                  className={`flex w-full min-h-[44px] items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors touch-manipulation sm:gap-3 sm:px-3 sm:py-2.5 ${
+                  className={`flex w-full min-h-[2rem] items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors touch-manipulation sm:min-h-[2.125rem] sm:gap-2 sm:px-2 ${
                     active
                       ? isDark
                         ? 'bg-primary-500/20 text-white'
@@ -123,9 +123,9 @@ export default function LanguageSwitcherModal() {
                         : 'text-gray-800 hover:bg-gray-100 active:bg-gray-200'
                   }`}
                 >
-                  <RoundFlag code={code} size={28} />
+                  <RoundFlag code={code} size={22} />
                   <span
-                    className={`min-w-0 flex-1 text-sm sm:text-[15px] leading-tight ${active ? 'font-semibold' : 'font-medium'}`}
+                    className={`min-w-0 flex-1 truncate text-xs leading-tight sm:text-[13px] ${active ? 'font-semibold' : 'font-medium'}`}
                   >
                     {label}
                   </span>

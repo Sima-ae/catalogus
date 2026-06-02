@@ -48,8 +48,8 @@ const LOCALE_GRID: LocaleMeta[] = [
   { code: 'hy', slug: 'hy', flag: 'hy', nativeName: 'Հայերեն' },
   { code: 'dz', slug: 'dz', flag: 'dz', nativeName: 'العربية' },
   { code: 'az', slug: 'az', flag: 'az', nativeName: 'Azərbaycan' },
-  { code: 'zh', slug: 'zh', flag: 'cn', nativeName: '中文' },
   { code: 'ja', slug: 'ja', flag: 'jp', nativeName: '日本語' },
+  { code: 'zh', slug: 'zh', flag: 'cn', nativeName: '中文' },
 ]
 
 export const LOCALE_REGISTRY: readonly LocaleMeta[] = LOCALE_GRID
