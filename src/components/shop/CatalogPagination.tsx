@@ -13,6 +13,8 @@ type Props = {
   centered?: boolean
   /** When true, align pagination controls to the right (status stays on the left). */
   alignEnd?: boolean
+  /** Smaller text, buttons, and spacing (e.g. pricelist table). */
+  compact?: boolean
 }
 
 export default function CatalogPagination({
@@ -22,8 +24,16 @@ export default function CatalogPagination({
   onPageChange,
   centered = false,
   alignEnd = false,
+  compact = false,
 }: Props) {
   const t = useAppTheme()
+  const textSize = compact ? 'text-xs' : 'text-sm'
+  const btnClass = compact ? 'btn-secondary text-xs px-2.5 py-1' : 'btn-secondary text-sm'
+  const inputClass = compact ? 'input w-12 text-xs py-1 px-2' : 'input w-20 text-sm'
+  const gapClass = compact ? 'gap-1.5' : 'gap-2'
+  const blockGap = compact ? 'gap-1.5' : 'gap-3'
+  const blockPy = compact ? 'py-1.5' : 'py-3'
+  const gotoId = `catalog-goto-${centered ? 'center' : 'side'}${compact ? '-compact' : ''}`
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
   const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
@@ -42,7 +52,7 @@ export default function CatalogPagination({
 
   const goToInput = (
     <form
-      className="flex items-center justify-center gap-2"
+      className={`flex items-center justify-center ${gapClass}`}
       onSubmit={(e) => {
         e.preventDefault()
         if (gotoPage == null) return
@@ -50,19 +60,19 @@ export default function CatalogPagination({
         onPageChange(gotoPage)
       }}
     >
-      <label className={`text-sm ${t.muted}`} htmlFor={`catalog-goto-${centered ? 'center' : 'side'}`}>
+      <label className={`${textSize} ${t.muted}`} htmlFor={gotoId}>
         Page
       </label>
       <input
-        id={`catalog-goto-${centered ? 'center' : 'side'}`}
+        id={gotoId}
         inputMode="numeric"
         pattern="[0-9]*"
-        className="input w-20 text-sm"
+        className={inputClass}
         value={gotoValue}
         onChange={(e) => setGotoValue(e.target.value)}
         aria-label="Go to page number"
       />
-      <button type="submit" className="btn-secondary text-sm" disabled={gotoPage == null}>
+      <button type="submit" className={btnClass} disabled={gotoPage == null}>
         Go
       </button>
     </form>
@@ -86,10 +96,10 @@ export default function CatalogPagination({
   )
 
   const navButtons = (
-    <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className={`flex flex-wrap items-center justify-center ${gapClass}`}>
       <button
         type="button"
-        className="btn-secondary text-sm"
+        className={btnClass}
         disabled={safePage <= 1}
         onClick={() => onPageChange(safePage - 1)}
       >
@@ -97,7 +107,7 @@ export default function CatalogPagination({
       </button>
       <button
         type="button"
-        className="btn-secondary text-sm"
+        className={btnClass}
         disabled={safePage >= totalPages}
         onClick={() => onPageChange(safePage + 1)}
       >
@@ -109,8 +119,8 @@ export default function CatalogPagination({
 
   if (centered) {
     return (
-      <div className="flex w-full flex-col items-center gap-3 py-3 text-center">
-        <p className={`text-sm ${t.muted}`}>{statusText}</p>
+      <div className={`flex w-full flex-col items-center ${blockGap} ${blockPy} text-center`}>
+        <p className={`${textSize} ${t.muted}`}>{statusText}</p>
         {navButtons}
       </div>
     )
@@ -118,11 +128,11 @@ export default function CatalogPagination({
 
   return (
     <div
-      className={`flex flex-col gap-3 py-3 sm:flex-row sm:items-center ${
+      className={`flex flex-col ${blockGap} ${blockPy} sm:flex-row sm:items-center ${
         alignEnd ? 'sm:justify-end' : 'sm:justify-between'
       } ${t.isDark ? 'border-dark-800' : 'border-gray-200'}`}
     >
-      <p className={`text-sm ${t.muted} ${alignEnd ? 'sm:mr-auto' : ''}`}>{statusText}</p>
+      <p className={`${textSize} ${t.muted} ${alignEnd ? 'sm:mr-auto' : ''}`}>{statusText}</p>
       {navButtons}
     </div>
   )

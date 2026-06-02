@@ -115,6 +115,7 @@ export default function PricelistPageClient() {
     totalItems: totalFiltered,
     pageSize: PRICELIST_PAGE_SIZE,
     onPageChange: setCurrentPage,
+    compact: true,
   }
 
   const searchInputClass = isDark

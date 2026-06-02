@@ -40,6 +40,7 @@ export default function ShopCatalogListing({
         pageSize={pageSize}
         onPageChange={onPageChange}
         centered={centered}
+        compact={centered}
       />
       <div className={`${catalogGridClassName} ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
         {products.map((product) => (
@@ -52,6 +53,7 @@ export default function ShopCatalogListing({
         pageSize={pageSize}
         onPageChange={onPageChange}
         centered={centered}
+        compact={centered}
       />
     </>
   )
