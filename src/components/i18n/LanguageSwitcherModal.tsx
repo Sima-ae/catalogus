@@ -9,7 +9,11 @@ import { useTheme } from '@/lib/theme'
 import { useI18n } from '@/lib/i18n-context'
 import { useLanguagePicker } from '@/lib/language-picker-context'
 import { type Locale } from '@/lib/i18n'
-import { LOCALE_REGISTRY, getLocaleNativeName } from '@/lib/i18n-locale-registry'
+import {
+  LOCALE_REGISTRY,
+  LOCALE_PICKER_ROWS,
+  getLocaleNativeName,
+} from '@/lib/i18n-locale-registry'
 import { localizedPath, parseLocaleFromPathname } from '@/lib/i18n-routing'
 
 export default function LanguageSwitcherModal() {
@@ -57,7 +61,7 @@ export default function LanguageSwitcherModal() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10050] flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-[10050] flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="language-picker-title"
@@ -70,11 +74,11 @@ export default function LanguageSwitcherModal() {
       />
 
       <div
-        className={`relative z-10 w-full max-w-lg rounded-2xl border shadow-2xl ${shellClass}`}
+        className={`relative z-10 flex max-h-[min(92vh,44rem)] w-full max-w-2xl flex-col rounded-2xl border shadow-2xl ${shellClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className={`flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5 ${
+          className={`flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3 sm:px-5 ${
             isDark ? 'border-dark-700' : 'border-gray-200'
           }`}
         >
@@ -93,8 +97,13 @@ export default function LanguageSwitcherModal() {
           </button>
         </div>
 
-        <div className="max-h-[min(70vh,32rem)] overflow-y-auto p-4 sm:p-5">
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-1.5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+          <div
+            className="grid grid-cols-3 gap-1 sm:gap-1.5"
+            style={{
+              gridTemplateRows: `repeat(${LOCALE_PICKER_ROWS}, minmax(2.75rem, auto))`,
+            }}
+          >
             {LOCALE_REGISTRY.map(({ code }) => {
               const label = getLocaleNativeName(code)
               const active = code === locale
@@ -103,7 +112,8 @@ export default function LanguageSwitcherModal() {
                   key={code}
                   type="button"
                   onClick={() => selectLocale(code)}
-                  className={`flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors touch-manipulation ${
+                  title={label}
+                  className={`flex w-full min-h-[44px] items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors touch-manipulation sm:gap-3 sm:px-3 sm:py-2.5 ${
                     active
                       ? isDark
                         ? 'bg-primary-500/20 text-white'
@@ -114,7 +124,9 @@ export default function LanguageSwitcherModal() {
                   }`}
                 >
                   <RoundFlag code={code} size={28} />
-                  <span className={`text-sm sm:text-base leading-tight truncate ${active ? 'font-semibold' : 'font-medium'}`}>
+                  <span
+                    className={`min-w-0 flex-1 text-sm sm:text-[15px] leading-tight ${active ? 'font-semibold' : 'font-medium'}`}
+                  >
                     {label}
                   </span>
                 </button>

@@ -56,16 +56,18 @@ export default function RootLayout({
             <SiteAccessGuard>
               <ThemeProvider>
                 <I18nProvider initialLocale={locale}>
-                  <LanguagePickerProvider>
-                    <CatalogModeProvider>
-                      <ProductCardDisplayProvider>
-                        <CartProvider>
-                          <ShopCurrencyProvider>{children}</ShopCurrencyProvider>
-                        </CartProvider>
-                      </ProductCardDisplayProvider>
-                    </CatalogModeProvider>
-                    <LanguageSwitcherModal />
-                  </LanguagePickerProvider>
+                    <LanguagePickerProvider>
+                      <CatalogModeProvider>
+                        <ProductCardDisplayProvider>
+                          <CartProvider>
+                            <ShopCurrencyProvider>{children}</ShopCurrencyProvider>
+                          </CartProvider>
+                        </ProductCardDisplayProvider>
+                      </CatalogModeProvider>
+                      <Suspense fallback={null}>
+                        <LanguageSwitcherModal />
+                      </Suspense>
+                    </LanguagePickerProvider>
                 </I18nProvider>
               </ThemeProvider>
             </SiteAccessGuard>

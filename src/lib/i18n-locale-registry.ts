@@ -44,15 +44,18 @@ const LOCALE_GRID: LocaleMeta[] = [
   { code: 'at', slug: 'at', flag: 'at', nativeName: 'العربية' },
   { code: 'ps', slug: 'ps', flag: 'ps', nativeName: 'العربية' },
   { code: 'ma', slug: 'ma', flag: 'ma', nativeName: 'العربية' },
-  { code: 'dz', slug: 'dz', flag: 'dz', nativeName: 'العربية' },
   { code: 'ka', slug: 'ka', flag: 'ka', nativeName: 'ქართული' },
   { code: 'hy', slug: 'hy', flag: 'hy', nativeName: 'Հայերեն' },
+  { code: 'dz', slug: 'dz', flag: 'dz', nativeName: 'العربية' },
   { code: 'az', slug: 'az', flag: 'az', nativeName: 'Azərbaycan' },
   { code: 'zh', slug: 'zh', flag: 'cn', nativeName: '中文' },
   { code: 'ja', slug: 'ja', flag: 'jp', nativeName: '日本語' },
 ]
 
 export const LOCALE_REGISTRY: readonly LocaleMeta[] = LOCALE_GRID
+
+/** Rows in the 3-column language picker grid. */
+export const LOCALE_PICKER_ROWS = Math.ceil(LOCALE_GRID.length / 3)
 
 export const SUPPORTED_LOCALES = LOCALE_REGISTRY.map((l) => l.code) as readonly string[]
 
