@@ -74,12 +74,12 @@ export default function PricelistTable({
         </colgroup>
         <thead className={head}>
           <tr>
-            <th className="px-3 py-3 text-left font-semibold">Image</th>
-            <th className="px-3 py-3 text-left font-semibold">Title</th>
-            <th className="px-3 py-3 text-left font-semibold">SKU</th>
-            <th className="px-3 py-3 text-left font-semibold">Price</th>
-            {showStar ? <th className="px-4 py-3 w-12" aria-label="Pricelist" /> : null}
-            {canManageItems ? <th className="px-4 py-3 w-24" /> : null}
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Image</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Title</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">SKU</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">Price</th>
+            {showStar ? <th className="px-3 py-2 w-12" aria-label="Pricelist" /> : null}
+            {canManageItems ? <th className="px-3 py-2 w-24" /> : null}
           </tr>
         </thead>
         <tbody>
@@ -255,13 +255,13 @@ function PricelistTableRow({
     [onApprovePriceEdit]
   )
 
-  const inputClass = `w-full min-w-[4.5rem] pl-7 pr-2 py-1.5 rounded border text-sm tabular-nums ${
+  const inputClass = `w-full min-w-[4.5rem] pl-7 pr-2 py-1 rounded border text-sm tabular-nums ${
     isDark ? 'bg-dark-900 border-dark-600 text-white' : 'bg-white border-gray-300 text-gray-900'
   }`
 
   return (
     <tr className={`border-t ${border} ${isDark ? 'hover:bg-dark-800/50' : 'hover:bg-gray-50'}`}>
-      <td className="px-3 py-3">
+      <td className="px-3 py-1 align-middle">
         <PricelistProductThumb
           productId={row.product_id}
           imageUrl={row.image_url}
@@ -270,22 +270,22 @@ function PricelistTableRow({
           sizes="80px"
         />
       </td>
-      <td className="px-3 py-3 min-w-0">
+      <td className="px-3 py-1.5 min-w-0 align-middle">
         <Link
           href={appPath(`/product/${row.product_id}`)}
           title={row.name}
-          className={`block truncate font-medium hover:underline ${isDark ? 'text-white' : 'text-gray-900'}`}
+          className={`block truncate font-medium leading-snug hover:underline ${isDark ? 'text-white' : 'text-gray-900'}`}
         >
           {row.name}
         </Link>
       </td>
-      <td className={`px-3 py-3 font-mono text-xs truncate ${muted}`} title={row.sku}>
+      <td className={`px-3 py-1.5 font-mono text-xs truncate align-middle leading-snug ${muted}`} title={row.sku}>
         {row.sku}
       </td>
-      <td className="px-3 py-3">
+      <td className="px-3 py-1.5 align-middle">
         {showSellerPriceInput ? (
-          <div className="flex flex-col gap-1 max-w-[12rem]">
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-0.5 max-w-[12rem]">
+            <div className="flex items-center gap-1">
               <div className="relative flex-1 min-w-0">
                 <span
                   className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`}
@@ -317,7 +317,7 @@ function PricelistTableRow({
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={saving || !value.trim()}
-                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1.5 border transition-colors disabled:opacity-40 ${
+                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
                   savedFlash
                     ? 'border-green-500/50 bg-green-500/10 text-green-600'
                     : isDark
@@ -337,20 +337,20 @@ function PricelistTableRow({
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         ) : showPriceInput ? (
-          <div className="flex flex-col gap-1 max-w-[12rem]">
+          <div className="flex flex-col gap-0.5 max-w-[12rem]">
             {canApprovePriceEdits && row.pending_edit_requests?.length ? (
               <div className="flex flex-col gap-0.5 mb-0.5">
                 {row.pending_edit_requests.map((req) => (
                   <span
                     key={req.id}
-                    className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}
+                    className={`text-xs leading-tight ${isDark ? 'text-amber-400' : 'text-amber-600'}`}
                   >
                     Edit requested by {req.seller_label}
                   </span>
                 ))}
               </div>
             ) : null}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <div className="relative flex-1 min-w-0">
                 <span
                   className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`}
@@ -382,7 +382,7 @@ function PricelistTableRow({
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={saving || !value.trim()}
-                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1.5 border transition-colors disabled:opacity-40 ${
+                className={`shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
                   savedFlash
                     ? 'border-green-500/50 bg-green-500/10 text-green-600'
                     : isDark
@@ -422,7 +422,7 @@ function PricelistTableRow({
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         ) : showLockedSellerPrice ? (
-          <div className="flex flex-col gap-1 max-w-[14rem]">
+          <div className="flex flex-col gap-0.5 max-w-[14rem]">
             <span className={isDark ? 'text-white tabular-nums' : 'text-gray-900 tabular-nums'}>
               {sellerPriceDisplay}
             </span>
@@ -447,14 +447,14 @@ function PricelistTableRow({
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>{displayPrice}</span>
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         )}
       </td>
       {showStar ? (
-        <td className="px-4 py-3">
+        <td className="px-3 py-1.5 align-middle">
           <PricelistStarButton
             productId={row.product_id}
             size="sm"
@@ -468,7 +468,7 @@ function PricelistTableRow({
         </td>
       ) : null}
       {canManageItems ? (
-        <td className="px-4 py-3">
+        <td className="px-3 py-1.5 align-middle">
           <button
             type="button"
             onClick={() => onRemove(row.product_id)}
