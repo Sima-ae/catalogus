@@ -66,6 +66,9 @@ export const MESSAGES_CZ: Record<string, string> = {
   'language.ma': 'Marocká arabština',
   'language.cz': 'Čeština',
   'language.pl': 'Polština',
+  'language.bg': 'Bulharština',
+  'language.hu': 'Maďarština',
+  'language.ro': 'Rumunština',
 
   // Categories
   'category.all': 'Vše',

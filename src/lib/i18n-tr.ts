@@ -66,6 +66,9 @@ export const MESSAGES_TR: Record<string, string> = {
   'language.ma': 'Fasça Arapçası',
   'language.cz': 'Çekçe',
   'language.pl': 'Lehçe',
+  'language.bg': 'Bulgarca',
+  'language.hu': 'Macarca',
+  'language.ro': 'Romence',
 
   // Categories
   'category.all': 'Tümü',

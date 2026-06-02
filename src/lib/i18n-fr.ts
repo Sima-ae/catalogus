@@ -66,6 +66,9 @@ export const MESSAGES_FR: Record<string, string> = {
   'language.ma': 'Arabe marocain',
   'language.cz': 'Tchèque',
   'language.pl': 'Polonais',
+  'language.bg': 'Bulgare',
+  'language.hu': 'Hongrois',
+  'language.ro': 'Roumain',
 
   // Categories
   'category.all': 'Tous',

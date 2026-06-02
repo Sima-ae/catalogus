@@ -7,9 +7,12 @@ import { MESSAGES_PT } from '@/lib/i18n-pt'
 import { MESSAGES_MA } from '@/lib/i18n-ma'
 import { MESSAGES_CZ } from '@/lib/i18n-cz'
 import { MESSAGES_PL } from '@/lib/i18n-pl'
+import { MESSAGES_BG } from '@/lib/i18n-bg'
+import { MESSAGES_HU } from '@/lib/i18n-hu'
+import { MESSAGES_RO } from '@/lib/i18n-ro'
 import { MESSAGES_TR } from '@/lib/i18n-tr'
 
-export const SUPPORTED_LOCALES = ['nl', 'en', 'es', 'fr', 'de', 'it', 'pt', 'gr', 'tr', 'ma', 'cz', 'pl'] as const
+export const SUPPORTED_LOCALES = ['nl', 'en', 'es', 'fr', 'de', 'it', 'pt', 'gr', 'tr', 'ma', 'cz', 'pl', 'bg', 'hu', 'ro'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 
 export const DEFAULT_LOCALE: Locale = 'nl'
@@ -85,6 +88,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.ma': 'Moroccan Arabic',
     'language.cz': 'Czech',
     'language.pl': 'Polish',
+    'language.bg': 'Bulgarian',
+    'language.hu': 'Hungarian',
+    'language.ro': 'Romanian',
 
     // Categories
     'category.all': 'All',
@@ -279,6 +285,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'language.ma': 'Marokkaans-Arabisch',
     'language.cz': 'Tsjechisch',
     'language.pl': 'Pools',
+    'language.bg': 'Bulgaars',
+    'language.hu': 'Hongaars',
+    'language.ro': 'Roemeens',
 
     // Categories
     'category.all': 'Alle',
@@ -417,6 +426,9 @@ export const MESSAGES: Record<Locale, Messages> = {
   ma: MESSAGES_MA,
   cz: MESSAGES_CZ,
   pl: MESSAGES_PL,
+  bg: MESSAGES_BG,
+  hu: MESSAGES_HU,
+  ro: MESSAGES_RO,
 }
 
 export function isLocale(value: string | null | undefined): value is Locale {

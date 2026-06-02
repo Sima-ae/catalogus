@@ -66,6 +66,9 @@ export const MESSAGES_GR: Record<string, string> = {
   'language.ma': 'Μαροκινά αραβικά',
   'language.cz': 'Τσεχικά',
   'language.pl': 'Πολωνικά',
+  'language.bg': 'Βουλγαρικά',
+  'language.hu': 'Ουγγρικά',
+  'language.ro': 'Ρουμανικά',
 
   // Categories
   'category.all': 'Όλα',
