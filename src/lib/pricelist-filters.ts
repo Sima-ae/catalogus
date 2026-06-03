@@ -25,18 +25,26 @@ export function collectPricelistFilterOptions(items: PricelistRow[]): {
 }
 
 /** Row still needs a price filled in (matches empty price field in the table). */
-export function pricelistRowNeedsPrice(row: PricelistRow): boolean {
+export function pricelistRowNeedsPrice(
+  row: PricelistRow,
+  opts?: { guestShareLink?: boolean }
+): boolean {
   if (row.can_edit_price === false) return false
-  const raw = row.seller_unit_price ?? row.display_unit_price
+  const raw = opts?.guestShareLink
+    ? row.seller_unit_price
+    : row.seller_unit_price ?? row.display_unit_price
   if (raw == null) return true
   const n = Number(raw)
   return !Number.isFinite(n) || n < 0
 }
 
-export function countPricelistRowsNeedingPrice(items: PricelistRow[]): number {
+export function countPricelistRowsNeedingPrice(
+  items: PricelistRow[],
+  opts?: { guestShareLink?: boolean }
+): number {
   let n = 0
   for (const row of items) {
-    if (pricelistRowNeedsPrice(row)) n++
+    if (pricelistRowNeedsPrice(row, opts)) n++
   }
   return n
 }
@@ -48,6 +56,7 @@ export function filterPricelistRows(
     categoryFilter?: string
     brandFilter?: string
     missingPricesOnly?: boolean
+    guestShareLink?: boolean
   }
 ): PricelistRow[] {
   let list = items
@@ -60,7 +69,8 @@ export function filterPricelistRows(
     list = list.filter((row) => row.brand?.trim() === brand)
   }
   if (opts.missingPricesOnly) {
-    list = list.filter(pricelistRowNeedsPrice)
+    const needOpts = opts.guestShareLink ? { guestShareLink: true as const } : undefined
+    list = list.filter((row) => pricelistRowNeedsPrice(row, needOpts))
   }
   const q = opts.searchQuery?.trim().toLowerCase()
   if (q) {

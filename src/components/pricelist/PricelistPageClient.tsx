@@ -29,6 +29,7 @@ import {
   filterPricelistRows,
 } from '@/lib/pricelist-filters'
 import PricelistListFiltersBar from '@/components/pricelist/PricelistListFilters'
+import PricelistMissingPricesButton from '@/components/pricelist/PricelistMissingPricesButton'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -119,7 +120,12 @@ export default function PricelistPageClient() {
     [items]
   )
 
-  const missingPriceCount = useMemo(() => countPricelistRowsNeedingPrice(items), [items])
+  const guestShareLink = isGuest && Boolean(searchParams.get('owner'))
+
+  const missingPriceCount = useMemo(
+    () => countPricelistRowsNeedingPrice(items, { guestShareLink }),
+    [items, guestShareLink]
+  )
 
   const filteredItems = useMemo(
     () =>
@@ -128,15 +134,17 @@ export default function PricelistPageClient() {
         categoryFilter,
         brandFilter,
         missingPricesOnly: showMissingPricesOnly,
+        guestShareLink,
       }),
-    [items, searchQuery, categoryFilter, brandFilter, showMissingPricesOnly]
+    [items, searchQuery, categoryFilter, brandFilter, showMissingPricesOnly, guestShareLink]
   )
 
   const hasActiveFilters = Boolean(
     categoryFilter || brandFilter || showMissingPricesOnly
   )
 
-  const showMissingPricesButton = canEditPrices && !isGuest && viewMode === 'table'
+  /** Share-link guests (after pricelist password) can filter missing prices too. */
+  const showMissingPricesButton = canEditPrices && viewMode === 'table'
 
   const totalFiltered = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PRICELIST_PAGE_SIZE) || 1)
@@ -173,12 +181,21 @@ export default function PricelistPageClient() {
     return filteredItems.slice(start, start + PRICELIST_PAGE_SIZE)
   }, [filteredItems, safePage])
 
+  const missingPricesTrailing = showMissingPricesButton ? (
+    <PricelistMissingPricesButton
+      active={showMissingPricesOnly}
+      count={missingPriceCount}
+      onToggle={() => setShowMissingPricesOnly((on) => !on)}
+    />
+  ) : null
+
   const paginationProps = {
     page: safePage,
     totalItems: totalFiltered,
     pageSize: PRICELIST_PAGE_SIZE,
     onPageChange: setCurrentPage,
     compact: true,
+    trailing: missingPricesTrailing,
   }
 
   const searchInputClass = isDark
@@ -279,31 +296,6 @@ export default function PricelistPageClient() {
       ) : viewMode === 'table' ? (
         <>
           <CatalogPagination {...paginationProps} centered />
-          {showMissingPricesButton ? (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowMissingPricesOnly((on) => !on)}
-                disabled={!showMissingPricesOnly && missingPriceCount === 0}
-                aria-pressed={showMissingPricesOnly}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  showMissingPricesOnly
-                    ? isDark
-                      ? 'border-primary-500 bg-primary-500/20 text-primary-300'
-                      : 'border-primary-600 bg-primary-50 text-primary-800'
-                    : isDark
-                      ? 'border-dark-600 bg-dark-800 text-gray-200 hover:bg-dark-700'
-                      : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
-                }`}
-              >
-                {showMissingPricesOnly
-                  ? t('pricelist.filter.showAllProducts')
-                  : t('pricelist.filter.showMissingPrices', {
-                      count: missingPriceCount,
-                    })}
-              </button>
-            </div>
-          ) : null}
           <PricelistTable
             items={paginatedItems}
             categoryOptions={categoryOptions}
