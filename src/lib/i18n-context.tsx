@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
   DEFAULT_LOCALE,
   getMessages,
@@ -9,6 +9,7 @@ import {
   type Locale,
   formatMessage,
 } from '@/lib/i18n'
+import { appPath } from '@/lib/paths'
 
 type I18nContextValue = {
   locale: Locale
@@ -20,16 +21,42 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({
   initialLocale,
+  categoryMessages: initialCategoryMessages = {},
   children,
 }: {
   initialLocale?: string | null
+  categoryMessages?: Record<string, string>
   children: React.ReactNode
 }) {
   const [locale, setLocaleState] = useState<Locale>(
     isLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE
   )
+  const [categoryMessages, setCategoryMessages] =
+    useState<Record<string, string>>(initialCategoryMessages)
 
-  const messages = useMemo(() => getMessages(locale), [locale])
+  const staticMessages = useMemo(() => getMessages(locale), [locale])
+
+  useEffect(() => {
+    setCategoryMessages(initialCategoryMessages)
+  }, [initialCategoryMessages])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(appPath(`/api/i18n/category-messages?locale=${encodeURIComponent(locale)}`), {
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: unknown) => {
+        if (cancelled || !data || typeof data !== 'object' || Array.isArray(data)) return
+        setCategoryMessages(data as Record<string, string>)
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryMessages({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
 
   const value = useMemo<I18nContextValue>(() => {
     return {
@@ -42,11 +69,11 @@ export function I18nProvider({
         }
       },
       t: (key, values) => {
-        const msg = messages[key] ?? key
+        const msg = staticMessages[key] ?? categoryMessages[key] ?? key
         return formatMessage(msg, values)
       },
     }
-  }, [locale, messages])
+  }, [locale, staticMessages, categoryMessages])
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
@@ -62,4 +89,3 @@ export function useI18n(): I18nContextValue {
   }
   return ctx
 }
-

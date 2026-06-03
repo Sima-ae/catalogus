@@ -7,6 +7,11 @@ import {
   updateCategoryById,
 } from '@/lib/products-db'
 import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
+import {
+  deleteCategoryTranslations,
+  invalidateCategoryTranslationCache,
+  syncCategoryTranslations,
+} from '@/lib/category-translations-db'
 
 const ACTIVE_CATEGORIES_CACHE_NS = 'active-categories'
 const ACTIVE_CATEGORIES_TTL_MS = 60_000
@@ -39,6 +44,9 @@ export async function createCategory(input: {
 }): Promise<CategoryRecord> {
   const row = (await insertCategory(input)) as CategoryRecord
   invalidateActiveCategoriesCache()
+  void syncCategoryTranslations(String(row.id)).catch((err) => {
+    console.error('[category-translations] sync after create failed:', err)
+  })
   return row
 }
 
@@ -61,6 +69,9 @@ export async function saveCategory(
       return { ok: false, status: 404, error: 'Category not found in database' }
     }
     invalidateActiveCategoriesCache()
+    void syncCategoryTranslations(id).catch((err) => {
+      console.error('[category-translations] sync after save failed:', err)
+    })
     return { ok: true, row: row as CategoryRecord }
   } catch (error) {
     const code = (error as { code?: string })?.code
@@ -78,7 +89,9 @@ export async function removeCategory(
   if (!existing) {
     return { ok: false, status: 404, error: 'Category not found' }
   }
+  await deleteCategoryTranslations(id)
   await deleteCategoryById(id)
   invalidateActiveCategoriesCache()
+  invalidateCategoryTranslationCache()
   return { ok: true }
 }

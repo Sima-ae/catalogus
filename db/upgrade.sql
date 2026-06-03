@@ -351,3 +351,16 @@ ALTER TABLE products
 
 ALTER TABLE products
   ADD KEY IF NOT EXISTS idx_products_status_category (status, category_id);
+
+-- Localized category labels (auto-generated when categories are created/updated)
+CREATE TABLE IF NOT EXISTS category_translations (
+  category_id VARCHAR(36) NOT NULL,
+  locale VARCHAR(8) NOT NULL,
+  label VARCHAR(255) NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (category_id, locale),
+  KEY idx_category_translations_locale (locale),
+  CONSTRAINT fk_category_translations_category
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

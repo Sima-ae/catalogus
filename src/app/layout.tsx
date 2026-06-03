@@ -15,7 +15,8 @@ import { cookies, headers } from 'next/headers'
 import { I18nProvider } from '@/lib/i18n-context'
 import { LanguagePickerProvider } from '@/lib/language-picker-context'
 import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
-import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE } from '@/lib/i18n'
+import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
+import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildRootMetadata()
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
@@ -32,12 +33,13 @@ export default function RootLayout({
   const headerStore = headers()
   const fromPath = headerStore.get('x-catalogus-locale')
   const rawLocale = cookieStore.get(LOCALE_COOKIE)?.value
-  const locale = isLocale(fromPath)
+  const locale: Locale = isLocale(fromPath)
     ? fromPath
     : isLocale(rawLocale)
       ? rawLocale
       : DEFAULT_LOCALE
   const messages = getMessages(locale)
+  const categoryMessages = await getCategoryTranslationMessages(locale)
   const preloadText = messages['loading.generic'] || 'Loading…'
 
   return (
@@ -55,7 +57,7 @@ export default function RootLayout({
           >
             <SiteAccessGuard>
               <ThemeProvider>
-                <I18nProvider initialLocale={locale}>
+                <I18nProvider initialLocale={locale} categoryMessages={categoryMessages}>
                     <LanguagePickerProvider>
                       <CatalogModeProvider>
                         <ProductCardDisplayProvider>

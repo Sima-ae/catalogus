@@ -1,29 +1,11 @@
+import { categoryI18nKey } from '@/lib/category-i18n-key'
 import type { Locale } from '@/lib/i18n'
 
 type Translator = (key: string) => string
 
-function normalizeCategoryName(name: string): string {
-  return String(name ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-}
-
-const TOP_CATEGORY_KEYS: Record<string, string> = {
-  all: 'category.all',
-  clothes: 'category.clothes',
-  kids: 'category.kids',
-  shoes: 'category.shoes',
-  slippers: 'category.slippers',
-  sneakers: 'category.sneakers',
-  soccer: 'category.soccer',
-  watches: 'category.watches',
-}
-
 /**
- * Translate known top-level category names coming from the DB/API.
- * Falls back to the raw category string for unknown/new categories.
+ * Translate category names from the DB/API for the active shop locale.
+ * Uses static i18n bundles first, then auto-generated DB translations.
  */
 export function getTopCategoryLabel(
   category: string,
@@ -37,9 +19,8 @@ export function getTopCategoryLabel(
     return opts?.allStyle === 'home' ? t('nav.home') : t('category.all')
   }
 
-  const key = TOP_CATEGORY_KEYS[normalizeCategoryName(raw)]
-  if (!key) return raw
+  const key = categoryI18nKey(raw)
   const translated = t(key)
-  return translated || raw
+  if (translated && translated !== key) return translated
+  return raw
 }
-
