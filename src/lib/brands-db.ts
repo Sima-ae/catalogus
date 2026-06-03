@@ -228,6 +228,7 @@ export async function deleteBrandById(id: string) {
 let brandIdColumnCache: boolean | null = null
 let brandColumnCache: boolean | null = null
 let categoryIdColumnCache: boolean | null = null
+let brandsTableCache: boolean | null = null
 
 async function productsColumnExists(column: string): Promise<boolean> {
   const rows = await queryDb<{ COLUMN_NAME: string }[]>(
@@ -270,15 +271,17 @@ async function productsHaveCategoryIdColumn(): Promise<boolean> {
 }
 
 export async function brandsTableExists(): Promise<boolean> {
+  if (brandsTableCache != null) return brandsTableCache
   try {
     const rows = await queryDb<{ TABLE_NAME: string }[]>(
       `SELECT TABLE_NAME FROM information_schema.TABLES
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'brands'`
     )
-    return rows.length > 0
+    brandsTableCache = rows.length > 0
   } catch {
-    return false
+    brandsTableCache = false
   }
+  return brandsTableCache
 }
 
 export async function resolveBrandByName(

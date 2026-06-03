@@ -344,3 +344,10 @@ CREATE TABLE IF NOT EXISTS site_access_codes (
     FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Catalog list performance: active products sorted/filtered by status + created_at
+ALTER TABLE products
+  ADD KEY IF NOT EXISTS idx_products_status_created (status, created_at);
+
+ALTER TABLE products
+  ADD KEY IF NOT EXISTS idx_products_status_category (status, category_id);

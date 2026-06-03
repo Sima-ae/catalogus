@@ -6,6 +6,10 @@ import {
   listCategories,
   updateCategoryById,
 } from '@/lib/products-db'
+import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
+
+const ACTIVE_CATEGORIES_CACHE_NS = 'active-categories'
+const ACTIVE_CATEGORIES_TTL_MS = 60_000
 
 /** All category reads/writes use the `categories` table only. */
 export async function loadAllCategories(): Promise<CategoryRecord[]> {
@@ -13,7 +17,13 @@ export async function loadAllCategories(): Promise<CategoryRecord[]> {
 }
 
 export async function loadActiveCategories(): Promise<CategoryRecord[]> {
-  return (await listCategories(true)) as CategoryRecord[]
+  return getCachedValue(ACTIVE_CATEGORIES_CACHE_NS, 'all', ACTIVE_CATEGORIES_TTL_MS, async () =>
+    (await listCategories(true)) as CategoryRecord[]
+  )
+}
+
+export function invalidateActiveCategoriesCache(): void {
+  invalidateCachedNamespace(ACTIVE_CATEGORIES_CACHE_NS)
 }
 
 export async function loadCategoryById(id: string): Promise<CategoryRecord | null> {
@@ -27,7 +37,9 @@ export async function createCategory(input: {
   description?: string
   parent_id?: string | null
 }): Promise<CategoryRecord> {
-  return (await insertCategory(input)) as CategoryRecord
+  const row = (await insertCategory(input)) as CategoryRecord
+  invalidateActiveCategoriesCache()
+  return row
 }
 
 export async function saveCategory(
@@ -48,6 +60,7 @@ export async function saveCategory(
     if (!row) {
       return { ok: false, status: 404, error: 'Category not found in database' }
     }
+    invalidateActiveCategoriesCache()
     return { ok: true, row: row as CategoryRecord }
   } catch (error) {
     const code = (error as { code?: string })?.code
@@ -66,5 +79,6 @@ export async function removeCategory(
     return { ok: false, status: 404, error: 'Category not found' }
   }
   await deleteCategoryById(id)
+  invalidateActiveCategoriesCache()
   return { ok: true }
 }

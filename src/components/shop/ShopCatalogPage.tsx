@@ -94,8 +94,10 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const showSocialProof = config.showSocialProof ?? true
   const showFooterTagline = config.showFooterTagline ?? config.mode === 'new'
 
+  const urlCategory = searchParams.get('category')?.trim() || 'All'
+  const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
   const filterBrand = searchParams.get('brand')?.trim() || 'All'
-  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${filterBrand}|${debouncedSearch}|${config.mode}`
+  const filterSignature = `${urlCategory}|${urlSubcategory}|${filterBrand}|${debouncedSearch}|${config.mode}`
 
   const handleProductDeleted = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId))
@@ -156,9 +158,9 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
         const url = buildCatalogProductsUrl(appPath('/api/products'), {
           page: pageToLoad,
           limit: CATALOG_PAGE_SIZE,
-          category: selectedCategory,
-          subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-          brand: filterBrand,
+          category: urlCategory !== 'All' ? urlCategory : undefined,
+          subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
+          brand: filterBrand !== 'All' ? filterBrand : undefined,
           search: debouncedSearch || undefined,
           mode: config.mode === 'new' ? 'new' : undefined,
         })
@@ -201,11 +203,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     currentPage,
     debouncedSearch,
     filterSignature,
-    selectedCategory,
-    selectedSubcategory,
-    filterBrand,
     reloadToken,
-    listingScrollKey,
   ])
 
   const isDark = theme === 'dark'

@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { appPath } from '@/lib/paths'
-import { buildShopCategoryMenu, type CategoryRow } from '@/lib/shop-category-menu'
+import { buildShopCategoryMenu } from '@/lib/shop-category-menu'
+import { fetchShopCategoryRows } from '@/lib/shop-categories-client'
 
 /** Top-level category labels for shop sidebar and filters. */
 export function useShopCategoryList() {
@@ -10,11 +10,10 @@ export function useShopCategoryList() {
 
   useEffect(() => {
     let cancelled = false
-    fetch(appPath('/api/categories'))
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: unknown) => {
-        if (cancelled || !Array.isArray(data)) return
-        setCategories(buildShopCategoryMenu(data as CategoryRow[]))
+    fetchShopCategoryRows()
+      .then((rows) => {
+        if (cancelled) return
+        setCategories(buildShopCategoryMenu(rows))
       })
       .catch(() => {
         if (!cancelled) setCategories(['All'])

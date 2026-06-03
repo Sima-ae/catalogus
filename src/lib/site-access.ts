@@ -6,6 +6,10 @@ import {
   type SiteAccessSettingKey,
 } from '@/lib/site-access-keys'
 import { countSiteAccessCodes, verifySiteAccessCode } from '@/lib/site-access-codes-db'
+import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
+
+const SITE_ACCESS_CACHE_NS = 'site-access-config'
+const SITE_ACCESS_CACHE_TTL_MS = 30_000
 
 export {
   SITE_ACCESS_COOKIE,
@@ -37,6 +41,19 @@ async function loadSiteAccessRows(): Promise<SettingRow[]> {
 }
 
 export async function getSiteAccessConfig(): Promise<SiteAccessConfig> {
+  return getCachedValue(
+    SITE_ACCESS_CACHE_NS,
+    'config',
+    SITE_ACCESS_CACHE_TTL_MS,
+    loadSiteAccessConfigUncached
+  )
+}
+
+export function invalidateSiteAccessConfigCache(): void {
+  invalidateCachedNamespace(SITE_ACCESS_CACHE_NS)
+}
+
+async function loadSiteAccessConfigUncached(): Promise<SiteAccessConfig> {
   const rows = await loadSiteAccessRows()
   const map: Record<string, string> = { ...DEFAULT_SITE_ACCESS }
   for (const row of rows) {

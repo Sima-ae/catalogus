@@ -31,6 +31,8 @@ export function useShopBrand() {
     if (!isShopCatalogPath(pathname)) return
     const raw = searchParams.get('brand')?.trim()
     if (!raw || brandMenu.includes(raw)) return
+    // Placeholder menu is ['All'] until the API responds — do not strip ?brand= or ?page= yet.
+    if (brandMenu.length <= 1) return
 
     const basePath = shopCatalogBasePath(pathname)
     const params = new URLSearchParams(searchParams.toString())

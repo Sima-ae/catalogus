@@ -106,8 +106,12 @@ type ProductSchemaFlags = {
 }
 
 const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
+const SELECT_SQL_CACHE_KEY = '__catalogusProductSelectSql'
 
-type GlobalSchema = typeof globalThis & { [SCHEMA_CACHE_KEY]?: ProductSchemaFlags }
+type GlobalSchema = typeof globalThis & {
+  [SCHEMA_CACHE_KEY]?: ProductSchemaFlags
+  [SELECT_SQL_CACHE_KEY]?: string
+}
 
 async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
   const g = globalThis as GlobalSchema
@@ -164,6 +168,9 @@ function jsonCol(value: unknown) {
 }
 
 async function productSelectSql() {
+  const g = globalThis as GlobalSchema
+  if (g[SELECT_SQL_CACHE_KEY]) return g[SELECT_SQL_CACHE_KEY]
+
   const hasCategoryId = await productsHaveCategoryIdColumn()
   const hasBrandsTable = await brandsTableExists()
   const hasBrandId = hasBrandsTable && (await productsHaveBrandIdColumn())
@@ -190,7 +197,7 @@ async function productSelectSql() {
       b.slug AS resolved_brand_slug`
     : ''
 
-  return `
+  g[SELECT_SQL_CACHE_KEY] = `
     SELECT
       p.*,
       c.id AS resolved_category_id,
@@ -200,6 +207,7 @@ async function productSelectSql() {
     ${categoryJoin}
     ${brandJoin}
   `
+  return g[SELECT_SQL_CACHE_KEY]
 }
 
 /** One row per product — guards against any residual join fan-out. */
@@ -549,10 +557,12 @@ export async function listActiveProducts() {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  const select = await productSelectSql()
-  const hasBrandsTable = await brandsTableExists()
+  const [select, categories, hasBrandsTable] = await Promise.all([
+    productSelectSql(),
+    loadActiveCategories(),
+    brandsTableExists(),
+  ])
   const limit = query.limit
-  const categories = await loadActiveCategories()
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
@@ -581,17 +591,18 @@ export async function listActiveProductsPaginated(
   const fromIndex = select.search(/\bFROM\b/i)
   const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
 
-  const countRows = await queryDb<{ total: number }[]>(
-    `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
-    params
-  )
+  const [countRows, idRows] = await Promise.all([
+    queryDb<{ total: number }[]>(
+      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+      params
+    ),
+    queryDb<{ id: string }[]>(
+      `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    ),
+  ])
 
   const total = Number(countRows[0]?.total ?? 0)
-
-  const idRows = await queryDb<{ id: string }[]>(
-    `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
-  )
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {

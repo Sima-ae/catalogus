@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { DEFAULT_SITE_ACCESS } from '@/lib/site-access-keys'
 import { countSiteAccessCodes } from '@/lib/site-access-codes-db'
-import { hashSiteAccessPassword } from '@/lib/site-access'
+import { hashSiteAccessPassword, invalidateSiteAccessConfigCache } from '@/lib/site-access'
 
 async function upsertSetting(key: string, value: string) {
   await queryDb(
@@ -32,12 +32,14 @@ export async function saveSiteAccessForAdmin(input: {
     await upsertSetting('site_access_enabled', 'false')
     await upsertSetting('site_access_password_hash', '')
     await bumpVersion()
+    invalidateSiteAccessConfigCache()
     return
   }
 
   if (input.enabled === false) {
     await upsertSetting('site_access_enabled', 'false')
     await bumpVersion()
+    invalidateSiteAccessConfigCache()
     return
   }
 
@@ -46,6 +48,7 @@ export async function saveSiteAccessForAdmin(input: {
     await upsertSetting('site_access_password_hash', hash)
     await upsertSetting('site_access_enabled', 'true')
     await bumpVersion()
+    invalidateSiteAccessConfigCache()
     return
   }
 
@@ -60,6 +63,7 @@ export async function saveSiteAccessForAdmin(input: {
     }
     await upsertSetting('site_access_enabled', 'true')
     await bumpVersion()
+    invalidateSiteAccessConfigCache()
   }
 }
 

@@ -55,6 +55,7 @@ const nextConfig = {
     NEXT_PUBLIC_APP_URL: appUrl,
   },
   images: {
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: 'http',

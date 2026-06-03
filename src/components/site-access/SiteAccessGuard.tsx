@@ -9,8 +9,30 @@ import {
   navigateAfterSiteAccessUnlock,
   resolveSiteAccessRedirect,
 } from '@/lib/site-access-redirect'
+import { SITE_ACCESS_META_REQUIRED } from '@/lib/site-access-cookie'
 
 type Status = { required: boolean; unlocked: boolean }
+
+function readSiteAccessHint(): Status | null {
+  if (typeof document === 'undefined') return null
+
+  const cookies = document.cookie
+  const requiredMatch = cookies.match(
+    new RegExp(`(?:^|;\\s*)${SITE_ACCESS_META_REQUIRED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=([^;]*)`)
+  )
+  const requiredFlag = requiredMatch?.[1]
+
+  if (requiredFlag === '0') {
+    return { required: false, unlocked: true }
+  }
+
+  // Middleware already passed — render immediately while status is confirmed in the background.
+  if (requiredFlag === '1') {
+    return { required: true, unlocked: true }
+  }
+
+  return null
+}
 
 /**
  * Client-side backup: blocks UI until site access cookie is set (e.g. client navigations).
@@ -21,7 +43,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useI18n()
-  const [status, setStatus] = useState<Status | null>(null)
+  const [status, setStatus] = useState<Status | null>(() => readSiteAccessHint())
 
   const gatePath = appPath('/site-access-gate')
   const onGate =
@@ -41,7 +63,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     return () => {
       cancelled = true
     }
-  }, [pathname])
+  }, [])
 
   const pricelistShare = isPricelistSharePath(pathname || '', searchParams.get('owner'))
 

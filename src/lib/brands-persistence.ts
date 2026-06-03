@@ -6,6 +6,18 @@ import {
   listBrands,
   updateBrandById,
 } from '@/lib/brands-db'
+import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
+
+const ACTIVE_BRANDS_CACHE_NS = 'active-brands'
+const ACTIVE_BRANDS_TTL_MS = 60_000
+
+function activeBrandsCacheKey(categoryName?: string, subcategory?: string): string {
+  return `${categoryName?.trim() || ''}|${subcategory?.trim() || ''}`
+}
+
+export function invalidateActiveBrandsCache(): void {
+  invalidateCachedNamespace(ACTIVE_BRANDS_CACHE_NS)
+}
 
 export async function loadAllBrands(): Promise<BrandRecord[]> {
   try {
@@ -20,7 +32,12 @@ export async function loadActiveBrands(
   subcategory?: string
 ): Promise<BrandRecord[]> {
   try {
-    return (await listBrands(true, categoryName, subcategory)) as BrandRecord[]
+    return getCachedValue(
+      ACTIVE_BRANDS_CACHE_NS,
+      activeBrandsCacheKey(categoryName, subcategory),
+      ACTIVE_BRANDS_TTL_MS,
+      async () => (await listBrands(true, categoryName, subcategory)) as BrandRecord[]
+    )
   } catch {
     return []
   }
@@ -37,7 +54,9 @@ export async function createBrand(input: {
   description?: string
   categoryIds?: string[]
 }): Promise<BrandRecord> {
-  return (await insertBrand(input)) as BrandRecord
+  const row = (await insertBrand(input)) as BrandRecord
+  invalidateActiveBrandsCache()
+  return row
 }
 
 export async function saveBrand(
@@ -58,6 +77,7 @@ export async function saveBrand(
     if (!row) {
       return { ok: false, status: 404, error: 'Brand not found in database' }
     }
+    invalidateActiveBrandsCache()
     return { ok: true, row: row as BrandRecord }
   } catch (error) {
     const code = (error as { code?: string })?.code
@@ -76,5 +96,6 @@ export async function removeBrand(
     return { ok: false, status: 404, error: 'Brand not found' }
   }
   await deleteBrandById(id)
+  invalidateActiveBrandsCache()
   return { ok: true }
 }
