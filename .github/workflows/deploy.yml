@@ -84,20 +84,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          trim() { printf '%s' "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'; }
-
-          VPS_HOST="$(trim "${VPS_HOST:-}")"
-          VPS_USER="$(trim "${VPS_USER:-}")"
-          PORT="$(trim "${VPS_SSH_PORT:-22}")"
-          PORT="${PORT:-22}"
-          APP_DIR="$(trim "${VPS_APP_PATH:-/var/www/superclones.cloud}")"
-          APP_DIR="${APP_DIR:-/var/www/superclones.cloud}"
+          PORT="${VPS_SSH_PORT:-22}"
+          APP_DIR="${VPS_APP_PATH:-/var/www/superclones.cloud}"
           REPO_URL="https://github.com/${{ github.repository }}.git"
-
-          if [[ -z "$VPS_HOST" || -z "$VPS_USER" ]]; then
-            echo "::error::VPS_HOST and VPS_USER must be non-empty after trimming whitespace."
-            exit 1
-          fi
 
           mkdir -p ~/.ssh
           umask 077
@@ -124,60 +113,14 @@ jobs:
 
           echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
 
-          RUNNER_IP="$(curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null || curl -fsS --max-time 8 https://ifconfig.me 2>/dev/null || true)"
-          if [[ -n "$RUNNER_IP" ]]; then
-            echo "==> This job egress IP: ${RUNNER_IP} (if blocked on VPS: csf -dr ${RUNNER_IP} or fail2ban-client set sshd unbanip ${RUNNER_IP})"
-          fi
-
-          if ! getent hosts "$VPS_HOST" >/dev/null 2>&1; then
-            echo "::error::DNS lookup failed for VPS_HOST=${VPS_HOST}."
-            echo "Use the public hostname (superclones.cloud) or server IP — not the internal hostname from \`hostname\`."
-            exit 1
-          fi
-          DNS_LINE="$(getent hosts "$VPS_HOST" | head -3)"
-          echo "==> DNS: ${DNS_LINE}"
-          if echo "$DNS_LINE" | grep -qi 'do-it\.vip'; then
-            echo "::warning::VPS_HOST resolves to do-it.vip. Prefer GitHub secret VPS_HOST=superclones.cloud if that is the site A record."
-          fi
-
-          tcp_ok=false
-          for attempt in 1 2 3 4; do
-            echo "==> TCP check attempt ${attempt}/4 → ${VPS_HOST}:${PORT}"
-            if nc -zvw15 "$VPS_HOST" "$PORT" 2>&1; then
-              tcp_ok=true
-              break
-            fi
-            if [[ "$attempt" -lt 4 ]]; then
-              echo "Retry in 20s (CSF/fail2ban often blocks GitHub datacenter IPs intermittently)…"
-              sleep 20
-            fi
-          done
-          if [[ "$tcp_ok" != "true" ]]; then
-            echo "::error::Cannot reach ${VPS_HOST}:${PORT} from GitHub Actions after 4 attempts."
-            echo "Your Mac may still connect — CSF/fail2ban blocks datacenter IPs. On the VPS as root:"
-            echo "  bash /var/www/superclones.cloud/scripts/vps-allow-github-actions-ssh.sh"
-            echo "  bash /var/www/superclones.cloud/scripts/vps-check-github-ssh.sh"
-            if [[ -n "$RUNNER_IP" ]]; then
-              echo "  csf -dr ${RUNNER_IP} 2>/dev/null; fail2ban-client set sshd unbanip ${RUNNER_IP} 2>/dev/null"
-            fi
-            echo "GitHub secrets: VPS_HOST=superclones.cloud  VPS_USER=root  VPS_SSH_KEY=<deploy key, no passphrase>"
-            echo "Optional: VPS_SSH_PORT if SSH is not on 22."
+          if ! timeout 15 bash -c "echo >/dev/tcp/${VPS_HOST}/${PORT}" 2>/dev/null; then
+            echo "::error::Cannot reach ${VPS_HOST}:${PORT} (firewall or wrong VPS_HOST)."
             exit 1
           fi
 
-          ssh_ok=false
-          for attempt in 1 2 3; do
-            echo "==> SSH auth attempt ${attempt}/3"
-            if ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'echo "SSH OK as $(id -un)"'; then
-              ssh_ok=true
-              break
-            fi
-            [[ "$attempt" -lt 3 ]] && sleep 15
-          done
-          if [[ "$ssh_ok" != "true" ]]; then
+          if ! ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'echo "SSH OK as $(id -un)"'; then
             echo "::error::SSH auth failed. VPS_USER=root and VPS_SSH_KEY must match /root/.ssh/authorized_keys."
-            echo "On VPS: bash /var/www/superclones.cloud/scripts/setup-github-deploy-ssh.sh"
-            echo "Then paste the printed private key into GitHub secret VPS_SSH_KEY (no passphrase)."
+            echo "Copy VPS_SSH_KEY from inkoop.autos repo secrets, or run setup-github-deploy-ssh.sh on the VPS."
             exit 1
           fi
 
