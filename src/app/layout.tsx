@@ -43,8 +43,8 @@ export default function RootLayout({
   return (
     <html lang={locale}>
       <body className={`${inter.className} app-protected transition-colors duration-200`}>
-        <ContentProtection />
         <AuthProvider>
+          <ContentProtection />
           <Suspense
             fallback={
               <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-dark-900 text-gray-400 px-4">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth-local'
 import { APP_COPYRIGHT } from '@/lib/brand'
 
 type MenuState = { x: number; y: number } | null
@@ -10,12 +11,32 @@ function isFormField(target: EventTarget | null): boolean {
   return !!target.closest('input, textarea, select, [contenteditable="true"]')
 }
 
+/** Logged-in admin / super admin: no copy, selection, or context-menu blocks. */
+function useProtectionActive(): boolean {
+  const { user, isAdmin, loading } = useAuth()
+  if (loading) return true
+  return !(user && isAdmin)
+}
+
 export default function ContentProtection() {
+  const protectionActive = useProtectionActive()
   const [menu, setMenu] = useState<MenuState>(null)
 
   const closeMenu = useCallback(() => setMenu(null), [])
 
   useEffect(() => {
+    document.body.classList.toggle('app-protected', protectionActive)
+    return () => {
+      document.body.classList.remove('app-protected')
+    }
+  }, [protectionActive])
+
+  useEffect(() => {
+    if (!protectionActive) {
+      setMenu(null)
+      return
+    }
+
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault()
       const pad = 8
@@ -61,7 +82,7 @@ export default function ContentProtection() {
       document.removeEventListener('click', onClick)
       document.removeEventListener('scroll', closeMenu, true)
     }
-  }, [closeMenu])
+  }, [closeMenu, protectionActive])
 
   return (
     <>
