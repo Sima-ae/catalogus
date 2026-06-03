@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
+import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
 import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
@@ -17,6 +19,7 @@ export function useShopSubcategory(selectedCategory: string) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { t, locale } = useI18n()
   const selectedBrand = searchParams.get('brand')?.trim() || 'All'
 
   const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>([])
@@ -65,8 +68,8 @@ export function useShopSubcategory(selectedCategory: string) {
   }, [selectedCategory, selectedBrand])
 
   const subcategoryOptions = useMemo(
-    () => subcategories.map((row) => row.name),
-    [subcategories]
+    () => sortShopCategoriesByLabel(subcategories.map((row) => row.name), t, locale),
+    [subcategories, t, locale]
   )
 
   const hasSubcategories = subcategoryOptions.length > 0

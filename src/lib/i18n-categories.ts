@@ -3,6 +3,22 @@ import type { Locale } from '@/lib/i18n'
 
 type Translator = (key: string) => string
 
+/** Map shop locale codes to BCP 47 tags for Intl.Collator. */
+const COLLATOR_LOCALE: Record<string, string> = {
+  gr: 'el',
+  cz: 'cs',
+  ba: 'bs',
+  eg: 'ar',
+  at: 'ar',
+  ps: 'ar',
+  ma: 'ar',
+  dz: 'ar',
+}
+
+function collatorLocale(locale: string): string {
+  return COLLATOR_LOCALE[locale] ?? locale
+}
+
 /**
  * Translate category names from the DB/API for the active shop locale.
  * Uses static i18n bundles first, then auto-generated DB translations.
@@ -23,4 +39,26 @@ export function getTopCategoryLabel(
   const translated = t(key)
   if (translated && translated !== key) return translated
   return raw
+}
+
+/** Sort shop category ids: "All" first, then A–Z by translated label for the active locale. */
+export function sortShopCategoriesByLabel(
+  categories: string[],
+  t: Translator,
+  locale: Locale | string,
+  opts?: { allStyle?: 'all' | 'home' }
+): string[] {
+  if (categories.length <= 1) return categories
+
+  const collator = new Intl.Collator(collatorLocale(String(locale)), {
+    sensitivity: 'base',
+    numeric: true,
+  })
+  const label = (category: string) =>
+    getTopCategoryLabel(category, t, { allStyle: opts?.allStyle ?? 'all' })
+
+  const all = categories.filter((category) => category === 'All')
+  const rest = categories.filter((category) => category !== 'All')
+  rest.sort((a, b) => collator.compare(label(a), label(b)))
+  return [...all, ...rest]
 }

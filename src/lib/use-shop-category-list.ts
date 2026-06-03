@@ -1,11 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
+import { useI18n } from '@/lib/i18n-context'
 import { buildShopCategoryMenu } from '@/lib/shop-category-menu'
 import { fetchShopCategoryRows } from '@/lib/shop-categories-client'
 
 /** Top-level category labels for shop sidebar and filters. */
 export function useShopCategoryList() {
+  const { t, locale } = useI18n()
   const [categories, setCategories] = useState<string[]>(['All'])
 
   useEffect(() => {
@@ -23,5 +26,8 @@ export function useShopCategoryList() {
     }
   }, [])
 
-  return useMemo(() => categories, [categories])
+  return useMemo(
+    () => sortShopCategoriesByLabel(categories, t, locale),
+    [categories, t, locale]
+  )
 }
