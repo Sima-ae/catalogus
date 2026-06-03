@@ -13,7 +13,7 @@ import { appPath } from '@/lib/paths'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
 export default function AdminHeaderActions() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, isSuperAdmin } = useAuth()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -21,14 +21,20 @@ export default function AdminHeaderActions() {
     <div className="flex flex-nowrap items-center justify-end gap-1.5 lg:gap-2 w-full min-w-0">
       <LanguageSwitcher compact iconOnlyOnMobile />
       <ThemeToggleButton />
-      <button
-        type="button"
-        className="btn-primary text-xs lg:text-sm px-2.5 lg:px-3 py-2 whitespace-nowrap shrink-0 hidden sm:inline-flex"
-      >
-        Create Shop
-      </button>
+      {isSuperAdmin ? (
+        <Link
+          href={appPath('/admin')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary text-xs lg:text-sm px-2.5 lg:px-3 py-2 whitespace-nowrap shrink-0 hidden sm:inline-flex"
+        >
+          Create Shop
+        </Link>
+      ) : null}
       <Link
         href={appPath('/')}
+        target="_blank"
+        rel="noopener noreferrer"
         className="btn-secondary flex items-center gap-1.5 text-xs lg:text-sm px-2.5 lg:px-3 py-2 shrink-0"
       >
         <BuildingOfficeIcon className="w-4 h-4 lg:w-5 lg:h-5 shrink-0" />

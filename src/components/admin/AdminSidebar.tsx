@@ -134,6 +134,8 @@ export default function AdminSidebar({
         <div className="space-y-2">
           <Link
             href={appPath('/')}
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={onMobileClose}
             className={`block transition-colors ${isDark ? 'hover:text-white' : 'hover:text-gray-900'}`}
           >

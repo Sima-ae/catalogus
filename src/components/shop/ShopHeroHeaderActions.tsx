@@ -1,6 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { useTheme } from '@/lib/theme'
+import { useAuth } from '@/lib/auth-local'
+import { appPath } from '@/lib/paths'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
@@ -15,6 +18,7 @@ type ShopHeroHeaderActionsProps = {
 export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps = {}) {
   const { cartBadgeCount } = props
   const { theme } = useTheme()
+  const { isAdmin } = useAuth()
   const isDark = theme === 'dark'
 
   return (
@@ -23,24 +27,28 @@ export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps 
         <LanguageSwitcher compact iconOnlyOnMobile />
       </div>
       <ThemeToggleButton />
-      <button
-        type="button"
-        className={`hidden sm:inline-flex p-2 rounded-lg transition-colors duration-200 shrink-0 ${
-          isDark
-            ? 'text-gray-400 hover:text-white hover:bg-dark-800'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
-        }`}
-        title="Grid View"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-          />
-        </svg>
-      </button>
+      {isAdmin ? (
+        <Link
+          href={appPath('/admin')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`hidden sm:inline-flex p-2 rounded-lg transition-colors duration-200 shrink-0 ${
+            isDark
+              ? 'text-gray-400 hover:text-white hover:bg-dark-800'
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+          }`}
+          title="Admin dashboard"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
+          </svg>
+        </Link>
+      ) : null}
       <ShopCartHeaderButton badgeCount={cartBadgeCount} />
       <ShopRegisterHeaderButtons
         className="flex-nowrap shrink-0 gap-1.5 lg:gap-2"
