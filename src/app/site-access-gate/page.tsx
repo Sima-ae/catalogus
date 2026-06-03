@@ -10,12 +10,15 @@ import {
   resolveSiteAccessRedirect,
   waitForSiteAccessUnlock,
 } from '@/lib/site-access-redirect'
+import { translateGateApiError } from '@/lib/i18n-gate-messages'
+import { useSyncLocaleFromPath } from '@/lib/use-sync-locale-from-path'
 
 function GateForm() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || '/'
   const { t } = useI18n()
+  useSyncLocaleFromPath(from)
 
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -39,7 +42,7 @@ function GateForm() {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Incorrect password')
+        setError(translateGateApiError(data.error, t, 'site'))
         return
       }
       ok = true
@@ -48,7 +51,7 @@ function GateForm() {
       const target = resolveSiteAccessRedirect(from, pathname)
       navigateAfterSiteAccessUnlock(target)
     } catch {
-      setError('Unable to verify password. Try again.')
+      setError(t('siteAccess.verifyFailed'))
     } finally {
       if (!ok) setLoading(false)
     }
@@ -65,9 +68,7 @@ function GateForm() {
         <div id="site-access-title" className="flex justify-center">
           <BrandLogo href="/" size="dashboard" priority centered />
         </div>
-        <p className="mt-2 text-sm text-gray-400 text-center">
-          Enter the site access password to continue.
-        </p>
+        <p className="mt-2 text-sm text-gray-400 text-center">{t('siteAccess.intro')}</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {error && (
@@ -83,7 +84,7 @@ function GateForm() {
 
           <div>
             <label htmlFor="site-access-password" className="sr-only">
-              Site access password
+              {t('siteAccess.passwordLabel')}
             </label>
             <input
               id="site-access-password"
@@ -93,7 +94,7 @@ function GateForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Site password"
+              placeholder={t('siteAccess.passwordPlaceholder')}
               className="w-full px-4 py-3 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -105,7 +106,7 @@ function GateForm() {
               onChange={(e) => setRemember(e.target.checked)}
               className="rounded border-dark-500 text-primary-500 focus:ring-primary-500"
             />
-            Remember on this device (30 days)
+            {t('siteAccess.remember')}
           </label>
 
           <button
@@ -113,7 +114,7 @@ function GateForm() {
             disabled={loading}
             className="w-full btn-primary py-3 disabled:opacity-50"
           >
-            {loading ? 'Checking...' : 'Continue'}
+            {loading ? t('loading.checking') : t('siteAccess.continue')}
           </button>
         </form>
       </div>

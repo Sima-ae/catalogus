@@ -1,0 +1,488 @@
+import type { Locale } from '@/lib/i18n-locale-registry'
+
+/** Site-access gate + pricelist gate strings (merged in getMessages). */
+export type GateMessageKey =
+  | 'siteAccess.intro'
+  | 'siteAccess.passwordLabel'
+  | 'siteAccess.passwordPlaceholder'
+  | 'siteAccess.remember'
+  | 'siteAccess.continue'
+  | 'siteAccess.passwordRequired'
+  | 'siteAccess.incorrectPassword'
+  | 'siteAccess.verifyFailed'
+  | 'pricelist.access.incorrectPassword'
+  | 'pricelist.access.checkAccessFailed'
+
+type GateMessages = Record<GateMessageKey, string>
+
+const EN: GateMessages = {
+  'siteAccess.intro': 'Enter the site access password to continue.',
+  'siteAccess.passwordLabel': 'Site access password',
+  'siteAccess.passwordPlaceholder': 'Site password',
+  'siteAccess.remember': 'Remember on this device (30 days)',
+  'siteAccess.continue': 'Continue',
+  'siteAccess.passwordRequired': 'Password is required',
+  'siteAccess.incorrectPassword': 'Incorrect password',
+  'siteAccess.verifyFailed': 'Unable to verify password. Try again.',
+  'pricelist.access.incorrectPassword': 'Incorrect pricelist password',
+  'pricelist.access.checkAccessFailed': 'Unable to check access',
+}
+
+const NL: GateMessages = {
+  'siteAccess.intro': 'Voer het toegangswachtwoord van de site in om door te gaan.',
+  'siteAccess.passwordLabel': 'Site-toegangswachtwoord',
+  'siteAccess.passwordPlaceholder': 'Sitewachtwoord',
+  'siteAccess.remember': 'Onthouden op dit apparaat (30 dagen)',
+  'siteAccess.continue': 'Doorgaan',
+  'siteAccess.passwordRequired': 'Wachtwoord is verplicht',
+  'siteAccess.incorrectPassword': 'Onjuist wachtwoord',
+  'siteAccess.verifyFailed': 'Wachtwoord kan niet worden geverifieerd. Probeer het opnieuw.',
+  'pricelist.access.incorrectPassword': 'Onjuist prijslijstwachtwoord',
+  'pricelist.access.checkAccessFailed': 'Toegang kan niet worden gecontroleerd',
+}
+
+const GATE_BY_LOCALE: Partial<Record<Locale, GateMessages>> = {
+  en: EN,
+  nl: NL,
+  de: {
+    'siteAccess.intro': 'Geben Sie das Site-Zugangspasswort ein, um fortzufahren.',
+    'siteAccess.passwordLabel': 'Site-Zugangspasswort',
+    'siteAccess.passwordPlaceholder': 'Site-Passwort',
+    'siteAccess.remember': 'Auf diesem Gerät merken (30 Tage)',
+    'siteAccess.continue': 'Weiter',
+    'siteAccess.passwordRequired': 'Passwort ist erforderlich',
+    'siteAccess.incorrectPassword': 'Falsches Passwort',
+    'siteAccess.verifyFailed': 'Passwort konnte nicht überprüft werden. Bitte erneut versuchen.',
+    'pricelist.access.incorrectPassword': 'Falsches Preislisten-Passwort',
+    'pricelist.access.checkAccessFailed': 'Zugriff konnte nicht geprüft werden',
+  },
+  fr: {
+    'siteAccess.intro': 'Saisissez le mot de passe d’accès au site pour continuer.',
+    'siteAccess.passwordLabel': 'Mot de passe d’accès au site',
+    'siteAccess.passwordPlaceholder': 'Mot de passe du site',
+    'siteAccess.remember': 'Mémoriser sur cet appareil (30 jours)',
+    'siteAccess.continue': 'Continuer',
+    'siteAccess.passwordRequired': 'Le mot de passe est requis',
+    'siteAccess.incorrectPassword': 'Mot de passe incorrect',
+    'siteAccess.verifyFailed': 'Impossible de vérifier le mot de passe. Réessayez.',
+    'pricelist.access.incorrectPassword': 'Mot de passe de liste incorrect',
+    'pricelist.access.checkAccessFailed': 'Impossible de vérifier l’accès',
+  },
+  es: {
+    'siteAccess.intro': 'Introduce la contraseña de acceso al sitio para continuar.',
+    'siteAccess.passwordLabel': 'Contraseña de acceso al sitio',
+    'siteAccess.passwordPlaceholder': 'Contraseña del sitio',
+    'siteAccess.remember': 'Recordar en este dispositivo (30 días)',
+    'siteAccess.continue': 'Continuar',
+    'siteAccess.passwordRequired': 'La contraseña es obligatoria',
+    'siteAccess.incorrectPassword': 'Contraseña incorrecta',
+    'siteAccess.verifyFailed': 'No se pudo verificar la contraseña. Inténtalo de nuevo.',
+    'pricelist.access.incorrectPassword': 'Contraseña de lista incorrecta',
+    'pricelist.access.checkAccessFailed': 'No se pudo comprobar el acceso',
+  },
+  it: {
+    'siteAccess.intro': 'Inserisci la password di accesso al sito per continuare.',
+    'siteAccess.passwordLabel': 'Password di accesso al sito',
+    'siteAccess.passwordPlaceholder': 'Password del sito',
+    'siteAccess.remember': 'Ricorda su questo dispositivo (30 giorni)',
+    'siteAccess.continue': 'Continua',
+    'siteAccess.passwordRequired': 'La password è obbligatoria',
+    'siteAccess.incorrectPassword': 'Password errata',
+    'siteAccess.verifyFailed': 'Impossibile verificare la password. Riprova.',
+    'pricelist.access.incorrectPassword': 'Password del listino errata',
+    'pricelist.access.checkAccessFailed': 'Impossibile verificare l’accesso',
+  },
+  pt: {
+    'siteAccess.intro': 'Introduza a palavra-passe de acesso ao site para continuar.',
+    'siteAccess.passwordLabel': 'Palavra-passe de acesso ao site',
+    'siteAccess.passwordPlaceholder': 'Palavra-passe do site',
+    'siteAccess.remember': 'Lembrar neste dispositivo (30 dias)',
+    'siteAccess.continue': 'Continuar',
+    'siteAccess.passwordRequired': 'A palavra-passe é obrigatória',
+    'siteAccess.incorrectPassword': 'Palavra-passe incorreta',
+    'siteAccess.verifyFailed': 'Não foi possível verificar a palavra-passe. Tente novamente.',
+    'pricelist.access.incorrectPassword': 'Palavra-passe da lista incorreta',
+    'pricelist.access.checkAccessFailed': 'Não foi possível verificar o acesso',
+  },
+  gr: {
+    'siteAccess.intro': 'Εισαγάγετε τον κωδικό πρόσβασης στον ιστότοπο για να συνεχίσετε.',
+    'siteAccess.passwordLabel': 'Κωδικός πρόσβασης ιστότοπου',
+    'siteAccess.passwordPlaceholder': 'Κωδικός ιστότοπου',
+    'siteAccess.remember': 'Απομνημόνευση σε αυτή τη συσκευή (30 ημέρες)',
+    'siteAccess.continue': 'Συνέχεια',
+    'siteAccess.passwordRequired': 'Ο κωδικός είναι υποχρεωτικός',
+    'siteAccess.incorrectPassword': 'Λανθασμένος κωδικός',
+    'siteAccess.verifyFailed': 'Δεν ήταν δυνατή η επαλήθευση του κωδικού. Δοκιμάστε ξανά.',
+    'pricelist.access.incorrectPassword': 'Λανθασμένος κωδικός τιμοκαταλόγου',
+    'pricelist.access.checkAccessFailed': 'Δεν ήταν δυνατός ο έλεγχος πρόσβασης',
+  },
+  pl: {
+    'siteAccess.intro': 'Wprowadź hasło dostępu do witryny, aby kontynuować.',
+    'siteAccess.passwordLabel': 'Hasło dostępu do witryny',
+    'siteAccess.passwordPlaceholder': 'Hasło witryny',
+    'siteAccess.remember': 'Zapamiętaj na tym urządzeniu (30 dni)',
+    'siteAccess.continue': 'Kontynuuj',
+    'siteAccess.passwordRequired': 'Hasło jest wymagane',
+    'siteAccess.incorrectPassword': 'Nieprawidłowe hasło',
+    'siteAccess.verifyFailed': 'Nie można zweryfikować hasła. Spróbuj ponownie.',
+    'pricelist.access.incorrectPassword': 'Nieprawidłowe hasło cennika',
+    'pricelist.access.checkAccessFailed': 'Nie można sprawdzić dostępu',
+  },
+  cz: {
+    'siteAccess.intro': 'Pro pokračování zadejte přístupové heslo k webu.',
+    'siteAccess.passwordLabel': 'Přístupové heslo k webu',
+    'siteAccess.passwordPlaceholder': 'Heslo webu',
+    'siteAccess.remember': 'Zapamatovat na tomto zařízení (30 dní)',
+    'siteAccess.continue': 'Pokračovat',
+    'siteAccess.passwordRequired': 'Heslo je povinné',
+    'siteAccess.incorrectPassword': 'Nesprávné heslo',
+    'siteAccess.verifyFailed': 'Heslo se nepodařilo ověřit. Zkuste to znovu.',
+    'pricelist.access.incorrectPassword': 'Nesprávné heslo ceníku',
+    'pricelist.access.checkAccessFailed': 'Nelze zkontrolovat přístup',
+  },
+  sk: {
+    'siteAccess.intro': 'Na pokračovanie zadajte prístupové heslo k webu.',
+    'siteAccess.passwordLabel': 'Prístupové heslo k webu',
+    'siteAccess.passwordPlaceholder': 'Heslo webu',
+    'siteAccess.remember': 'Zapamätať na tomto zariadení (30 dní)',
+    'siteAccess.continue': 'Pokračovať',
+    'siteAccess.passwordRequired': 'Heslo je povinné',
+    'siteAccess.incorrectPassword': 'Nesprávne heslo',
+    'siteAccess.verifyFailed': 'Heslo sa nepodarilo overiť. Skúste znova.',
+    'pricelist.access.incorrectPassword': 'Nesprávne heslo cenníka',
+    'pricelist.access.checkAccessFailed': 'Nepodarilo sa skontrolovať prístup',
+  },
+  hu: {
+    'siteAccess.intro': 'A folytatáshoz adja meg az oldal hozzáférési jelszavát.',
+    'siteAccess.passwordLabel': 'Oldal hozzáférési jelszava',
+    'siteAccess.passwordPlaceholder': 'Oldal jelszava',
+    'siteAccess.remember': 'Emlékezzen ezen az eszközön (30 nap)',
+    'siteAccess.continue': 'Folytatás',
+    'siteAccess.passwordRequired': 'A jelszó megadása kötelező',
+    'siteAccess.incorrectPassword': 'Helytelen jelszó',
+    'siteAccess.verifyFailed': 'A jelszót nem sikerült ellenőrizni. Próbálja újra.',
+    'pricelist.access.incorrectPassword': 'Helytelen árlista-jelszó',
+    'pricelist.access.checkAccessFailed': 'Nem sikerült ellenőrizni a hozzáférést',
+  },
+  ro: {
+    'siteAccess.intro': 'Introduceți parola de acces la site pentru a continua.',
+    'siteAccess.passwordLabel': 'Parolă de acces la site',
+    'siteAccess.passwordPlaceholder': 'Parola site-ului',
+    'siteAccess.remember': 'Ține minte pe acest dispozitiv (30 zile)',
+    'siteAccess.continue': 'Continuă',
+    'siteAccess.passwordRequired': 'Parola este obligatorie',
+    'siteAccess.incorrectPassword': 'Parolă incorectă',
+    'siteAccess.verifyFailed': 'Parola nu a putut fi verificată. Încercați din nou.',
+    'pricelist.access.incorrectPassword': 'Parolă de listă incorectă',
+    'pricelist.access.checkAccessFailed': 'Nu s-a putut verifica accesul',
+  },
+  bg: {
+    'siteAccess.intro': 'Въведете паролата за достъп до сайта, за да продължите.',
+    'siteAccess.passwordLabel': 'Парола за достъп до сайта',
+    'siteAccess.passwordPlaceholder': 'Парола на сайта',
+    'siteAccess.remember': 'Запомни на това устройство (30 дни)',
+    'siteAccess.continue': 'Продължи',
+    'siteAccess.passwordRequired': 'Паролата е задължителна',
+    'siteAccess.incorrectPassword': 'Грешна парола',
+    'siteAccess.verifyFailed': 'Паролата не може да бъде проверена. Опитайте отново.',
+    'pricelist.access.incorrectPassword': 'Грешна парола за ценовата листа',
+    'pricelist.access.checkAccessFailed': 'Не може да се провери достъпът',
+  },
+  hr: {
+    'siteAccess.intro': 'Unesite lozinku za pristup stranici da biste nastavili.',
+    'siteAccess.passwordLabel': 'Lozinka za pristup stranici',
+    'siteAccess.passwordPlaceholder': 'Lozinka stranice',
+    'siteAccess.remember': 'Zapamti na ovom uređaju (30 dana)',
+    'siteAccess.continue': 'Nastavi',
+    'siteAccess.passwordRequired': 'Lozinka je obavezna',
+    'siteAccess.incorrectPassword': 'Netočna lozinka',
+    'siteAccess.verifyFailed': 'Lozinka se nije mogla provjeriti. Pokušajte ponovno.',
+    'pricelist.access.incorrectPassword': 'Netočna lozinka cjenika',
+    'pricelist.access.checkAccessFailed': 'Nije moguće provjeriti pristup',
+  },
+  sr: {
+    'siteAccess.intro': 'Унесите лозинку за приступ сајту да бисте наставили.',
+    'siteAccess.passwordLabel': 'Лозинка за приступ сајту',
+    'siteAccess.passwordPlaceholder': 'Лозинка сајта',
+    'siteAccess.remember': 'Запамти на овом уређају (30 дана)',
+    'siteAccess.continue': 'Настави',
+    'siteAccess.passwordRequired': 'Лозинка је обавезна',
+    'siteAccess.incorrectPassword': 'Нетачна лозинка',
+    'siteAccess.verifyFailed': 'Лозинка се није могла проверити. Покушајте поново.',
+    'pricelist.access.incorrectPassword': 'Нетачна лозинка ценовника',
+    'pricelist.access.checkAccessFailed': 'Није могуће проверити приступ',
+  },
+  ba: {
+    'siteAccess.intro': 'Unesite lozinku za pristup stranici da nastavite.',
+    'siteAccess.passwordLabel': 'Lozinka za pristup stranici',
+    'siteAccess.passwordPlaceholder': 'Lozinka stranice',
+    'siteAccess.remember': 'Zapamti na ovom uređaju (30 dana)',
+    'siteAccess.continue': 'Nastavi',
+    'siteAccess.passwordRequired': 'Lozinka je obavezna',
+    'siteAccess.incorrectPassword': 'Pogrešna lozinka',
+    'siteAccess.verifyFailed': 'Lozinka se nije mogla provjeriti. Pokušajte ponovo.',
+    'pricelist.access.incorrectPassword': 'Pogrešna lozinka cjenovnika',
+    'pricelist.access.checkAccessFailed': 'Nije moguće provjeriti pristup',
+  },
+  me: {
+    'siteAccess.intro': 'Unesite lozinku za pristup sajtu da nastavite.',
+    'siteAccess.passwordLabel': 'Lozinka za pristup sajtu',
+    'siteAccess.passwordPlaceholder': 'Lozinka sajta',
+    'siteAccess.remember': 'Zapamti na ovom uređaju (30 dana)',
+    'siteAccess.continue': 'Nastavi',
+    'siteAccess.passwordRequired': 'Lozinka je obavezna',
+    'siteAccess.incorrectPassword': 'Pogrešna lozinka',
+    'siteAccess.verifyFailed': 'Lozinka se nije mogla provjeriti. Pokušajte ponovo.',
+    'pricelist.access.incorrectPassword': 'Pogrešna lozinka cjenovnika',
+    'pricelist.access.checkAccessFailed': 'Nije moguće provjeriti pristup',
+  },
+  sq: {
+    'siteAccess.intro': 'Vendosni fjalëkalimin e aksesit në sajt për të vazhduar.',
+    'siteAccess.passwordLabel': 'Fjalëkalimi i aksesit në sajt',
+    'siteAccess.passwordPlaceholder': 'Fjalëkalimi i sajtit',
+    'siteAccess.remember': 'Mbaj mend në këtë pajisje (30 ditë)',
+    'siteAccess.continue': 'Vazhdo',
+    'siteAccess.passwordRequired': 'Fjalëkalimi është i detyrueshëm',
+    'siteAccess.incorrectPassword': 'Fjalëkalim i gabuar',
+    'siteAccess.verifyFailed': 'Fjalëkalimi nuk u verifikua. Provoni përsëri.',
+    'pricelist.access.incorrectPassword': 'Fjalëkalim i gabuar i listës së çmimeve',
+    'pricelist.access.checkAccessFailed': 'Nuk mund të kontrollohet aksesi',
+  },
+  mk: {
+    'siteAccess.intro': 'Внесете ја лозинката за пристап на сајтот за да продолжите.',
+    'siteAccess.passwordLabel': 'Лозинка за пристап на сајтот',
+    'siteAccess.passwordPlaceholder': 'Лозинка на сајтот',
+    'siteAccess.remember': 'Запомни на овој уред (30 дена)',
+    'siteAccess.continue': 'Продолжи',
+    'siteAccess.passwordRequired': 'Лозинката е задолжителна',
+    'siteAccess.incorrectPassword': 'Погрешна лозинка',
+    'siteAccess.verifyFailed': 'Лозинката не можеше да се провери. Обидете се повторно.',
+    'pricelist.access.incorrectPassword': 'Погрешна лозинка на ценовникот',
+    'pricelist.access.checkAccessFailed': 'Не може да се провери пристапот',
+  },
+  lt: {
+    'siteAccess.intro': 'Norėdami tęsti, įveskite svetainės prieigos slaptažodį.',
+    'siteAccess.passwordLabel': 'Svetainės prieigos slaptažodis',
+    'siteAccess.passwordPlaceholder': 'Svetainės slaptažodis',
+    'siteAccess.remember': 'Prisiminti šiame įrenginyje (30 dienų)',
+    'siteAccess.continue': 'Tęsti',
+    'siteAccess.passwordRequired': 'Slaptažodis privalomas',
+    'siteAccess.incorrectPassword': 'Neteisingas slaptažodis',
+    'siteAccess.verifyFailed': 'Nepavyko patikrinti slaptažodžio. Bandykite dar kartą.',
+    'pricelist.access.incorrectPassword': 'Neteisingas kainyno slaptažodis',
+    'pricelist.access.checkAccessFailed': 'Nepavyko patikrinti prieigos',
+  },
+  da: {
+    'siteAccess.intro': 'Indtast adgangskoden til webstedet for at fortsætte.',
+    'siteAccess.passwordLabel': 'Adgangskode til webstedet',
+    'siteAccess.passwordPlaceholder': 'Webstedets adgangskode',
+    'siteAccess.remember': 'Husk på denne enhed (30 dage)',
+    'siteAccess.continue': 'Fortsæt',
+    'siteAccess.passwordRequired': 'Adgangskode er påkrævet',
+    'siteAccess.incorrectPassword': 'Forkert adgangskode',
+    'siteAccess.verifyFailed': 'Kunne ikke bekræfte adgangskoden. Prøv igen.',
+    'pricelist.access.incorrectPassword': 'Forkert prisliste-adgangskode',
+    'pricelist.access.checkAccessFailed': 'Kunne ikke kontrollere adgang',
+  },
+  sv: {
+    'siteAccess.intro': 'Ange webbplatsens åtkomstlösenord för att fortsätta.',
+    'siteAccess.passwordLabel': 'Åtkomstlösenord för webbplatsen',
+    'siteAccess.passwordPlaceholder': 'Webbplatslösenord',
+    'siteAccess.remember': 'Kom ihåg på den här enheten (30 dagar)',
+    'siteAccess.continue': 'Fortsätt',
+    'siteAccess.passwordRequired': 'Lösenord krävs',
+    'siteAccess.incorrectPassword': 'Fel lösenord',
+    'siteAccess.verifyFailed': 'Kunde inte verifiera lösenordet. Försök igen.',
+    'pricelist.access.incorrectPassword': 'Fel prislistelösenord',
+    'pricelist.access.checkAccessFailed': 'Kunde inte kontrollera åtkomst',
+  },
+  nb: {
+    'siteAccess.intro': 'Skriv inn nettstedets tilgangspassord for å fortsette.',
+    'siteAccess.passwordLabel': 'Tilgangspassord for nettstedet',
+    'siteAccess.passwordPlaceholder': 'Nettstedpassord',
+    'siteAccess.remember': 'Husk på denne enheten (30 dager)',
+    'siteAccess.continue': 'Fortsett',
+    'siteAccess.passwordRequired': 'Passord er påkrevd',
+    'siteAccess.incorrectPassword': 'Feil passord',
+    'siteAccess.verifyFailed': 'Kunne ikke bekrefte passordet. Prøv igjen.',
+    'pricelist.access.incorrectPassword': 'Feil prislistepassord',
+    'pricelist.access.checkAccessFailed': 'Kunne ikke kontrollere tilgang',
+  },
+  fi: {
+    'siteAccess.intro': 'Jatka syöttämällä sivuston käyttösalasana.',
+    'siteAccess.passwordLabel': 'Sivuston käyttösalasana',
+    'siteAccess.passwordPlaceholder': 'Sivuston salasana',
+    'siteAccess.remember': 'Muista tällä laitteella (30 päivää)',
+    'siteAccess.continue': 'Jatka',
+    'siteAccess.passwordRequired': 'Salasana vaaditaan',
+    'siteAccess.incorrectPassword': 'Väärä salasana',
+    'siteAccess.verifyFailed': 'Salasanaa ei voitu vahvistaa. Yritä uudelleen.',
+    'pricelist.access.incorrectPassword': 'Väärä hinnaston salasana',
+    'pricelist.access.checkAccessFailed': 'Käyttöoikeutta ei voitu tarkistaa',
+  },
+  uk: {
+    'siteAccess.intro': 'Введіть пароль доступу до сайту, щоб продовжити.',
+    'siteAccess.passwordLabel': 'Пароль доступу до сайту',
+    'siteAccess.passwordPlaceholder': 'Пароль сайту',
+    'siteAccess.remember': 'Запам’ятати на цьому пристрої (30 днів)',
+    'siteAccess.continue': 'Продовжити',
+    'siteAccess.passwordRequired': 'Пароль обов’язковий',
+    'siteAccess.incorrectPassword': 'Невірний пароль',
+    'siteAccess.verifyFailed': 'Не вдалося перевірити пароль. Спробуйте ще раз.',
+    'pricelist.access.incorrectPassword': 'Невірний пароль прайс-листа',
+    'pricelist.access.checkAccessFailed': 'Не вдалося перевірити доступ',
+  },
+  ru: {
+    'siteAccess.intro': 'Введите пароль доступа к сайту, чтобы продолжить.',
+    'siteAccess.passwordLabel': 'Пароль доступа к сайту',
+    'siteAccess.passwordPlaceholder': 'Пароль сайта',
+    'siteAccess.remember': 'Запомнить на этом устройстве (30 дней)',
+    'siteAccess.continue': 'Продолжить',
+    'siteAccess.passwordRequired': 'Пароль обязателен',
+    'siteAccess.incorrectPassword': 'Неверный пароль',
+    'siteAccess.verifyFailed': 'Не удалось проверить пароль. Попробуйте снова.',
+    'pricelist.access.incorrectPassword': 'Неверный пароль прайс-листа',
+    'pricelist.access.checkAccessFailed': 'Не удалось проверить доступ',
+  },
+  tr: {
+    'siteAccess.intro': 'Devam etmek için site erişim şifresini girin.',
+    'siteAccess.passwordLabel': 'Site erişim şifresi',
+    'siteAccess.passwordPlaceholder': 'Site şifresi',
+    'siteAccess.remember': 'Bu cihazda hatırla (30 gün)',
+    'siteAccess.continue': 'Devam',
+    'siteAccess.passwordRequired': 'Şifre gerekli',
+    'siteAccess.incorrectPassword': 'Yanlış şifre',
+    'siteAccess.verifyFailed': 'Şifre doğrulanamadı. Tekrar deneyin.',
+    'pricelist.access.incorrectPassword': 'Yanlış fiyat listesi şifresi',
+    'pricelist.access.checkAccessFailed': 'Erişim kontrol edilemedi',
+  },
+  he: {
+    'siteAccess.intro': 'הזינו את סיסמת הגישה לאתר כדי להמשיך.',
+    'siteAccess.passwordLabel': 'סיסמת גישה לאתר',
+    'siteAccess.passwordPlaceholder': 'סיסמת האתר',
+    'siteAccess.remember': 'זכור במכשיר זה (30 יום)',
+    'siteAccess.continue': 'המשך',
+    'siteAccess.passwordRequired': 'נדרשת סיסמה',
+    'siteAccess.incorrectPassword': 'סיסמה שגויה',
+    'siteAccess.verifyFailed': 'לא ניתן לאמת את הסיסמה. נסו שוב.',
+    'pricelist.access.incorrectPassword': 'סיסמת מחירון שגויה',
+    'pricelist.access.checkAccessFailed': 'לא ניתן לבדוק גישה',
+  },
+  ja: {
+    'siteAccess.intro': '続行するにはサイトのアクセスパスワードを入力してください。',
+    'siteAccess.passwordLabel': 'サイトアクセスパスワード',
+    'siteAccess.passwordPlaceholder': 'サイトパスワード',
+    'siteAccess.remember': 'このデバイスに記憶する（30日間）',
+    'siteAccess.continue': '続行',
+    'siteAccess.passwordRequired': 'パスワードは必須です',
+    'siteAccess.incorrectPassword': 'パスワードが正しくありません',
+    'siteAccess.verifyFailed': 'パスワードを確認できませんでした。もう一度お試しください。',
+    'pricelist.access.incorrectPassword': '価格表のパスワードが正しくありません',
+    'pricelist.access.checkAccessFailed': 'アクセスを確認できませんでした',
+  },
+  zh: {
+    'siteAccess.intro': '请输入网站访问密码以继续。',
+    'siteAccess.passwordLabel': '网站访问密码',
+    'siteAccess.passwordPlaceholder': '网站密码',
+    'siteAccess.remember': '在此设备记住（30 天）',
+    'siteAccess.continue': '继续',
+    'siteAccess.passwordRequired': '请输入密码',
+    'siteAccess.incorrectPassword': '密码错误',
+    'siteAccess.verifyFailed': '无法验证密码，请重试。',
+    'pricelist.access.incorrectPassword': '价格表密码错误',
+    'pricelist.access.checkAccessFailed': '无法检查访问权限',
+  },
+  ka: {
+    'siteAccess.intro': 'გასაგრძელებლად შეიყვანეთ საიტის წვდომის პაროლი.',
+    'siteAccess.passwordLabel': 'საიტის წვდომის პაროლი',
+    'siteAccess.passwordPlaceholder': 'საიტის პაროლი',
+    'siteAccess.remember': 'ამ მოწყობილობაზე დამახსოვრება (30 დღე)',
+    'siteAccess.continue': 'გაგრძელება',
+    'siteAccess.passwordRequired': 'პაროლი სავალდებულოა',
+    'siteAccess.incorrectPassword': 'არასწორი პაროლი',
+    'siteAccess.verifyFailed': 'პაროლის შემოწმება ვერ მოხერხდა. სცადეთ ხელახლა.',
+    'pricelist.access.incorrectPassword': 'ფასების სიის არასწორი პაროლი',
+    'pricelist.access.checkAccessFailed': 'წვდომის შემოწმება ვერ მოხერხდა',
+  },
+  hy: {
+    'siteAccess.intro': 'Շարունակելու համար մուտքագրեք կայքի մուտքի գաղտնաբառը։',
+    'siteAccess.passwordLabel': 'Կայքի մուտքի գաղտնաբառ',
+    'siteAccess.passwordPlaceholder': 'Կայքի գաղտնաբառ',
+    'siteAccess.remember': 'Հիշել այս սարքում (30 օր)',
+    'siteAccess.continue': 'Շարունակել',
+    'siteAccess.passwordRequired': 'Գաղտնաբառը պարտադիր է',
+    'siteAccess.incorrectPassword': 'Սխալ գաղտնաբառ',
+    'siteAccess.verifyFailed': 'Հնարավոր չեղավ ստուգել գաղտնաբառը։ Կրկին փորձեք։',
+    'pricelist.access.incorrectPassword': 'Գնացուցակիի սխալ գաղտնաբառ',
+    'pricelist.access.checkAccessFailed': 'Հնարավոր չեղավ ստուգել մուտքը',
+  },
+  az: {
+    'siteAccess.intro': 'Davam etmək üçün sayt giriş şifrəsini daxil edin.',
+    'siteAccess.passwordLabel': 'Sayt giriş şifrəsi',
+    'siteAccess.passwordPlaceholder': 'Sayt şifrəsi',
+    'siteAccess.remember': 'Bu cihazda yadda saxla (30 gün)',
+    'siteAccess.continue': 'Davam et',
+    'siteAccess.passwordRequired': 'Şifrə tələb olunur',
+    'siteAccess.incorrectPassword': 'Yanlış şifrə',
+    'siteAccess.verifyFailed': 'Şifrə yoxlanıla bilmədi. Yenidən cəhd edin.',
+    'pricelist.access.incorrectPassword': 'Yanlış qiymət siyahısı şifrəsi',
+    'pricelist.access.checkAccessFailed': 'Giriş yoxlanıla bilmədi',
+  },
+}
+
+const AR: GateMessages = {
+  'siteAccess.intro': 'أدخل كلمة مرور الوصول إلى الموقع للمتابعة.',
+  'siteAccess.passwordLabel': 'كلمة مرور الوصول إلى الموقع',
+  'siteAccess.passwordPlaceholder': 'كلمة مرور الموقع',
+  'siteAccess.remember': 'تذكّر على هذا الجهاز (30 يوماً)',
+  'siteAccess.continue': 'متابعة',
+  'siteAccess.passwordRequired': 'كلمة المرور مطلوبة',
+  'siteAccess.incorrectPassword': 'كلمة المرور غير صحيحة',
+  'siteAccess.verifyFailed': 'تعذّر التحقق من كلمة المرور. حاول مرة أخرى.',
+  'pricelist.access.incorrectPassword': 'كلمة مرور قائمة الأسعار غير صحيحة',
+  'pricelist.access.checkAccessFailed': 'تعذّر التحقق من الوصول',
+}
+
+const AR_DZ: GateMessages = { ...AR }
+
+for (const code of ['eg', 'at', 'ps', 'ma'] as Locale[]) {
+  GATE_BY_LOCALE[code] = AR
+}
+GATE_BY_LOCALE.dz = AR_DZ
+
+export const GATE_MESSAGE_OVERLAYS: Partial<Record<Locale, GateMessages>> = GATE_BY_LOCALE
+
+export function getGateMessages(locale: Locale): GateMessages {
+  return GATE_MESSAGE_OVERLAYS[locale] ?? GATE_MESSAGE_OVERLAYS.en ?? EN
+}
+
+const SITE_API_ERRORS: Record<string, GateMessageKey> = {
+  'Password is required': 'siteAccess.passwordRequired',
+  'Incorrect password': 'siteAccess.incorrectPassword',
+}
+
+const PRICELIST_API_ERRORS: Record<string, GateMessageKey> = {
+  'Incorrect pricelist password': 'pricelist.access.incorrectPassword',
+  'owner and password are required': 'siteAccess.passwordRequired',
+}
+
+/** Map English API error strings to localized gate messages. */
+export function translateGateApiError(
+  apiError: string | undefined,
+  t: (key: string) => string,
+  scope: 'site' | 'pricelist'
+): string {
+  const raw = (apiError ?? '').trim()
+  const map = scope === 'site' ? SITE_API_ERRORS : { ...SITE_API_ERRORS, ...PRICELIST_API_ERRORS }
+  const key = map[raw]
+  if (key) return t(key)
+  if (!raw) {
+    return scope === 'site'
+      ? t('siteAccess.incorrectPassword')
+      : t('pricelist.access.incorrectPassword')
+  }
+  if (/incorrect/i.test(raw) && scope === 'pricelist') return t('pricelist.access.incorrectPassword')
+  if (/incorrect/i.test(raw)) return t('siteAccess.incorrectPassword')
+  if (/verify|verification/i.test(raw)) return t('siteAccess.verifyFailed')
+  return raw
+}

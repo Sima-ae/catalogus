@@ -23,6 +23,11 @@ import AppFooter from '@/components/layout/AppFooter'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 import { useI18n } from '@/lib/i18n-context'
 import { translatePricelistOwnerLabel } from '@/lib/i18n-pricelist'
+import {
+  collectPricelistFilterOptions,
+  filterPricelistRows,
+} from '@/lib/pricelist-filters'
+import PricelistListFiltersBar from '@/components/pricelist/PricelistListFilters'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -85,6 +90,8 @@ export default function PricelistPageClient() {
 
   const showOwnerSelect = owners.length > 1
   const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [brandFilter, setBrandFilter] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [lightbox, setLightbox] = useState<{
     name: string
@@ -105,14 +112,22 @@ export default function PricelistPageClient() {
         t
       )
 
-  const filteredItems = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(
-      (row) =>
-        row.name.toLowerCase().includes(q) || row.sku.toLowerCase().includes(q)
-    )
-  }, [items, searchQuery])
+  const { categories: categoryOptions, brands: brandOptions } = useMemo(
+    () => collectPricelistFilterOptions(items),
+    [items]
+  )
+
+  const filteredItems = useMemo(
+    () =>
+      filterPricelistRows(items, {
+        searchQuery,
+        categoryFilter,
+        brandFilter,
+      }),
+    [items, searchQuery, categoryFilter, brandFilter]
+  )
+
+  const hasActiveFilters = Boolean(categoryFilter || brandFilter)
 
   const totalFiltered = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PRICELIST_PAGE_SIZE) || 1)
@@ -120,7 +135,19 @@ export default function PricelistPageClient() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, ownerId])
+  }, [searchQuery, ownerId, categoryFilter, brandFilter])
+
+  useEffect(() => {
+    if (categoryFilter && !categoryOptions.includes(categoryFilter)) {
+      setCategoryFilter('')
+    }
+  }, [categoryFilter, categoryOptions])
+
+  useEffect(() => {
+    if (brandFilter && !brandOptions.includes(brandFilter)) {
+      setBrandFilter('')
+    }
+  }, [brandFilter, brandOptions])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -228,13 +255,23 @@ export default function PricelistPageClient() {
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
           }`}
         >
-          <p className={muted}>{t('pricelist.empty.search')}</p>
+          <p className={muted}>
+            {hasActiveFilters && !searchQuery.trim()
+              ? t('pricelist.empty.filters')
+              : t('pricelist.empty.search')}
+          </p>
         </div>
       ) : viewMode === 'table' ? (
         <>
           <CatalogPagination {...paginationProps} centered />
           <PricelistTable
             items={paginatedItems}
+            categoryOptions={categoryOptions}
+            brandOptions={brandOptions}
+            categoryFilter={categoryFilter}
+            brandFilter={brandFilter}
+            onCategoryFilterChange={setCategoryFilter}
+            onBrandFilterChange={setBrandFilter}
             canEditPrices={canEditPrices}
             canManageItems={canRemoveItems}
             showStar={false}
@@ -255,6 +292,15 @@ export default function PricelistPageClient() {
         </>
       ) : (
         <>
+          <PricelistListFiltersBar
+            categoryOptions={categoryOptions}
+            brandOptions={brandOptions}
+            categoryFilter={categoryFilter}
+            brandFilter={brandFilter}
+            onCategoryFilterChange={setCategoryFilter}
+            onBrandFilterChange={setBrandFilter}
+            isDark={isDark}
+          />
           <CatalogPagination {...paginationProps} centered />
           <PricelistGrid items={paginatedItems} isDark={isDark} onOpenGallery={openGallery} />
           <CatalogPagination {...paginationProps} centered />

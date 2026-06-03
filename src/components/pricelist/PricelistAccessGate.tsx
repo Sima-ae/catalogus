@@ -9,6 +9,8 @@ import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
 import { useI18n } from '@/lib/i18n-context'
+import { translateGateApiError } from '@/lib/i18n-gate-messages'
+import { useSyncLocaleFromPath } from '@/lib/use-sync-locale-from-path'
 
 type AccessStatus = {
   allowed: boolean
@@ -30,6 +32,7 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const { t } = useI18n()
+  useSyncLocaleFromPath(null)
   const [status, setStatus] = useState<AccessStatus | null>(null)
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -48,10 +51,10 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
     })
     const data = (await res.json()) as AccessStatus
     if (!res.ok && !data.error) {
-      data.error = 'Unable to check access'
+      data.error = t('pricelist.access.checkAccessFailed')
     }
     setStatus(data)
-  }, [ownerParam, user])
+  }, [ownerParam, user, t])
 
   useEffect(() => {
     if (authLoading) return
@@ -83,7 +86,7 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setVerifyError(data.error || 'Incorrect password')
+        setVerifyError(translateGateApiError(data.error, t, 'pricelist'))
         return
       }
       ok = true
@@ -99,8 +102,9 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
 
   if (authLoading || status === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-900">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-dark-900 text-gray-400">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+        <p className="text-sm">{t('loading.generic')}</p>
       </div>
     )
   }
@@ -190,7 +194,9 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
           <p className="mt-4 text-sm text-gray-400 text-center">
             {showLoginOnly
               ? t('pricelist.access.loginRequired')
-              : status.error || t('pricelist.access.denied')}
+              : status.error
+                ? translateGateApiError(status.error, t, 'pricelist')
+                : t('pricelist.access.denied')}
           </p>
         )}
 
@@ -207,15 +213,19 @@ function PricelistAccessGateInner({ children }: { children: React.ReactNode }) {
   )
 }
 
+function PricelistGateLoading() {
+  const { t } = useI18n()
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-dark-900 text-gray-400">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+      <p className="text-sm">{t('loading.generic')}</p>
+    </div>
+  )
+}
+
 export default function PricelistAccessGate({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-dark-900">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
-        </div>
-      }
-    >
+    <Suspense fallback={<PricelistGateLoading />}>
       <PricelistAccessGateInner>{children}</PricelistAccessGateInner>
     </Suspense>
   )

@@ -9,9 +9,16 @@ import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
+import { PricelistColumnFilter } from '@/components/pricelist/PricelistListFilters'
 
 type Props = {
   items: PricelistRow[]
+  categoryOptions?: string[]
+  brandOptions?: string[]
+  categoryFilter?: string
+  brandFilter?: string
+  onCategoryFilterChange?: (value: string) => void
+  onBrandFilterChange?: (value: string) => void
   canEditPrices: boolean
   canManageItems: boolean
   showStar: boolean
@@ -45,6 +52,12 @@ function parsePriceInput(value: string): number | null {
 
 export default function PricelistTable({
   items,
+  categoryOptions = [],
+  brandOptions = [],
+  categoryFilter = '',
+  brandFilter = '',
+  onCategoryFilterChange,
+  onBrandFilterChange,
   canEditPrices,
   canManageItems,
   showStar,
@@ -62,6 +75,9 @@ export default function PricelistTable({
   onOpenGallery,
 }: Props) {
   const { t } = useI18n()
+  const showCategoryFilter =
+    categoryOptions.length > 0 && onCategoryFilterChange != null
+  const showBrandFilter = brandOptions.length > 0 && onBrandFilterChange != null
   const border = isDark ? 'border-dark-700' : 'border-gray-200'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
   const head = isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-50 text-gray-700'
@@ -88,11 +104,36 @@ export default function PricelistTable({
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
               {t('pricelist.col.sku')}
             </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
-              {t('pricelist.col.category')}
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide align-top">
+              <div>{t('pricelist.col.category')}</div>
+              {showCategoryFilter ? (
+                <PricelistColumnFilter
+                  options={categoryOptions}
+                  value={categoryFilter}
+                  onChange={onCategoryFilterChange}
+                  isDark={isDark}
+                  variant="header"
+                  columnLabel={t('pricelist.col.category')}
+                  allLabel={t('pricelist.filter.allCategories')}
+                  ariaLabel={t('pricelist.filter.categoryAria')}
+                  formatOption={(cat) => getTopCategoryLabel(cat, t)}
+                />
+              ) : null}
             </th>
-            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
-              {t('pricelist.col.brand')}
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide align-top">
+              <div>{t('pricelist.col.brand')}</div>
+              {showBrandFilter ? (
+                <PricelistColumnFilter
+                  options={brandOptions}
+                  value={brandFilter}
+                  onChange={onBrandFilterChange}
+                  isDark={isDark}
+                  variant="header"
+                  columnLabel={t('pricelist.col.brand')}
+                  allLabel={t('pricelist.filter.allBrands')}
+                  ariaLabel={t('pricelist.filter.brandAria')}
+                />
+              ) : null}
             </th>
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
               {t('pricelist.col.price')}

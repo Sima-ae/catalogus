@@ -189,7 +189,16 @@ export async function middleware(request: NextRequest) {
   const gate = request.nextUrl.clone()
   gate.pathname = GATE_PATH
   gate.searchParams.set('from', pathname + search)
-  return NextResponse.redirect(gate)
+  const res = NextResponse.redirect(gate)
+  const { locale: fromLocale } = parseLocaleFromPathname(pathname)
+  if (fromLocale) {
+    res.cookies.set(LOCALE_COOKIE, fromLocale, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    })
+  }
+  return res
 }
 
 export const config = {

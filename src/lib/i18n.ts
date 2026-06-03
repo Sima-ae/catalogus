@@ -37,6 +37,7 @@ import { MESSAGES_AT } from '@/lib/i18n-at'
 import { MESSAGES_PS } from '@/lib/i18n-ps'
 import type { Locale } from '@/lib/i18n-locale-registry'
 import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
+import { getGateMessages } from '@/lib/i18n-gate-messages'
 
 export {
   SUPPORTED_LOCALES,
@@ -87,7 +88,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     // Footer
     'footer.copyright': 'Super Clones © {year}',
 
-    // Password gates
+    // Password gates (siteAccess.* also in i18n-gate-messages.ts overlay)
     'password.correctLoading': 'The password is correct! Loading...',
 
     // Loading / preloaders
@@ -195,6 +196,11 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.empty.none': 'No products on this pricelist yet.',
     'pricelist.empty.starHint': 'Use the star icon on product pages to add items.',
     'pricelist.empty.search': 'No products match your search.',
+    'pricelist.empty.filters': 'No products match the selected filters.',
+    'pricelist.filter.allCategories': 'All categories',
+    'pricelist.filter.allBrands': 'All brands',
+    'pricelist.filter.categoryAria': 'Filter by category',
+    'pricelist.filter.brandAria': 'Filter by brand',
     'pricelist.col.image': 'Image',
     'pricelist.col.title': 'Title',
     'pricelist.col.sku': 'SKU',
@@ -253,6 +259,8 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.signIn': 'Sign in to your account',
     'pricelist.access.backToShop': 'Back to shop',
     'pricelist.access.verifyFailed': 'Unable to verify. Try again.',
+    'pricelist.access.incorrectPassword': 'Incorrect pricelist password',
+    'pricelist.access.checkAccessFailed': 'Unable to check access',
   },
   nl: {
     // Shop / nav
@@ -392,6 +400,11 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.empty.none': 'Nog geen producten op deze prijslijst.',
     'pricelist.empty.starHint': 'Gebruik het ster-icoon op productpagina’s om items toe te voegen.',
     'pricelist.empty.search': 'Geen producten gevonden voor uw zoekopdracht.',
+    'pricelist.empty.filters': 'Geen producten voor de gekozen filters.',
+    'pricelist.filter.allCategories': 'Alle categorieën',
+    'pricelist.filter.allBrands': 'Alle merken',
+    'pricelist.filter.categoryAria': 'Filter op categorie',
+    'pricelist.filter.brandAria': 'Filter op merk',
     'pricelist.col.image': 'Afbeelding',
     'pricelist.col.title': 'Titel',
     'pricelist.col.sku': 'SKU',
@@ -450,6 +463,8 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.signIn': 'Inloggen op uw account',
     'pricelist.access.backToShop': 'Terug naar de shop',
     'pricelist.access.verifyFailed': 'Verificatie mislukt. Probeer opnieuw.',
+    'pricelist.access.incorrectPassword': 'Onjuist prijslijstwachtwoord',
+    'pricelist.access.checkAccessFailed': 'Toegang kan niet worden gecontroleerd',
   },
   es: MESSAGES_ES,
   fr: MESSAGES_FR,
@@ -491,9 +506,8 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
 }
 
 export function getMessages(locale: Locale): Messages {
-  const bundle = MESSAGES[locale]
-  if (bundle) return bundle
-  return MESSAGES.en ?? MESSAGES[DEFAULT_LOCALE]!
+  const bundle = MESSAGES[locale] ?? MESSAGES.en ?? MESSAGES[DEFAULT_LOCALE]!
+  return { ...bundle, ...getGateMessages(locale) }
 }
 
 export function formatMessage(

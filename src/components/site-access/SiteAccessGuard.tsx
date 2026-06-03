@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import { isPricelistSharePath } from '@/lib/pricelist-share-path'
+import { useI18n } from '@/lib/i18n-context'
 import {
   navigateAfterSiteAccessUnlock,
   resolveSiteAccessRedirect,
@@ -19,6 +20,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useI18n()
   const [status, setStatus] = useState<Status | null>(null)
 
   const gatePath = appPath('/site-access-gate')
@@ -71,7 +73,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   if (status.required && !status.unlocked && !onGate && !pricelistShare) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
-        Redirecting...
+        {t('loading.generic')}
       </div>
     )
   }
