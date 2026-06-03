@@ -1,13 +1,18 @@
 'use client'
 
 import { FormEvent, Suspense, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
 import { useI18n } from '@/lib/i18n-context'
+import {
+  navigateAfterSiteAccessUnlock,
+  resolveSiteAccessRedirect,
+  waitForSiteAccessUnlock,
+} from '@/lib/site-access-redirect'
 
 function GateForm() {
-  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || '/'
   const { t } = useI18n()
@@ -39,9 +44,9 @@ function GateForm() {
       }
       ok = true
       setSuccess(t('password.correctLoading'))
-      const target = from.startsWith('/') ? from : '/'
-      router.replace(target)
-      router.refresh()
+      await waitForSiteAccessUnlock()
+      const target = resolveSiteAccessRedirect(from, pathname)
+      navigateAfterSiteAccessUnlock(target)
     } catch {
       setError('Unable to verify password. Try again.')
     } finally {

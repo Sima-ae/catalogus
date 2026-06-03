@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import { isPricelistSharePath } from '@/lib/pricelist-share-path'
+import {
+  navigateAfterSiteAccessUnlock,
+  resolveSiteAccessRedirect,
+} from '@/lib/site-access-redirect'
 
 type Status = { required: boolean; unlocked: boolean }
 
@@ -44,9 +48,8 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
 
     if (onGate) {
       if (!status.required || status.unlocked) {
-        const from = searchParams.get('from') || '/'
-        const target = from.startsWith('/') ? from : '/'
-        router.replace(target)
+        const target = resolveSiteAccessRedirect(searchParams.get('from'), pathname)
+        navigateAfterSiteAccessUnlock(target)
       }
       return
     }
