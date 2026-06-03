@@ -13,6 +13,7 @@ if [[ "$(id -un)" != "root" ]]; then
 fi
 
 PORT="${1:-22}"
+RUNNER_IP="${2:-}"
 META_URL="${GITHUB_META_URL:-https://api.github.com/meta}"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
@@ -41,6 +42,13 @@ if [[ -z "$RANGES" ]]; then
   exit 1
 fi
 
+if [[ -n "$RUNNER_IP" ]] && command -v csf >/dev/null 2>&1; then
+  echo "==> CSF: unban last failed runner ${RUNNER_IP}"
+  csf -dr "$RUNNER_IP" 2>/dev/null || true
+  csf -tr "$RUNNER_IP" 2>/dev/null || true
+  csf -a "$RUNNER_IP" "GitHub Actions deploy (last failed run)" 2>/dev/null || true
+fi
+
 COUNT=0
 if command -v csf >/dev/null 2>&1; then
   echo "==> CSF: allow GitHub Actions → TCP ${PORT}"
@@ -67,7 +75,11 @@ echo ""
 echo "==> Ensure TCP ${PORT} is open (not only GitHub IPs)"
 if command -v csf >/dev/null 2>&1; then
   grep -E '^TCP_IN' /etc/csf/csf.conf 2>/dev/null | head -3 || true
+  if ! grep -E '^TCP_IN' /etc/csf/csf.conf 2>/dev/null | grep -qE "(^|,|\s)${PORT}($|,|\s)"; then
+    echo "WARN: port ${PORT} may be missing from CSF TCP_IN — add it and run: csf -r"
+  fi
 fi
+ss -tlnp | grep -E ":${PORT}\\b" || echo "WARN: sshd not listening on ${PORT}"
 if command -v ufw >/dev/null 2>&1; then
   ufw status | head -15 || true
 fi

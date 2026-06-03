@@ -155,10 +155,12 @@ jobs:
           if [[ "$tcp_ok" != "true" ]]; then
             echo "::error::Cannot reach ${VPS_HOST}:${PORT} from GitHub Actions after 4 attempts."
             echo "Your Mac may still connect — CSF/fail2ban blocks datacenter IPs. On the VPS as root:"
-            echo "  bash /var/www/superclones.cloud/scripts/vps-allow-github-actions-ssh.sh"
-            echo "  bash /var/www/superclones.cloud/scripts/vps-check-github-ssh.sh"
-            if [[ -n "$RUNNER_IP" ]]; then
-              echo "  csf -dr ${RUNNER_IP} 2>/dev/null; fail2ban-client set sshd unbanip ${RUNNER_IP} 2>/dev/null"
+            echo "  bash ${APP_DIR}/scripts/vps-allow-github-actions-ssh.sh 22 ${RUNNER_IP:-}"
+            echo "  bash ${APP_DIR}/scripts/vps-unban-deploy-ip.sh ${RUNNER_IP:-<IP>}"
+            echo "  bash ${APP_DIR}/scripts/vps-check-github-ssh.sh"
+            RESOLVED_IP="$(getent hosts "$VPS_HOST" 2>/dev/null | awk '{print $1}' | head -1)"
+            if [[ -n "$RESOLVED_IP" ]]; then
+              echo "Resolved ${VPS_HOST} → ${RESOLVED_IP} (superclones.cloud uses the same IP if both point here)."
             fi
             echo "GitHub secrets: VPS_HOST=superclones.cloud  VPS_USER=root  VPS_SSH_KEY=<deploy key, no passphrase>"
             echo "Optional: VPS_SSH_PORT if SSH is not on 22."
