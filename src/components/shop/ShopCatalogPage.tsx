@@ -97,6 +97,11 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
   const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedBrand}|${debouncedSearch}|${config.mode}`
 
+  const handleProductDeleted = (productId: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId))
+    setTotalItems((prev) => Math.max(0, prev - 1))
+  }
+
   useEffect(() => {
     scrollRestoredRef.current = false
   }, [listingScrollKey])
@@ -341,6 +346,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
                 page={currentPage}
                 totalItems={totalItems}
                 onPageChange={setCurrentPage}
+                onProductDeleted={handleProductDeleted}
                 centered={config.centerCatalog}
                 loading={resultsLoading}
               />

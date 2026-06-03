@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { bulkDeleteProducts } from '@/lib/products-db'
+import { bulkMoveProductsToTrash } from '@/lib/products-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'productIds array is required' }, { status: 400 })
     }
 
-    const deleted = await bulkDeleteProducts(productIds)
-    return NextResponse.json({ deleted })
+    const moved = await bulkMoveProductsToTrash(productIds)
+    return NextResponse.json({ moved, deleted: moved })
   } catch (error) {
     console.error('Bulk product delete error:', error)
     return NextResponse.json(

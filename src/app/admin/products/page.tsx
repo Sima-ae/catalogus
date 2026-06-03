@@ -32,7 +32,7 @@ import { appPath } from '@/lib/paths'
 import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
 import { useI18n } from '@/lib/i18n-context'
 
-type StatusFilter = 'all' | 'active' | 'draft' | 'inactive'
+type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
 
 const PAGE_SIZES = [50, 100, 250, 500] as const
 type PageSize = (typeof PAGE_SIZES)[number]
@@ -103,6 +103,7 @@ function statusLabel(status: string): string {
   if (status === 'active') return 'Published'
   if (status === 'draft') return 'Draft'
   if (status === 'inactive') return 'Inactive'
+  if (status === 'trash') return 'Trash'
   return status
 }
 
@@ -121,6 +122,11 @@ function statusBadgeClass(status: string, isDark: boolean): string {
     return isDark
       ? 'bg-gray-500/15 text-gray-400 border-gray-500/30'
       : 'bg-gray-100 text-gray-600 border-gray-200'
+  }
+  if (status === 'trash') {
+    return isDark
+      ? 'bg-red-500/15 text-red-400 border-red-500/30'
+      : 'bg-red-50 text-red-800 border-red-200'
   }
   return isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-100 text-gray-700'
 }
@@ -198,13 +204,16 @@ export default function AdminProductsPage() {
         active: productStats.active,
         draft: productStats.draft,
         inactive: productStats.inactive,
+        trash: productStats.trash ?? 0,
+        importDrafts: productStats.importDrafts,
       }
     }
     const total = products.length
     const active = products.filter((p) => p.status === 'active').length
     const draft = products.filter((p) => p.status === 'draft').length
     const inactive = products.filter((p) => p.status === 'inactive').length
-    return { total, active, draft, inactive }
+    const trash = products.filter((p) => p.status === 'trash').length
+    return { total, active, draft, inactive, trash, importDrafts: 0 }
   }, [productStats, products])
 
   const filtered = useMemo(() => {
@@ -295,7 +304,9 @@ export default function AdminProductsPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!user || !confirm('Delete this product?')) return
+    if (!user || !confirm('Move this product to trash? You can restore it later from the trash filter.')) {
+      return
+    }
     void runBulkDelete([id], true)
   }
 
@@ -303,7 +314,9 @@ export default function AdminProductsPage() {
     if (!user || !ids.length) return
     if (
       !skipConfirm &&
-      !confirm(`Delete ${ids.length} product(s)? This cannot be undone.`)
+      !confirm(
+        `Move ${ids.length} product(s) to trash? They will be hidden from the shop but can be restored.`
+      )
     ) {
       return
     }
@@ -361,7 +374,7 @@ export default function AdminProductsPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         <StatCard
           title="Total products"
           value={stats.total}
@@ -385,6 +398,12 @@ export default function AdminProductsPage() {
           value={stats.inactive}
           icon={<NoSymbolIcon className="w-6 h-6 text-white" />}
           accentColor="bg-gray-500"
+        />
+        <StatCard
+          title="Trash"
+          value={stats.trash ?? 0}
+          icon={<TrashIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-red-600"
         />
       </div>
 
@@ -413,6 +432,7 @@ export default function AdminProductsPage() {
               <option value="active">Published</option>
               <option value="draft">Draft</option>
               <option value="inactive">Inactive</option>
+              <option value="trash">Trash</option>
             </select>
           </label>
           <label className="sm:w-36 space-y-1">
@@ -446,14 +466,25 @@ export default function AdminProductsPage() {
             <span className={`text-sm font-medium ${t.heading}`}>
               {selected.size} selected
             </span>
-            <button
-              type="button"
-              className="btn-primary text-sm"
-              disabled={bulkWorking}
-              onClick={() => runBulkStatus('active', selectedIds)}
-            >
-              Publish
-            </button>
+            {statusFilter === 'trash' ? (
+              <button
+                type="button"
+                className="btn-primary text-sm"
+                disabled={bulkWorking}
+                onClick={() => runBulkStatus('active', selectedIds)}
+              >
+                Restore to shop
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary text-sm"
+                disabled={bulkWorking}
+                onClick={() => runBulkStatus('active', selectedIds)}
+              >
+                Publish
+              </button>
+            )}
             <button
               type="button"
               className="btn-secondary text-sm"
@@ -470,14 +501,16 @@ export default function AdminProductsPage() {
             >
               Set inactive
             </button>
-            <button
-              type="button"
-              className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-              disabled={bulkWorking}
-              onClick={() => runBulkDelete(selectedIds)}
-            >
-              Delete
-            </button>
+            {statusFilter !== 'trash' && (
+              <button
+                type="button"
+                className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                disabled={bulkWorking}
+                onClick={() => runBulkDelete(selectedIds)}
+              >
+                Move to trash
+              </button>
+            )}
             <button
               type="button"
               className={`text-sm ${t.muted} hover:underline ml-auto`}
@@ -596,7 +629,7 @@ export default function AdminProductsPage() {
                       type="button"
                       onClick={() => handleDelete(p.id)}
                       className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400"
-                      title="Delete"
+                      title="Move to trash"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>

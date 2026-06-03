@@ -33,7 +33,7 @@ export interface Product {
   rating?: number
   review_count?: number
   download_count?: number
-  status: 'active' | 'inactive' | 'draft'
+  status: 'active' | 'inactive' | 'draft' | 'trash'
   featured?: boolean
   created_at: string
   updated_at: string

@@ -14,6 +14,7 @@ type Props = {
   totalItems: number
   pageSize?: number
   onPageChange: (page: number) => void
+  onProductDeleted?: (productId: string) => void
   centered?: boolean
   loading?: boolean
 }
@@ -25,6 +26,7 @@ export default function ShopCatalogListing({
   totalItems,
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
+  onProductDeleted,
   centered = false,
   loading = false,
 }: Props) {
@@ -43,7 +45,7 @@ export default function ShopCatalogListing({
       />
       <div className={`${catalogGridClassName} ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard key={product.id} product={product} onDeleted={onProductDeleted} />
         ))}
       </div>
       <CatalogPagination

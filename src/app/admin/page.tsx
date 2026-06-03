@@ -195,6 +195,7 @@ export default function AdminDashboard() {
     const active = productStats?.active ?? products.filter((p) => p.status === 'active').length
     const draft = productStats?.draft ?? products.filter((p) => p.status === 'draft').length
     const inactive = productStats?.inactive ?? products.filter((p) => p.status === 'inactive').length
+    const trash = productStats?.trash ?? products.filter((p) => p.status === 'trash').length
     const catalogTotal = productStats?.total ?? active + draft + inactive
     const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0)
     const pendingOrders = orders.filter((o) => o.status === 'pending').length
@@ -204,6 +205,7 @@ export default function AdminDashboard() {
       active,
       draft,
       inactive,
+      trash,
       revenue,
       pendingOrders,
     }
@@ -230,7 +232,7 @@ export default function AdminDashboard() {
             <StatCard
               title="Catalog"
               value={stats.catalogTotal}
-              change={`${stats.active} live · ${stats.draft} draft · ${stats.inactive} inactive`}
+              change={`${stats.active} live · ${stats.draft} draft · ${stats.inactive} inactive${stats.trash ? ` · ${stats.trash} trash` : ''}`}
               icon={<CubeIcon className="w-6 h-6 text-white" />}
               accentColor="bg-pink-500"
             />

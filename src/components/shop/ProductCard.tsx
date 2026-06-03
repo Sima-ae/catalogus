@@ -15,13 +15,15 @@ import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
+import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import { useState } from 'react'
 
 interface ProductCardProps {
   product: Product
+  onDeleted?: (productId: string) => void
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, onDeleted }: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const localizedPath = useLocalizedPath()
@@ -90,6 +92,14 @@ export default function ProductCard({ product }: ProductCardProps) {
             unoptimized={shouldUnoptimizeProductImage(product.image_url)}
           />
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300" />
+          <div className="absolute top-2 left-2 z-10">
+            <ProductCardDeleteButton
+              productId={product.id}
+              productName={product.name}
+              size="sm"
+              onDeleted={() => onDeleted?.(product.id)}
+            />
+          </div>
           <div className="absolute top-2 right-2 z-10">
             <PricelistStarButton productId={product.id} size="sm" />
           </div>

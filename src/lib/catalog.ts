@@ -3,7 +3,9 @@ import type { Product } from '@/lib/types'
 export type CatalogMode = 'all' | 'new'
 
 export function filterActiveProducts(products: Product[]): Product[] {
-  return products.filter((p) => p.status !== 'inactive' && p.status !== 'draft')
+  return products.filter(
+    (p) => p.status !== 'inactive' && p.status !== 'draft' && p.status !== 'trash'
+  )
 }
 
 /**

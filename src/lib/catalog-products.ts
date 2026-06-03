@@ -35,6 +35,7 @@ export type ProductDashboardStats = {
   active: number
   draft: number
   inactive: number
+  trash: number
   importDrafts: number
 }
 

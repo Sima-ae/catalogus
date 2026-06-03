@@ -646,6 +646,7 @@ export async function getProductDashboardStats(): Promise<ProductDashboardStats>
   let active = 0
   let draft = 0
   let inactive = 0
+  let trash = 0
   let importDrafts = 0
 
   for (const row of rows) {
@@ -656,6 +657,7 @@ export async function getProductDashboardStats(): Promise<ProductDashboardStats>
       draft = count
       importDrafts = Number(row.import_drafts ?? 0)
     } else if (status === 'inactive') inactive = count
+    else if (status === 'trash') trash = count
   }
 
   return {
@@ -663,6 +665,7 @@ export async function getProductDashboardStats(): Promise<ProductDashboardStats>
     active,
     draft,
     inactive,
+    trash,
     importDrafts,
   }
 }
@@ -712,7 +715,7 @@ export async function deleteProductById(id: string) {
   await queryDb('DELETE FROM products WHERE id = ?', [id])
 }
 
-export type ProductStatusValue = 'active' | 'draft' | 'inactive'
+export type ProductStatusValue = 'active' | 'draft' | 'inactive' | 'trash'
 
 export async function bulkUpdateProductStatus(
   productIds: string[],
@@ -727,14 +730,14 @@ export async function bulkUpdateProductStatus(
   return result?.affectedRows ?? productIds.length
 }
 
+/** Soft-delete: move products to trash (not removed from database). */
+export async function bulkMoveProductsToTrash(productIds: string[]): Promise<number> {
+  return bulkUpdateProductStatus(productIds, 'trash')
+}
+
+/** @deprecated Use bulkMoveProductsToTrash — kept as alias for admin delete routes. */
 export async function bulkDeleteProducts(productIds: string[]): Promise<number> {
-  if (!productIds.length) return 0
-  const placeholders = productIds.map(() => '?').join(', ')
-  const result = await queryDb<{ affectedRows?: number }>(
-    `DELETE FROM products WHERE id IN (${placeholders})`,
-    productIds
-  )
-  return result?.affectedRows ?? productIds.length
+  return bulkMoveProductsToTrash(productIds)
 }
 
 export async function listCategories(activeOnly = false) {

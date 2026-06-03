@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   deleteProductById,
+  bulkMoveProductsToTrash,
   DuplicateSkuError,
   getProductById,
   MissingSkuError,
@@ -46,7 +47,7 @@ export async function GET(
       }
     } else if (access.kind === 'public') {
       const status = String(product.status || 'active')
-      if (status === 'draft' || status === 'inactive') {
+      if (status === 'draft' || status === 'inactive' || status === 'trash') {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       }
     }
@@ -133,7 +134,11 @@ export async function DELETE(
       }
     }
 
-    await deleteProductById(params.id)
+    if (auth.access.kind === 'admin') {
+      await bulkMoveProductsToTrash([params.id])
+    } else {
+      await deleteProductById(params.id)
+    }
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('Product delete error:', error)

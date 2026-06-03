@@ -23,6 +23,7 @@ import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
+import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 
@@ -443,6 +444,14 @@ export default function ProductPageClient() {
             ) : null}
 
             <div ref={mainGalleryRef} className="min-w-0 flex-1 relative">
+              <div className="absolute top-3 left-3 z-20">
+                <ProductCardDeleteButton
+                  productId={product.id}
+                  productName={product.name}
+                  size="md"
+                  onDeleted={goBackToListing}
+                />
+              </div>
               <div className="absolute top-3 right-3 z-20">
                 <PricelistStarButton productId={product.id} />
               </div>

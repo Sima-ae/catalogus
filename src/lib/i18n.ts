@@ -39,6 +39,7 @@ import type { Locale } from '@/lib/i18n-locale-registry'
 import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 import { getGateMessages } from '@/lib/i18n-gate-messages'
 import { getAccessOverlay } from '@/lib/i18n-access-overlay'
+import { getProductTrashMessages } from '@/lib/i18n-product-trash'
 
 export {
   SUPPORTED_LOCALES,
@@ -506,7 +507,12 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
 
 export function getMessages(locale: Locale): Messages {
   const bundle = MESSAGES[locale] ?? MESSAGES.en ?? MESSAGES[DEFAULT_LOCALE]!
-  return { ...bundle, ...getGateMessages(locale), ...getAccessOverlay(locale) }
+  return {
+    ...bundle,
+    ...getGateMessages(locale),
+    ...getAccessOverlay(locale),
+    ...getProductTrashMessages(locale),
+  }
 }
 
 export function formatMessage(
