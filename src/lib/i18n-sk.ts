@@ -166,10 +166,6 @@ export const MESSAGES_SK: Record<string, string> = {
   'pricelist.share.copied': 'Skopírované',
   'pricelist.share.copyTitle': 'Kliknite pre skopírovanie odkazu',
   'pricelist.share.copyError': 'Odkaz sa nepodarilo skopírovať',
-  'pricelist.access.hintPlatform':
-    'Zadajte heslo na zdieľanie cenníka platformy (nie heslo k účtu ani webu).',
-  'pricelist.access.hintOwner':
-    'Zadajte heslo na zdieľanie od vlastníka zoznamu (nie heslo k účtu ani webu).',
   'pricelist.access.noPassword':
     'Tento zoznam zatiaľ nemá heslo na zdieľanie. Prihláste sa, ak máte prístup, alebo požiadajte vlastníka o odkaz po nastavení hesla.',
   'pricelist.access.passwordLabel': 'Heslo na zdieľanie cenníka',

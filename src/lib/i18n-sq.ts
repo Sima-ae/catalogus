@@ -166,10 +166,6 @@ export const MESSAGES_SQ: Record<string, string> = {
   'pricelist.share.copied': 'U kopjua',
   'pricelist.share.copyTitle': 'Kliko për të kopjuar lidhjen',
   'pricelist.share.copyError': 'Nuk mund të kopjohet lidhja',
-  'pricelist.access.hintPlatform':
-    'Vendosni fjalëkalimin e ndarjes së listës së çmimeve të platformës (jo fjalëkalimin e faqes ose llogarisë).',
-  'pricelist.access.hintOwner':
-    'Vendosni fjalëkalimin e ndarjes të pronarit të listës (jo fjalëkalimin e faqes ose llogarisë).',
   'pricelist.access.noPassword':
     'Kjo listë ende nuk ka fjalëkalim ndarjeje. Hyni nëse keni akses, ose kërkoni lidhjen kur fjalëkalimi të vendoset.',
   'pricelist.access.passwordLabel': 'Fjalëkalimi i ndarjes së listës së çmimeve',

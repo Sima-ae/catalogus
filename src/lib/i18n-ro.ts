@@ -188,10 +188,6 @@ export const MESSAGES_RO: Record<string, string> = {
   'pricelist.share.copied': 'Copiat',
   'pricelist.share.copyTitle': 'Click pentru a copia linkul',
   'pricelist.share.copyError': 'Nu s-a putut copia linkul',
-  'pricelist.access.hintPlatform':
-    'Introdu parola de partajare a listei de prețuri platformă (nu parola contului sau site-ului).',
-  'pricelist.access.hintOwner':
-    'Introdu parola de partajare a proprietarului listei (nu parola contului sau site-ului).',
   'pricelist.access.noPassword':
     'Această listă nu are încă parolă de partajare. Autentifică-te dacă ai acces, sau cere linkul proprietarului când parola este setată.',
   'pricelist.access.passwordLabel': 'Parolă de partajare listă de prețuri',

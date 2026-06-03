@@ -188,10 +188,6 @@ export const MESSAGES_PT: Record<string, string> = {
   'pricelist.share.copied': 'Copiado',
   'pricelist.share.copyTitle': 'Clique para copiar a ligação',
   'pricelist.share.copyError': 'Não foi possível copiar a ligação',
-  'pricelist.access.hintPlatform':
-    'Introduza a palavra-passe de partilha da lista de preços da plataforma (não a palavra-passe do site ou da conta).',
-  'pricelist.access.hintOwner':
-    'Introduza a palavra-passe de partilha do proprietário da lista (não a palavra-passe do site ou da conta).',
   'pricelist.access.noPassword':
     'Esta lista ainda não tem palavra-passe de partilha. Inicie sessão se tiver acesso, ou peça a ligação ao proprietário quando uma palavra-passe for definida.',
   'pricelist.access.passwordLabel': 'Palavra-passe de partilha da lista',

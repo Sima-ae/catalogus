@@ -166,10 +166,6 @@ export const MESSAGES_SR: Record<string, string> = {
   'pricelist.share.copied': 'Копирано',
   'pricelist.share.copyTitle': 'Кликните да копирате линк',
   'pricelist.share.copyError': 'Није могуће копирати линк',
-  'pricelist.access.hintPlatform':
-    'Унесите лозинку за дељење ценовника платформе (не лозинку сајта или налога).',
-  'pricelist.access.hintOwner':
-    'Унесите лозинку за дељење власника листе (не лозинку сајта или налога).',
   'pricelist.access.noPassword':
     'Ова листа још нема лозинку за дељење. Пријавите се ако имате приступ или затражите линк када се лозинка постави.',
   'pricelist.access.passwordLabel': 'Лозинка за дељење ценовника',

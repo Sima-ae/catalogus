@@ -166,10 +166,6 @@ export const MESSAGES_JA: Record<string, string> = {
   'pricelist.share.copied': 'コピーしました',
   'pricelist.share.copyTitle': 'クリックしてリンクをコピー',
   'pricelist.share.copyError': 'リンクをコピーできませんでした',
-  'pricelist.access.hintPlatform':
-    'プラットフォーム価格表の共有パスワードを入力してください（サイトまたはアカウントのパスワードではありません）。',
-  'pricelist.access.hintOwner':
-    'リスト所有者の共有パスワードを入力してください（サイトまたはアカウントのパスワードではありません）。',
   'pricelist.access.noPassword':
     'このリストにはまだ共有パスワードがありません。アクセス権がある場合はログインするか、パスワード設定後に所有者にリンクを依頼してください。',
   'pricelist.access.passwordLabel': '価格表共有パスワード',

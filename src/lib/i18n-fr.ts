@@ -188,10 +188,6 @@ export const MESSAGES_FR: Record<string, string> = {
   'pricelist.share.copied': 'Copié',
   'pricelist.share.copyTitle': 'Cliquez pour copier le lien',
   'pricelist.share.copyError': 'Impossible de copier le lien',
-  'pricelist.access.hintPlatform':
-    'Saisissez le mot de passe de partage de la liste de prix plateforme (pas votre mot de passe de compte ou de site).',
-  'pricelist.access.hintOwner':
-    'Saisissez le mot de passe de partage du propriétaire de la liste (pas votre mot de passe de compte ou de site).',
   'pricelist.access.noPassword':
     'Cette liste n’a pas encore de mot de passe de partage. Connectez-vous si vous y avez accès, ou demandez le lien au propriétaire une fois le mot de passe défini.',
   'pricelist.access.passwordLabel': 'Mot de passe de partage de la liste',

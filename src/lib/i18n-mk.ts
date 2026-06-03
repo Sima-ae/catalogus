@@ -166,10 +166,6 @@ export const MESSAGES_MK: Record<string, string> = {
   'pricelist.share.copied': 'Копирано',
   'pricelist.share.copyTitle': 'Кликни за копирање на линк',
   'pricelist.share.copyError': 'Не може да се копира линкот',
-  'pricelist.access.hintPlatform':
-    'Внесете ја лозинката за споделување на ценовникот на платформата (не лозинка за сајт или сметка).',
-  'pricelist.access.hintOwner':
-    'Внесете ја лозинката за споделување од сопственикот на листата (не лозинка за сајт или сметка).',
   'pricelist.access.noPassword':
     'Оваа листа сè уште нема лозинка за споделување. Најавете се ако имате пристап или побарајте линк кога ќе се постави лозинка.',
   'pricelist.access.passwordLabel': 'Лозинка за споделување на ценовник',

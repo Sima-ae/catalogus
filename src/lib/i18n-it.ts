@@ -188,10 +188,6 @@ export const MESSAGES_IT: Record<string, string> = {
   'pricelist.share.copied': 'Copiato',
   'pricelist.share.copyTitle': 'Clicca per copiare il link',
   'pricelist.share.copyError': 'Impossibile copiare il link',
-  'pricelist.access.hintPlatform':
-    'Inserisci la password di condivisione del listino piattaforma (non la password del sito o dell’account).',
-  'pricelist.access.hintOwner':
-    'Inserisci la password di condivisione del proprietario del listino (non la password del sito o dell’account).',
   'pricelist.access.noPassword':
     'Questo listino non ha ancora una password di condivisione. Accedi se hai accesso, o chiedi il link al proprietario quando sarà impostata una password.',
   'pricelist.access.passwordLabel': 'Password di condivisione del listino',

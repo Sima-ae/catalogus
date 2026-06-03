@@ -163,8 +163,6 @@ export const MESSAGES_AZ: Record<string, string> = {
   'pricelist.share.copied': "Kopyalandı",
   'pricelist.share.copyTitle': "Bağlantıyı kopyalamak için tıklayın",
   'pricelist.share.copyError': "Bağlantı kopyalanamadı",
-  'pricelist.access.hintPlatform': "Platform fiyat listesi paylaşım şifresini girin (site veya hesap şifreniz değil).",
-  'pricelist.access.hintOwner': "Liste sahibinin paylaşım şifresini girin (site veya hesap şifreniz değil).",
   'pricelist.access.noPassword': "Bu listede henüz paylaşım şifresi yok. Erişiminiz varsa giriş yapın veya şifre belirlendiğinde sahibinden bağlantı isteyin.",
   'pricelist.access.passwordLabel': "Fiyat listesi paylaşım şifresi",
   'pricelist.access.passwordPlaceholder': "Fiyat listesi şifresi",

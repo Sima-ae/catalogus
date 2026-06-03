@@ -188,10 +188,6 @@ export const MESSAGES_PL: Record<string, string> = {
   'pricelist.share.copied': 'Skopiowano',
   'pricelist.share.copyTitle': 'Kliknij, aby skopiować link',
   'pricelist.share.copyError': 'Nie udało się skopiować linku',
-  'pricelist.access.hintPlatform':
-    'Wprowadź hasło udostępniania cennika platformy (nie hasła konta ani strony).',
-  'pricelist.access.hintOwner':
-    'Wprowadź hasło udostępniania od właściciela listy (nie hasła konta ani strony).',
   'pricelist.access.noPassword':
     'Ta lista nie ma jeszcze hasła udostępniania. Zaloguj się, jeśli masz dostęp, lub poproś właściciela o link po ustawieniu hasła.',
   'pricelist.access.passwordLabel': 'Hasło udostępniania cennika',

@@ -166,10 +166,6 @@ export const MESSAGES_HY: Record<string, string> = {
   'pricelist.share.copied': 'Պատճենված',
   'pricelist.share.copyTitle': 'Սեղմեք հղումը պատճենելու համար',
   'pricelist.share.copyError': 'Հղումը չհաջողվեց պատճենել',
-  'pricelist.access.hintPlatform':
-    'Մուտքագրեք պլատֆորմի գնացուցակի համօգտագործման գաղտնաբառը (ոչ կայքի կամ հաշվի գաղտնաբառ).',
-  'pricelist.access.hintOwner':
-    'Մուտքագրեք ցուցակի սեփականատիրոջ համօգտագործման գաղտնաբառը (ոչ կայքի կամ հաշվի գաղտնաբառ).',
   'pricelist.access.noPassword':
     'Այս ցուցակը դեռ համօգտագործման գաղտնաբառ չունի. Մուտք գործեք, եթե հասանելիություն ունեք, կամ խնդրեք հղում գաղտնաբառը սահմանելուց հետո.',
   'pricelist.access.passwordLabel': 'Գնացուցակի համօգտագործման գաղտնաբառ',

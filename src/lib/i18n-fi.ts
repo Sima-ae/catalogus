@@ -166,10 +166,6 @@ export const MESSAGES_FI: Record<string, string> = {
   'pricelist.share.copied': 'Kopioitu',
   'pricelist.share.copyTitle': 'Napsauta kopioidaksesi linkin',
   'pricelist.share.copyError': 'Linkkiä ei voitu kopioida',
-  'pricelist.access.hintPlatform':
-    'Syötä alustan hinnaston jakosalasana (ei sivuston tai tilin salasana).',
-  'pricelist.access.hintOwner':
-    'Syötä listan omistajan jakosalasana (ei sivuston tai tilin salasana).',
   'pricelist.access.noPassword':
     'Tällä listalla ei ole vielä jakosalasanaa. Kirjaudu sisään, jos sinulla on pääsy, tai pyydä linkkiä salasanan asettamisen jälkeen.',
   'pricelist.access.passwordLabel': 'Hinnaston jakosalasana',

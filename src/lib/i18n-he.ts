@@ -166,10 +166,6 @@ export const MESSAGES_HE: Record<string, string> = {
   'pricelist.share.copied': 'הועתק',
   'pricelist.share.copyTitle': 'לחץ להעתקת הקישור',
   'pricelist.share.copyError': 'לא ניתן להעתיק את הקישור',
-  'pricelist.access.hintPlatform':
-    'הזינו את סיסמת שיתוף מחירון הפלטפורמה (לא סיסמת האתר או החשבון).',
-  'pricelist.access.hintOwner':
-    'הזינו את סיסמת השיתוף של בעל הרשימה (לא סיסמת האתר או החשבון).',
   'pricelist.access.noPassword':
     'לרשימה זו אין עדיין סיסמת שיתוף. התחברו אם יש גישה, או בקשו קישור לאחר הגדרת סיסמה.',
   'pricelist.access.passwordLabel': 'סיסמת שיתוף מחירון',

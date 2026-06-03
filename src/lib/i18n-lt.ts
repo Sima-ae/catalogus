@@ -166,10 +166,6 @@ export const MESSAGES_LT: Record<string, string> = {
   'pricelist.share.copied': 'Nukopijuota',
   'pricelist.share.copyTitle': 'Spustelėkite norėdami kopijuoti nuorodą',
   'pricelist.share.copyError': 'Nepavyko nukopijuoti nuorodos',
-  'pricelist.access.hintPlatform':
-    'Įveskite platformos kainyno bendrinimo slaptažodį (ne svetainės ar paskyros slaptažodį).',
-  'pricelist.access.hintOwner':
-    'Įveskite sąrašo savininko bendrinimo slaptažodį (ne svetainės ar paskyros slaptažodį).',
   'pricelist.access.noPassword':
     'Šis sąrašas dar neturi bendrinimo slaptažodžio. Prisijunkite, jei turite prieigą, arba paprašykite nuorodos, kai slaptažodis bus nustatytas.',
   'pricelist.access.passwordLabel': 'Kainyno bendrinimo slaptažodis',

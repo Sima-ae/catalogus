@@ -164,10 +164,6 @@ export const MESSAGES_ZH: Record<string, string> = {
   'pricelist.share.copied': '已复制',
   'pricelist.share.copyTitle': '点击复制链接',
   'pricelist.share.copyError': '无法复制链接',
-  'pricelist.access.hintPlatform':
-    '请输入平台价格表共享密码（非网站或账户密码）。',
-  'pricelist.access.hintOwner':
-    '请输入列表所有者的共享密码（非网站或账户密码）。',
   'pricelist.access.noPassword':
     '此列表尚无共享密码。如有权限请登录，或待设置密码后向所有者索取链接。',
   'pricelist.access.passwordLabel': '价格表共享密码',

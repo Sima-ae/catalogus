@@ -166,10 +166,6 @@ export const MESSAGES_DA: Record<string, string> = {
   'pricelist.share.copied': 'Kopieret',
   'pricelist.share.copyTitle': 'Klik for at kopiere link',
   'pricelist.share.copyError': 'Kunne ikke kopiere link',
-  'pricelist.access.hintPlatform':
-    'Indtast platform prislistens delingsadgangskode (ikke website- eller kontoadgangskode).',
-  'pricelist.access.hintOwner':
-    'Indtast listeindehaverens delingsadgangskode (ikke website- eller kontoadgangskode).',
   'pricelist.access.noPassword':
     'Denne liste har endnu ingen delingsadgangskode. Log ind hvis du har adgang, eller bed om linket når adgangskoden er sat.',
   'pricelist.access.passwordLabel': 'Prisliste delingsadgangskode',

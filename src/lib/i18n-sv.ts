@@ -166,10 +166,6 @@ export const MESSAGES_SV: Record<string, string> = {
   'pricelist.share.copied': 'Kopierat',
   'pricelist.share.copyTitle': 'Klicka för att kopiera länk',
   'pricelist.share.copyError': 'Kunde inte kopiera länk',
-  'pricelist.access.hintPlatform':
-    'Ange plattformens prislista delningslösenord (inte webbplats- eller kontolösenord).',
-  'pricelist.access.hintOwner':
-    'Ange listägarens delningslösenord (inte webbplats- eller kontolösenord).',
   'pricelist.access.noPassword':
     'Denna lista har inget delningslösenord ännu. Logga in om du har åtkomst, eller be om länken när lösenordet är satt.',
   'pricelist.access.passwordLabel': 'Prislista delningslösenord',

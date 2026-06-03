@@ -188,10 +188,6 @@ export const MESSAGES_DE: Record<string, string> = {
   'pricelist.share.copied': 'Kopiert',
   'pricelist.share.copyTitle': 'Klicken, um Link zu kopieren',
   'pricelist.share.copyError': 'Link konnte nicht kopiert werden',
-  'pricelist.access.hintPlatform':
-    'Geben Sie das Freigabepasswort der Plattform-Preisliste ein (nicht Ihr Konto- oder Website-Passwort).',
-  'pricelist.access.hintOwner':
-    'Geben Sie das Freigabepasswort des Listenbesitzers ein (nicht Ihr Konto- oder Website-Passwort).',
   'pricelist.access.noPassword':
     'Diese Liste hat noch kein Freigabepasswort. Melden Sie sich an, wenn Sie Zugriff haben, oder fragen Sie den Besitzer nach dem Link, sobald ein Passwort festgelegt ist.',
   'pricelist.access.passwordLabel': 'Freigabepasswort der Preisliste',

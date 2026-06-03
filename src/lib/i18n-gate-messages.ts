@@ -29,9 +29,9 @@ const EN: GateMessages = {
 }
 
 const NL: GateMessages = {
-  'siteAccess.intro': 'Voer het toegangswachtwoord van de site in om door te gaan.',
-  'siteAccess.passwordLabel': 'Site-toegangswachtwoord',
-  'siteAccess.passwordPlaceholder': 'Sitewachtwoord',
+  'siteAccess.intro': 'Vul het wachtwoord in om door te gaan.',
+  'siteAccess.passwordLabel': 'Wachtwoord voor toegang tot de site',
+  'siteAccess.passwordPlaceholder': 'Wachtwoord',
   'siteAccess.remember': 'Onthouden op dit apparaat (30 dagen)',
   'siteAccess.continue': 'Doorgaan',
   'siteAccess.passwordRequired': 'Wachtwoord is verplicht',

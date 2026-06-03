@@ -188,10 +188,6 @@ export const MESSAGES_HU: Record<string, string> = {
   'pricelist.share.copied': 'Másolva',
   'pricelist.share.copyTitle': 'Kattintson a link másolásához',
   'pricelist.share.copyError': 'A link másolása nem sikerült',
-  'pricelist.access.hintPlatform':
-    'Adja meg a platform árlista megosztási jelszavát (nem a fiók vagy webhely jelszavát).',
-  'pricelist.access.hintOwner':
-    'Adja meg a lista tulajdonosának megosztási jelszavát (nem a fiók vagy webhely jelszavát).',
   'pricelist.access.noPassword':
     'Ennek a listának még nincs megosztási jelszava. Jelentkezzen be, ha van hozzáférése, vagy kérje a linket a tulajdonostól, amikor a jelszó be van állítva.',
   'pricelist.access.passwordLabel': 'Árlista megosztási jelszó',

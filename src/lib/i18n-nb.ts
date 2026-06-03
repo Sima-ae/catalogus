@@ -166,10 +166,6 @@ export const MESSAGES_NB: Record<string, string> = {
   'pricelist.share.copied': 'Kopiert',
   'pricelist.share.copyTitle': 'Klikk for å kopiere lenke',
   'pricelist.share.copyError': 'Kunne ikke kopiere lenke',
-  'pricelist.access.hintPlatform':
-    'Skriv inn plattform prislistens delingspassord (ikke nettsted- eller kontopassord).',
-  'pricelist.access.hintOwner':
-    'Skriv inn listeierens delingspassord (ikke nettsted- eller kontopassord).',
   'pricelist.access.noPassword':
     'Denne listen har ikke delingspassord ennå. Logg inn hvis du har tilgang, eller be om lenken når passordet er satt.',
   'pricelist.access.passwordLabel': 'Prisliste delingspassord',

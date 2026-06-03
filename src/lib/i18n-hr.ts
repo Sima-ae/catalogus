@@ -166,10 +166,6 @@ export const MESSAGES_HR: Record<string, string> = {
   'pricelist.share.copied': 'Kopirano',
   'pricelist.share.copyTitle': 'Kliknite za kopiranje linka',
   'pricelist.share.copyError': 'Nije moguće kopirati link',
-  'pricelist.access.hintPlatform':
-    'Unesite lozinku za dijeljenje cjenika platforme (ne lozinku web stranice ili računa).',
-  'pricelist.access.hintOwner':
-    'Unesite lozinku za dijeljenje vlasnika liste (ne lozinku web stranice ili računa).',
   'pricelist.access.noPassword':
     'Ova lista još nema lozinku za dijeljenje. Prijavite se ako imate pristup ili zatražite link kada je lozinka postavljena.',
   'pricelist.access.passwordLabel': 'Lozinka za dijeljenje cjenika',

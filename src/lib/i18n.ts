@@ -38,6 +38,7 @@ import { MESSAGES_PS } from '@/lib/i18n-ps'
 import type { Locale } from '@/lib/i18n-locale-registry'
 import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 import { getGateMessages } from '@/lib/i18n-gate-messages'
+import { getAccessOverlay } from '@/lib/i18n-access-overlay'
 
 export {
   SUPPORTED_LOCALES,
@@ -246,10 +247,6 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.share.copied': 'Copied',
     'pricelist.share.copyTitle': 'Click to copy link',
     'pricelist.share.copyError': 'Could not copy link',
-    'pricelist.access.hintPlatform':
-      'Enter the platform pricelist share password (not your site or account password).',
-    'pricelist.access.hintOwner':
-      'Enter the pricelist share password from the list owner (not your site or account password).',
     'pricelist.access.noPassword':
       'This list does not have a share password yet. Sign in if you have access, or ask the owner for the link once a password is set.',
     'pricelist.access.passwordLabel': 'Pricelist share password',
@@ -453,10 +450,6 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.share.copied': 'Gekopieerd',
     'pricelist.share.copyTitle': 'Klik om link te kopiëren',
     'pricelist.share.copyError': 'Link kopiëren mislukt',
-    'pricelist.access.hintPlatform':
-      'Voer het platform prijslijst-deelwachtwoord in (niet uw site- of accountwachtwoord).',
-    'pricelist.access.hintOwner':
-      'Voer het prijslijst-deelwachtwoord van de eigenaar in (niet uw site- of accountwachtwoord).',
     'pricelist.access.noPassword':
       'Deze lijst heeft nog geen deelwachtwoord. Log in als u toegang heeft, of vraag de eigenaar om de link zodra een wachtwoord is ingesteld.',
     'pricelist.access.passwordLabel': 'Prijslijst-deelwachtwoord',
@@ -513,7 +506,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
 
 export function getMessages(locale: Locale): Messages {
   const bundle = MESSAGES[locale] ?? MESSAGES.en ?? MESSAGES[DEFAULT_LOCALE]!
-  return { ...bundle, ...getGateMessages(locale) }
+  return { ...bundle, ...getGateMessages(locale), ...getAccessOverlay(locale) }
 }
 
 export function formatMessage(

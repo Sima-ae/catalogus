@@ -166,10 +166,6 @@ export const MESSAGES_KA: Record<string, string> = {
   'pricelist.share.copied': 'დაკოპირდა',
   'pricelist.share.copyTitle': 'დააწკაპუნეთ ბმულის კოპირებისთვის',
   'pricelist.share.copyError': 'ბმულის კოპირება ვერ მოხერხდა',
-  'pricelist.access.hintPlatform':
-    'შეიყვანეთ პლატფორმის ფასების სიის გაზიარების პაროლი (არა საიტის ან ანგარიშის პაროლი).',
-  'pricelist.access.hintOwner':
-    'შეიყვანეთ სიის მფლობელის გაზიარების პაროლი (არა საიტის ან ანგარიშის პაროლი).',
   'pricelist.access.noPassword':
     'ამ სიას ჯერ არ აქვს გაზიარების პაროლი. შედით, თუ გაქვთ წვდომა, ან მოითხოვეთ ბმული პაროლის დაყენების შემდეგ.',
   'pricelist.access.passwordLabel': 'ფასების სიის გაზიარების პაროლი',

@@ -188,10 +188,6 @@ export const MESSAGES_BG: Record<string, string> = {
   'pricelist.share.copied': 'Копирано',
   'pricelist.share.copyTitle': 'Щракнете, за да копирате връзката',
   'pricelist.share.copyError': 'Неуспешно копиране на връзката',
-  'pricelist.access.hintPlatform':
-    'Въведете паролата за споделяне на ценовата листа на платформата (не паролата за акаунт или сайт).',
-  'pricelist.access.hintOwner':
-    'Въведете паролата за споделяне от собственика на листата (не паролата за акаунт или сайт).',
   'pricelist.access.noPassword':
     'Тази листа все още няма парола за споделяне. Влезте, ако имате достъп, или поискайте връзка от собственика, когато паролата бъде зададена.',
   'pricelist.access.passwordLabel': 'Парола за споделяне на ценовата листа',

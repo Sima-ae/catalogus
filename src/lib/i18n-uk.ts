@@ -166,10 +166,6 @@ export const MESSAGES_UK: Record<string, string> = {
   'pricelist.share.copied': 'Скопійовано',
   'pricelist.share.copyTitle': 'Натисніть, щоб скопіювати посилання',
   'pricelist.share.copyError': 'Не вдалося скопіювати посилання',
-  'pricelist.access.hintPlatform':
-    'Введіть пароль доступу до прайс-листа платформи (не пароль сайту чи облікового запису).',
-  'pricelist.access.hintOwner':
-    'Введіть пароль доступу власника списку (не пароль сайту чи облікового запису).',
   'pricelist.access.noPassword':
     'У цього списку ще немає пароля доступу. Увійдіть, якщо є доступ, або попросіть посилання у власника після встановлення пароля.',
   'pricelist.access.passwordLabel': 'Пароль доступу до прайс-листа',

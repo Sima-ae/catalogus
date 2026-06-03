@@ -163,8 +163,6 @@ export const MESSAGES_EG: Record<string, string> = {
   'pricelist.share.copied': "تم النسخ",
   'pricelist.share.copyTitle': "انقر لنسخ الرابط",
   'pricelist.share.copyError': "تعذّر نسخ الرابط",
-  'pricelist.access.hintPlatform': "أدخل كلمة مرور مشاركة قائمة أسعار المنصة (وليس كلمة مرور حسابك أو الموقع).",
-  'pricelist.access.hintOwner': "أدخل كلمة مرور مشاركة مالك القائمة (وليس كلمة مرور حسابك أو الموقع).",
   'pricelist.access.noPassword': "لا توجد كلمة مرور مشاركة لهذه القائمة بعد. سجّل الدخول إن كان لديك وصول، أو اطلب الرابط من المالك عند تعيين كلمة المرور.",
   'pricelist.access.passwordLabel': "كلمة مرور مشاركة قائمة الأسعار",
   'pricelist.access.passwordPlaceholder': "كلمة مرور القائمة",
