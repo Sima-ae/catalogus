@@ -29,7 +29,10 @@ echo ""
 echo "==> Firewall (allow inbound TCP ${PORT} from anywhere for CI deploy)"
 if command -v csf >/dev/null 2>&1; then
   csf -g 2>/dev/null | head -8 || true
-  echo "If SSH works from your Mac but not GitHub: check CSF deny list / LFD"
+  DENY_COUNT="$(wc -l < /etc/csf/csf.deny 2>/dev/null || echo 0)"
+  echo "CSF deny entries: ${DENY_COUNT} (large list + LFD often blocks GitHub Actions)"
+  echo "Fix intermittent CI SSH:"
+  echo "  bash $(dirname "$0")/vps-allow-github-actions-ssh.sh ${PORT}"
 fi
 if command -v ufw >/dev/null 2>&1; then
   ufw status | head -20 || true

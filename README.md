@@ -67,7 +67,13 @@ GitHub Actions runs on **datacenter IPs**, not your Mac. SSH from your laptop ca
    bash /var/www/superclones.cloud/scripts/setup-github-deploy-ssh.sh
    bash /var/www/superclones.cloud/scripts/vps-check-github-ssh.sh
    ```
-3. **Firewall:** open inbound TCP 22 (or your SSH port). If CSF/fail2ban blocked GitHub IPs, unban or allow SSH from the internet (key-only auth is fine).
+3. **Firewall:** open inbound TCP 22 (or your SSH port). If CSF/fail2ban blocked GitHub IPs:
+   ```bash
+   bash /var/www/superclones.cloud/scripts/vps-allow-github-actions-ssh.sh
+   ```
+   The deploy log prints **This job egress IP** — if one run is blocked, on the VPS: `csf -dr THAT_IP` or `fail2ban-client set sshd unbanip THAT_IP`.
+
+4. If DNS shows **do-it.vip** but the site is **superclones.cloud**, set `VPS_HOST` to `superclones.cloud` in GitHub secrets (same server, clearer DNS).
 
 Until CI SSH works, deploy manually: `bash /var/www/superclones.cloud/scripts/deploy.sh`
 
