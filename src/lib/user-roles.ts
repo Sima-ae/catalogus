@@ -7,6 +7,7 @@ export type UserListRow = {
   name: string | null
   is_super_admin?: boolean | number
   badge_rating?: number | null
+  site_access_code?: string | null
   created_at?: string
   updated_at?: string
 }

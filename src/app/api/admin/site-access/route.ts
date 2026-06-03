@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseAdminCredentials, verifySuperAdmin } from '@/lib/admin-api-auth'
 import { getSiteAccessConfig } from '@/lib/site-access'
-import { saveSiteAccessForAdmin } from '@/lib/site-access-db'
+import { getSiteAccessCodeStatsForAdmin, saveSiteAccessForAdmin } from '@/lib/site-access-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -24,9 +24,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const config = await getSiteAccessConfig()
+    const codeStats = await getSiteAccessCodeStatsForAdmin()
     return NextResponse.json({
       lockActive: config.required,
       hasPassword: !!config.passwordHash,
+      hasCodes: config.hasCodes,
+      codeStats,
       version: config.version,
     })
   } catch (error) {
@@ -77,12 +80,25 @@ export async function PUT(request: NextRequest) {
     })
 
     const config = await getSiteAccessConfig()
+    const codeStats = await getSiteAccessCodeStatsForAdmin()
     return NextResponse.json({
       lockActive: config.required,
       hasPassword: !!config.passwordHash,
+      hasCodes: config.hasCodes,
+      codeStats,
       version: config.version,
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message === 'NO_SITE_ACCESS_CODES') {
+      return NextResponse.json(
+        {
+          error:
+            'No access codes in the database. Run npm run db:seed-site-access-codes on the server first.',
+        },
+        { status: 400 }
+      )
+    }
     console.error('Admin site access PUT error:', error)
     return NextResponse.json({ error: 'Failed to save site access settings' }, { status: 500 })
   }

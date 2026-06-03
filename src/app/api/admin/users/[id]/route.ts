@@ -94,6 +94,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const denied = assertCanAccessTarget(auth, target, 'edit')
     if (denied) return denied
 
+    const rawBody = body as Record<string, unknown>
+    if (rawBody.site_access_code !== undefined) {
+      return jsonError('Site access codes can only be set when an admin creates a user', 400)
+    }
+
     const updated = await updateUser(
       {
         email: input.email,

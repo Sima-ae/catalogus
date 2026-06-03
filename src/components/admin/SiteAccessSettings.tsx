@@ -5,9 +5,17 @@ import { useAuth } from '@/lib/auth-local'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
 
+type CodeStats = {
+  total: number
+  assigned: number
+  available: number
+}
+
 type AccessStatus = {
   lockActive: boolean
   hasPassword: boolean
+  hasCodes: boolean
+  codeStats: CodeStats
   version: number
 }
 
@@ -17,8 +25,6 @@ export default function SiteAccessSettings() {
   const [adminPassword, setAdminPassword] = useState('')
   const [status, setStatus] = useState<AccessStatus | null>(null)
   const [lockEnabled, setLockEnabled] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -60,12 +66,10 @@ export default function SiteAccessSettings() {
       setError('Super admin password is required.')
       return
     }
-    if (newPassword && newPassword !== confirmPassword) {
-      setError('New passwords do not match.')
-      return
-    }
-    if (lockEnabled && !status?.hasPassword && !newPassword.trim()) {
-      setError('Set a site access password before enabling the lock.')
+    if (lockEnabled && !status?.hasCodes && !status?.hasPassword) {
+      setError(
+        'Seed access codes first (npm run db:seed-site-access-codes on the server), then enable the lock.'
+      )
       return
     }
 
@@ -80,16 +84,12 @@ export default function SiteAccessSettings() {
           adminEmail: user.email,
           adminPassword,
           enabled: lockEnabled,
-          newPassword: newPassword.trim() || undefined,
-          clearPassword: !lockEnabled && status?.hasPassword ? false : undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setStatus(data)
       setLockEnabled(data.lockActive)
-      setNewPassword('')
-      setConfirmPassword('')
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
@@ -113,15 +113,13 @@ export default function SiteAccessSettings() {
         body: JSON.stringify({
           adminEmail: user.email,
           adminPassword,
-          clearPassword: true,
+          enabled: false,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to disable')
       setStatus(data)
       setLockEnabled(false)
-      setNewPassword('')
-      setConfirmPassword('')
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disable')
@@ -132,13 +130,16 @@ export default function SiteAccessSettings() {
 
   if (!isAdmin) return null
 
+  const stats = status?.codeStats
+
   return (
     <div className="card max-w-2xl space-y-6 border border-amber-500/30">
       <div>
-        <h2 className="card-section-title">Site access password</h2>
+        <h2 className="card-section-title">Site access codes</h2>
         <p className="form-hint mt-1">
-          Hides the entire storefront for visitors who are not logged in (and for logged-in users
-          until they enter this password once per session). Super admin only.
+          Visitors enter a personal 4-digit code at the gate. Assign one code per buyer when you
+          create their account. Codes are stored in the database (seed from{' '}
+          <code className="text-xs">db/site_access_codes_seed.txt</code>). Super admin only.
         </p>
       </div>
 
@@ -168,58 +169,51 @@ export default function SiteAccessSettings() {
             <span className={status.lockActive ? 'text-amber-600 dark:text-amber-400' : t.body}>
               {status.lockActive ? 'Active — site is protected' : 'Off'}
             </span>
-            {status.hasPassword && (
-              <span className="block mt-1">A site password is configured (stored encrypted).</span>
-            )}
           </p>
+
+          {stats && (
+            <p className="form-hint">
+              Code pool: {stats.total} total · {stats.available} available · {stats.assigned}{' '}
+              assigned to users
+              {stats.total === 0 && (
+                <span className="block mt-2 text-amber-600 dark:text-amber-400">
+                  No codes in the database. Run{' '}
+                  <code className="text-xs">npm run db:seed-site-access-codes</code> on the server.
+                </span>
+              )}
+            </p>
+          )}
+
+          {status.hasPassword && (
+            <p className="form-hint text-amber-600 dark:text-amber-400">
+              A legacy master password is still configured and also works at the gate. New installs
+              should rely on personal codes only.
+            </p>
+          )}
 
           <label className="flex items-center gap-2 form-check-label cursor-pointer">
             <input
               type="checkbox"
               checked={lockEnabled}
               onChange={(e) => setLockEnabled(e.target.checked)}
+              disabled={!status.hasCodes && !status.hasPassword}
               className="rounded border-dark-500 text-primary-500"
             />
-            Require site access password for all visitors
+            Require a personal access code for all visitors
           </label>
-
-          <div>
-            <label className="form-label">
-              {status.hasPassword ? 'Set new site password' : 'Site access password'}
-            </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder={status.hasPassword ? 'Leave blank to keep current' : 'Min. 4 characters'}
-              className="input w-full"
-              autoComplete="new-password"
-            />
-          </div>
-
-          <div>
-            <label className="form-label">Confirm site password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="input w-full"
-              autoComplete="new-password"
-            />
-          </div>
 
           <div className="flex flex-wrap gap-3">
             <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
               {saving ? 'Saving...' : 'Save site access'}
             </button>
-            {status.hasPassword && (
+            {status.lockActive && (
               <button
                 type="button"
                 disabled={saving}
                 onClick={handleDisableLock}
                 className="px-4 py-2 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 text-sm disabled:opacity-50"
               >
-                Remove lock & password
+                Disable lock
               </button>
             )}
           </div>

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { createUser, listUsers } from '@/lib/users-db'
+import {
+  assignSiteAccessCodeToUser,
+  getSiteAccessCodeForUser,
+} from '@/lib/site-access-codes-db'
+import { createUser, deleteUser, listUsers } from '@/lib/users-db'
 import { clampBadgeRating } from '@/lib/user-roles'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +17,7 @@ function parseCreateUserBody(body: unknown): {
   name: string | null
   role: 'admin' | 'buyer' | 'seller'
   badge_rating: number | null | undefined
+  site_access_code: string | null
 } | null {
   if (!body || typeof body !== 'object') return null
   const raw = body as Record<string, unknown>
@@ -37,12 +42,15 @@ function parseCreateUserBody(body: unknown): {
     return null
   }
 
+  const codeRaw = raw.site_access_code != null ? String(raw.site_access_code).trim() : ''
+
   return {
     email,
     password,
     name: nameRaw || null,
     role: roleRaw,
     badge_rating,
+    site_access_code: codeRaw || null,
   }
 }
 
@@ -80,6 +88,20 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  if (input.role === 'admin' && input.site_access_code) {
+    return NextResponse.json(
+      { error: 'Site access codes can only be assigned to buyer or seller accounts' },
+      { status: 400 }
+    )
+  }
+
+  if (input.role === 'buyer' && !input.site_access_code) {
+    return NextResponse.json(
+      { error: 'An admin must assign a personal site access code when creating a buyer' },
+      { status: 400 }
+    )
+  }
+
   try {
     const user = await createUser({
       email: input.email,
@@ -88,6 +110,34 @@ export async function POST(request: NextRequest) {
       role: input.role,
       badge_rating: input.badge_rating,
     })
+
+    if (input.site_access_code) {
+      try {
+        await assignSiteAccessCodeToUser({
+          code: input.site_access_code,
+          userId: user.id,
+        })
+      } catch (assignError) {
+        await deleteUser(user.id).catch(() => {})
+        const assignMsg = assignError instanceof Error ? assignError.message : ''
+        if (assignMsg === 'CODE_NOT_FOUND') {
+          return NextResponse.json({ error: 'Access code not found in the pool' }, { status: 400 })
+        }
+        if (assignMsg === 'CODE_ALREADY_ASSIGNED') {
+          return NextResponse.json({ error: 'This access code is already assigned to another user' }, { status: 409 })
+        }
+        if (assignMsg === 'USER_ALREADY_HAS_CODE') {
+          return NextResponse.json({ error: 'User already has an access code' }, { status: 409 })
+        }
+        if (assignMsg === 'INVALID_SITE_ACCESS_CODE') {
+          return NextResponse.json({ error: 'Invalid access code format' }, { status: 400 })
+        }
+        throw assignError
+      }
+      const assignedCode = await getSiteAccessCodeForUser(user.id)
+      return NextResponse.json({ ...user, site_access_code: assignedCode }, { status: 201 })
+    }
+
     return NextResponse.json(user, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : ''

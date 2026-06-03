@@ -23,6 +23,7 @@ const emptyForm = {
   name: '',
   role: 'buyer' as 'buyer' | 'seller' | 'admin',
   badge_rating: '',
+  site_access_code: '',
 }
 
 export default function UserForm({
@@ -66,6 +67,7 @@ export default function UserForm({
           name: row.name || '',
           role: (row.role as 'buyer' | 'seller' | 'admin') || 'buyer',
           badge_rating: row.badge_rating != null ? String(row.badge_rating) : '',
+          site_access_code: row.site_access_code || '',
         })
       })
       .catch((err) => {
@@ -89,6 +91,12 @@ export default function UserForm({
     setSaving(true)
     setError(null)
 
+    if (isCreate && isAdmin && form.role === 'buyer' && !form.site_access_code.trim()) {
+      setError('Enter the personal site access code you are assigning to this buyer')
+      setSaving(false)
+      return
+    }
+
     const payload: Record<string, unknown> = {
       email: form.email.trim(),
       name: form.name.trim() || null,
@@ -111,6 +119,9 @@ export default function UserForm({
           setError('Password is required')
           setSaving(false)
           return
+        }
+        if (form.site_access_code.trim()) {
+          payload.site_access_code = form.site_access_code.trim()
         }
       }
 
@@ -218,6 +229,48 @@ export default function UserForm({
           <option value="admin">Admin</option>
         </select>
       </label>
+      {isAdmin && isCreate && form.role === 'buyer' && (
+        <label className="block space-y-1">
+          <span className="form-label">Assign personal site access code *</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            className="input w-full font-mono"
+            value={form.site_access_code}
+            onChange={(e) => setForm((f) => ({ ...f, site_access_code: e.target.value }))}
+            required
+            disabled={effectiveReadOnly}
+            placeholder="e.g. 0005"
+          />
+          <p className="form-hint">
+            Type the code you are giving this buyer (from your offline list). Buyers cannot choose
+            or browse codes — only admins assign them here.
+          </p>
+        </label>
+      )}
+      {isAdmin && isCreate && form.role === 'seller' && (
+        <label className="block space-y-1">
+          <span className="form-label">Assign personal site access code (optional)</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            className="input w-full font-mono"
+            value={form.site_access_code}
+            onChange={(e) => setForm((f) => ({ ...f, site_access_code: e.target.value }))}
+            disabled={effectiveReadOnly}
+            placeholder="e.g. 0005"
+          />
+        </label>
+      )}
+      {isAdmin && isEdit && form.site_access_code && (
+        <div className="block space-y-1">
+          <span className="form-label">Assigned site access code</span>
+          <p className={`font-mono text-sm ${t.heading}`}>{form.site_access_code}</p>
+          <p className="form-hint">Codes cannot be changed after creation. Assign only when adding a user.</p>
+        </div>
+      )}
       {(isSuperAdmin || isCreate) && (
         <label className="block space-y-1">
           <span className="form-label">Badge rating (optional)</span>

@@ -5,6 +5,7 @@ import {
   SITE_ACCESS_KEYS,
   type SiteAccessSettingKey,
 } from '@/lib/site-access-keys'
+import { countSiteAccessCodes, verifySiteAccessCode } from '@/lib/site-access-codes-db'
 
 export {
   SITE_ACCESS_COOKIE,
@@ -23,6 +24,7 @@ export type SiteAccessConfig = {
   required: boolean
   version: number
   passwordHash: string | null
+  hasCodes: boolean
 }
 
 type SettingRow = { key: string; value: string | null }
@@ -46,12 +48,21 @@ export async function getSiteAccessConfig(): Promise<SiteAccessConfig> {
   const passwordHash = map.site_access_password_hash.trim() || null
   const enabled = map.site_access_enabled === 'true'
   const version = Number.parseInt(map.site_access_version || '0', 10) || 0
+  const codeStats = await countSiteAccessCodes()
+  const hasCodes = codeStats.total > 0
 
   return {
-    required: enabled && !!passwordHash,
+    required: enabled && (hasCodes || !!passwordHash),
     version,
     passwordHash,
+    hasCodes,
   }
+}
+
+/** Personal access code first; legacy master password hash as fallback. */
+export async function verifySiteAccessCredential(input: string): Promise<boolean> {
+  if (await verifySiteAccessCode(input)) return true
+  return verifySiteAccessPassword(input)
 }
 
 export async function verifySiteAccessPassword(

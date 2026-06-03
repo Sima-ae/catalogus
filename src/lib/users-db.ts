@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { queryDb } from '@/lib/db'
+import { getSiteAccessCodeForUser } from '@/lib/site-access-codes-db'
 import { clampBadgeRating, isSuperAdminUser, type UserListRow } from '@/lib/user-roles'
 
 export type CreateUserInput = {
@@ -9,6 +10,7 @@ export type CreateUserInput = {
   name?: string | null
   role: 'admin' | 'buyer' | 'seller'
   badge_rating?: number | null
+  site_access_code?: string | null
 }
 
 export type UpdateUserInput = {
@@ -26,6 +28,10 @@ const ALLOWED_ROLES = new Set(['admin', 'buyer', 'seller'])
 function mapRow(row: Record<string, unknown>): UserListRow {
   const is_super_admin = Boolean(row.is_super_admin)
   const badge_rating = clampBadgeRating(row.badge_rating)
+  const site_access_code =
+    row.site_access_code != null && String(row.site_access_code).trim() !== ''
+      ? String(row.site_access_code)
+      : null
   return {
     id: String(row.id),
     email: String(row.email),
@@ -33,6 +39,7 @@ function mapRow(row: Record<string, unknown>): UserListRow {
     name: row.name != null ? String(row.name) : null,
     is_super_admin,
     badge_rating,
+    site_access_code,
     created_at: row.created_at != null ? String(row.created_at) : undefined,
     updated_at: row.updated_at != null ? String(row.updated_at) : undefined,
   }
@@ -41,13 +48,20 @@ function mapRow(row: Record<string, unknown>): UserListRow {
 export async function listUsers(): Promise<UserListRow[]> {
   try {
     const rows = await queryDb<Record<string, unknown>[]>(
-      `SELECT id, email, role, name, is_super_admin, badge_rating, created_at, updated_at
-       FROM users ORDER BY created_at DESC`
+      `SELECT u.id, u.email, u.role, u.name, u.is_super_admin, u.badge_rating,
+              u.created_at, u.updated_at, sac.code AS site_access_code
+       FROM users u
+       LEFT JOIN site_access_codes sac ON sac.user_id = u.id
+       ORDER BY u.created_at DESC`
     )
     return rows.map(mapRow)
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (message.includes('Unknown column')) {
+    if (
+      message.includes('Unknown column') ||
+      message.includes("doesn't exist") ||
+      message.includes('site_access_codes')
+    ) {
       const legacy = await queryDb<Record<string, unknown>[]>(
         'SELECT id, email, role, name, created_at, updated_at FROM users ORDER BY created_at DESC'
       )
@@ -64,15 +78,22 @@ export async function listUsers(): Promise<UserListRow[]> {
 export async function getUserProfile(userId: string): Promise<UserListRow | null> {
   try {
     const rows = await queryDb<Record<string, unknown>[]>(
-      `SELECT id, email, role, name, is_super_admin, badge_rating, created_at, updated_at
-       FROM users WHERE id = ? LIMIT 1`,
+      `SELECT u.id, u.email, u.role, u.name, u.is_super_admin, u.badge_rating,
+              u.created_at, u.updated_at, sac.code AS site_access_code
+       FROM users u
+       LEFT JOIN site_access_codes sac ON sac.user_id = u.id
+       WHERE u.id = ? LIMIT 1`,
       [userId]
     )
     if (!rows[0]) return null
     return mapRow(rows[0])
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (message.includes('Unknown column')) {
+    if (
+      message.includes('Unknown column') ||
+      message.includes("doesn't exist") ||
+      message.includes('site_access_codes')
+    ) {
       const rows = await queryDb<Record<string, unknown>[]>(
         'SELECT id, email, role, name, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
         [userId]
@@ -80,6 +101,7 @@ export async function getUserProfile(userId: string): Promise<UserListRow | null
       if (!rows[0]) return null
       const mapped = mapRow({ ...rows[0], is_super_admin: 0, badge_rating: null })
       if (isSuperAdminUser(mapped)) mapped.is_super_admin = true
+      mapped.site_access_code = await getSiteAccessCodeForUser(userId)
       return mapped
     }
     throw error

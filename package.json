@@ -22,7 +22,8 @@
     "db:clean-supplier-descriptions": "tsx scripts/clean-supplier-descriptions.ts",
     "db:restore-descriptions": "tsx scripts/restore-product-descriptions.ts",
     "db:reapply-descriptions": "tsx scripts/reapply-description-cleanup.ts",
-    "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts"
+    "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts",
+    "db:seed-site-access-codes": "tsx scripts/seed-site-access-codes.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
