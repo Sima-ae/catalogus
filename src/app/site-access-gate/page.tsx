@@ -88,9 +88,8 @@ function GateForm() {
             </label>
             <input
               id="site-access-password"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
+              type="password"
+              autoComplete="current-password"
               autoFocus
               required
               value={password}

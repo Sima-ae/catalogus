@@ -23,7 +23,6 @@ import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import {
   consumeCatalogNavState,
-  getCatalogNavState,
   restoreCatalogScroll,
 } from '@/lib/catalog-scroll-restore'
 import { APP_NAME } from '@/lib/brand'
@@ -95,7 +94,8 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const showSocialProof = config.showSocialProof ?? true
   const showFooterTagline = config.showFooterTagline ?? config.mode === 'new'
 
-  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedBrand}|${debouncedSearch}|${config.mode}`
+  const filterBrand = searchParams.get('brand')?.trim() || 'All'
+  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${filterBrand}|${debouncedSearch}|${config.mode}`
 
   const handleProductDeleted = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId))
@@ -145,14 +145,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
       return
     }
 
-    const pendingNav = getCatalogNavState()
-    const pageToLoad =
-      pendingNav?.listingKey === listingScrollKey ? pendingNav.page : currentPage
-
-    if (pageToLoad !== currentPage) {
-      setCurrentPage(pageToLoad)
-      return
-    }
+    const pageToLoad = currentPage
 
     async function loadProducts() {
       if (!hasLoadedOnce.current) setLoading(true)
@@ -165,7 +158,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           limit: CATALOG_PAGE_SIZE,
           category: selectedCategory,
           subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-          brand: selectedBrand,
+          brand: filterBrand,
           search: debouncedSearch || undefined,
           mode: config.mode === 'new' ? 'new' : undefined,
         })
@@ -208,9 +201,9 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     currentPage,
     debouncedSearch,
     filterSignature,
-    selectedBrand,
     selectedCategory,
     selectedSubcategory,
+    filterBrand,
     reloadToken,
     listingScrollKey,
   ])

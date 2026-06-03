@@ -94,7 +94,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'No access codes in the database. Run npm run db:seed-site-access-codes on the server first.',
+            'Set a site access password and/or run npm run db:seed-site-access-codes before enabling the lock.',
         },
         { status: 400 }
       )

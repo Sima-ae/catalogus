@@ -23,46 +23,16 @@ export async function brandCategoriesTableExists(): Promise<boolean> {
   }
 }
 
-/** Active brands for shop; optional category filters linked brands (unlinked brands show everywhere). */
+/** Active brands for shop; optional category filters to brands with products in scope. */
 export async function listBrands(
   activeOnly = false,
   categoryName?: string,
   subcategory?: string
 ) {
   const category = categoryName?.trim()
-  const hasLinks = await brandCategoriesTableExists()
 
-  if (activeOnly && category && category !== 'All' && hasLinks) {
-    const categories = await loadActiveCategories()
-    const categoryFilter = resolveShopCategoryFilter(categories, {
-      category,
-      subcategory,
-    })
-    const filterIds = categoryFilter?.categoryIds ?? []
-
-    if (!filterIds.length) {
-      return queryDb<Record<string, unknown>[]>(
-        `SELECT * FROM brands WHERE active = 1 AND 1 = 0`
-      )
-    }
-
-    const placeholders = filterIds.map(() => '?').join(', ')
-
-    return queryDb<Record<string, unknown>[]>(
-      `SELECT DISTINCT b.*
-       FROM brands b
-       WHERE b.active = 1
-         AND (
-           NOT EXISTS (SELECT 1 FROM brand_categories bc WHERE bc.brand_id = b.id)
-           OR EXISTS (
-             SELECT 1 FROM brand_categories bc
-             INNER JOIN categories c ON c.id = bc.category_id AND c.active = 1
-             WHERE bc.brand_id = b.id AND c.id IN (${placeholders})
-           )
-         )
-       ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
-      filterIds
-    )
+  if (activeOnly && category && category !== 'All') {
+    return listActiveBrandsForShopCategory(category, subcategory)
   }
 
   if (activeOnly) {
@@ -71,6 +41,64 @@ export async function listBrands(
     )
   }
   return queryDb<Record<string, unknown>[]>('SELECT * FROM brands ORDER BY name ASC')
+}
+
+async function listActiveBrandsForShopCategory(
+  categoryName: string,
+  subcategory?: string
+): Promise<Record<string, unknown>[]> {
+  const categories = await loadActiveCategories()
+  const categoryFilter = resolveShopCategoryFilter(categories, {
+    category: categoryName,
+    subcategory,
+  })
+  const filterIds = categoryFilter?.categoryIds ?? []
+
+  if (!filterIds.length || !categoryFilter) {
+    return []
+  }
+
+  const hasBrandId = await productsHaveBrandIdColumn()
+  const hasCategoryId = await productsHaveCategoryIdColumn()
+  const idPlaceholders = filterIds.map(() => '?').join(', ')
+
+  const brandMatch = hasBrandId
+    ? `(p.brand_id = b.id OR (p.brand_id IS NULL AND LOWER(TRIM(p.brand)) = LOWER(TRIM(b.name))))`
+    : `LOWER(TRIM(p.brand)) = LOWER(TRIM(b.name))`
+
+  let categoryMatch = `p.category_id IN (${idPlaceholders})`
+  const params: unknown[] = [...filterIds]
+
+  if (hasCategoryId) {
+    if (!categoryFilter.strictIdOnly && categoryFilter.legacyNames.length) {
+      const legacyNames = categoryFilter.legacyNames.filter(Boolean)
+      if (legacyNames.length) {
+        const namePlaceholders = legacyNames.map(() => '?').join(', ')
+        categoryMatch = `(${categoryMatch} OR (p.category_id IS NULL AND p.category IN (${namePlaceholders})))`
+        params.push(...legacyNames)
+      }
+    }
+  } else if (categoryFilter.legacyNames.length) {
+    const legacyNames = categoryFilter.legacyNames.filter(Boolean)
+    const namePlaceholders = legacyNames.map(() => '?').join(', ')
+    categoryMatch = `p.category IN (${namePlaceholders})`
+    params.length = 0
+    params.push(...legacyNames)
+  }
+
+  return queryDb<Record<string, unknown>[]>(
+    `SELECT DISTINCT b.*
+     FROM brands b
+     WHERE b.active = 1
+       AND EXISTS (
+         SELECT 1 FROM products p
+         WHERE p.status = 'active'
+           AND ${brandMatch}
+           AND ${categoryMatch}
+       )
+     ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
+    params
+  )
 }
 
 export async function getBrandCategoryIds(brandId: string): Promise<string[]> {
@@ -199,6 +227,7 @@ export async function deleteBrandById(id: string) {
 
 let brandIdColumnCache: boolean | null = null
 let brandColumnCache: boolean | null = null
+let categoryIdColumnCache: boolean | null = null
 
 async function productsColumnExists(column: string): Promise<boolean> {
   const rows = await queryDb<{ COLUMN_NAME: string }[]>(
@@ -228,6 +257,16 @@ export async function productsHaveBrandIdColumn(): Promise<boolean> {
     brandIdColumnCache = false
   }
   return brandIdColumnCache
+}
+
+async function productsHaveCategoryIdColumn(): Promise<boolean> {
+  if (categoryIdColumnCache != null) return categoryIdColumnCache
+  try {
+    categoryIdColumnCache = await productsColumnExists('category_id')
+  } catch {
+    categoryIdColumnCache = false
+  }
+  return categoryIdColumnCache
 }
 
 export async function brandsTableExists(): Promise<boolean> {

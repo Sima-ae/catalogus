@@ -16,26 +16,26 @@ export type GateMessageKey =
 type GateMessages = Record<GateMessageKey, string>
 
 const EN: GateMessages = {
-  'siteAccess.intro': 'Enter your personal access code to continue.',
-  'siteAccess.passwordLabel': 'Personal access code',
-  'siteAccess.passwordPlaceholder': 'e.g. 0005',
+  'siteAccess.intro': 'Enter the site access password to continue.',
+  'siteAccess.passwordLabel': 'Password for site access',
+  'siteAccess.passwordPlaceholder': '0000',
   'siteAccess.remember': 'Remember on this device (30 days)',
   'siteAccess.continue': 'Continue',
-  'siteAccess.passwordRequired': 'Access code is required',
-  'siteAccess.incorrectPassword': 'Incorrect access code',
+  'siteAccess.passwordRequired': 'Password is required',
+  'siteAccess.incorrectPassword': 'Incorrect password',
   'siteAccess.verifyFailed': 'Unable to verify password. Try again.',
   'pricelist.access.incorrectPassword': 'Incorrect pricelist password',
   'pricelist.access.checkAccessFailed': 'Unable to check access',
 }
 
 const NL: GateMessages = {
-  'siteAccess.intro': 'Vul uw persoonlijke toegangscode in om door te gaan.',
-  'siteAccess.passwordLabel': 'Persoonlijke toegangscode',
-  'siteAccess.passwordPlaceholder': 'bijv. 0005',
+  'siteAccess.intro': 'Vul het wachtwoord in om door te gaan.',
+  'siteAccess.passwordLabel': 'Wachtwoord voor toegang tot de site',
+  'siteAccess.passwordPlaceholder': '0000',
   'siteAccess.remember': 'Onthouden op dit apparaat (30 dagen)',
   'siteAccess.continue': 'Doorgaan',
-  'siteAccess.passwordRequired': 'Toegangscode is verplicht',
-  'siteAccess.incorrectPassword': 'Onjuiste toegangscode',
+  'siteAccess.passwordRequired': 'Wachtwoord is verplicht',
+  'siteAccess.incorrectPassword': 'Onjuist wachtwoord',
   'siteAccess.verifyFailed': 'Wachtwoord kan niet worden geverifieerd. Probeer het opnieuw.',
   'pricelist.access.incorrectPassword': 'Onjuist prijslijstwachtwoord',
   'pricelist.access.checkAccessFailed': 'Toegang kan niet worden gecontroleerd',
@@ -458,9 +458,7 @@ export function getGateMessages(locale: Locale): GateMessages {
 
 const SITE_API_ERRORS: Record<string, GateMessageKey> = {
   'Password is required': 'siteAccess.passwordRequired',
-  'Access code is required': 'siteAccess.passwordRequired',
   'Incorrect password': 'siteAccess.incorrectPassword',
-  'Incorrect access code': 'siteAccess.incorrectPassword',
 }
 
 const PRICELIST_API_ERRORS: Record<string, GateMessageKey> = {

@@ -46,6 +46,15 @@ export function getCatalogNavState(): CatalogNavState | null {
   }
 }
 
+export function clearCatalogNavState(): void {
+  if (typeof window === 'undefined') return
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function consumeCatalogNavState(listingKey: string): CatalogNavState | null {
   const state = getCatalogNavState()
   if (!state || state.listingKey !== listingKey) return null

@@ -25,6 +25,8 @@ export default function SiteAccessSettings() {
   const [adminPassword, setAdminPassword] = useState('')
   const [status, setStatus] = useState<AccessStatus | null>(null)
   const [lockEnabled, setLockEnabled] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -66,9 +68,13 @@ export default function SiteAccessSettings() {
       setError('Super admin password is required.')
       return
     }
-    if (lockEnabled && !status?.hasCodes && !status?.hasPassword) {
+    if (newPassword && newPassword !== confirmPassword) {
+      setError('New passwords do not match.')
+      return
+    }
+    if (lockEnabled && !status?.hasPassword && !newPassword.trim() && !status?.hasCodes) {
       setError(
-        'Seed access codes first (npm run db:seed-site-access-codes on the server), then enable the lock.'
+        'Set a site access password and/or seed personal buyer codes before enabling the lock.'
       )
       return
     }
@@ -84,12 +90,15 @@ export default function SiteAccessSettings() {
           adminEmail: user.email,
           adminPassword,
           enabled: lockEnabled,
+          newPassword: newPassword.trim() || undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setStatus(data)
       setLockEnabled(data.lockActive)
+      setNewPassword('')
+      setConfirmPassword('')
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
@@ -135,11 +144,10 @@ export default function SiteAccessSettings() {
   return (
     <div className="card max-w-2xl space-y-6 border border-amber-500/30">
       <div>
-        <h2 className="card-section-title">Site access codes</h2>
+        <h2 className="card-section-title">Site access</h2>
         <p className="form-hint mt-1">
-          Visitors enter a personal 4-digit code at the gate. Assign one code per buyer when you
-          create their account. Codes are stored in the database (seed from{' '}
-          <code className="text-xs">db/site_access_codes_seed.txt</code>). Super admin only.
+          One shared <strong>site password</strong> for all visitors (stored encrypted in settings).
+          Separate from the pool of personal 4-digit codes assigned to buyers in Admin → Users.
         </p>
       </div>
 
@@ -171,35 +179,64 @@ export default function SiteAccessSettings() {
             </span>
           </p>
 
-          {stats && (
-            <p className="form-hint">
-              Code pool: {stats.total} total · {stats.available} available · {stats.assigned}{' '}
-              assigned to users
-              {stats.total === 0 && (
-                <span className="block mt-2 text-amber-600 dark:text-amber-400">
-                  No codes in the database. Run{' '}
-                  <code className="text-xs">npm run db:seed-site-access-codes</code> on the server.
-                </span>
-              )}
-            </p>
-          )}
+          <div className={`space-y-3 rounded-lg border p-4 ${t.border}`}>
+            <h3 className={`text-sm font-medium ${t.heading}`}>Site password (shared)</h3>
+            {status.hasPassword && (
+              <p className="form-hint">A site password is configured (stored encrypted).</p>
+            )}
+            <div>
+              <label className="form-label">
+                {status.hasPassword ? 'Set new site password' : 'Site access password'}
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={status.hasPassword ? 'Leave blank to keep current' : 'Min. 4 characters'}
+                className="input w-full"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className="form-label">Confirm site password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="input w-full"
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
 
-          {status.hasPassword && (
-            <p className="form-hint text-amber-600 dark:text-amber-400">
-              A legacy master password is still configured and also works at the gate. New installs
-              should rely on personal codes only.
+          <div className={`space-y-2 rounded-lg border p-4 ${t.border}`}>
+            <h3 className={`text-sm font-medium ${t.heading}`}>Personal buyer codes (separate)</h3>
+            <p className="form-hint">
+              Codes live in the database table <code className="text-xs">site_access_codes</code>.
+              Seed file on the server:{' '}
+              <code className="text-xs">db/site_access_codes_seed.txt</code> — run{' '}
+              <code className="text-xs">npm run db:seed-site-access-codes</code> after deploy.
             </p>
-          )}
+            {stats && (
+              <p className="form-hint">
+                Pool: {stats.total} total · {stats.available} available · {stats.assigned} assigned
+              </p>
+            )}
+            <p className="form-hint">
+              Assign codes when creating buyers in Admin → Users. The gate accepts either the site
+              password or a valid personal code.
+            </p>
+          </div>
 
           <label className="flex items-center gap-2 form-check-label cursor-pointer">
             <input
               type="checkbox"
               checked={lockEnabled}
               onChange={(e) => setLockEnabled(e.target.checked)}
-              disabled={!status.hasCodes && !status.hasPassword}
+              disabled={!status.hasCodes && !status.hasPassword && !newPassword.trim()}
               className="rounded border-dark-500 text-primary-500"
             />
-            Require a personal access code for all visitors
+            Require site access password for all visitors
           </label>
 
           <div className="flex flex-wrap gap-3">

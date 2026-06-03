@@ -59,10 +59,10 @@ export async function getSiteAccessConfig(): Promise<SiteAccessConfig> {
   }
 }
 
-/** Personal access code first; legacy master password hash as fallback. */
+/** Site password and personal buyer codes are separate; either unlocks the gate. */
 export async function verifySiteAccessCredential(input: string): Promise<boolean> {
-  if (await verifySiteAccessCode(input)) return true
-  return verifySiteAccessPassword(input)
+  if (await verifySiteAccessPassword(input)) return true
+  return verifySiteAccessCode(input)
 }
 
 export async function verifySiteAccessPassword(

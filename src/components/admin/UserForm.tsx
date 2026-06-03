@@ -241,7 +241,7 @@ export default function UserForm({
             onChange={(e) => setForm((f) => ({ ...f, site_access_code: e.target.value }))}
             required
             disabled={effectiveReadOnly}
-            placeholder="e.g. 0005"
+            placeholder="0000"
           />
           <p className="form-hint">
             Type the code you are giving this buyer (from your offline list). Buyers cannot choose
@@ -260,7 +260,7 @@ export default function UserForm({
             value={form.site_access_code}
             onChange={(e) => setForm((f) => ({ ...f, site_access_code: e.target.value }))}
             disabled={effectiveReadOnly}
-            placeholder="e.g. 0005"
+            placeholder="0000"
           />
         </label>
       )}
