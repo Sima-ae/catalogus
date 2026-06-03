@@ -24,12 +24,30 @@ export function collectPricelistFilterOptions(items: PricelistRow[]): {
   }
 }
 
+/** Row still needs a price filled in (matches empty price field in the table). */
+export function pricelistRowNeedsPrice(row: PricelistRow): boolean {
+  if (row.can_edit_price === false) return false
+  const raw = row.seller_unit_price ?? row.display_unit_price
+  if (raw == null) return true
+  const n = Number(raw)
+  return !Number.isFinite(n) || n < 0
+}
+
+export function countPricelistRowsNeedingPrice(items: PricelistRow[]): number {
+  let n = 0
+  for (const row of items) {
+    if (pricelistRowNeedsPrice(row)) n++
+  }
+  return n
+}
+
 export function filterPricelistRows(
   items: PricelistRow[],
   opts: {
     searchQuery?: string
     categoryFilter?: string
     brandFilter?: string
+    missingPricesOnly?: boolean
   }
 ): PricelistRow[] {
   let list = items
@@ -40,6 +58,9 @@ export function filterPricelistRows(
   }
   if (brand) {
     list = list.filter((row) => row.brand?.trim() === brand)
+  }
+  if (opts.missingPricesOnly) {
+    list = list.filter(pricelistRowNeedsPrice)
   }
   const q = opts.searchQuery?.trim().toLowerCase()
   if (q) {

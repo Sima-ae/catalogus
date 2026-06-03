@@ -25,6 +25,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { translatePricelistOwnerLabel } from '@/lib/i18n-pricelist'
 import {
   collectPricelistFilterOptions,
+  countPricelistRowsNeedingPrice,
   filterPricelistRows,
 } from '@/lib/pricelist-filters'
 import PricelistListFiltersBar from '@/components/pricelist/PricelistListFilters'
@@ -92,6 +93,7 @@ export default function PricelistPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
+  const [showMissingPricesOnly, setShowMissingPricesOnly] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [lightbox, setLightbox] = useState<{
     name: string
@@ -117,17 +119,24 @@ export default function PricelistPageClient() {
     [items]
   )
 
+  const missingPriceCount = useMemo(() => countPricelistRowsNeedingPrice(items), [items])
+
   const filteredItems = useMemo(
     () =>
       filterPricelistRows(items, {
         searchQuery,
         categoryFilter,
         brandFilter,
+        missingPricesOnly: showMissingPricesOnly,
       }),
-    [items, searchQuery, categoryFilter, brandFilter]
+    [items, searchQuery, categoryFilter, brandFilter, showMissingPricesOnly]
   )
 
-  const hasActiveFilters = Boolean(categoryFilter || brandFilter)
+  const hasActiveFilters = Boolean(
+    categoryFilter || brandFilter || showMissingPricesOnly
+  )
+
+  const showMissingPricesButton = canEditPrices && !isGuest && viewMode === 'table'
 
   const totalFiltered = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PRICELIST_PAGE_SIZE) || 1)
@@ -135,7 +144,11 @@ export default function PricelistPageClient() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, ownerId, categoryFilter, brandFilter])
+  }, [searchQuery, ownerId, categoryFilter, brandFilter, showMissingPricesOnly])
+
+  useEffect(() => {
+    setShowMissingPricesOnly(false)
+  }, [ownerId])
 
   useEffect(() => {
     if (categoryFilter && !categoryOptions.includes(categoryFilter)) {
@@ -256,14 +269,41 @@ export default function PricelistPageClient() {
           }`}
         >
           <p className={muted}>
-            {hasActiveFilters && !searchQuery.trim()
-              ? t('pricelist.empty.filters')
-              : t('pricelist.empty.search')}
+            {showMissingPricesOnly
+              ? t('pricelist.empty.missingPrices')
+              : hasActiveFilters && !searchQuery.trim()
+                ? t('pricelist.empty.filters')
+                : t('pricelist.empty.search')}
           </p>
         </div>
       ) : viewMode === 'table' ? (
         <>
           <CatalogPagination {...paginationProps} centered />
+          {showMissingPricesButton ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowMissingPricesOnly((on) => !on)}
+                disabled={!showMissingPricesOnly && missingPriceCount === 0}
+                aria-pressed={showMissingPricesOnly}
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  showMissingPricesOnly
+                    ? isDark
+                      ? 'border-primary-500 bg-primary-500/20 text-primary-300'
+                      : 'border-primary-600 bg-primary-50 text-primary-800'
+                    : isDark
+                      ? 'border-dark-600 bg-dark-800 text-gray-200 hover:bg-dark-700'
+                      : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                {showMissingPricesOnly
+                  ? t('pricelist.filter.showAllProducts')
+                  : t('pricelist.filter.showMissingPrices', {
+                      count: missingPriceCount,
+                    })}
+              </button>
+            </div>
+          ) : null}
           <PricelistTable
             items={paginatedItems}
             categoryOptions={categoryOptions}
