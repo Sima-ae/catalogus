@@ -351,21 +351,6 @@ export default function ProductPageClient() {
     <div className={`flex min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
     } overflow-x-hidden`}>
-      {canEditProduct ? (
-        <button
-          type="button"
-          onClick={() => setEditOpen(true)}
-          className={`fixed top-4 right-4 z-40 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-lg transition-colors ${
-            theme === 'dark'
-              ? 'border-dark-600 bg-dark-800 text-white hover:bg-dark-700'
-              : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
-          }`}
-        >
-          <PencilSquareIcon className="h-4 w-4 shrink-0" aria-hidden />
-          {t('product.editProduct')}
-        </button>
-      ) : null}
-
       <ProductEditModal
         productId={productId}
         open={editOpen}
@@ -395,6 +380,23 @@ export default function ProductPageClient() {
           leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
           actions={<ShopHeroHeaderActions cartBadgeCount={quantityInCart} />}
         />
+
+        {canEditProduct ? (
+          <div className="flex justify-end px-4 sm:px-6 lg:px-8 pt-2 pb-1">
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm transition-colors ${
+                theme === 'dark'
+                  ? 'border-dark-600 bg-dark-800 text-white hover:bg-dark-700'
+                  : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <PencilSquareIcon className="h-4 w-4 shrink-0" aria-hidden />
+              {t('product.editProduct')}
+            </button>
+          </div>
+        ) : null}
 
         <main
           className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${

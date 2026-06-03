@@ -214,6 +214,26 @@ export default function ProductForm({
     return <p className={t.muted}>{tr('loading.generic')}</p>
   }
 
+  const saveLabel =
+    saving ? 'Saving...' : mode === 'create' ? 'Create product' : 'Save changes'
+
+  const formActions = (
+    <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
+      <button type="submit" className="btn-primary" disabled={saving}>
+        {saveLabel}
+      </button>
+      {variant === 'modal' ? (
+        <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </button>
+      ) : (
+        <Link href={appPath(productsPath)} className="btn-secondary">
+          {mode === 'edit' ? 'Back to products' : 'Cancel'}
+        </Link>
+      )}
+    </div>
+  )
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -245,7 +265,10 @@ export default function ProductForm({
       )}
 
       <section className="card space-y-4">
-        <h2 className="card-section-title">Basic info</h2>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <h2 className="card-section-title mb-0">Basic info</h2>
+          {variant === 'modal' ? formActions : null}
+        </div>
         <Field label="Name *" name="name" value={form.name} onChange={onChange} required />
         <Field
           label="Short description *"
@@ -509,20 +532,7 @@ export default function ProductForm({
         <Field label="Download URL" name="download_url" value={form.download_url} onChange={onChange} />
       </section>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Saving...' : mode === 'create' ? 'Create product' : 'Save changes'}
-        </button>
-        {variant === 'modal' ? (
-          <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
-            Cancel
-          </button>
-        ) : (
-          <Link href={appPath(productsPath)} className="btn-secondary">
-            {mode === 'edit' ? 'Back to products' : 'Cancel'}
-          </Link>
-        )}
-      </div>
+      {formActions}
     </form>
   )
 }
