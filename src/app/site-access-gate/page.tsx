@@ -8,7 +8,6 @@ import { useI18n } from '@/lib/i18n-context'
 import {
   navigateAfterSiteAccessUnlock,
   resolveSiteAccessRedirect,
-  waitForSiteAccessUnlock,
 } from '@/lib/site-access-redirect'
 import { translateGateApiError } from '@/lib/i18n-gate-messages'
 import { useSyncLocaleFromPath } from '@/lib/use-sync-locale-from-path'
@@ -47,7 +46,6 @@ function GateForm() {
       }
       ok = true
       setSuccess(t('password.correctLoading'))
-      await waitForSiteAccessUnlock()
       const target = resolveSiteAccessRedirect(from, pathname)
       navigateAfterSiteAccessUnlock(target)
     } catch {

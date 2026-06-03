@@ -13,6 +13,7 @@ import { SITE_ACCESS_META_REQUIRED } from '@/lib/site-access-cookie'
 
 type Status = { required: boolean; unlocked: boolean }
 
+/** Only skip the guard spinner when site access is explicitly disabled. */
 function readSiteAccessHint(): Status | null {
   if (typeof document === 'undefined') return null
 
@@ -24,11 +25,6 @@ function readSiteAccessHint(): Status | null {
 
   if (requiredFlag === '0') {
     return { required: false, unlocked: true }
-  }
-
-  // Middleware already passed — render immediately while status is confirmed in the background.
-  if (requiredFlag === '1') {
-    return { required: true, unlocked: true }
   }
 
   return null
@@ -71,7 +67,8 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     if (!status) return
 
     if (onGate) {
-      if (!status.required || status.unlocked) {
+      // Leave the gate only when the server confirms a valid unlock cookie.
+      if (status.unlocked) {
         const target = resolveSiteAccessRedirect(searchParams.get('from'), pathname)
         navigateAfterSiteAccessUnlock(target)
       }
