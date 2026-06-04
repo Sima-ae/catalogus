@@ -204,7 +204,7 @@ export default function PricelistPageClient() {
     : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full max-w-[min(100%,90rem)] mx-auto space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
         <div className="shrink-0 lg:min-w-[10rem]">
           <h1 className={`text-2xl font-bold ${heading}`}>{t('pricelist.title')}</h1>

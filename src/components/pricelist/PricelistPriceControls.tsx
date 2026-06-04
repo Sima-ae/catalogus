@@ -52,7 +52,7 @@ export default function PricelistPriceControls({
   const hasStockStatus = stockStatus != null
   const statusLabel = pricelistStockStatusLabel(stockStatus, t)
 
-  const outOfStockInputClass = `w-full min-w-[7.5rem] pl-7 pr-2 py-1 rounded border text-sm font-semibold ${
+  const outOfStockInputClass = `w-full min-w-[11rem] pl-7 pr-2 py-1 rounded border text-sm font-semibold ${
     isDark
       ? 'bg-dark-900 border-red-500/60 text-red-400'
       : 'bg-white border-red-500 text-red-600'
@@ -62,12 +62,12 @@ export default function PricelistPriceControls({
     'pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs font-medium text-red-600 dark:text-red-400'
 
   const selectClass = hasStockStatus
-    ? `shrink-0 min-w-[6.5rem] max-w-[11rem] rounded-md border py-1 pl-1.5 pr-6 text-xs font-medium leading-tight ${
+    ? `shrink-0 w-[11.5rem] max-w-full rounded-md border py-1 pl-1.5 pr-7 text-xs font-medium leading-tight ${
         isDark
           ? 'border-red-500/60 bg-red-500/15 text-red-400'
           : 'border-red-500 bg-red-500/10 text-red-600'
       }`
-    : `shrink-0 min-w-[6.5rem] max-w-[11rem] rounded-md border py-1 pl-1.5 pr-6 text-xs leading-tight ${
+    : `shrink-0 w-[11.5rem] max-w-full rounded-md border py-1 pl-1.5 pr-7 text-xs leading-tight ${
         isDark
           ? 'border-dark-600 bg-dark-800 text-gray-300'
           : 'border-gray-300 bg-white text-gray-700'
@@ -83,8 +83,8 @@ export default function PricelistPriceControls({
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <div className="relative flex-1 min-w-0">
+    <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
+      <div className="relative flex-1 min-w-[5.5rem]">
         <span className={hasStockStatus ? outOfStockCurrencyClass : priceCurrencyClass} aria-hidden>
           {currencySymbol}
         </span>

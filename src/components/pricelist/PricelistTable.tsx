@@ -101,15 +101,15 @@ export default function PricelistTable({
   const head = isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-50 text-gray-700'
 
   return (
-    <div className={`overflow-x-auto rounded-xl border ${border}`}>
-      <table className="w-full min-w-[760px] text-sm table-fixed">
+    <div className={`w-full overflow-x-auto rounded-xl border ${border}`}>
+      <table className="w-full min-w-[1080px] text-sm table-fixed">
         <colgroup>
-          <col className="w-28" />
-          <col className="w-[18%]" />
-          <col />
+          <col className="w-[5.5rem]" />
+          <col className="w-[9%]" />
+          <col className="w-[22%]" />
+          <col className="w-[11%]" />
           <col className="w-[14%]" />
-          <col className="w-[12%]" />
-          <col className={canManageItems || showStar ? 'w-[min(18rem,32%)]' : 'w-72'} />
+          <col className={canManageItems || showStar ? 'w-[34%]' : 'w-[36%]'} />
           {showStar ? <col className="w-10" /> : null}
           {canManageItems ? <col className="w-10" /> : null}
         </colgroup>
@@ -459,22 +459,25 @@ function PricelistTableRow({
           </span>
         )}
       </td>
-      <td className={`px-3 py-1.5 font-mono text-xs truncate align-middle leading-snug ${muted}`} title={row.sku}>
+      <td
+        className={`px-3 py-1.5 font-mono text-xs align-middle leading-snug break-all ${muted}`}
+        title={row.sku}
+      >
         {row.sku}
       </td>
       <td
-        className={`px-3 py-1.5 text-xs truncate align-middle leading-snug ${muted}`}
+        className={`px-3 py-1.5 text-xs align-middle leading-snug break-words ${muted}`}
         title={getTopCategoryLabel(row.category, t)}
       >
         {getTopCategoryLabel(row.category, t)}
       </td>
       <td
-        className={`px-3 py-1.5 text-xs truncate align-middle leading-snug ${muted}`}
+        className={`px-3 py-1.5 text-xs align-middle leading-snug break-words ${muted}`}
         title={row.brand}
       >
         {row.brand}
       </td>
-      <td className="px-3 py-1.5 align-middle">
+      <td className="px-3 py-1.5 align-middle min-w-[18rem]">
         {showSellerPriceInput ? (
           <div className="flex flex-col gap-0.5 min-w-0">
             <PricelistPriceControls

@@ -15,7 +15,7 @@ function PricelistFallback() {
 export default function PricelistPage() {
   return (
     <PricelistAccessGate>
-      <main className="min-h-screen p-4 sm:p-6 app-readable">
+      <main className="min-h-screen px-3 py-4 sm:px-6 sm:py-6 lg:px-8 app-readable">
         <Suspense fallback={<PricelistFallback />}>
           <PricelistPageClient />
         </Suspense>
