@@ -8,7 +8,7 @@
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { queryDb, resetDbPool } from '@/lib/db'
-import { brandSkuPrefix, stripBrandPrefixFromSku } from '@/lib/product-sku'
+import { brandSkuPrefix, stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 
 function loadDotEnv() {
   const envPath = resolve(process.cwd(), '.env')
@@ -44,8 +44,10 @@ async function main() {
     const brands = await queryDb<{ name: string }[]>(
       `SELECT DISTINCT name FROM brands WHERE name IS NOT NULL AND TRIM(name) <> ''`
     )
-    const brandsByPrefixLen = [...brands].sort(
-      (a, b) => brandSkuPrefix(b.name).length - brandSkuPrefix(a.name).length
+    const prefixes = Array.from(
+      new Set(brands.map((b) => brandSkuPrefix(b.name)).filter(Boolean))
+    ).sort(
+      (a, b) => b.length - a.length
     )
 
     const rows = await queryDb<ProductRow[]>(
@@ -62,16 +64,7 @@ async function main() {
     const updates: { id: string; sku: string; cleaned: string }[] = []
 
     for (const row of rows) {
-      let cleaned = stripBrandPrefixFromSku(row.sku, row.brand)
-      if (cleaned === row.sku && !row.brand) {
-        for (const b of brandsByPrefixLen) {
-          const attempt = stripBrandPrefixFromSku(row.sku, b.name)
-          if (attempt !== row.sku) {
-            cleaned = attempt
-            break
-          }
-        }
-      }
+      const cleaned = stripAllBrandPrefixesFromSku(row.sku, prefixes)
       if (cleaned && cleaned !== row.sku) {
         updates.push({ id: row.id, sku: row.sku, cleaned })
       }

@@ -18,12 +18,32 @@ export function stripBrandPrefixFromSku(
   sku: string,
   brandName: string | null | undefined
 ): string {
-  const raw = String(sku ?? '').trim()
-  if (!raw) return raw
   const prefix = brandSkuPrefix(brandName)
-  if (!prefix) return raw
-  const stripped = raw.replace(new RegExp(`^${escapeRegExp(prefix)}-`, 'i'), '')
-  return stripped.replace(/(^-+|-+$)/g, '') || raw
+  if (!prefix) return String(sku ?? '').trim()
+  return stripAllBrandPrefixesFromSku(sku, [prefix])
+}
+
+/** Remove any leading brand slug(s) from SKU (longest prefixes first). */
+export function stripAllBrandPrefixesFromSku(sku: string, prefixes: string[]): string {
+  let s = String(sku ?? '').trim()
+  if (!s || !prefixes.length) return s
+
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const prefix of prefixes) {
+      if (!prefix) continue
+      const re = new RegExp(`^${escapeRegExp(prefix)}-`, 'i')
+      if (re.test(s)) {
+        s = s.replace(re, '')
+        changed = true
+        break
+      }
+    }
+  }
+
+  s = s.replace(/(^-+|-+$)/g, '')
+  return s || String(sku ?? '').trim()
 }
 
 /** Remove Yupoo import marker segments from SKU (case-insensitive). */
@@ -34,15 +54,21 @@ export function stripYupooFromSku(sku: string): string {
 }
 
 /** Trim SKU; empty string becomes null (no SKU). Strips legacy "YUPOO" segments. */
-export function normalizeProductSku(sku: unknown): string | null {
+export function normalizeProductSku(
+  sku: unknown,
+  brandPrefixes?: string[]
+): string | null {
   if (sku == null || sku === '') return null
-  const trimmed = stripYupooFromSku(String(sku).trim())
+  let trimmed = stripYupooFromSku(String(sku).trim())
+  if (brandPrefixes?.length) {
+    trimmed = stripAllBrandPrefixesFromSku(trimmed, brandPrefixes)
+  }
   return trimmed || null
 }
 
 /** Require a non-empty SKU (create/update). */
-export function requireProductSku(sku: unknown): string {
-  const normalized = normalizeProductSku(sku)
+export function requireProductSku(sku: unknown, brandPrefixes?: string[]): string {
+  const normalized = normalizeProductSku(sku, brandPrefixes)
   if (!normalized) {
     throw new MissingSkuError()
   }

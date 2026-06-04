@@ -19,6 +19,7 @@ import {
   resolveProductBrandInput,
   UnknownBrandError,
 } from '@/lib/brands-db'
+import { getBrandSkuPrefixes } from '@/lib/brand-sku-prefixes'
 import {
   DuplicateSkuError,
   MissingSkuError,
@@ -225,8 +226,11 @@ function dedupeProductRows(rows: Record<string, unknown>[]): Record<string, unkn
   return result
 }
 
-function serializeProductRows(rows: Record<string, unknown>[]) {
-  return dedupeProductRows(rows).map(serializeProductRow)
+async function serializeProductRows(rows: Record<string, unknown>[]) {
+  const brandSkuPrefixes = await getBrandSkuPrefixes()
+  return dedupeProductRows(rows).map((row) =>
+    serializeProductRow(row, { brandSkuPrefixes })
+  )
 }
 
 async function fetchProductRowsByIds(ids: string[]): Promise<Record<string, unknown>[]> {
@@ -352,14 +356,17 @@ async function fetchProductRow(id: string) {
     `${select} WHERE p.id = ? LIMIT 1`,
     [id]
   )
-  return rows[0] ? serializeProductRow(rows[0]) : null
+  if (!rows[0]) return null
+  const brandSkuPrefixes = await getBrandSkuPrefixes()
+  return serializeProductRow(rows[0], { brandSkuPrefixes })
 }
 
 export async function insertProduct(input: ProductInput) {
   const category = await resolveProductCategoryInput(input.category, input.category_id)
   const brand =
     (await brandsTableExists()) ? await resolveProductBrandInput(input.brand) : { name: null, id: undefined }
-  const sku = requireProductSku(input.sku)
+  const brandPrefixes = await getBrandSkuPrefixes()
+  const sku = requireProductSku(input.sku, brandPrefixes)
   await assertSkuIsUnique(sku)
 
   const id = randomUUID()
@@ -454,6 +461,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   const hasCategoryId = schema.categoryId
   const hasBrandCol = await productsHaveBrandColumn()
   const hasBrandId = await productsHaveBrandIdColumn()
+  const brandPrefixes = await getBrandSkuPrefixes()
 
   const map: Record<string, unknown> = {
     name: input.name,
@@ -477,7 +485,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     author: input.author,
     author_icon: input.author_icon,
     author_id: schema.authorId && input.author_id !== undefined ? input.author_id : undefined,
-    sku: input.sku !== undefined ? normalizeProductSku(input.sku) : undefined,
+    sku: input.sku !== undefined ? normalizeProductSku(input.sku, brandPrefixes) : undefined,
     download_url: input.download_url,
     demo_url: input.demo_url,
     documentation_url: input.documentation_url,
@@ -525,7 +533,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   if (!fields.length) return fetchProductRow(id)
 
   if (input.sku !== undefined) {
-    const sku = requireProductSku(input.sku)
+    const sku = requireProductSku(input.sku, brandPrefixes)
     await assertSkuIsUnique(sku, id)
     const skuIdx = fields.findIndex((f) => f.startsWith('sku = '))
     if (skuIdx !== -1) {
@@ -543,7 +551,7 @@ export async function listProducts() {
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} ORDER BY p.created_at DESC`
   )
-  return serializeProductRows(rows)
+  return await serializeProductRows(rows)
 }
 
 /** Active products only — public shop catalog. */
@@ -552,7 +560,7 @@ export async function listActiveProducts() {
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE p.status = 'active' ORDER BY p.created_at DESC`
   )
-  return serializeProductRows(rows)
+  return await serializeProductRows(rows)
 }
 
 /** Paginated active catalog — filters applied in SQL for fast first paint. */
@@ -608,7 +616,7 @@ export async function listActiveProductsPaginated(
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
-    items: serializeProductRows(rows) as unknown as CatalogProductsPage['items'],
+    items: (await serializeProductRows(rows)) as unknown as CatalogProductsPage['items'],
     total,
     page: query.page,
     pageSize: limit,
@@ -654,7 +662,7 @@ export async function listProductsPaginatedAdmin(
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
-    items: serializeProductRows(rows) as unknown as CatalogProductsPage['items'],
+    items: (await serializeProductRows(rows)) as unknown as CatalogProductsPage['items'],
     total,
     page: safePage,
     pageSize: safeLimit,
@@ -728,7 +736,7 @@ export async function listProductsForSeller(sellerId: string, sellerName: string
     `${select} ${whereSql} ORDER BY p.created_at DESC`,
     params
   )
-  return serializeProductRows(rows)
+  return await serializeProductRows(rows)
 }
 
 /** Paginated seller-owned products — avoids loading the full catalog into memory. */
@@ -764,7 +772,7 @@ export async function listProductsForSellerPaginated(
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
-    items: serializeProductRows(rows) as unknown as CatalogProductsPage['items'],
+    items: (await serializeProductRows(rows)) as unknown as CatalogProductsPage['items'],
     total,
     page: safePage,
     pageSize: safeLimit,
@@ -782,7 +790,7 @@ export async function listDraftImportProducts(limit = 100) {
      LIMIT ?`,
     [limit]
   )
-  return serializeProductRows(rows)
+  return await serializeProductRows(rows)
 }
 
 export async function getProductById(id: string) {

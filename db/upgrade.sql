@@ -439,48 +439,6 @@ WHERE version IS NULL
    OR TRIM(version) = ''
    OR TRIM(version) IN ('—', '-');
 
--- Remove brand-name prefix from product SKUs (e.g. LOUIS-VUITTON-63229531 → 63229531).
--- Prefer: npx tsx scripts/remove-brand-from-skus.ts (handles collisions + all brands).
--- SQL below strips prefix for products linked to brands; re-run script if any prefixed SKUs remain.
-UPDATE products p
-INNER JOIN brands b ON b.id = p.brand_id
-SET p.sku = LEFT(
-  REGEXP_REPLACE(
-    p.sku,
-    CONCAT(
-      '(?i)^',
-      LEFT(
-        TRIM(BOTH '-' FROM REGEXP_REPLACE(UPPER(TRIM(b.name)), '[^A-Z0-9]+', '-')),
-        32
-      ),
-      '-'
-    ),
-    ''
-  ),
-  255
-)
-WHERE p.sku REGEXP CONCAT(
-  '(?i)^',
-  LEFT(
-    TRIM(BOTH '-' FROM REGEXP_REPLACE(UPPER(TRIM(b.name)), '[^A-Z0-9]+', '-')),
-    32
-  ),
-  '-'
-);
-
-UPDATE products p
-INNER JOIN (
-  SELECT id
-  FROM (
-    SELECT
-      id,
-      ROW_NUMBER() OVER (
-        PARTITION BY LOWER(TRIM(sku))
-        ORDER BY created_at ASC, id ASC
-      ) AS rn
-    FROM products
-    WHERE sku IS NOT NULL AND TRIM(sku) <> ''
-  ) ranked
-  WHERE ranked.rn > 1
-) dup ON dup.id = p.id
-SET p.sku = CONCAT(LEFT(TRIM(p.sku), 246), '-', LEFT(p.id, 8));
+-- Remove ALL brand-name prefixes from SKUs (any brand slug in SKU, not only assigned brand).
+-- Required on production: npx tsx scripts/remove-brand-from-skus.ts
+-- (SQL-only updates miss mismatched rows, e.g. LOUIS-VUITTON-… with brand GUCCI.)

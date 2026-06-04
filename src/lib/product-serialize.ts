@@ -2,6 +2,7 @@ import {
   normalizeProductImageList,
   resolveProductDisplayImages,
 } from '@/lib/product-image-url'
+import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 
 /** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
 export function parsePipeField(value: unknown): string[] | null {
@@ -34,7 +35,15 @@ export function parseProductJsonField(value: unknown): string[] | null {
   return null
 }
 
-export function serializeProductRow(row: Record<string, unknown>) {
+export type SerializeProductRowOptions = {
+  /** Known brand SKU slugs (server-loaded); omit on client-safe code paths. */
+  brandSkuPrefixes?: string[]
+}
+
+export function serializeProductRow(
+  row: Record<string, unknown>,
+  options?: SerializeProductRowOptions
+) {
   /** Only expose names that exist in categories/brands tables (keeps shop in sync). */
   const category = String(row.resolved_category_name ?? '').trim()
   const brand = String(row.resolved_brand_name ?? row.brand ?? '').trim()
@@ -57,8 +66,15 @@ export function serializeProductRow(row: Record<string, unknown>) {
     sourceUrl
   )
 
+  const rawSku = row.sku != null ? String(row.sku).trim() : ''
+  const prefixes = options?.brandSkuPrefixes ?? []
+  const sku = rawSku && prefixes.length
+    ? stripAllBrandPrefixesFromSku(rawSku, prefixes)
+    : rawSku
+
   return {
     ...rest,
+    sku,
     id: String(row.id ?? ''),
     image_url: main,
     category,
