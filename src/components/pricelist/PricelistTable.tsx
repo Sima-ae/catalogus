@@ -47,6 +47,8 @@ type Props = {
 }
 
 function rowStockStatus(row: PricelistRow): PricelistStockStatus | null {
+  const price = row.seller_unit_price ?? row.display_unit_price
+  if (price != null && Number(price) > 0) return null
   return row.seller_stock_status ?? row.display_stock_status ?? null
 }
 

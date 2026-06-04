@@ -10,7 +10,7 @@ import { parseProductJsonField } from '@/lib/product-serialize'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
 import {
   isPricelistStockStatus,
-  parsePricelistStockStatus,
+  resolvePricelistPriceDisplay,
   type PricelistStockStatus,
 } from '@/lib/pricelist-stock-status'
 
@@ -98,11 +98,12 @@ function mapSellerPriceRow(row: {
   out_of_stock: number | boolean
   stock_status: string | null
 }): SellerPriceRow {
+  const resolved = resolvePricelistPriceDisplay(row)
   return {
-    unit_price: Number(row.unit_price),
-    currency: row.currency,
+    unit_price: resolved.unit_price ?? 0,
+    currency: resolved.currency ?? row.currency,
     locked: row.locked === 1 || row.locked === true,
-    stock_status: parsePricelistStockStatus(row.out_of_stock, row.stock_status),
+    stock_status: resolved.stock_status,
   }
 }
 
@@ -201,10 +202,11 @@ async function loadBuyerDisplayPricesMap(
   )
 
   for (const row of rows) {
+    const resolved = resolvePricelistPriceDisplay(row)
     map.set(row.product_id, {
-      unit_price: Number(row.unit_price),
-      currency: row.currency,
-      stock_status: parsePricelistStockStatus(row.out_of_stock, row.stock_status),
+      unit_price: resolved.unit_price ?? 0,
+      currency: resolved.currency ?? row.currency,
+      stock_status: resolved.stock_status,
     })
   }
   return map
@@ -257,14 +259,50 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
   )
 
   for (const row of rows) {
+    const resolved = resolvePricelistPriceDisplay(row)
     map.set(row.product_id, {
-      unit_price: Number(row.unit_price),
-      currency: row.currency,
+      unit_price: resolved.unit_price ?? 0,
+      currency: resolved.currency ?? row.currency,
       seller_id: row.seller_id,
-      stock_status: parsePricelistStockStatus(row.out_of_stock, row.stock_status),
+      stock_status: resolved.stock_status,
     })
   }
   return map
+}
+
+function applyResolvedPriceToRowFields(
+  resolved: ReturnType<typeof resolvePricelistPriceDisplay>,
+  target: {
+    sellerUnit: number | null
+    sellerCurrency: string | null
+    sellerStockStatus: PricelistStockStatus | null
+    displayUnit: number | null
+    displayCurrency: string | null
+    displayStockStatus: PricelistStockStatus | null
+  },
+  mode: 'seller' | 'display' | 'both'
+) {
+  if (resolved.unit_price != null && resolved.unit_price > 0) {
+    if (mode === 'seller' || mode === 'both') {
+      target.sellerUnit = resolved.unit_price
+      target.sellerCurrency = resolved.currency
+    }
+    if (mode === 'display' || mode === 'both') {
+      target.displayUnit = resolved.unit_price
+      target.displayCurrency = resolved.currency
+    }
+    return
+  }
+  if (resolved.stock_status) {
+    if (mode === 'seller' || mode === 'both') {
+      target.sellerStockStatus = resolved.stock_status
+      target.sellerCurrency = resolved.currency
+    }
+    if (mode === 'display' || mode === 'both') {
+      target.displayStockStatus = resolved.stock_status
+      target.displayCurrency = resolved.currency
+    }
+  }
 }
 
 async function loadPendingEditRequestsMap(
@@ -323,6 +361,7 @@ export async function setSellerProductStockStatus(input: {
     `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
      VALUES (?, ?, 0, ?, ?, 1, ?)
      ON DUPLICATE KEY UPDATE
+       unit_price = 0,
        out_of_stock = 1,
        stock_status = VALUES(stock_status),
        currency = VALUES(currency),
@@ -441,21 +480,28 @@ export async function listPricelistRows(
     let canEditPrice: boolean | undefined
     let priceSellerId: string | undefined
 
+    const rowPriceTarget = {
+      sellerUnit,
+      sellerCurrency,
+      sellerStockStatus,
+      displayUnit,
+      displayCurrency,
+      displayStockStatus,
+    }
+
     if (viewer.role === 'seller') {
       priceSellerId = viewer.userId
       const sp = sellerPrices.get(item.product_id)
       if (sp) {
-        sellerStockStatus = sp.stock_status
-        if (sp.stock_status) {
-          sellerCurrency = sp.currency
-          displayCurrency = sp.currency
-          displayStockStatus = sp.stock_status
-        } else {
-          sellerUnit = sp.unit_price
-          sellerCurrency = sp.currency
-          displayUnit = sp.unit_price
-          displayCurrency = sp.currency
-        }
+        applyResolvedPriceToRowFields(
+          resolvePricelistPriceDisplay({
+            unit_price: sp.unit_price,
+            currency: sp.currency,
+            stock_status: sp.stock_status,
+          }),
+          rowPriceTarget,
+          'both'
+        )
         priceLocked = true
         canEditPrice = false
       } else {
@@ -467,61 +513,70 @@ export async function listPricelistRows(
     } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
       const dp = buyerDisplayPrices.get(item.product_id)
       if (dp) {
-        if (dp.stock_status) {
-          displayStockStatus = dp.stock_status
-          displayCurrency = dp.currency
-        } else {
-          displayUnit = dp.unit_price
-          displayCurrency = dp.currency
-        }
+        applyResolvedPriceToRowFields(
+          resolvePricelistPriceDisplay(dp),
+          rowPriceTarget,
+          'display'
+        )
       }
     } else if (viewer.role === 'guest') {
       if (viewer.userId) {
         priceSellerId = viewer.userId
         const sp = sellerPrices.get(item.product_id)
         if (sp) {
-          sellerStockStatus = sp.stock_status
-          if (!sp.stock_status) {
-            sellerUnit = sp.unit_price
-          }
-          sellerCurrency = sp.currency
+          applyResolvedPriceToRowFields(
+            resolvePricelistPriceDisplay({
+              unit_price: sp.unit_price,
+              currency: sp.currency,
+              stock_status: sp.stock_status,
+            }),
+            rowPriceTarget,
+            'seller'
+          )
         }
       }
       const dp = buyerDisplayPrices.get(item.product_id)
       if (dp) {
-        if (dp.stock_status) {
-          displayStockStatus = dp.stock_status
-          displayCurrency = dp.currency
-        } else {
-          displayUnit = dp.unit_price
-          displayCurrency = dp.currency
-        }
+        applyResolvedPriceToRowFields(
+          resolvePricelistPriceDisplay(dp),
+          rowPriceTarget,
+          'display'
+        )
       }
     } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
       canEditPrice = true
       const own = adminOwnPrices.get(item.product_id)
       if (own) {
-        sellerStockStatus = own.stock_status
-        if (!own.stock_status) {
-          sellerUnit = own.unit_price
-        }
-        sellerCurrency = own.currency
+        applyResolvedPriceToRowFields(
+          resolvePricelistPriceDisplay({
+            unit_price: own.unit_price,
+            currency: own.currency,
+            stock_status: own.stock_status,
+          }),
+          rowPriceTarget,
+          'seller'
+        )
         priceSellerId = viewer.userId
       }
       const latest = latestPrices.get(item.product_id)
       if (latest) {
-        if (latest.stock_status) {
-          displayStockStatus = latest.stock_status
-          displayCurrency = latest.currency
-        } else {
-          displayUnit = latest.unit_price
-          displayCurrency = latest.currency
-        }
+        applyResolvedPriceToRowFields(
+          resolvePricelistPriceDisplay(latest),
+          rowPriceTarget,
+          'display'
+        )
         if (!priceSellerId) {
           priceSellerId = latest.seller_id
         }
       }
     }
+
+    sellerUnit = rowPriceTarget.sellerUnit
+    sellerCurrency = rowPriceTarget.sellerCurrency
+    sellerStockStatus = rowPriceTarget.sellerStockStatus
+    displayUnit = rowPriceTarget.displayUnit
+    displayCurrency = rowPriceTarget.displayCurrency
+    displayStockStatus = rowPriceTarget.displayStockStatus
 
     const gallery = parseProductJsonField(item.gallery_images)
     const { main, gallery: galleryRest } = resolveProductDisplayImages(

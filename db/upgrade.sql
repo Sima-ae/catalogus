@@ -380,3 +380,8 @@ ALTER TABLE seller_product_prices
 UPDATE seller_product_prices
 SET stock_status = 'out'
 WHERE out_of_stock = 1 AND (stock_status IS NULL OR stock_status = '');
+
+-- Rows with a real price must not keep legacy out-of-stock flags (restores pricelist display)
+UPDATE seller_product_prices
+SET out_of_stock = 0, stock_status = NULL
+WHERE unit_price > 0 AND (out_of_stock = 1 OR stock_status IS NOT NULL);
