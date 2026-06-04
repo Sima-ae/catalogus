@@ -12,15 +12,24 @@ ALTER TABLE users
 INSERT INTO settings (id, `key`, value, description)
 VALUES
   (UUID(), 'site_name', 'Super Clones', 'Store display name'),
-  (UUID(), 'site_tagline', 'Digital marketplace for templates and digital assets', 'Store tagline'),
+  (UUID(), 'site_tagline', '', 'Store tagline (empty = localized Catalog 2026)'),
   (UUID(), 'support_email', '', 'Support contact email'),
   (UUID(), 'currency', 'EUR', 'Checkout currency code'),
   (UUID(), 'tax_rate', '0', 'Tax rate percentage'),
   (UUID(), 'catalog_mode', 'false', 'Browse-only storefront when true'),
   (UUID(), 'product_card_show_details', 'true', 'Show price and short description on shop product cards')
 ON DUPLICATE KEY UPDATE
-  value = IF(VALUES(value) <> '', VALUES(value), value),
+  description = COALESCE(NULLIF(VALUES(description), ''), description),
   updated_at = CURRENT_TIMESTAMP;
+
+-- Use localized tagline (Catalog 2026 / Catalogus 2026, etc.) — do not keep the old English-only default
+UPDATE settings
+SET value = ''
+WHERE `key` = 'site_tagline'
+  AND LOWER(TRIM(value)) IN (
+    'digital marketplace for templates and digital assets',
+    'catalog 2026'
+  );
 
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS category_id VARCHAR(36) NULL AFTER category;

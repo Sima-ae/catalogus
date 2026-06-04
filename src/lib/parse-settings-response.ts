@@ -1,5 +1,6 @@
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
+import { normalizeSiteTaglineForStorage } from '@/lib/site-tagline'
 
 export type SettingsStorage = 'database'
 
@@ -15,7 +16,9 @@ export function parseSettingsResponse(data: unknown): {
   const settings = { ...DEFAULT_SITE_SETTINGS }
   for (const key of Object.keys(DEFAULT_SITE_SETTINGS) as (keyof SiteSettings)[]) {
     if (raw[key] !== undefined) {
-      settings[key] = String(raw[key] ?? '')
+      const value = String(raw[key] ?? '')
+      settings[key] =
+        key === 'site_tagline' ? normalizeSiteTaglineForStorage(value) : value
     }
   }
   return { settings, storage }

@@ -348,7 +348,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
 
           {showFooterTagline ? (
             <p className={`mt-10 text-center text-xs ${muted}`}>
-              {APP_NAME} — curated digital products for professionals
+              {APP_NAME} — {tr('site.tagline')}
             </p>
           ) : null}
         </main>

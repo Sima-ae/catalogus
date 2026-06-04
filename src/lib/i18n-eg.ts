@@ -8,6 +8,7 @@ export const MESSAGES_EG: Record<string, string> = {
   'nav.becomeSeller': "بيع ؟",
   'nav.contact': "اتصل بنا",
   'badge.catalog2026': "كتالوج 2026",
+  'site.tagline': "كتالوج 2026",
   'shop.home.title': "مرحباً",
   'shop.home.searchPlaceholder': "ابحث عن المنتجات...",
   'shop.new.title': "وصل حديثاً",

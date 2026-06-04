@@ -8,6 +8,7 @@ export const MESSAGES_LT: Record<string, string> = {
   'nav.becomeSeller': 'PARDUOTI ?',
   'nav.contact': 'Kontaktai',
   'badge.catalog2026': 'Katalogas 2026',
+  'site.tagline': 'Katalogas 2026',
   'shop.home.title': 'SVEIKI',
   'shop.home.searchPlaceholder': 'Ieškoti produktų...',
   'shop.new.title': 'Naujienos',

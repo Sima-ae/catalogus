@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
 import { buildPageMetadata } from '@/lib/site-metadata'
+import { getServerLocale } from '@/lib/i18n-server-locale'
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getServerLocale()
   return buildPageMetadata(
     'New Arrivals',
-    'Products added to the catalog this week (Sunday through Sunday).'
+    'Products added to the catalog this week (Sunday through Sunday).',
+    locale
   )
 }
 

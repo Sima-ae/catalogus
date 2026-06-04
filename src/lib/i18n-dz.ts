@@ -9,6 +9,7 @@ export const MESSAGES_DZ: Record<string, string> = {
   'nav.becomeSeller': 'بيع ؟',
   'nav.contact': 'اتصل بنا',
   'badge.catalog2026': 'كتالوج 2026',
+  'site.tagline': 'كتالوج 2026',
 
   // Header / catalog pages
   'shop.home.title': 'مرحباً',

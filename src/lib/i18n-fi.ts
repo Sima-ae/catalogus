@@ -8,6 +8,7 @@ export const MESSAGES_FI: Record<string, string> = {
   'nav.becomeSeller': 'MYY ?',
   'nav.contact': 'Yhteystiedot',
   'badge.catalog2026': 'Luettelo 2026',
+  'site.tagline': 'Luettelo 2026',
   'shop.home.title': 'TERVETULOA',
   'shop.home.searchPlaceholder': 'Hae tuotteita...',
   'shop.new.title': 'Uutuudet',

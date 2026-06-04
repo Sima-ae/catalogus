@@ -8,6 +8,7 @@ export const MESSAGES_JA: Record<string, string> = {
   'nav.becomeSeller': '販売 ?',
   'nav.contact': 'お問い合わせ',
   'badge.catalog2026': 'カタログ 2026',
+  'site.tagline': 'カタログ 2026',
   'shop.home.title': 'ようこそ',
   'shop.home.searchPlaceholder': '商品を検索...',
   'shop.new.title': '新着商品',

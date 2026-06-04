@@ -11,6 +11,7 @@ import { ShopCurrencyProvider } from '@/lib/shop-currency-context'
 import SiteAccessGuard from '@/components/site-access/SiteAccessGuard'
 import ContentProtection from '@/components/ContentProtection'
 import { buildRootMetadata } from '@/lib/site-metadata'
+import { getServerLocale } from '@/lib/i18n-server-locale'
 import { cookies, headers } from 'next/headers'
 import { I18nProvider } from '@/lib/i18n-context'
 import { LanguagePickerProvider } from '@/lib/language-picker-context'
@@ -21,7 +22,8 @@ import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 const inter = Inter({ subsets: ['latin'] })
 
 export async function generateMetadata(): Promise<Metadata> {
-  return buildRootMetadata()
+  const locale = await getServerLocale()
+  return buildRootMetadata(locale)
 }
 
 export default async function RootLayout({

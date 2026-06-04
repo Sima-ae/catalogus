@@ -8,6 +8,7 @@ export const MESSAGES_SK: Record<string, string> = {
   'nav.becomeSeller': 'PREDAŤ ?',
   'nav.contact': 'Kontakt',
   'badge.catalog2026': 'Katalóg 2026',
+  'site.tagline': 'Katalóg 2026',
   'shop.home.title': 'VITAJTE',
   'shop.home.searchPlaceholder': 'Hľadať produkty...',
   'shop.new.title': 'Novinky',

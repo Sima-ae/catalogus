@@ -8,6 +8,7 @@ export const MESSAGES_KA: Record<string, string> = {
   'nav.becomeSeller': 'გაყიდვა ?',
   'nav.contact': 'კონტაქტი',
   'badge.catalog2026': 'კატალოგი 2026',
+  'site.tagline': 'კატალოგი 2026',
   'shop.home.title': 'კეთილი იყოს თქვენი მობრძანება',
   'shop.home.searchPlaceholder': 'პროდუქტების ძებნა...',
   'shop.new.title': 'ახალი ჩამოსვლები',

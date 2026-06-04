@@ -9,6 +9,7 @@ export const MESSAGES_GR: Record<string, string> = {
   'nav.becomeSeller': 'ΠΩΛΗΣΗ ?',
   'nav.contact': 'Επικοινωνία',
   'badge.catalog2026': 'Κατάλογος 2026',
+  'site.tagline': 'Κατάλογος 2026',
 
   // Header / catalog pages
   'shop.home.title': 'ΚΑΛΩΣ ΗΡΘΑΤΕ',

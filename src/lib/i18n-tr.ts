@@ -9,6 +9,7 @@ export const MESSAGES_TR: Record<string, string> = {
   'nav.becomeSeller': 'SAT ?',
   'nav.contact': 'İletişim',
   'badge.catalog2026': 'Katalog 2026',
+  'site.tagline': 'Katalog 2026',
 
   // Header / catalog pages
   'shop.home.title': 'HOŞ GELDİNİZ',

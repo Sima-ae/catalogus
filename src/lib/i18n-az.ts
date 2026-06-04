@@ -8,6 +8,7 @@ export const MESSAGES_AZ: Record<string, string> = {
   'nav.becomeSeller': "SAT ?",
   'nav.contact': "İletişim",
   'badge.catalog2026': "Katalog 2026",
+  'site.tagline': "Katalog 2026",
   'shop.home.title': "HOŞ GELDİNİZ",
   'shop.home.searchPlaceholder': "Ürün ara...",
   'shop.new.title': "Yeni Gelenler",

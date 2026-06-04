@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getProductById } from '@/lib/products-db'
 import { formatPageTitle, getSiteSeo } from '@/lib/site-metadata'
+import { getServerLocale } from '@/lib/i18n-server-locale'
 import ProductPageClient from './ProductPageClient'
 
 export const dynamic = 'force-dynamic'
@@ -9,7 +10,8 @@ export const runtime = 'nodejs'
 type PageProps = { params: { id: string } }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const seo = await getSiteSeo()
+  const locale = await getServerLocale()
+  const seo = await getSiteSeo(locale)
   try {
     const product = (await getProductById(params.id)) as Record<string, unknown> | null
     if (!product) {

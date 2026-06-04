@@ -9,6 +9,7 @@ export const MESSAGES_HU: Record<string, string> = {
   'nav.becomeSeller': 'ELADÁS ?',
   'nav.contact': 'Kapcsolat',
   'badge.catalog2026': 'Katalógus 2026',
+  'site.tagline': 'Katalógus 2026',
 
   // Header / catalog pages
   'shop.home.title': 'ÜDVÖZÖLJÜK',

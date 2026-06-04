@@ -8,6 +8,7 @@ export const MESSAGES_HY: Record<string, string> = {
   'nav.becomeSeller': 'ՎԱՃԱՌԵԼ ?',
   'nav.contact': 'Կապ',
   'badge.catalog2026': 'Կատալոգ 2026',
+  'site.tagline': 'Կատալոգ 2026',
   'shop.home.title': 'ԲԱՐԻ ԳԱԼՈՒՍՏ',
   'shop.home.searchPlaceholder': 'Որոնել ապրանքներ...',
   'shop.new.title': 'Նորություններ',

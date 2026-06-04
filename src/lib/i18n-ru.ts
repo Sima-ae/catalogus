@@ -8,6 +8,7 @@ export const MESSAGES_RU: Record<string, string> = {
   'nav.becomeSeller': 'ПРОДАТЬ ?',
   'nav.contact': 'Контакты',
   'badge.catalog2026': 'Каталог 2026',
+  'site.tagline': 'Каталог 2026',
   'shop.home.title': 'ДОБРО ПОЖАЛОВАТЬ',
   'shop.home.searchPlaceholder': 'Поиск товаров...',
   'shop.new.title': 'Новинки',

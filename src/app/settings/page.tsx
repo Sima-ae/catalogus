@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { APP_NAME, APP_COPYRIGHT, CART_STORAGE_KEY } from '@/lib/brand'
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from '@/lib/site-settings'
+import { useI18n } from '@/lib/i18n-context'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
 import {
   SunIcon,
@@ -21,6 +22,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function ShopSettingsPage() {
+  const { t } = useI18n()
   const { user } = useAuth()
   const { catalogMode } = useCatalogMode()
   const { theme, setTheme, toggleTheme } = useTheme()
@@ -111,7 +113,7 @@ export default function ShopSettingsPage() {
 
         <SettingBlock
           title="Store"
-          description={loading ? 'Loading store settings…' : settings.site_tagline}
+          description={loading ? 'Loading store settings…' : t('site.tagline')}
           isDark={isDark}
         >
           <dl className="space-y-3 text-sm">

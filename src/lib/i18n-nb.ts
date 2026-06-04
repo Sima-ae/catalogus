@@ -8,6 +8,7 @@ export const MESSAGES_NB: Record<string, string> = {
   'nav.becomeSeller': 'SELG ?',
   'nav.contact': 'Kontakt',
   'badge.catalog2026': 'Katalog 2026',
+  'site.tagline': 'Katalog 2026',
   'shop.home.title': 'VELKOMMEN',
   'shop.home.searchPlaceholder': 'Søk produkter...',
   'shop.new.title': 'Nyheter',

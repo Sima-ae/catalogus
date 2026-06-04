@@ -9,6 +9,7 @@ export const MESSAGES_FR: Record<string, string> = {
   'nav.becomeSeller': 'VENDRE ?',
   'nav.contact': 'Contact',
   'badge.catalog2026': 'Catalogue 2026',
+  'site.tagline': 'Catalogue 2026',
 
   // Header / catalog pages
   'shop.home.title': 'BIENVENUE',

@@ -8,6 +8,7 @@ export const MESSAGES_ZH: Record<string, string> = {
   'nav.becomeSeller': '出售 ?',
   'nav.contact': '联系',
   'badge.catalog2026': '目录 2026',
+  'site.tagline': '目录 2026',
   'shop.home.title': '欢迎',
   'shop.home.searchPlaceholder': '搜索商品...',
   'shop.new.title': '新品上架',

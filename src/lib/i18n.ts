@@ -71,6 +71,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'nav.becomeSeller': 'SELL ?',
     'nav.contact': 'Contact',
     'badge.catalog2026': 'Catalog 2026',
+    'site.tagline': 'Catalog 2026',
 
     // Header / catalog pages
     'shop.home.title': 'WELCOME',
@@ -278,6 +279,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'nav.becomeSeller': 'VERKOPEN ?',
     'nav.contact': 'Contact',
     'badge.catalog2026': 'Catalogus 2026',
+    'site.tagline': 'Catalogus 2026',
 
     // Header / catalog pages
     'shop.home.title': 'WELKOM',

@@ -8,6 +8,7 @@ export const MESSAGES_SQ: Record<string, string> = {
   'nav.becomeSeller': 'SHIT ?',
   'nav.contact': 'Kontakt',
   'badge.catalog2026': 'Katalogu 2026',
+  'site.tagline': 'Katalogu 2026',
   'shop.home.title': 'MIRË SE VINI',
   'shop.home.searchPlaceholder': 'Kërko produkte...',
   'shop.new.title': 'Të reja',

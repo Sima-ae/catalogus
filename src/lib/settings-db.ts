@@ -6,6 +6,7 @@ import {
   type SettingKey,
   type SiteSettings,
 } from '@/lib/site-settings'
+import { normalizeSiteTaglineForStorage } from '@/lib/site-tagline'
 
 export { SETTING_KEYS, DEFAULT_SITE_SETTINGS, type SettingKey, type SiteSettings }
 
@@ -31,7 +32,10 @@ export async function listSettings(): Promise<SiteSettings> {
 export async function upsertSettings(updates: Partial<SiteSettings>) {
   const entries = SETTING_KEYS.filter((key) => updates[key] !== undefined).map((key) => ({
     key,
-    value: String(updates[key] ?? '').trim(),
+    value:
+      key === 'site_tagline'
+        ? normalizeSiteTaglineForStorage(String(updates[key] ?? ''))
+        : String(updates[key] ?? '').trim(),
   }))
 
   if (!entries.length) return listSettings()

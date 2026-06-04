@@ -96,7 +96,7 @@ export default function AdminSettingsPage() {
 
           <div>
             <label htmlFor="site_tagline" className="form-label">
-              Tagline
+              Tagline (optional override)
             </label>
             <input
               id="site_tagline"
@@ -104,7 +104,12 @@ export default function AdminSettingsPage() {
               value={settings.site_tagline}
               onChange={(e) => updateField('site_tagline', e.target.value)}
               className="input w-full"
+              placeholder="Leave empty for localized default (Catalog 2026 / Catalogus 2026, …)"
             />
+            <p className={`mt-1 text-xs ${t.muted}`}>
+              Used in page titles and SEO when set. Leave blank to use the translated catalog
+              badge per language (e.g. Catalogus 2026 in Dutch).
+            </p>
           </div>
 
           <div>

@@ -3,7 +3,8 @@ import { unstable_noStore as noStore } from 'next/cache'
 import type { Metadata } from 'next'
 import { APP_NAME } from '@/lib/brand'
 import { loadSiteSettings } from '@/lib/settings-persistence'
-import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
+import { resolveSiteTagline } from '@/lib/site-tagline'
+import { type Locale, DEFAULT_LOCALE } from '@/lib/i18n'
 import { appUrl } from '@/lib/paths'
 
 export type SiteSeo = {
@@ -11,20 +12,19 @@ export type SiteSeo = {
   tagline: string
 }
 
-/** Site name + tagline from DB (admin settings), with fallbacks. */
-export const getSiteSeo = cache(async (): Promise<SiteSeo> => {
+/** Site name + localized tagline (optional DB override). */
+export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise<SiteSeo> => {
   noStore()
   try {
     const { settings } = await loadSiteSettings()
     return {
       siteName: settings.site_name?.trim() || APP_NAME,
-      tagline:
-        settings.site_tagline?.trim() || DEFAULT_SITE_SETTINGS.site_tagline,
+      tagline: resolveSiteTagline(locale, settings.site_tagline),
     }
   } catch {
     return {
       siteName: APP_NAME,
-      tagline: DEFAULT_SITE_SETTINGS.site_tagline,
+      tagline: resolveSiteTagline(locale),
     }
   }
 })
@@ -40,8 +40,8 @@ export function formatPageTitle(pageTitle: string, siteName: string): string {
   return `${pageTitle} | ${siteName}`
 }
 
-export async function buildRootMetadata(): Promise<Metadata> {
-  const seo = await getSiteSeo()
+export async function buildRootMetadata(locale: Locale = DEFAULT_LOCALE): Promise<Metadata> {
+  const seo = await getSiteSeo(locale)
   const defaultTitle = formatDefaultTitle(seo)
 
   return {
@@ -61,9 +61,10 @@ export async function buildRootMetadata(): Promise<Metadata> {
 
 export async function buildPageMetadata(
   pageTitle: string,
-  description?: string
+  description?: string,
+  locale: Locale = DEFAULT_LOCALE
 ): Promise<Metadata> {
-  const seo = await getSiteSeo()
+  const seo = await getSiteSeo(locale)
   return {
     title: pageTitle,
     description: description?.trim() || seo.tagline,
