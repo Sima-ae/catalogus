@@ -63,7 +63,7 @@ export default function ProductEditModal({
         aria-modal="true"
         aria-labelledby="product-edit-modal-title"
         tabIndex={-1}
-        className={`relative z-10 flex w-full max-w-4xl flex-col sm:max-h-[92vh] sm:rounded-xl border shadow-2xl outline-none ${
+        className={`relative z-10 flex w-full max-w-5xl flex-col sm:max-h-[92vh] sm:rounded-xl border shadow-2xl outline-none ${
           isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
         } max-h-[100dvh] rounded-t-xl`}
       >

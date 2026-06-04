@@ -12,6 +12,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
+import ProductImageGalleryEditor from '@/components/admin/ProductImageGalleryEditor'
 
 type BrandOption = { id: string; name: string; slug: string }
 
@@ -168,6 +169,12 @@ export default function ProductForm({
 
     if (!form.sku.trim()) {
       setError('SKU is required')
+      setSaving(false)
+      return
+    }
+
+    if (!form.image_url.trim()) {
+      setError('Main image is required')
       setSaving(false)
       return
     }
@@ -348,26 +355,20 @@ export default function ProductForm({
 
       <section className="card space-y-4">
         <h2 className="card-section-title">Images</h2>
-        <p className="form-hint">
-          Main image is used in the shop grid and as the first slide on the product page. Add more URLs
-          below for the thumbnail gallery (one URL per line).
-        </p>
-        <Field
-          label="Main image URL *"
-          name="image_url"
-          value={form.image_url}
-          onChange={onChange}
-          required
+        <ProductImageGalleryEditor
+          imageUrl={form.image_url}
+          galleryLines={form.gallery_images}
+          sourceUrl={form.source_url}
+          authHeaders={authHeaders}
+          onChange={({ image_url, gallery_images }) =>
+            setForm((prev) => ({ ...prev, image_url, gallery_images }))
+          }
         />
-        <Field
-          label="Additional gallery image URLs"
-          name="gallery_images"
-          value={form.gallery_images}
-          onChange={onChange}
-          multiline
-          rows={5}
-          placeholder={'https://example.com/image-2.jpg\nhttps://example.com/image-3.jpg'}
-        />
+        {!form.image_url.trim() ? (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            A main image is required before you can save.
+          </p>
+        ) : null}
       </section>
 
       <section className="card space-y-4">
