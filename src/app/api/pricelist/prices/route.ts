@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { parseUnitPrice, upsertSellerProductPrice, deleteSellerProductPrice } from '@/lib/pricelist-db'
+import {
+  parseUnitPrice,
+  setSellerProductStockStatus,
+  upsertSellerProductPrice,
+  deleteSellerProductPrice,
+} from '@/lib/pricelist-db'
+import { isPricelistStockStatus } from '@/lib/pricelist-stock-status'
 import {
   applyPricelistContributorCookie,
   requirePricelistAccess,
@@ -33,12 +39,20 @@ export async function PUT(request: NextRequest) {
   const productId = String(raw.productId ?? '').trim()
   const ownerParam = String(raw.ownerId ?? '').trim()
   const sellerIdParam = String(raw.sellerId ?? '').trim()
+  const stockStatusRaw = String(raw.stockStatus ?? '').trim()
+  const legacyOutOfStock =
+    raw.outOfStock === true || raw.outOfStock === 1 || raw.outOfStock === 'true'
+  const stockStatus = isPricelistStockStatus(stockStatusRaw)
+    ? stockStatusRaw
+    : legacyOutOfStock
+      ? 'out'
+      : null
   const unitPrice = parseUnitPrice(raw.unitPrice)
 
   if (!productId) {
     return NextResponse.json({ error: 'productId is required' }, { status: 400 })
   }
-  if (unitPrice === null) {
+  if (!stockStatus && unitPrice === null) {
     return NextResponse.json({ error: 'Valid unit price is required' }, { status: 400 })
   }
 
@@ -74,13 +88,23 @@ export async function PUT(request: NextRequest) {
 
   try {
     const currency = await getShopCurrency()
-    await upsertSellerProductPrice({
-      sellerId: targetSellerId,
-      productId,
-      unitPrice,
-      currency,
-      updatedBy,
-    })
+    if (stockStatus) {
+      await setSellerProductStockStatus({
+        sellerId: targetSellerId,
+        productId,
+        stockStatus,
+        currency,
+        updatedBy,
+      })
+    } else {
+      await upsertSellerProductPrice({
+        sellerId: targetSellerId,
+        productId,
+        unitPrice: unitPrice!,
+        currency,
+        updatedBy,
+      })
+    }
     if (isSellerActor) {
       await lockSellerPriceAfterSave(sellerId, productId)
     }
@@ -89,7 +113,8 @@ export async function PUT(request: NextRequest) {
     }
     const res = NextResponse.json({
       ok: true,
-      unitPrice,
+      stockStatus,
+      unitPrice: stockStatus ? null : unitPrice,
       currency,
       productId,
       sellerId: targetSellerId,

@@ -45,6 +45,11 @@ function mapRow(row: Record<string, unknown>): UserListRow {
   }
 }
 
+export async function countUsers(): Promise<number> {
+  const rows = await queryDb<{ total: number }[]>(`SELECT COUNT(*) AS total FROM users`)
+  return Number(rows[0]?.total ?? 0)
+}
+
 export async function listUsers(): Promise<UserListRow[]> {
   try {
     const rows = await queryDb<Record<string, unknown>[]>(

@@ -40,6 +40,7 @@ import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 import { getGateMessages } from '@/lib/i18n-gate-messages'
 import { getAccessOverlay } from '@/lib/i18n-access-overlay'
 import { getProductTrashMessages } from '@/lib/i18n-product-trash'
+import { getPricelistOutOfStockMessages } from '@/lib/i18n-pricelist-out-of-stock'
 
 export {
   SUPPORTED_LOCALES,
@@ -216,6 +217,10 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.remove': 'Remove',
     'pricelist.savePrice': 'Save price',
     'pricelist.savePriceFor': 'Price for {name}',
+    'pricelist.outOfStock': 'Out of stock',
+    'pricelist.temporarilyOutOfStock': 'Temporarily out of stock',
+    'pricelist.stockStatusAria': 'Stock status',
+    'pricelist.stockStatusSetPrice': 'Set price',
     'pricelist.pricePlaceholder': '0.00',
     'pricelist.error.invalidPrice': 'Invalid price',
     'pricelist.error.clearFailed': 'Clear failed',
@@ -419,6 +424,10 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.remove': 'Verwijderen',
     'pricelist.savePrice': 'Prijs opslaan',
     'pricelist.savePriceFor': 'Prijs voor {name}',
+    'pricelist.outOfStock': 'Uitverkocht',
+    'pricelist.temporarilyOutOfStock': 'Tijdelijk uitverkocht',
+    'pricelist.stockStatusAria': 'Voorraadstatus',
+    'pricelist.stockStatusSetPrice': 'Prijs invoeren',
     'pricelist.pricePlaceholder': '0,00',
     'pricelist.error.invalidPrice': 'Ongeldige prijs',
     'pricelist.error.clearFailed': 'Wissen mislukt',
@@ -512,6 +521,7 @@ export function getMessages(locale: Locale): Messages {
     ...getGateMessages(locale),
     ...getAccessOverlay(locale),
     ...getProductTrashMessages(locale),
+    ...getPricelistOutOfStockMessages(locale),
   }
 }
 

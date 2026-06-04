@@ -3,6 +3,8 @@ import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
 import {
   buildActiveCatalogFilters,
+  buildAdminProductFilters,
+  type AdminProductStatusFilter,
   type CatalogProductsPage,
   type CatalogProductsQuery,
   type ProductDashboardStats,
@@ -619,19 +621,36 @@ export async function listProductsPaginated(
   page: number,
   limit: number
 ): Promise<CatalogProductsPage> {
+  return listProductsPaginatedAdmin(page, limit)
+}
+
+/** Paginated admin catalog with optional status/search filters in SQL. */
+export async function listProductsPaginatedAdmin(
+  page: number,
+  limit: number,
+  options: { status?: AdminProductStatusFilter; search?: string } = {}
+): Promise<CatalogProductsPage> {
   const safeLimit = Math.min(120, Math.max(1, limit))
   const safePage = Math.max(1, page)
   const offset = (safePage - 1) * safeLimit
 
-  const countRows = await queryDb<{ total: number }[]>(
-    `SELECT COUNT(*) AS total FROM products`
-  )
-  const total = Number(countRows[0]?.total ?? 0)
+  const select = await productSelectSql()
+  const { whereSql, params } = buildAdminProductFilters(options.status, options.search)
+  const fromIndex = select.search(/\bFROM\b/i)
+  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
 
-  const idRows = await queryDb<{ id: string }[]>(
-    `SELECT id FROM products ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [safeLimit, offset]
-  )
+  const [countRows, idRows] = await Promise.all([
+    queryDb<{ total: number }[]>(
+      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+      params
+    ),
+    queryDb<{ id: string }[]>(
+      `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
+      [...params, safeLimit, offset]
+    ),
+  ])
+
+  const total = Number(countRows[0]?.total ?? 0)
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
@@ -681,28 +700,76 @@ export async function getProductDashboardStats(): Promise<ProductDashboardStats>
   }
 }
 
-/** Products owned by a seller (author_id or legacy author name match). */
-export async function listProductsForSeller(sellerId: string, sellerName: string) {
-  const select = await productSelectSql()
+async function buildSellerProductFilters(
+  sellerId: string,
+  sellerName: string
+): Promise<{ whereSql: string; params: unknown[] }> {
   const schema = await getProductSchemaFlags()
   const name = sellerName.trim()
 
   if (schema.authorId) {
-    const rows = await queryDb<Record<string, unknown>[]>(
-      `${select}
-       WHERE p.author_id = ?
-          OR (p.author_id IS NULL AND LOWER(TRIM(p.author)) = LOWER(TRIM(?)))
-       ORDER BY p.created_at DESC`,
-      [sellerId, name]
-    )
-    return serializeProductRows(rows)
+    return {
+      whereSql: `WHERE p.author_id = ? OR (p.author_id IS NULL AND LOWER(TRIM(p.author)) = LOWER(TRIM(?)))`,
+      params: [sellerId, name],
+    }
   }
 
+  return {
+    whereSql: `WHERE LOWER(TRIM(p.author)) = LOWER(TRIM(?))`,
+    params: [name],
+  }
+}
+
+/** Products owned by a seller (author_id or legacy author name match). */
+export async function listProductsForSeller(sellerId: string, sellerName: string) {
+  const select = await productSelectSql()
+  const { whereSql, params } = await buildSellerProductFilters(sellerId, sellerName)
   const rows = await queryDb<Record<string, unknown>[]>(
-    `${select} WHERE LOWER(TRIM(p.author)) = LOWER(TRIM(?)) ORDER BY p.created_at DESC`,
-    [name]
+    `${select} ${whereSql} ORDER BY p.created_at DESC`,
+    params
   )
   return serializeProductRows(rows)
+}
+
+/** Paginated seller-owned products — avoids loading the full catalog into memory. */
+export async function listProductsForSellerPaginated(
+  sellerId: string,
+  sellerName: string,
+  page: number,
+  limit: number
+): Promise<CatalogProductsPage> {
+  const safeLimit = Math.min(120, Math.max(1, limit))
+  const safePage = Math.max(1, page)
+  const offset = (safePage - 1) * safeLimit
+
+  const [select, { whereSql, params }] = await Promise.all([
+    productSelectSql(),
+    buildSellerProductFilters(sellerId, sellerName),
+  ])
+  const fromIndex = select.search(/\bFROM\b/i)
+  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+
+  const [countRows, idRows] = await Promise.all([
+    queryDb<{ total: number }[]>(
+      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+      params
+    ),
+    queryDb<{ id: string }[]>(
+      `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
+      [...params, safeLimit, offset]
+    ),
+  ])
+
+  const total = Number(countRows[0]?.total ?? 0)
+  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
+
+  return {
+    items: serializeProductRows(rows) as unknown as CatalogProductsPage['items'],
+    total,
+    page: safePage,
+    pageSize: safeLimit,
+    totalPages: Math.max(1, Math.ceil(total / safeLimit) || 1),
+  }
 }
 
 /** Draft products created by Yupoo import (for admin review queue). */
@@ -739,6 +806,28 @@ export async function bulkUpdateProductStatus(
     [status, ...productIds]
   )
   return result?.affectedRows ?? productIds.length
+}
+
+/** Publish every product currently in `fromStatus` (e.g. all drafts). */
+export async function bulkUpdateProductStatusByFilter(
+  fromStatus: ProductStatusValue,
+  toStatus: ProductStatusValue
+): Promise<number> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE products SET status = ? WHERE status = ?`,
+    [toStatus, fromStatus]
+  )
+  return result?.affectedRows ?? 0
+}
+
+/** Distinct vendor names on products (for analytics). */
+export async function countDistinctProductVendors(): Promise<number> {
+  const rows = await queryDb<{ vendors: number }[]>(
+    `SELECT COUNT(DISTINCT LOWER(TRIM(author))) AS vendors
+     FROM products
+     WHERE author IS NOT NULL AND TRIM(author) != ''`
+  )
+  return Number(rows[0]?.vendors ?? 0)
 }
 
 /** Soft-delete: move products to trash (not removed from database). */

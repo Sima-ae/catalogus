@@ -5,12 +5,16 @@ import {
   PLATFORM_PRICELIST_OWNER_ID,
 } from '@/lib/pricelist-constants'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
-import {
-  getPendingEditRequest,
-  listPendingEditRequestsForProducts,
-} from '@/lib/seller-price-edit-db'
+import { listPendingEditRequestsForProducts } from '@/lib/seller-price-edit-db'
 import { parseProductJsonField } from '@/lib/product-serialize'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
+import {
+  isPricelistStockStatus,
+  parsePricelistStockStatus,
+  type PricelistStockStatus,
+} from '@/lib/pricelist-stock-status'
+
+export type { PricelistStockStatus } from '@/lib/pricelist-stock-status'
 
 export type PricelistRow = {
   item_id: string
@@ -25,8 +29,10 @@ export type PricelistRow = {
   created_at: string
   seller_unit_price: number | null
   seller_currency: string | null
+  seller_stock_status?: PricelistStockStatus | null
   display_unit_price: number | null
   display_currency: string | null
+  display_stock_status?: PricelistStockStatus | null
   /** Seller-only: price saved and locked until super admin approves edit. */
   price_locked?: boolean
   edit_request_pending?: boolean
@@ -78,22 +84,208 @@ export async function removePricelistItem(ownerUserId: string, productId: string
   )
 }
 
+type SellerPriceRow = {
+  unit_price: number
+  currency: string
+  locked: boolean
+  stock_status: PricelistStockStatus | null
+}
+
+function mapSellerPriceRow(row: {
+  unit_price: string
+  currency: string
+  locked: number | boolean
+  out_of_stock: number | boolean
+  stock_status: string | null
+}): SellerPriceRow {
+  return {
+    unit_price: Number(row.unit_price),
+    currency: row.currency,
+    locked: row.locked === 1 || row.locked === true,
+    stock_status: parsePricelistStockStatus(row.out_of_stock, row.stock_status),
+  }
+}
+
 export async function getSellerProductPrice(
   sellerId: string,
   productId: string
-): Promise<{ unit_price: number; currency: string; locked: boolean } | null> {
-  const rows = await queryDb<{ unit_price: string; currency: string; locked: number | boolean }[]>(
-    `SELECT unit_price, currency, COALESCE(locked, 0) AS locked FROM seller_product_prices
+): Promise<SellerPriceRow | null> {
+  const rows = await queryDb<
+    {
+      unit_price: string
+      currency: string
+      locked: number | boolean
+      out_of_stock: number | boolean
+      stock_status: string | null
+    }[]
+  >(
+    `SELECT unit_price, currency, COALESCE(locked, 0) AS locked, COALESCE(out_of_stock, 0) AS out_of_stock,
+            stock_status
+     FROM seller_product_prices
      WHERE seller_id = ? AND product_id = ? LIMIT 1`,
     [sellerId, productId]
   )
   const row = rows[0]
   if (!row) return null
-  return {
-    unit_price: Number(row.unit_price),
-    currency: row.currency,
-    locked: row.locked === 1 || row.locked === true,
+  return mapSellerPriceRow(row)
+}
+
+async function loadSellerProductPricesMap(
+  sellerId: string,
+  productIds: string[]
+): Promise<Map<string, SellerPriceRow>> {
+  const map = new Map<string, SellerPriceRow>()
+  if (!productIds.length) return map
+
+  const placeholders = productIds.map(() => '?').join(', ')
+  const rows = await queryDb<
+    {
+      product_id: string
+      unit_price: string
+      currency: string
+      locked: number | boolean
+      out_of_stock: number | boolean
+      stock_status: string | null
+    }[]
+  >(
+    `SELECT product_id, unit_price, currency, COALESCE(locked, 0) AS locked,
+            COALESCE(out_of_stock, 0) AS out_of_stock, stock_status
+     FROM seller_product_prices
+     WHERE seller_id = ? AND product_id IN (${placeholders})`,
+    [sellerId, ...productIds]
+  )
+
+  for (const row of rows) {
+    map.set(row.product_id, mapSellerPriceRow(row))
   }
+  return map
+}
+
+async function loadBuyerDisplayPricesMap(
+  listOwnerId: string,
+  productIds: string[]
+): Promise<
+  Map<
+    string,
+    { unit_price: number; currency: string; stock_status: PricelistStockStatus | null }
+  >
+> {
+  const map = new Map<
+    string,
+    { unit_price: number; currency: string; stock_status: PricelistStockStatus | null }
+  >()
+  if (!productIds.length) return map
+
+  const placeholders = productIds.map(() => '?').join(', ')
+  const rows = await queryDb<
+    {
+      product_id: string
+      unit_price: string
+      currency: string
+      out_of_stock: number | boolean
+      stock_status: string | null
+    }[]
+  >(
+    `SELECT ranked.product_id, ranked.unit_price, ranked.currency, ranked.out_of_stock, ranked.stock_status
+     FROM (
+       SELECT spp.product_id, spp.unit_price, spp.currency, COALESCE(spp.out_of_stock, 0) AS out_of_stock,
+              spp.stock_status, spp.updated_at,
+              ROW_NUMBER() OVER (PARTITION BY spp.product_id ORDER BY spp.updated_at DESC) AS rn
+       FROM seller_pricelist_access spa
+       INNER JOIN seller_product_prices spp
+         ON spp.seller_id = spa.seller_id AND spp.product_id IN (${placeholders})
+       WHERE spa.list_owner_id = ? AND spa.status = 'approved'
+     ) ranked
+     WHERE ranked.rn = 1`,
+    [...productIds, listOwnerId]
+  )
+
+  for (const row of rows) {
+    map.set(row.product_id, {
+      unit_price: Number(row.unit_price),
+      currency: row.currency,
+      stock_status: parsePricelistStockStatus(row.out_of_stock, row.stock_status),
+    })
+  }
+  return map
+}
+
+async function loadLatestProductPricesMap(productIds: string[]): Promise<
+  Map<
+    string,
+    {
+      unit_price: number
+      currency: string
+      seller_id: string
+      stock_status: PricelistStockStatus | null
+    }
+  >
+> {
+  const map = new Map<
+    string,
+    {
+      unit_price: number
+      currency: string
+      seller_id: string
+      stock_status: PricelistStockStatus | null
+    }
+  >()
+  if (!productIds.length) return map
+
+  const placeholders = productIds.map(() => '?').join(', ')
+  const rows = await queryDb<
+    {
+      product_id: string
+      unit_price: string
+      currency: string
+      seller_id: string
+      out_of_stock: number | boolean
+      stock_status: string | null
+    }[]
+  >(
+    `SELECT ranked.product_id, ranked.unit_price, ranked.currency, ranked.seller_id,
+            ranked.out_of_stock, ranked.stock_status
+     FROM (
+       SELECT product_id, unit_price, currency, seller_id,
+              COALESCE(out_of_stock, 0) AS out_of_stock, stock_status, updated_at,
+              ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
+       FROM seller_product_prices
+       WHERE product_id IN (${placeholders})
+     ) ranked
+     WHERE ranked.rn = 1`,
+    productIds
+  )
+
+  for (const row of rows) {
+    map.set(row.product_id, {
+      unit_price: Number(row.unit_price),
+      currency: row.currency,
+      seller_id: row.seller_id,
+      stock_status: parsePricelistStockStatus(row.out_of_stock, row.stock_status),
+    })
+  }
+  return map
+}
+
+async function loadPendingEditRequestsMap(
+  sellerId: string,
+  listOwnerId: string,
+  productIds: string[]
+): Promise<Map<string, boolean>> {
+  const map = new Map<string, boolean>()
+  if (!productIds.length) return map
+
+  const placeholders = productIds.map(() => '?').join(', ')
+  const rows = await queryDb<{ product_id: string }[]>(
+    `SELECT product_id FROM seller_price_edit_requests
+     WHERE seller_id = ? AND list_owner_id = ? AND status = 'pending'
+       AND product_id IN (${placeholders})`,
+    [sellerId, listOwnerId, ...productIds]
+  )
+  for (const row of rows) {
+    map.set(row.product_id, true)
+  }
+  return map
 }
 
 export async function upsertSellerProductPrice(input: {
@@ -104,14 +296,45 @@ export async function upsertSellerProductPrice(input: {
   updatedBy: string
 }): Promise<void> {
   await queryDb(
-    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, updated_by)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, ?, ?, ?, 0, NULL)
      ON DUPLICATE KEY UPDATE
        unit_price = VALUES(unit_price),
        currency = VALUES(currency),
        updated_by = VALUES(updated_by),
+       out_of_stock = 0,
+       stock_status = NULL,
        updated_at = CURRENT_TIMESTAMP`,
     [input.sellerId, input.productId, input.unitPrice, input.currency, input.updatedBy]
+  )
+}
+
+export async function setSellerProductStockStatus(input: {
+  sellerId: string
+  productId: string
+  stockStatus: PricelistStockStatus
+  currency: string
+  updatedBy: string
+}): Promise<void> {
+  if (!isPricelistStockStatus(input.stockStatus)) {
+    throw new Error('Invalid stock status')
+  }
+  await queryDb(
+    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, 0, ?, ?, 1, ?)
+     ON DUPLICATE KEY UPDATE
+       out_of_stock = 1,
+       stock_status = VALUES(stock_status),
+       currency = VALUES(currency),
+       updated_by = VALUES(updated_by),
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      input.sellerId,
+      input.productId,
+      input.currency,
+      input.updatedBy,
+      input.stockStatus,
+    ]
   )
 }
 
@@ -124,24 +347,6 @@ export async function deleteSellerProductPrice(
     [sellerId, productId]
   )
   return (result?.affectedRows ?? 0) > 0
-}
-
-async function getBuyerDisplayPrice(
-  listOwnerId: string,
-  productId: string
-): Promise<{ unit_price: number; currency: string } | null> {
-  const rows = await queryDb<{ unit_price: string; currency: string }[]>(
-    `SELECT spp.unit_price, spp.currency
-     FROM seller_pricelist_access spa
-     INNER JOIN seller_product_prices spp ON spp.seller_id = spa.seller_id AND spp.product_id = ?
-     WHERE spa.list_owner_id = ? AND spa.status = 'approved'
-     ORDER BY spp.updated_at DESC
-     LIMIT 1`,
-    [productId, listOwnerId]
-  )
-  const row = rows[0]
-  if (!row) return null
-  return { unit_price: Number(row.unit_price), currency: row.currency }
 }
 
 export async function listPricelistRows(
@@ -177,16 +382,59 @@ export async function listPricelistRows(
 
   const rows: PricelistRow[] = []
   const productIds = items.map((i) => i.product_id)
-  const pendingByProduct =
+
+  const [
+    pendingByProduct,
+    sellerPrices,
+    buyerDisplayPrices,
+    latestPrices,
+    sellerPendingEdits,
+    adminOwnPrices,
+  ] = await Promise.all([
     viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
-      ? groupPendingByProduct(await listPendingEditRequestsForProducts(listOwnerId, productIds))
-      : new Map<string, PricelistRow['pending_edit_requests']>()
+      ? listPendingEditRequestsForProducts(listOwnerId, productIds).then(groupPendingByProduct)
+      : Promise.resolve(new Map<string, PricelistRow['pending_edit_requests']>()),
+    viewer.role === 'seller' || (viewer.role === 'guest' && viewer.userId)
+      ? loadSellerProductPricesMap(viewer.userId, productIds)
+      : Promise.resolve(new Map<string, SellerPriceRow>()),
+    viewer.role === 'buyer' && listOwnerId === viewer.userId
+      ? loadBuyerDisplayPricesMap(listOwnerId, productIds)
+      : viewer.role === 'guest'
+        ? loadBuyerDisplayPricesMap(listOwnerId, productIds)
+        : Promise.resolve(
+            new Map<
+              string,
+              { unit_price: number; currency: string; stock_status: PricelistStockStatus | null }
+            >()
+          ),
+    viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
+      ? loadLatestProductPricesMap(productIds)
+      : Promise.resolve(
+          new Map<
+            string,
+            {
+              unit_price: number
+              currency: string
+              seller_id: string
+              stock_status: PricelistStockStatus | null
+            }
+          >()
+        ),
+    viewer.role === 'seller'
+      ? loadPendingEditRequestsMap(viewer.userId, listOwnerId, productIds)
+      : Promise.resolve(new Map<string, boolean>()),
+    viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
+      ? loadSellerProductPricesMap(viewer.userId, productIds)
+      : Promise.resolve(new Map<string, SellerPriceRow>()),
+  ])
 
   for (const item of items) {
     let sellerUnit: number | null = null
     let sellerCurrency: string | null = null
+    let sellerStockStatus: PricelistStockStatus | null = null
     let displayUnit: number | null = null
     let displayCurrency: string | null = null
+    let displayStockStatus: PricelistStockStatus | null = null
 
     let priceLocked: boolean | undefined
     let editRequestPending: boolean | undefined
@@ -195,60 +443,82 @@ export async function listPricelistRows(
 
     if (viewer.role === 'seller') {
       priceSellerId = viewer.userId
-      const sp = await getSellerProductPrice(viewer.userId, item.product_id)
+      const sp = sellerPrices.get(item.product_id)
       if (sp) {
-        sellerUnit = sp.unit_price
-        sellerCurrency = sp.currency
-        displayUnit = sp.unit_price
-        displayCurrency = sp.currency
+        sellerStockStatus = sp.stock_status
+        if (sp.stock_status) {
+          sellerCurrency = sp.currency
+          displayCurrency = sp.currency
+          displayStockStatus = sp.stock_status
+        } else {
+          sellerUnit = sp.unit_price
+          sellerCurrency = sp.currency
+          displayUnit = sp.unit_price
+          displayCurrency = sp.currency
+        }
         priceLocked = true
         canEditPrice = false
       } else {
         canEditPrice = true
       }
-      const pending = await getPendingEditRequest(viewer.userId, item.product_id, listOwnerId)
-      if (pending) {
+      if (sellerPendingEdits.get(item.product_id)) {
         editRequestPending = true
       }
     } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
-      const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
+      const dp = buyerDisplayPrices.get(item.product_id)
       if (dp) {
-        displayUnit = dp.unit_price
-        displayCurrency = dp.currency
+        if (dp.stock_status) {
+          displayStockStatus = dp.stock_status
+          displayCurrency = dp.currency
+        } else {
+          displayUnit = dp.unit_price
+          displayCurrency = dp.currency
+        }
       }
     } else if (viewer.role === 'guest') {
       if (viewer.userId) {
         priceSellerId = viewer.userId
-        const sp = await getSellerProductPrice(viewer.userId, item.product_id)
+        const sp = sellerPrices.get(item.product_id)
         if (sp) {
-          sellerUnit = sp.unit_price
+          sellerStockStatus = sp.stock_status
+          if (!sp.stock_status) {
+            sellerUnit = sp.unit_price
+          }
           sellerCurrency = sp.currency
         }
       }
-      const dp = await getBuyerDisplayPrice(listOwnerId, item.product_id)
+      const dp = buyerDisplayPrices.get(item.product_id)
       if (dp) {
-        displayUnit = dp.unit_price
-        displayCurrency = dp.currency
+        if (dp.stock_status) {
+          displayStockStatus = dp.stock_status
+          displayCurrency = dp.currency
+        } else {
+          displayUnit = dp.unit_price
+          displayCurrency = dp.currency
+        }
       }
     } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
       canEditPrice = true
-      const own = await getSellerProductPrice(viewer.userId, item.product_id)
+      const own = adminOwnPrices.get(item.product_id)
       if (own) {
-        sellerUnit = own.unit_price
+        sellerStockStatus = own.stock_status
+        if (!own.stock_status) {
+          sellerUnit = own.unit_price
+        }
         sellerCurrency = own.currency
         priceSellerId = viewer.userId
       }
-      const prices = await queryDb<{ unit_price: string; currency: string; seller_id: string }[]>(
-        `SELECT unit_price, currency, seller_id FROM seller_product_prices
-         WHERE product_id = ?
-         ORDER BY updated_at DESC LIMIT 1`,
-        [item.product_id]
-      )
-      if (prices[0]) {
-        displayUnit = Number(prices[0].unit_price)
-        displayCurrency = prices[0].currency
+      const latest = latestPrices.get(item.product_id)
+      if (latest) {
+        if (latest.stock_status) {
+          displayStockStatus = latest.stock_status
+          displayCurrency = latest.currency
+        } else {
+          displayUnit = latest.unit_price
+          displayCurrency = latest.currency
+        }
         if (!priceSellerId) {
-          priceSellerId = prices[0].seller_id
+          priceSellerId = latest.seller_id
         }
       }
     }
@@ -275,8 +545,10 @@ export async function listPricelistRows(
       created_at: item.created_at,
       seller_unit_price: sellerUnit,
       seller_currency: sellerCurrency,
+      seller_stock_status: sellerStockStatus,
       display_unit_price: displayUnit,
       display_currency: displayCurrency,
+      display_stock_status: displayStockStatus,
       price_locked: priceLocked,
       edit_request_pending: editRequestPending,
       can_edit_price: canEditPrice,

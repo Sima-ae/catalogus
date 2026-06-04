@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
+import { getAdminAnalyticsSummary } from '@/lib/admin-analytics-db'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { countUsers, listUsers } from '@/lib/users-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -13,17 +13,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    if (request.nextUrl.searchParams.get('count') === '1') {
-      const total = await countUsers()
-      return NextResponse.json({ total })
-    }
-
-    const rows = await listUsers()
-    return NextResponse.json(rows)
+    const summary = await getAdminAnalyticsSummary()
+    return NextResponse.json(summary)
   } catch (error) {
-    console.error('Users fetch error:', error)
+    console.error('Admin analytics error:', error)
     return NextResponse.json(
-      { error: getDbErrorMessage(error, 'Failed to load users') },
+      { error: getDbErrorMessage(error, 'Failed to load analytics') },
       { status: 503 }
     )
   }

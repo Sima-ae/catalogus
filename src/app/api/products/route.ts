@@ -3,11 +3,9 @@ import {
   DuplicateSkuError,
   getProductDashboardStats,
   insertProduct,
-  listActiveProducts,
   listActiveProductsPaginated,
-  listProducts,
-  listProductsForSeller,
-  listProductsPaginated,
+  listProductsForSellerPaginated,
+  listProductsPaginatedAdmin,
   MissingSkuError,
   UnknownBrandError,
   UnknownCategoryError,
@@ -20,7 +18,7 @@ import {
   requireProductWrite,
   resolveCatalogAccess,
 } from '@/lib/product-api-auth'
-import { parseCatalogProductsQuery } from '@/lib/catalog-products'
+import { parseAdminProductsQuery, parseCatalogProductsQuery } from '@/lib/catalog-products'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -34,38 +32,39 @@ export async function GET(request: NextRequest) {
       const access = await resolveCatalogAccess(request)
 
       if (scope === 'admin' && access.kind === 'admin') {
+        const adminQuery = parseAdminProductsQuery(request.nextUrl.searchParams)
         const [result, dashboardStats] = await Promise.all([
-          listProductsPaginated(paginatedQuery.page, paginatedQuery.limit),
+          listProductsPaginatedAdmin(
+            paginatedQuery.page,
+            paginatedQuery.limit,
+            {
+              status: adminQuery?.status,
+              search: adminQuery?.search,
+            }
+          ),
           getProductDashboardStats(),
         ])
         return NextResponse.json({ ...result, dashboardStats })
       }
 
       if (access.kind === 'seller') {
-        const all = await listProductsForSeller(access.actor.userId, access.actor.name)
-        const start = (paginatedQuery.page - 1) * paginatedQuery.limit
-        const items = all.slice(start, start + paginatedQuery.limit)
-        return NextResponse.json({
-          items,
-          total: all.length,
-          page: paginatedQuery.page,
-          pageSize: paginatedQuery.limit,
-          totalPages: Math.max(1, Math.ceil(all.length / paginatedQuery.limit) || 1),
-        })
+        const result = await listProductsForSellerPaginated(
+          access.actor.userId,
+          access.actor.name,
+          paginatedQuery.page,
+          paginatedQuery.limit
+        )
+        return NextResponse.json(result)
       }
 
       const result = await listActiveProductsPaginated(paginatedQuery)
       return NextResponse.json(result)
     }
 
-    const access = await resolveCatalogAccess(request)
-    const rows =
-      access.kind === 'seller'
-        ? await listProductsForSeller(access.actor.userId, access.actor.name)
-        : access.kind === 'admin'
-          ? await listProducts()
-          : await listActiveProducts()
-    return NextResponse.json(rows)
+    return NextResponse.json(
+      { error: 'Pagination required. Use ?page=1&limit=60 (add scope=admin for admin lists).' },
+      { status: 400 }
+    )
   } catch (error) {
     logDbRouteError('Products fetch error', error)
     return NextResponse.json(

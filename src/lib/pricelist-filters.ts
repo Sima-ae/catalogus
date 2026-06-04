@@ -33,6 +33,7 @@ export function pricelistRowNeedsPrice(
   const raw = opts?.guestShareLink
     ? row.seller_unit_price
     : row.seller_unit_price ?? row.display_unit_price
+  if (row.seller_stock_status || row.display_stock_status) return false
   if (raw == null) return true
   const n = Number(raw)
   return !Number.isFinite(n) || n < 0

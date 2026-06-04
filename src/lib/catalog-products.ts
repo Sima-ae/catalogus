@@ -159,6 +159,73 @@ export function buildActiveCatalogFilters(
   }
 }
 
+export type AdminProductStatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
+
+export type AdminProductsQuery = CatalogProductsQuery & {
+  status?: AdminProductStatusFilter
+}
+
+/** Admin product list — requires `page` (and usually `scope=admin`). */
+export function parseAdminProductsQuery(
+  searchParams: URLSearchParams
+): AdminProductsQuery | null {
+  const base = parseCatalogProductsQuery(searchParams)
+  if (!base) return null
+
+  const statusRaw = searchParams.get('status')?.trim().toLowerCase()
+  const status: AdminProductStatusFilter | undefined =
+    statusRaw === 'active' ||
+    statusRaw === 'draft' ||
+    statusRaw === 'inactive' ||
+    statusRaw === 'trash' ||
+    statusRaw === 'all'
+      ? statusRaw
+      : undefined
+
+  return { ...base, status }
+}
+
+/** WHERE clause for admin product tables (status + search). */
+export function buildAdminProductFilters(
+  status?: AdminProductStatusFilter,
+  search?: string
+): CatalogSqlFilters {
+  const where: string[] = []
+  const params: unknown[] = []
+
+  if (status && status !== 'all') {
+    where.push('p.status = ?')
+    params.push(status)
+  }
+
+  const searchTerm = search?.trim()
+  if (searchTerm) {
+    const like = `%${searchTerm}%`
+    where.push(
+      `(p.name LIKE ? OR p.sku LIKE ? OR p.brand LIKE ? OR p.description LIKE ? OR p.short_description LIKE ? OR p.category LIKE ? OR c.name LIKE ? OR p.tags LIKE ?)`
+    )
+    params.push(like, like, like, like, like, like, like, like)
+  }
+
+  return {
+    whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params,
+  }
+}
+
+export function buildAdminProductsUrl(
+  basePath: string,
+  query: AdminProductsQuery
+): string {
+  const url = buildCatalogProductsUrl(basePath, query)
+  if (query.status && query.status !== 'all') {
+    const params = new URLSearchParams(url.split('?')[1] ?? '')
+    params.set('status', query.status)
+    return `${basePath}?${params.toString()}`
+  }
+  return url
+}
+
 export function buildCatalogProductsUrl(
   basePath: string,
   query: CatalogProductsQuery

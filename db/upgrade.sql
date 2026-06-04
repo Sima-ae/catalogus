@@ -369,3 +369,14 @@ CREATE TABLE IF NOT EXISTS category_translations (
 ALTER TABLE import_sources
   ADD COLUMN IF NOT EXISTS yupoo_access_password VARCHAR(255) NULL
   AFTER yupoo_category_url;
+
+-- Pricelist: mark seller price as out of stock (no numeric price shown)
+ALTER TABLE seller_product_prices
+  ADD COLUMN IF NOT EXISTS out_of_stock TINYINT(1) NOT NULL DEFAULT 0 AFTER locked;
+
+ALTER TABLE seller_product_prices
+  ADD COLUMN IF NOT EXISTS stock_status VARCHAR(16) NULL AFTER out_of_stock;
+
+UPDATE seller_product_prices
+SET stock_status = 'out'
+WHERE out_of_stock = 1 AND (stock_status IS NULL OR stock_status = '');

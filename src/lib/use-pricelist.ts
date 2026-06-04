@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
-import type { PricelistRow } from '@/lib/pricelist-db'
+import type { PricelistRow, PricelistStockStatus } from '@/lib/pricelist-db'
 import {
   PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
@@ -110,6 +110,30 @@ export function usePricelist(initialOwner?: string) {
     if (!ownerId) return
     loadItems()
   }, [ownerId, loadItems])
+
+  const setStockStatus = async (
+    productId: string,
+    stockStatus: PricelistStockStatus,
+    priceSellerId?: string
+  ) => {
+    const res = await fetch(appPath('/api/pricelist/prices'), {
+      method: 'PUT',
+      headers: {
+        ...(user ? catalogAuthHeaders(user) : {}),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        productId,
+        ownerId: ownerQuery,
+        stockStatus,
+        ...(priceSellerId ? { sellerId: priceSellerId } : {}),
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to save stock status')
+    await loadItems()
+  }
 
   const savePrice = async (productId: string, unitPrice: number, priceSellerId?: string) => {
     const res = await fetch(appPath('/api/pricelist/prices'), {
@@ -224,6 +248,7 @@ export function usePricelist(initialOwner?: string) {
     viewMode,
     setViewMode,
     savePrice,
+    setStockStatus,
     clearPrice,
     requestPriceEdit,
     approvePriceEdit,

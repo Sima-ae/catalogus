@@ -113,6 +113,8 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([])
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
+  const [orderCount, setOrderCount] = useState(0)
+  const [orderRevenue, setOrderRevenue] = useState(0)
   const [userCount, setUserCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -125,11 +127,12 @@ export default function AdminDashboard() {
 
     try {
       const headers = adminAuthHeaders(user)
-      const [latestRes, statsRes, ordersRes, usersRes] = await Promise.all([
+      const [latestRes, statsRes, ordersRes, ordersSummaryRes, usersRes] = await Promise.all([
         fetch(appPath('/api/products?page=1&limit=10&scope=admin'), { headers, cache: 'no-store' }),
         fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
-        fetch(appPath('/api/orders'), { cache: 'no-store' }),
-        fetch(appPath('/api/admin/users'), { headers, cache: 'no-store' }),
+        fetch(appPath(`/api/orders?limit=${RECENT_ORDERS}`), { cache: 'no-store' }),
+        fetch(appPath('/api/orders?summary=1'), { cache: 'no-store' }),
+        fetch(appPath('/api/admin/users?count=1'), { headers, cache: 'no-store' }),
       ])
 
       const latestData = await parseJsonResponse<
@@ -172,14 +175,32 @@ export default function AdminDashboard() {
         if (Array.isArray(parsed)) ordersData = parsed
       }
 
-      let usersData: UserRow[] = []
+      let orderTotal = ordersData.length
+      let revenueTotal = ordersData.reduce((sum, o) => sum + Number(o.total || 0), 0)
+      if (ordersSummaryRes.ok) {
+        const summary = await parseJsonResponse<{
+          orders?: number
+          revenue?: number
+          error?: string
+        }>(ordersSummaryRes)
+        if (typeof summary.orders === 'number') orderTotal = summary.orders
+        if (typeof summary.revenue === 'number') revenueTotal = summary.revenue
+      }
+
+      let usersTotal = 0
       if (usersRes.ok) {
-        const parsed = await parseJsonResponse<UserRow[] | { error?: string }>(usersRes)
-        if (Array.isArray(parsed)) usersData = parsed
+        const parsed = await parseJsonResponse<{ total?: number } | UserRow[]>(usersRes)
+        if (parsed && typeof parsed === 'object' && 'total' in parsed && typeof parsed.total === 'number') {
+          usersTotal = parsed.total
+        } else if (Array.isArray(parsed)) {
+          usersTotal = parsed.length
+        }
       }
 
       setOrders(ordersData)
-      setUserCount(usersData.length)
+      setUserCount(usersTotal)
+      setOrderCount(orderTotal)
+      setOrderRevenue(revenueTotal)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load dashboard')
     } finally {
@@ -197,7 +218,6 @@ export default function AdminDashboard() {
     const inactive = productStats?.inactive ?? products.filter((p) => p.status === 'inactive').length
     const trash = productStats?.trash ?? products.filter((p) => p.status === 'trash').length
     const catalogTotal = productStats?.total ?? active + draft + inactive
-    const revenue = orders.reduce((sum, o) => sum + Number(o.total || 0), 0)
     const pendingOrders = orders.filter((o) => o.status === 'pending').length
 
     return {
@@ -206,10 +226,10 @@ export default function AdminDashboard() {
       draft,
       inactive,
       trash,
-      revenue,
+      revenue: orderRevenue,
       pendingOrders,
     }
-  }, [productStats, products, orders])
+  }, [productStats, products, orders, orderRevenue])
 
   const latestProducts = useMemo(() => sortNewest(products).slice(0, LATEST_PRODUCTS), [products])
 
@@ -238,11 +258,11 @@ export default function AdminDashboard() {
             />
             <StatCard
               title="Orders"
-              value={orders.length}
+              value={orderCount}
               change={
                 stats.pendingOrders > 0
-                  ? `${stats.pendingOrders} pending`
-                  : orders.length
+                  ? `${stats.pendingOrders} pending (recent)`
+                  : orderCount
                     ? 'All caught up'
                     : 'No orders yet'
               }

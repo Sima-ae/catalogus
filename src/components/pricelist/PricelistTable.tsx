@@ -1,7 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckIcon } from '@heroicons/react/24/outline'
+import { TrashIcon } from '@heroicons/react/24/outline'
+import PricelistPriceControls from '@/components/pricelist/PricelistPriceControls'
+import {
+  pricelistStockStatusLabel,
+  type PricelistStockStatus,
+} from '@/lib/pricelist-stock-status'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import { formatPrice } from '@/lib/format-price'
 import { useShopCurrency } from '@/lib/shop-currency-context'
@@ -28,6 +33,11 @@ type Props = {
   canApprovePriceEdits?: boolean
   canClearPrice?: boolean
   onSavePrice: (productId: string, price: number, priceSellerId?: string) => Promise<void>
+  onSetStockStatus?: (
+    productId: string,
+    stockStatus: PricelistStockStatus,
+    priceSellerId?: string
+  ) => Promise<void>
   onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
   onRequestPriceEdit?: (productId: string) => Promise<void>
   onApprovePriceEdit?: (requestId: string) => Promise<void>
@@ -36,7 +46,12 @@ type Props = {
   onOpenGallery?: (row: PricelistRow) => void
 }
 
+function rowStockStatus(row: PricelistRow): PricelistStockStatus | null {
+  return row.seller_stock_status ?? row.display_stock_status ?? null
+}
+
 function editablePriceSeed(row: PricelistRow): string {
+  if (rowStockStatus(row)) return ''
   const raw = row.seller_unit_price ?? row.display_unit_price
   if (raw == null || !Number.isFinite(Number(raw))) return ''
   return String(raw)
@@ -67,6 +82,7 @@ export default function PricelistTable({
   canApprovePriceEdits = false,
   canClearPrice = false,
   onSavePrice,
+  onSetStockStatus,
   onClearPrice,
   onRequestPriceEdit,
   onApprovePriceEdit,
@@ -91,7 +107,9 @@ export default function PricelistTable({
           <col />
           <col className="w-[14%]" />
           <col className="w-[12%]" />
-          <col className="w-52" />
+          <col className={canManageItems || showStar ? 'w-[min(18rem,32%)]' : 'w-72'} />
+          {showStar ? <col className="w-10" /> : null}
+          {canManageItems ? <col className="w-10" /> : null}
         </colgroup>
         <thead className={head}>
           <tr>
@@ -141,7 +159,9 @@ export default function PricelistTable({
             {showStar ? (
               <th className="px-3 py-2 w-12" aria-label={t('pricelist.col.starAria')} />
             ) : null}
-            {canManageItems ? <th className="px-3 py-2 w-24" /> : null}
+            {canManageItems ? (
+              <th className="px-1 py-2 w-10" aria-label={t('pricelist.remove')} />
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -160,6 +180,7 @@ export default function PricelistTable({
               muted={muted}
               border={border}
               onSavePrice={onSavePrice}
+              onSetStockStatus={onSetStockStatus}
               onClearPrice={onClearPrice}
               onRequestPriceEdit={onRequestPriceEdit}
               onApprovePriceEdit={onApprovePriceEdit}
@@ -187,6 +208,7 @@ function PricelistTableRow({
   muted,
   border,
   onSavePrice,
+  onSetStockStatus,
   onClearPrice,
   onRequestPriceEdit,
   onApprovePriceEdit,
@@ -206,6 +228,11 @@ function PricelistTableRow({
   muted: string
   border: string
   onSavePrice: (productId: string, price: number, priceSellerId?: string) => Promise<void>
+  onSetStockStatus?: (
+    productId: string,
+    stockStatus: PricelistStockStatus,
+    priceSellerId?: string
+  ) => Promise<void>
   onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
   onRequestPriceEdit?: (productId: string) => Promise<void>
   onApprovePriceEdit?: (requestId: string) => Promise<void>
@@ -217,6 +244,9 @@ function PricelistTableRow({
   const { symbol: currencySymbol } = useShopCurrency()
   const savedValueRef = useRef(editablePriceSeed(row))
   const [value, setValue] = useState(() => editablePriceSeed(row))
+  const [stockStatus, setStockStatus] = useState<PricelistStockStatus | null>(() =>
+    rowStockStatus(row)
+  )
   const [saving, setSaving] = useState(false)
   const [requesting, setRequesting] = useState(false)
   const [approvingId, setApprovingId] = useState<string | null>(null)
@@ -236,15 +266,56 @@ function PricelistTableRow({
     const next = editablePriceSeed(row)
     savedValueRef.current = next
     setValue(next)
+    setStockStatus(rowStockStatus(row))
     setError(null)
-  }, [row.product_id, row.seller_unit_price, row.display_unit_price, row.can_edit_price])
+  }, [
+    row.product_id,
+    row.seller_unit_price,
+    row.display_unit_price,
+    row.seller_stock_status,
+    row.display_stock_status,
+    row.can_edit_price,
+  ])
 
-  const displayPrice =
-    row.display_unit_price != null
+  const displayPrice = row.display_stock_status
+    ? null
+    : row.display_unit_price != null
       ? formatPrice(row.display_unit_price, { currencyCode: row.display_currency || 'EUR' })
-      : '—'
+      : null
+
+  const priceControlLabels = {
+    placeholder: t('pricelist.pricePlaceholder'),
+    savePriceLabel: t('pricelist.savePrice'),
+    savePriceForLabel: t('pricelist.savePriceFor', { name: row.name }),
+    stockStatusAria: t('pricelist.stockStatusAria'),
+    stockStatusSetPriceLabel: t('pricelist.stockStatusSetPrice'),
+    outOfStockLabel: t('pricelist.outOfStock'),
+    temporarilyOutOfStockLabel: t('pricelist.temporarilyOutOfStock'),
+  }
+
+  const handleSetStockStatus = useCallback(
+    async (status: PricelistStockStatus) => {
+      if (!onSetStockStatus) return
+      setSaving(true)
+      setError(null)
+      try {
+        await onSetStockStatus(row.product_id, status, row.price_seller_id)
+        setStockStatus(status)
+        setValue('')
+        savedValueRef.current = ''
+        setSavedFlash(true)
+        window.setTimeout(() => setSavedFlash(false), 1500)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t('pricelist.error.saveFailed'))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [onSetStockStatus, row.price_seller_id, row.product_id, t]
+  )
 
   const handleSave = useCallback(async () => {
+    if (stockStatus) return
     const parsed = parsePriceInput(value)
     if (parsed === null) {
       if (!value.trim()) {
@@ -292,7 +363,7 @@ function PricelistTableRow({
     } finally {
       setSaving(false)
     }
-  }, [canClearPrice, onClearPrice, onSavePrice, row.price_seller_id, row.product_id, value, t])
+  }, [canClearPrice, onClearPrice, onSavePrice, stockStatus, row.price_seller_id, row.product_id, value, t])
 
   const handleRequestEdit = useCallback(async () => {
     if (!onRequestPriceEdit) return
@@ -403,51 +474,30 @@ function PricelistTableRow({
       </td>
       <td className="px-3 py-1.5 align-middle">
         {showSellerPriceInput ? (
-          <div className="flex flex-col gap-0.5 max-w-[12rem]">
-            <div className="flex items-center gap-1">
-              <div className="relative flex-1 min-w-0">
-                <span className={priceCurrencyClass} aria-hidden>
-                  {currencySymbol}
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={value}
-                  onChange={(e) => {
-                    setValue(e.target.value)
-                    setError(null)
-                  }}
-                  onBlur={() => void handleSave()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void handleSave()
-                    }
-                  }}
-                  placeholder={t('pricelist.pricePlaceholder')}
-                  className={priceInputClass}
-                  aria-label={t('pricelist.savePriceFor', { name: row.name })}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving || !value.trim()}
-                className={checkButtonClass}
-                title={t('pricelist.savePrice')}
-                aria-label={t('pricelist.savePrice')}
-              >
-                {saving ? (
-                  <span className="text-xs px-0.5">…</span>
-                ) : (
-                  <CheckIcon className="w-4 h-4" aria-hidden />
-                )}
-              </button>
-            </div>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <PricelistPriceControls
+              value={value}
+              onChange={(next) => {
+                setValue(next)
+                setError(null)
+              }}
+              stockStatus={stockStatus}
+              onStockStatusChange={setStockStatus}
+              saving={saving}
+              onSave={handleSave}
+              onSetStockStatus={handleSetStockStatus}
+              t={t}
+              checkButtonClass={checkButtonClass}
+              priceInputClass={priceInputClass}
+              priceCurrencyClass={priceCurrencyClass}
+              currencySymbol={currencySymbol}
+              isDark={isDark}
+              {...priceControlLabels}
+            />
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         ) : showPriceInput ? (
-          <div className="flex flex-col gap-0.5 max-w-[12rem]">
+          <div className="flex flex-col gap-0.5 min-w-0">
             {canApprovePriceEdits && row.pending_edit_requests?.length ? (
               <div className="flex flex-col gap-0.5 mb-0.5">
                 {row.pending_edit_requests.map((req) => (
@@ -460,46 +510,25 @@ function PricelistTableRow({
                 ))}
               </div>
             ) : null}
-            <div className="flex items-center gap-1">
-              <div className="relative flex-1 min-w-0">
-                <span className={priceCurrencyClass} aria-hidden>
-                  {currencySymbol}
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={value}
-                  onChange={(e) => {
-                    setValue(e.target.value)
-                    setError(null)
-                  }}
-                  onBlur={() => void handleSave()}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void handleSave()
-                    }
-                  }}
-                  placeholder={t('pricelist.pricePlaceholder')}
-                  className={priceInputClass}
-                  aria-label={t('pricelist.savePriceFor', { name: row.name })}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving || !value.trim()}
-                className={checkButtonClass}
-                title={t('pricelist.savePrice')}
-                aria-label={t('pricelist.savePrice')}
-              >
-                {saving ? (
-                  <span className="text-xs px-0.5">…</span>
-                ) : (
-                  <CheckIcon className="w-4 h-4" aria-hidden />
-                )}
-              </button>
-            </div>
+            <PricelistPriceControls
+              value={value}
+              onChange={(next) => {
+                setValue(next)
+                setError(null)
+              }}
+              stockStatus={stockStatus}
+              onStockStatusChange={setStockStatus}
+              saving={saving}
+              onSave={handleSave}
+              onSetStockStatus={handleSetStockStatus}
+              t={t}
+              checkButtonClass={checkButtonClass}
+              priceInputClass={priceInputClass}
+              priceCurrencyClass={priceCurrencyClass}
+              currencySymbol={currencySymbol}
+              isDark={isDark}
+              {...priceControlLabels}
+            />
             {canApprovePriceEdits && row.pending_edit_requests?.length ? (
               <div className="flex flex-wrap gap-1">
                 {row.pending_edit_requests.map((req) => (
@@ -525,10 +554,16 @@ function PricelistTableRow({
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         ) : showLockedSellerPrice ? (
-          <div className="flex flex-col gap-0.5 max-w-[14rem]">
-            <span className={isDark ? 'text-white tabular-nums' : 'text-gray-900 tabular-nums'}>
-              {sellerPriceDisplay}
-            </span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {row.seller_stock_status ? (
+              <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                {pricelistStockStatusLabel(row.seller_stock_status, t)}
+              </span>
+            ) : (
+              <span className={isDark ? 'text-white tabular-nums' : 'text-gray-900 tabular-nums'}>
+                {sellerPriceDisplay}
+              </span>
+            )}
             {row.edit_request_pending ? (
               <span className={`text-xs ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>
                 {t('pricelist.editRequestedAdmin')}
@@ -551,7 +586,15 @@ function PricelistTableRow({
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
-            <span className={isDark ? 'text-white' : 'text-gray-900'}>{displayPrice}</span>
+            {row.display_stock_status ? (
+              <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                {pricelistStockStatusLabel(row.display_stock_status, t)}
+              </span>
+            ) : (
+              <span className={isDark ? 'text-white' : 'text-gray-900'}>
+                {displayPrice ?? '—'}
+              </span>
+            )}
             {error ? <span className="text-xs text-red-500">{error}</span> : null}
           </div>
         )}
@@ -571,13 +614,15 @@ function PricelistTableRow({
         </td>
       ) : null}
       {canManageItems ? (
-        <td className="px-3 py-1.5 align-middle">
+        <td className="px-1 py-1.5 align-middle w-10">
           <button
             type="button"
             onClick={() => onRemove(row.product_id)}
-            className={`text-xs ${muted} hover:text-red-500`}
+            className={`p-1.5 rounded-lg transition-colors hover:bg-red-500/10 text-red-600 dark:text-red-400 ${muted} hover:text-red-600 dark:hover:text-red-400`}
+            aria-label={t('pricelist.remove')}
+            title={t('pricelist.remove')}
           >
-            {t('pricelist.remove')}
+            <TrashIcon className="w-5 h-5" aria-hidden />
           </button>
         </td>
       ) : null}

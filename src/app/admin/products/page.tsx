@@ -29,7 +29,11 @@ import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
-import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
+import {
+  buildAdminProductsUrl,
+  isCatalogProductsPage,
+  type ProductDashboardStats,
+} from '@/lib/catalog-products'
 import { useI18n } from '@/lib/i18n-context'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
@@ -136,15 +140,22 @@ export default function AdminProductsPage() {
   const { t: tr } = useI18n()
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
+  const [totalItems, setTotalItems] = useState(0)
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
   const loadProducts = useCallback(() => {
     if (!user) return
@@ -153,20 +164,30 @@ export default function AdminProductsPage() {
     setError('')
 
     const headers = adminAuthHeaders(user)
+    const listUrl =
+      buildAdminProductsUrl(appPath('/api/products'), {
+        page: currentPage,
+        limit: pageSize,
+        status: statusFilter,
+        search: debouncedSearch || undefined,
+      }) + '&scope=admin'
 
     Promise.all([
-      fetch(appPath('/api/products'), { headers, cache: 'no-store' }),
+      fetch(listUrl, { headers, cache: 'no-store' }),
       fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
     ])
       .then(async ([listRes, statsRes]) => {
-        const listData = await parseJsonResponse<{ error?: string } | Product[]>(listRes)
+        const listData = await parseJsonResponse<
+          { error?: string; items?: Product[] } | Product[]
+        >(listRes)
         if (!listRes.ok) {
           throw new Error(
             !Array.isArray(listData) && listData.error ? listData.error : 'Failed to load products'
           )
         }
-        if (!Array.isArray(listData)) throw new Error('Invalid response')
-        setProducts(listData)
+        if (!isCatalogProductsPage(listData)) throw new Error('Invalid response')
+        setProducts(listData.items)
+        setTotalItems(listData.total)
 
         if (statsRes.ok) {
           const statsData = await parseJsonResponse<
@@ -184,10 +205,11 @@ export default function AdminProductsPage() {
       .catch((e) => {
         setError(e instanceof Error ? e.message : 'Failed to load')
         setProducts([])
+        setTotalItems(0)
         setProductStats(null)
       })
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user, currentPage, pageSize, statusFilter, debouncedSearch])
 
   useEffect(() => {
     loadProducts()
@@ -195,7 +217,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, statusFilter, pageSize])
+  }, [debouncedSearch, statusFilter, pageSize])
 
   const stats = useMemo(() => {
     if (productStats) {
@@ -208,41 +230,17 @@ export default function AdminProductsPage() {
         importDrafts: productStats.importDrafts,
       }
     }
-    const total = products.length
-    const active = products.filter((p) => p.status === 'active').length
-    const draft = products.filter((p) => p.status === 'draft').length
-    const inactive = products.filter((p) => p.status === 'inactive').length
-    const trash = products.filter((p) => p.status === 'trash').length
-    return { total, active, draft, inactive, trash, importDrafts: 0 }
-  }, [productStats, products])
+    return { total: 0, active: 0, draft: 0, inactive: 0, trash: 0, importDrafts: 0 }
+  }, [productStats])
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return products.filter((p) => {
-      if (statusFilter !== 'all' && p.status !== statusFilter) return false
-      if (!q) return true
-      const sku = (p.sku || '').toLowerCase()
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        (p.category || '').toLowerCase().includes(q) ||
-        (p.brand || '').toLowerCase().includes(q) ||
-        sku.includes(q)
-      )
-    })
-  }, [products, search, statusFilter])
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize) || 1)
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, currentPage), totalPages)
 
   useEffect(() => {
     if (currentPage !== safePage) setCurrentPage(safePage)
   }, [currentPage, safePage])
 
-  const pageItems = useMemo(() => {
-    const start = (safePage - 1) * pageSize
-    return filtered.slice(start, start + pageSize)
-  }, [filtered, safePage, pageSize])
+  const pageItems = products
 
   const toggleSelected = (id: string) => {
     setSelected((prev) => {
@@ -269,10 +267,6 @@ export default function AdminProductsPage() {
         return next
       })
     }
-  }
-
-  const selectAllFiltered = () => {
-    setSelected(new Set(filtered.map((p) => p.id)))
   }
 
   const runBulkStatus = async (status: 'active' | 'draft' | 'inactive', ids: string[]) => {
@@ -343,17 +337,34 @@ export default function AdminProductsPage() {
     }
   }
 
-  const publishAllDrafts = () => {
-    const draftIds = products.filter((p) => p.status === 'draft').map((p) => p.id)
-    if (!draftIds.length) return
-    void runBulkStatus('active', draftIds)
+  const publishAllDrafts = async () => {
+    if (!user || stats.draft <= 0) return
+    if (!confirm(`Publish all ${stats.draft} draft product(s)?`)) return
+
+    setBulkWorking(true)
+    setError('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/bulk-status'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'active', fromStatus: 'draft' }),
+      })
+      const data = await parseJsonResponse<{ error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Bulk publish failed')
+      loadProducts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk publish failed')
+    } finally {
+      setBulkWorking(false)
+    }
   }
 
   const selectedIds = Array.from(selected)
   const allOnPageSelected =
     pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))
-  const allFilteredSelected =
-    filtered.length > 0 && filtered.every((p) => selected.has(p.id))
 
   return (
     <AdminPageShell title="Products">
@@ -452,7 +463,7 @@ export default function AdminProductsPage() {
         </div>
 
         <p className={`text-sm ${t.muted}`}>
-          <strong className={t.heading}>{filtered.length}</strong> matching ·{' '}
+          <strong className={t.heading}>{totalItems}</strong> matching ·{' '}
           <strong className={t.heading}>{stats.total}</strong> total in catalog
           {statusFilter !== 'all' && (
             <> · status: {statusLabel(statusFilter)}</>
@@ -524,7 +535,7 @@ export default function AdminProductsPage() {
 
       {loading ? (
         <p className={t.muted}>{tr('loading.products')}</p>
-      ) : products.length === 0 ? (
+      ) : totalItems === 0 && !debouncedSearch && statusFilter === 'all' ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">No products yet.</p>
           <Link href={appPath('/admin/products/new')} className="btn-primary inline-flex items-center gap-2">
@@ -532,7 +543,7 @@ export default function AdminProductsPage() {
             Add your first product
           </Link>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : totalItems === 0 ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p>No products match your search or filter.</p>
           <button
@@ -552,7 +563,7 @@ export default function AdminProductsPage() {
             <ProductsPaginationBar
               page={safePage}
               pageSize={pageSize}
-              totalItems={filtered.length}
+              totalItems={totalItems}
               onPageChange={setCurrentPage}
               t={t}
             />
@@ -643,21 +654,10 @@ export default function AdminProductsPage() {
             <ProductsPaginationBar
               page={safePage}
               pageSize={pageSize}
-              totalItems={filtered.length}
+              totalItems={totalItems}
               onPageChange={setCurrentPage}
               t={t}
             />
-            {filtered.length > pageItems.length && !allFilteredSelected && (
-              <p className={`text-center text-sm pb-3 ${t.muted}`}>
-                <button
-                  type="button"
-                  className="hover:underline"
-                  onClick={selectAllFiltered}
-                >
-                  Select all {filtered.length} matching products
-                </button>
-              </p>
-            )}
           </div>
         </div>
       )}

@@ -49,6 +49,7 @@ export default function PricelistPageClient() {
     viewMode,
     setViewMode,
     savePrice,
+    setStockStatus,
     clearPrice,
     requestPriceEdit,
     approvePriceEdit,
@@ -313,6 +314,7 @@ export default function PricelistPageClient() {
             canApprovePriceEdits={canManagePriceEditRequests}
             canClearPrice={Boolean(isSuperAdmin)}
             onSavePrice={savePrice}
+            onSetStockStatus={setStockStatus}
             onClearPrice={isSuperAdmin ? clearPrice : undefined}
             onRequestPriceEdit={isSeller ? requestPriceEdit : undefined}
             onApprovePriceEdit={canManagePriceEditRequests ? approvePriceEdit : undefined}

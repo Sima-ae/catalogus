@@ -26,15 +26,24 @@ export default function SellerDashboard() {
   const t = useAppTheme()
   const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
+  const [productTotal, setProductTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const loadProducts = useCallback(() => {
     if (!user) return
-    fetch(appPath('/api/products?page=1&limit=100'), { headers: catalogAuthHeaders(user) })
-      .then((r) => r.json())
-      .then((data) => {
-        if (isCatalogProductsPage(data)) setProducts(data.items)
-        else setProducts(Array.isArray(data) ? data : [])
+    Promise.all([
+      fetch(appPath('/api/products?page=1&limit=8'), { headers: catalogAuthHeaders(user) }).then(
+        (r) => r.json()
+      ),
+      fetch(appPath('/api/products?page=1&limit=1'), { headers: catalogAuthHeaders(user) }).then(
+        (r) => r.json()
+      ),
+    ])
+      .then(([listData, countData]) => {
+        if (isCatalogProductsPage(listData)) setProducts(listData.items)
+        else setProducts(Array.isArray(listData) ? listData : [])
+        if (isCatalogProductsPage(countData)) setProductTotal(countData.total)
+        else setProductTotal(Array.isArray(countData) ? countData.length : 0)
       })
       .finally(() => setLoading(false))
   }, [user])
@@ -51,7 +60,7 @@ export default function SellerDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="card p-6">
           <h3 className={`text-sm ${t.muted}`}>Your products</h3>
-          <p className={`text-3xl font-bold mt-2 ${t.heading}`}>{products.length}</p>
+          <p className={`text-3xl font-bold mt-2 ${t.heading}`}>{productTotal}</p>
           <Link
             href={appPath('/seller/products')}
             className={`text-sm mt-2 inline-block ${t.link}`}

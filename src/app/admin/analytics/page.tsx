@@ -6,6 +6,8 @@ import { useAppTheme } from '@/lib/theme-classes'
 import StatCard from '@/components/admin/StatCard'
 import { appPath } from '@/lib/paths'
 import { useShopCurrency } from '@/lib/shop-currency-context'
+import { useAuth } from '@/lib/auth-local'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
 import {
   BanknotesIcon,
   ShoppingCartIcon,
@@ -13,12 +15,18 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline'
 
-type Product = { id: string; price: number; author: string }
-type Order = { id: string; total: number; status: string }
-type UserRow = { id: string; role: string }
+type AdminAnalyticsSummary = {
+  revenue: number
+  orders: number
+  products: number
+  users: number
+  vendors: number
+  completedOrders: number
+}
 
 export default function AdminAnalyticsPage() {
   const t = useAppTheme()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [stats, setStats] = useState({
@@ -31,34 +39,24 @@ export default function AdminAnalyticsPage() {
   })
 
   useEffect(() => {
-    Promise.all([
-      fetch(appPath('/api/products')).then((r) => r.json()),
-      fetch(appPath('/api/orders')).then((r) => r.json()),
-      fetch(appPath('/api/users')).then((r) => r.json()),
-    ])
-      .then(([products, orders, users]) => {
-        const productList = Array.isArray(products) ? (products as Product[]) : []
-        const orderList = Array.isArray(orders) ? (orders as Order[]) : []
-        const userList = Array.isArray(users) ? (users as UserRow[]) : []
+    if (!user) return
 
-        const revenue = orderList.reduce((sum, o) => sum + Number(o.total || 0), 0)
-        const completedOrders = orderList.filter(
-          (o) => o.status === 'completed' || o.status === 'paid'
-        ).length
-        const vendors = new Set(productList.map((p) => p.author).filter(Boolean)).size
-
+    fetch(appPath('/api/admin/analytics'), { headers: adminAuthHeaders(user) })
+      .then(async (r) => {
+        const data = (await r.json()) as AdminAnalyticsSummary & { error?: string }
+        if (!r.ok) throw new Error(data.error || 'Failed to load analytics')
         setStats({
-          revenue,
-          orders: orderList.length,
-          products: productList.length,
-          users: userList.length,
-          vendors,
-          completedOrders,
+          revenue: Number(data.revenue ?? 0),
+          orders: Number(data.orders ?? 0),
+          products: Number(data.products ?? 0),
+          users: Number(data.users ?? 0),
+          vendors: Number(data.vendors ?? 0),
+          completedOrders: Number(data.completedOrders ?? 0),
         })
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const { symbol: currency } = useShopCurrency()
 

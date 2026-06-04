@@ -5,7 +5,7 @@ import {
   assignSiteAccessCodeToUser,
   getSiteAccessCodeForUser,
 } from '@/lib/site-access-codes-db'
-import { createUser, deleteUser, listUsers } from '@/lib/users-db'
+import { countUsers, createUser, deleteUser, listUsers } from '@/lib/users-db'
 import { clampBadgeRating } from '@/lib/user-roles'
 
 export const dynamic = 'force-dynamic'
@@ -62,6 +62,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (request.nextUrl.searchParams.get('count') === '1') {
+      const total = await countUsers()
+      return NextResponse.json({ total })
+    }
     return NextResponse.json(await listUsers())
   } catch (error) {
     console.error('Admin users list error:', error)
