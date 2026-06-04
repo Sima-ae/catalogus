@@ -15,7 +15,9 @@ import {
   shouldUnoptimizeProductImage,
   toDisplayProductImageUrl,
 } from '@/lib/product-image-url'
+import PricelistProductLightbox from '@/components/pricelist/PricelistProductLightbox'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { useAuth } from '@/lib/auth-local'
 
@@ -53,6 +55,103 @@ type Props = {
   authHeaders?: Record<string, string>
 }
 
+function formatPixelSize(width: number, height: number): string {
+  if (width > 0 && height > 0) return `${width}×${height}`
+  return ''
+}
+
+function GalleryImageTile({
+  displaySrc,
+  alt,
+  isMain,
+  setAsMainLabel,
+  mainBadgeLabel,
+  removeAriaLabel,
+  removeTitle,
+  onSetAsMain,
+  onRemove,
+  onOpenLightbox,
+  viewFullSizeLabel,
+  border,
+  tileBg,
+}: {
+  displaySrc: string
+  alt: string
+  isMain: boolean
+  setAsMainLabel: string
+  mainBadgeLabel: string
+  removeAriaLabel: string
+  removeTitle: string
+  onSetAsMain: () => void
+  onRemove: () => void
+  onOpenLightbox: () => void
+  viewFullSizeLabel: string
+  border: string
+  tileBg: string
+}) {
+  const [pixelSize, setPixelSize] = useState<string | null>(null)
+
+  return (
+    <div
+      className={`group relative aspect-square overflow-hidden rounded-lg border ${border} ${tileBg}`}
+    >
+      <button
+        type="button"
+        onClick={onOpenLightbox}
+        className="absolute inset-0 z-[5] cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset"
+        aria-label={viewFullSizeLabel}
+      />
+      <Image
+        src={displaySrc}
+        alt={alt}
+        fill
+        className="object-cover pointer-events-none"
+        sizes="(max-width: 640px) 50vw, 200px"
+        unoptimized={shouldUnoptimizeProductImage(displaySrc)}
+        onLoad={(e) => {
+          const { naturalWidth, naturalHeight } = e.currentTarget
+          const label = formatPixelSize(naturalWidth, naturalHeight)
+          setPixelSize(label || null)
+        }}
+      />
+
+      {isMain ? (
+        <span className="absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-md bg-primary-600/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+          <StarIcon className="h-3 w-3" aria-hidden />
+          {mainBadgeLabel}
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onSetAsMain}
+          className="absolute left-2 top-2 z-20 rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+        >
+          {setAsMainLabel}
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute right-1.5 top-1.5 z-20 rounded-lg bg-black/60 p-1.5 text-white transition-colors hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+        aria-label={removeAriaLabel}
+        title={removeTitle}
+      >
+        <TrashIcon className="h-4 w-4" aria-hidden />
+      </button>
+
+      {pixelSize ? (
+        <span
+          className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white pointer-events-none"
+          aria-hidden
+        >
+          {pixelSize}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 export default function ProductImageGalleryEditor({
   imageUrl,
   galleryLines,
@@ -61,6 +160,7 @@ export default function ProductImageGalleryEditor({
   authHeaders: authHeadersProp,
 }: Props) {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user } = useAuth()
   const authHeaders = authHeadersProp ?? catalogAuthHeaders(user)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -74,6 +174,12 @@ export default function ProductImageGalleryEditor({
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlDraft, setUrlDraft] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  const displayImages = useMemo(
+    () => images.map((url) => toDisplayProductImageUrl(url, sourceUrl) || url),
+    [images, sourceUrl]
+  )
 
   const applyList = useCallback(
     (list: string[]) => {
@@ -88,7 +194,7 @@ export default function ProductImageGalleryEditor({
     if (!trimmed) return
     const normalized = normalizeProductImageUrl(trimmed)
     if (!normalized) {
-      setLocalError('Enter a valid image URL')
+      setLocalError(tr('productForm.imagesInvalidUrl'))
       return
     }
     setLocalError(null)
@@ -110,11 +216,11 @@ export default function ProductImageGalleryEditor({
       })
       const data = (await res.json()) as { url?: string; error?: string }
       if (!res.ok || !data.url) {
-        throw new Error(data.error || 'Upload failed')
+        throw new Error(data.error || tr('productForm.imagesUploadFailed'))
       }
       applyList([...images, data.url])
     } catch (e) {
-      setLocalError(e instanceof Error ? e.message : 'Upload failed')
+      setLocalError(e instanceof Error ? e.message : tr('productForm.imagesUploadFailed'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -140,10 +246,7 @@ export default function ProductImageGalleryEditor({
 
   return (
     <div className="space-y-4">
-      <p className="form-hint">
-        The first image is the main shop thumbnail and the first slide on the product page.
-        Drag-free reorder: use &quot;Set as main&quot; on any extra image. Add files or paste URLs.
-      </p>
+      <p className="form-hint">{tr('productForm.imagesHint')}</p>
 
       {localError ? (
         <p className="text-sm text-red-600 dark:text-red-400" role="alert">
@@ -156,44 +259,30 @@ export default function ProductImageGalleryEditor({
           const displaySrc = toDisplayProductImageUrl(url, sourceUrl) || url
           const isMain = index === 0
           return (
-            <div
+            <GalleryImageTile
               key={`${url}-${index}`}
-              className={`group relative aspect-square overflow-hidden rounded-lg border ${border} ${tileBg}`}
-            >
-              <Image
-                src={displaySrc}
-                alt={isMain ? 'Main product image' : `Gallery image ${index + 1}`}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 50vw, 200px"
-                unoptimized={shouldUnoptimizeProductImage(displaySrc)}
-              />
-
-              {isMain ? (
-                <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-primary-600/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                  <StarIcon className="h-3 w-3" aria-hidden />
-                  Main
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setAsMain(index)}
-                  className="absolute left-2 top-2 rounded-md bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-                >
-                  Set as main
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => removeAt(index)}
-                className="absolute right-1.5 top-1.5 rounded-lg bg-black/60 p-1.5 text-white transition-colors hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
-                aria-label={isMain ? 'Remove main image' : 'Remove image'}
-                title="Remove"
-              >
-                <TrashIcon className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
+              displaySrc={displaySrc}
+              alt={
+                isMain
+                  ? tr('productForm.imagesMainAlt')
+                  : tr('productForm.imagesGalleryAlt', { index: index + 1 })
+              }
+              isMain={isMain}
+              setAsMainLabel={tr('productForm.imagesSetAsMain')}
+              mainBadgeLabel={tr('productForm.imagesMainBadge')}
+              removeAriaLabel={
+                isMain ? tr('productForm.imagesRemoveMain') : tr('productForm.imagesRemove')
+              }
+              removeTitle={tr('productForm.imagesRemoveTitle')}
+              onSetAsMain={() => setAsMain(index)}
+              onRemove={() => removeAt(index)}
+              onOpenLightbox={() => setLightboxIndex(index)}
+              viewFullSizeLabel={tr('product.viewImageFullSize', {
+                name: tr('productForm.sectionImages'),
+              })}
+              border={border}
+              tileBg={tileBg}
+            />
           )
         })}
 
@@ -218,7 +307,7 @@ export default function ProductImageGalleryEditor({
             className="btn-secondary text-xs w-full flex items-center justify-center gap-1.5 py-2"
           >
             <PhotoIcon className="h-4 w-4 shrink-0" aria-hidden />
-            {uploading ? 'Uploading…' : 'Upload file'}
+            {uploading ? tr('productForm.imagesUploading') : tr('productForm.imagesUploadFile')}
           </button>
           <button
             type="button"
@@ -230,7 +319,7 @@ export default function ProductImageGalleryEditor({
             className="btn-secondary text-xs w-full flex items-center justify-center gap-1.5 py-2"
           >
             <LinkIcon className="h-4 w-4 shrink-0" aria-hidden />
-            Add URL
+            {tr('productForm.imagesAddUrl')}
           </button>
         </div>
       </div>
@@ -243,13 +332,13 @@ export default function ProductImageGalleryEditor({
         >
           <div className="flex items-center justify-between gap-2">
             <label htmlFor="product-image-url-add" className="form-label mb-0">
-              Image URL
+              {tr('productForm.imagesUrlLabel')}
             </label>
             <button
               type="button"
               className={`p-1 rounded ${t.iconBtn}`}
               onClick={() => setUrlOpen(false)}
-              aria-label="Close"
+              aria-label={tr('productForm.close')}
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -259,7 +348,7 @@ export default function ProductImageGalleryEditor({
             type="url"
             value={urlDraft}
             onChange={(e) => setUrlDraft(e.target.value)}
-            placeholder="https://… or /images/…"
+            placeholder={tr('productForm.imagesUrlPlaceholder')}
             className="input w-full"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -273,25 +362,25 @@ export default function ProductImageGalleryEditor({
             className="btn-primary text-sm"
             onClick={() => addUrl(urlDraft)}
           >
-            Add image
+            {tr('productForm.imagesAddImage')}
           </button>
         </div>
       ) : null}
 
       {!images.length ? (
         <p className={`text-sm ${t.muted}`}>
-          No images yet. Upload a file or add a URL — the first image becomes the main image.
+          {tr('productForm.imagesEmpty')}
         </p>
       ) : null}
 
       <details className={`text-sm ${t.muted}`}>
         <summary className="cursor-pointer select-none hover:underline">
-          Advanced: edit URLs as text
+          {tr('productForm.imagesAdvancedSummary')}
         </summary>
         <div className="mt-3 space-y-3">
           <div>
             <label htmlFor="image_url_text" className="form-label">
-              Main image URL *
+              {tr('productForm.imagesMainUrl')}
             </label>
             <input
               id="image_url_text"
@@ -305,7 +394,7 @@ export default function ProductImageGalleryEditor({
           </div>
           <div>
             <label htmlFor="gallery_images_text" className="form-label">
-              Gallery URLs (one per line)
+              {tr('productForm.imagesGalleryUrls')}
             </label>
             <textarea
               id="gallery_images_text"
@@ -320,6 +409,16 @@ export default function ProductImageGalleryEditor({
           </div>
         </div>
       </details>
+
+      <PricelistProductLightbox
+        open={lightboxIndex !== null && displayImages.length > 0}
+        productName={tr('productForm.sectionImages')}
+        images={displayImages}
+        initialIndex={lightboxIndex ?? 0}
+        onClose={() => setLightboxIndex(null)}
+        overlayZClass="z-[130]"
+        resolveImageSrc={(url) => url}
+      />
     </div>
   )
 }

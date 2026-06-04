@@ -9,10 +9,17 @@ export function brandSkuPrefix(brandName: string | null | undefined): string {
     .slice(0, 32)
 }
 
-/** Trim SKU; empty string becomes null (no SKU). */
+/** Remove Yupoo import marker segments from SKU (case-insensitive). */
+export function stripYupooFromSku(sku: string): string {
+  let s = sku.replace(/yupoo/gi, '')
+  s = s.replace(/[ _-]+/g, '-').replace(/(^-+|-+$)/g, '')
+  return s.slice(0, 255)
+}
+
+/** Trim SKU; empty string becomes null (no SKU). Strips legacy "YUPOO" segments. */
 export function normalizeProductSku(sku: unknown): string | null {
   if (sku == null || sku === '') return null
-  const trimmed = String(sku).trim()
+  const trimmed = stripYupooFromSku(String(sku).trim())
   return trimmed || null
 }
 

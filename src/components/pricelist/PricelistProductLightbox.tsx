@@ -12,6 +12,10 @@ type Props = {
   images: string[]
   initialIndex?: number
   onClose: () => void
+  /** Defaults to z-[100]; use z-[130] when opened inside modals (e.g. edit product). */
+  overlayZClass?: string
+  /** Defaults to pricelistImageSrc; pass identity when URLs are already display-ready. */
+  resolveImageSrc?: (url: string) => string
 }
 
 export default function PricelistProductLightbox({
@@ -20,6 +24,8 @@ export default function PricelistProductLightbox({
   images,
   initialIndex = 0,
   onClose,
+  overlayZClass = 'z-[100]',
+  resolveImageSrc = pricelistImageSrc,
 }: Props) {
   const { t } = useI18n()
   const [selectedIndex, setSelectedIndex] = useState(initialIndex)
@@ -101,13 +107,13 @@ export default function PricelistProductLightbox({
   if (!open || images.length === 0) return null
 
   const current = images[selectedIndex]
-  const src = current ? pricelistImageSrc(current) : ''
+  const src = current ? resolveImageSrc(current) : ''
 
   return (
     <div
       ref={lightboxRef}
       tabIndex={-1}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 outline-none touch-none"
+      className={`fixed inset-0 ${overlayZClass} flex items-center justify-center p-4 sm:p-8 outline-none touch-none`}
       role="dialog"
       aria-modal="true"
       aria-label={`${productName} — image ${selectedIndex + 1} of ${images.length}`}

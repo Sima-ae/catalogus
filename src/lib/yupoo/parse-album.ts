@@ -162,9 +162,11 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
 export function buildSku(album: YupooAlbumData, brandName?: string | null): string {
   const id = String(album.albumId).trim()
   const brand = brandSkuPrefix(brandName)
-  const code = album.skuHint || 'YUPOO'
-  if (brand) return `${brand}-${code}-${id}`
-  return album.skuHint ? `${album.skuHint}-${id}` : `YUPOO-${id}`
+  const hint = album.skuHint?.trim()
+  if (brand && hint) return `${brand}-${hint}-${id}`
+  if (brand) return `${brand}-${id}`
+  if (hint) return `${hint}-${id}`
+  return `ALBUM-${id}`
 }
 
 export { parseAttributes }

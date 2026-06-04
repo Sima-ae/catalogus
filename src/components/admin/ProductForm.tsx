@@ -199,7 +199,11 @@ export default function ProductForm({
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Save failed')
+        setError(
+          typeof data.error === 'string' && data.error !== 'Save failed'
+            ? data.error
+            : tr('productForm.errorSaveFailed')
+        )
         return
       }
       const updated = data as Product
@@ -211,7 +215,7 @@ export default function ProductForm({
         router.refresh()
       }
     } catch {
-      setError('Network error — could not save product')
+      setError(tr('productForm.errorNetwork'))
     } finally {
       setSaving(false)
     }
@@ -221,8 +225,11 @@ export default function ProductForm({
     return <p className={t.muted}>{tr('loading.generic')}</p>
   }
 
-  const saveLabel =
-    saving ? 'Saving...' : mode === 'create' ? 'Create product' : 'Save changes'
+  const saveLabel = saving
+    ? tr('productForm.saving')
+    : mode === 'create'
+      ? tr('productForm.createProduct')
+      : tr('productForm.saveChanges')
 
   const formActions = (
     <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
@@ -231,11 +238,11 @@ export default function ProductForm({
       </button>
       {variant === 'modal' ? (
         <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
-          Cancel
+          {tr('productForm.cancel')}
         </button>
       ) : (
         <Link href={appPath(productsPath)} className="btn-secondary">
-          {mode === 'edit' ? 'Back to products' : 'Cancel'}
+          {mode === 'edit' ? tr('productForm.backToProducts') : tr('productForm.cancel')}
         </Link>
       )}
     </div>
@@ -267,94 +274,84 @@ export default function ProductForm({
           }`}
           role="status"
         >
-          Product saved. Tab content and stats are stored in the database.
+          {tr('productForm.savedSuccess')}
         </div>
       )}
 
       <section className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-          <h2 className="card-section-title mb-0">Basic info</h2>
+          <h2 className="card-section-title mb-0">{tr('productForm.sectionBasicInfo')}</h2>
           {variant === 'modal' ? formActions : null}
         </div>
-        <Field label="Name *" name="name" value={form.name} onChange={onChange} required />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_select]:py-1.5 [&_select]:text-sm">
+          <div>
+            <label className="form-label">{tr('productForm.category')}</label>
+            <select
+              name="category"
+              value={form.category}
+              onChange={onChange}
+              required
+              className="input w-full"
+            >
+              <option value="">{tr('productForm.selectCategory')}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.label}
+                </option>
+              ))}
+              {form.category &&
+                !categories.some((c) => c.name === form.category) && (
+                <option value={form.category}>{form.category}</option>
+              )}
+            </select>
+            {!isSeller && (
+              <p className="text-xs mt-1 form-hint">
+                <Link href="/admin/categories/new" className={t.link}>
+                  {tr('productForm.addCategory')}
+                </Link>
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="form-label">{tr('productForm.brand')}</label>
+            <select
+              name="brand"
+              value={form.brand}
+              onChange={onChange}
+              className="input w-full"
+            >
+              <option value="">{tr('productForm.noBrand')}</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+              {form.brand && !brands.some((b) => b.name === form.brand) && (
+                <option value={form.brand}>{form.brand}</option>
+              )}
+            </select>
+            {!isSeller && (
+              <p className="text-xs mt-1 form-hint">
+                <Link href="/admin/brands/new" className={t.link}>
+                  {tr('productForm.addBrand')}
+                </Link>
+              </p>
+            )}
+          </div>
+        </div>
+        <Field label={tr('productForm.name')} name="name" value={form.name} onChange={onChange} required />
         <Field
-          label="Short description *"
+          label={tr('productForm.shortDescription')}
           name="short_description"
           value={form.short_description}
           onChange={onChange}
           multiline
           required
         />
-        <Field
-          label="Description"
-          name="description"
-          value={form.description}
-          onChange={onChange}
-          multiline
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Price (€) *" name="price" type="number" step="0.01" value={form.price} onChange={onChange} required />
-          <Field label="Original price (€)" name="original_price" type="number" step="0.01" value={form.original_price} onChange={onChange} />
-        </div>
-        <div>
-          <label className="form-label">Category *</label>
-          <select
-            name="category"
-            value={form.category}
-            onChange={onChange}
-            required
-            className="input w-full"
-          >
-            <option value="">Select category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.label}
-              </option>
-            ))}
-            {form.category &&
-              !categories.some((c) => c.name === form.category) && (
-              <option value={form.category}>{form.category}</option>
-            )}
-          </select>
-          {!isSeller && (
-            <p className="text-xs mt-1 form-hint">
-              <Link href="/admin/categories/new" className={t.link}>
-                Add a new category
-              </Link>
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="form-label">Brand</label>
-          <select
-            name="brand"
-            value={form.brand}
-            onChange={onChange}
-            className="input w-full"
-          >
-            <option value="">No brand</option>
-            {brands.map((b) => (
-              <option key={b.id} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-            {form.brand && !brands.some((b) => b.name === form.brand) && (
-              <option value={form.brand}>{form.brand}</option>
-            )}
-          </select>
-          {!isSeller && (
-            <p className="text-xs mt-1 form-hint">
-              <Link href="/admin/brands/new" className={t.link}>
-                Add a new brand
-              </Link>
-            </p>
-          )}
-        </div>
-        <Field label="Tags (comma-separated)" name="tags" value={form.tags} onChange={onChange} />
       </section>
 
       <section className="card space-y-4">
-        <h2 className="card-section-title">Images</h2>
+        <h2 className="card-section-title">{tr('productForm.sectionImages')}</h2>
         <ProductImageGalleryEditor
           imageUrl={form.image_url}
           galleryLines={form.gallery_images}
@@ -366,38 +363,22 @@ export default function ProductForm({
         />
         {!form.image_url.trim() ? (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            A main image is required before you can save.
+            {tr('productForm.imageRequired')}
           </p>
         ) : null}
       </section>
 
       <section className="card space-y-4">
-        <h2 className="card-section-title">{isSeller ? 'Catalog' : 'Author & catalog'}</h2>
-        {!isSeller && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Author" name="author" value={form.author} onChange={onChange} />
-            <Field
-              label="Author icon (1 char)"
-              name="author_icon"
-              maxLength={1}
-              value={form.author_icon}
-              onChange={onChange}
-            />
-          </div>
-        )}
-        <div>
-          <Field label="SKU" name="sku" value={form.sku} onChange={onChange} required />
-          <p className={`mt-1 text-xs ${t.muted}`}>
-            Required. Must be unique across all products (not case-sensitive).
-          </p>
-        </div>
+        <h2 className="card-section-title">
+          {tr('productForm.sectionInformation')}
+        </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="form-label">Status</label>
+            <label className="form-label">{tr('productForm.status')}</label>
             <select name="status" value={form.status} onChange={onChange} className="input w-full">
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-              <option value="inactive">Inactive</option>
+              <option value="active">{tr('productForm.statusActive')}</option>
+              <option value="draft">{tr('productForm.statusDraft')}</option>
+              <option value="inactive">{tr('productForm.statusInactive')}</option>
             </select>
           </div>
           {!isSeller && (
@@ -409,19 +390,41 @@ export default function ProductForm({
                 onChange={onChange}
                 className="rounded"
               />
-              Featured product
+              {tr('productForm.featured')}
             </label>
           )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
+          <Field
+            label={tr('productForm.price')}
+            name="price"
+            type="number"
+            step="0.01"
+            value={form.price}
+            onChange={onChange}
+            required
+          />
+          <Field
+            label={tr('productForm.originalPrice')}
+            name="original_price"
+            type="number"
+            step="0.01"
+            value={form.original_price}
+            onChange={onChange}
+          />
+          <Field label={tr('productForm.tags')} name="tags" value={form.tags} onChange={onChange} />
+        </div>
+        <div>
+          <Field label={tr('productForm.sku')} name="sku" value={form.sku} onChange={onChange} required />
+          <p className={`mt-1 text-xs ${t.muted}`}>{tr('productForm.skuHint')}</p>
         </div>
       </section>
 
       <section className="card space-y-4">
-        <h2 className="card-section-title">Product page tabs</h2>
-        <p className="form-hint">
-          Content shown under Features, Requirements, and Support on the public product page.
-        </p>
+        <h2 className="card-section-title">{tr('productForm.sectionTabs')}</h2>
+        <p className="form-hint">{tr('productForm.tabsHint')}</p>
         <Field
-          label="Features (one per line)"
+          label={tr('productForm.features')}
           name="features"
           value={form.features}
           onChange={onChange}
@@ -429,7 +432,7 @@ export default function ProductForm({
           rows={6}
         />
         <Field
-          label="Requirements (one per line)"
+          label={tr('productForm.requirements')}
           name="requirements"
           value={form.requirements}
           onChange={onChange}
@@ -437,7 +440,7 @@ export default function ProductForm({
           rows={5}
         />
         <Field
-          label="Compatibility note"
+          label={tr('productForm.compatibility')}
           name="compatibility"
           value={form.compatibility}
           onChange={onChange}
@@ -448,9 +451,9 @@ export default function ProductForm({
 
       {!isSeller && (
         <section className="card space-y-4">
-          <h2 className="card-section-title">Variants & import</h2>
+          <h2 className="card-section-title">{tr('productForm.sectionVariants')}</h2>
           <Field
-            label="Available sizes (one per line)"
+            label={tr('productForm.sizes')}
             name="available_sizes"
             value={form.available_sizes}
             onChange={onChange}
@@ -459,7 +462,7 @@ export default function ProductForm({
             placeholder="39&#10;40&#10;41"
           />
           <Field
-            label="Available colors (one per line)"
+            label={tr('productForm.colors')}
             name="available_colors"
             value={form.available_colors}
             onChange={onChange}
@@ -467,14 +470,14 @@ export default function ProductForm({
             rows={3}
           />
           <Field
-            label="Source URL (Yupoo album)"
+            label={tr('productForm.sourceUrl')}
             name="source_url"
             value={form.source_url}
             onChange={onChange}
             placeholder="https://..."
           />
           <Field
-            label="Source album ID"
+            label={tr('productForm.sourceAlbumId')}
             name="source_album_id"
             value={form.source_album_id}
             onChange={onChange}
@@ -484,17 +487,27 @@ export default function ProductForm({
 
       {!isSeller && (
         <section className="card space-y-4">
-          <h2 className="card-section-title">Stats & reviews</h2>
+          <h2 className="card-section-title">{tr('productForm.sectionStats')}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label={tr('productForm.author')} name="author" value={form.author} onChange={onChange} />
+            <Field
+              label={tr('productForm.authorIcon')}
+              name="author_icon"
+              maxLength={1}
+              value={form.author_icon}
+              onChange={onChange}
+            />
+          </div>
           <p className="form-hint">
-            Shown in the product header. Individual customer reviews are managed under{' '}
+            {tr('productForm.statsHintPrefix')}
             <Link href="/admin/reviews" className={t.link}>
-              Admin → Reviews
+              {tr('productForm.statsHintLink')}
             </Link>
-            .
+            {tr('productForm.statsHintSuffix')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field
-              label="Rating (0–5)"
+              label={tr('productForm.rating')}
               name="rating"
               type="number"
               step="0.1"
@@ -504,7 +517,7 @@ export default function ProductForm({
               onChange={onChange}
             />
             <Field
-              label="Review count"
+              label={tr('productForm.reviewCount')}
               name="review_count"
               type="number"
               min="0"
@@ -512,7 +525,7 @@ export default function ProductForm({
               onChange={onChange}
             />
             <Field
-              label="Download count"
+              label={tr('productForm.downloadCount')}
               name="download_count"
               type="number"
               min="0"
@@ -524,13 +537,13 @@ export default function ProductForm({
       )}
 
       <section className="card space-y-4">
-        <h2 className="card-section-title">Links & version</h2>
-        <Field label="Version" name="version" value={form.version} onChange={onChange} />
-        <Field label="License type" name="license_type" value={form.license_type} onChange={onChange} />
-        <Field label="Demo URL (Support tab)" name="demo_url" value={form.demo_url} onChange={onChange} />
-        <Field label="Documentation URL (Support tab)" name="documentation_url" value={form.documentation_url} onChange={onChange} />
-        <Field label="Support URL (Support tab)" name="support_url" value={form.support_url} onChange={onChange} />
-        <Field label="Download URL" name="download_url" value={form.download_url} onChange={onChange} />
+        <h2 className="card-section-title">{tr('productForm.sectionLinks')}</h2>
+        <Field label={tr('productForm.version')} name="version" value={form.version} onChange={onChange} />
+        <Field label={tr('productForm.licenseType')} name="license_type" value={form.license_type} onChange={onChange} />
+        <Field label={tr('productForm.demoUrl')} name="demo_url" value={form.demo_url} onChange={onChange} />
+        <Field label={tr('productForm.documentationUrl')} name="documentation_url" value={form.documentation_url} onChange={onChange} />
+        <Field label={tr('productForm.supportUrl')} name="support_url" value={form.support_url} onChange={onChange} />
+        <Field label={tr('productForm.downloadUrl')} name="download_url" value={form.download_url} onChange={onChange} />
       </section>
 
       {formActions}

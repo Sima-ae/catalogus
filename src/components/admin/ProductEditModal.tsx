@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import type { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
+import { useI18n } from '@/lib/i18n-context'
 import ProductForm from '@/components/admin/ProductForm'
 
 type ProductEditModalProps = {
@@ -20,6 +21,7 @@ export default function ProductEditModal({
   onSaved,
 }: ProductEditModalProps) {
   const { theme } = useTheme()
+  const { t } = useI18n()
   const isDark = theme === 'dark'
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -53,7 +55,7 @@ export default function ProductEditModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-        aria-label="Close edit product dialog"
+        aria-label={t('confirm.closeDialog')}
         onClick={onClose}
       />
 
@@ -79,10 +81,10 @@ export default function ProductEditModal({
                 isDark ? 'text-white' : 'text-gray-900'
               }`}
             >
-              Edit product
+              {t('product.editProduct')}
             </h2>
             <p className={`text-xs mt-0.5 truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              Update all product details, category, images, and variants.
+              {t('productForm.modalSubtitle')}
             </p>
           </div>
           <button
@@ -93,7 +95,7 @@ export default function ProductEditModal({
                 ? 'text-gray-400 hover:bg-dark-800 hover:text-white'
                 : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
             }`}
-            aria-label="Close"
+            aria-label={t('productForm.close')}
           >
             <XMarkIcon className="h-5 w-5" />
           </button>

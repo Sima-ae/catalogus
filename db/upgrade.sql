@@ -394,3 +394,40 @@ WHERE out_of_stock = 1 AND (stock_status IS NULL OR stock_status = '');
 UPDATE seller_product_prices
 SET out_of_stock = 0, stock_status = NULL
 WHERE unit_price > 0 AND (out_of_stock = 1 OR stock_status IS NOT NULL);
+
+-- Remove legacy "YUPOO" segments from product SKUs (e.g. LOUIS-VUITTON-YUPOO-63229531 → LOUIS-VUITTON-63229531)
+UPDATE products
+SET sku = LEFT(
+  REGEXP_REPLACE(
+    REGEXP_REPLACE(
+      REGEXP_REPLACE(sku, '(?i)yupoo', ''),
+      '[ _-]+',
+      '-'
+    ),
+    '(^-+|-+$)',
+    ''
+  ),
+  255
+)
+WHERE sku REGEXP '(?i)yupoo';
+
+UPDATE products
+SET sku = CONCAT('LEGACY-', LEFT(id, 8))
+WHERE sku IS NULL OR TRIM(sku) = '';
+
+UPDATE products p
+INNER JOIN (
+  SELECT id
+  FROM (
+    SELECT
+      id,
+      ROW_NUMBER() OVER (
+        PARTITION BY LOWER(TRIM(sku))
+        ORDER BY created_at ASC, id ASC
+      ) AS rn
+    FROM products
+    WHERE sku IS NOT NULL AND TRIM(sku) <> ''
+  ) ranked
+  WHERE ranked.rn > 1
+) dup ON dup.id = p.id
+SET p.sku = CONCAT(LEFT(TRIM(p.sku), 246), '-', LEFT(p.id, 8));
