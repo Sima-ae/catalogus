@@ -446,7 +446,8 @@ export async function listPricelistRows(
               { unit_price: number; currency: string; stock_status: PricelistStockStatus | null }
             >()
           ),
-    viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
+    (viewer.role === 'admin' || viewer.role === 'guest') &&
+    isPlatformPricelistOwner(listOwnerId)
       ? loadLatestProductPricesMap(productIds)
       : Promise.resolve(
           new Map<
@@ -535,13 +536,27 @@ export async function listPricelistRows(
           )
         }
       }
-      const dp = buyerDisplayPrices.get(item.product_id)
-      if (dp) {
-        applyResolvedPriceToRowFields(
-          resolvePricelistPriceDisplay(dp),
-          rowPriceTarget,
-          'display'
-        )
+
+      if (isPlatformPricelistOwner(listOwnerId)) {
+        const latest = latestPrices.get(item.product_id)
+        if (latest) {
+          applyResolvedPriceToRowFields(
+            resolvePricelistPriceDisplay(latest),
+            rowPriceTarget,
+            'display'
+          )
+        }
+        canEditPrice = true
+      } else {
+        const dp = buyerDisplayPrices.get(item.product_id)
+        if (dp) {
+          applyResolvedPriceToRowFields(
+            resolvePricelistPriceDisplay(dp),
+            rowPriceTarget,
+            'display'
+          )
+        }
+        canEditPrice = true
       }
     } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
       canEditPrice = true

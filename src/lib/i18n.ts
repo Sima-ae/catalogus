@@ -467,7 +467,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.remember': 'Onthouden op dit apparaat (30 dagen)',
     'pricelist.access.viewPricelist': 'Prijslijst bekijken',
     'pricelist.access.loginRequired':
-      'Log in om deze prijslijst te bekijken, of open een gedeelde link met ?owner= (gebruik owner=platform voor de platformlijst).',
+      'Log in om deze prijslijst te bekijken.',
     'pricelist.access.denied': 'U heeft geen toegang tot deze prijslijst.',
     'pricelist.access.signIn': 'Inloggen op uw account',
     'pricelist.access.backToShop': 'Terug naar de shop',
