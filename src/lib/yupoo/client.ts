@@ -3,13 +3,22 @@ const DEFAULT_UA =
 
 export const DEFAULT_FETCH_UA = DEFAULT_UA
 
-export async function fetchHtml(url: string): Promise<string> {
+export type FetchHtmlOptions = {
+  cookieHeader?: string
+}
+
+export async function fetchHtml(url: string, options?: FetchHtmlOptions): Promise<string> {
+  const headers: Record<string, string> = {
+    'User-Agent': DEFAULT_UA,
+    Accept: 'text/html,application/xhtml+xml',
+    'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8',
+  }
+  if (options?.cookieHeader) {
+    headers.Cookie = options.cookieHeader
+  }
+
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': DEFAULT_UA,
-      Accept: 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8',
-    },
+    headers,
     redirect: 'follow',
   })
 

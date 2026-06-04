@@ -6,6 +6,7 @@ import type { CategoryPickerOption } from '@/lib/category-picker'
 export type ImportSourceFormValues = {
   name: string
   yupoo_category_url: string
+  yupoo_access_password: string
   catalog_category_id: string
   catalog_brand_id: string
 }
@@ -21,6 +22,8 @@ type Props = {
   saving: boolean
   categories: CategoryPickerOption[]
   brands: BrandOption[]
+  /** When editing, source already has a saved password (value is never shown). */
+  hasPassword?: boolean
 }
 
 export default function ImportSourceForm({
@@ -32,6 +35,7 @@ export default function ImportSourceForm({
   saving,
   categories,
   brands,
+  hasPassword = false,
 }: Props) {
   const t = useAppTheme()
 
@@ -62,6 +66,24 @@ export default function ImportSourceForm({
             placeholder="https://xxx.x.yupoo.com/categories/..."
             required
           />
+        </label>
+        <label className="block space-y-1 md:col-span-2">
+          <span className={`text-sm ${t.muted}`}>Yupoo access password (optional)</span>
+          <input
+            className="input w-full"
+            type="password"
+            autoComplete="new-password"
+            value={values.yupoo_access_password}
+            onChange={(e) => set({ yupoo_access_password: e.target.value })}
+            placeholder={
+              hasPassword
+                ? 'Leave blank to keep current password'
+                : 'Only if supplier homepage is encrypted'
+            }
+          />
+          {hasPassword && !values.yupoo_access_password ? (
+            <p className={`text-xs mt-1 ${t.muted}`}>Password is saved on this source.</p>
+          ) : null}
         </label>
         <label className="block space-y-1">
           <span className={`text-sm ${t.muted}`}>Catalog category</span>

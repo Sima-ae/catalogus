@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { superAdminDenial, verifyAdminActor } from '@/lib/admin-api-auth'
 import { parseImportSourceBody, validateImportSourceInput } from '@/lib/admin-import'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { deleteImportSource, getImportSource, updateImportSource } from '@/lib/import-db'
+import {
+  deleteImportSource,
+  getImportSource,
+  toImportSourcePublic,
+  updateImportSource,
+} from '@/lib/import-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -34,11 +39,17 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const source = await updateImportSource(params.id, {
       name: input.name,
       yupoo_category_url: input.yupoo_category_url,
+      ...(input.yupoo_access_password_provided
+        ? {
+            yupoo_access_password: input.yupoo_access_password,
+            clear_yupoo_access_password: !input.yupoo_access_password,
+          }
+        : {}),
       catalog_category_id: input.catalog_category_id,
       catalog_brand_id: input.catalog_brand_id || null,
     })
 
-    return NextResponse.json(source)
+    return NextResponse.json(source ? toImportSourcePublic(source) : null)
   } catch (error) {
     console.error('Import source update error:', error)
     return NextResponse.json(

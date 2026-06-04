@@ -364,3 +364,8 @@ CREATE TABLE IF NOT EXISTS category_translations (
     FOREIGN KEY (category_id) REFERENCES categories(id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Yupoo homepage/category access password (encrypted supplier catalogs)
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS yupoo_access_password VARCHAR(255) NULL
+  AFTER yupoo_category_url;

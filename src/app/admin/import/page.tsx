@@ -25,7 +25,7 @@ import { useAppTheme } from '@/lib/theme-classes'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
-import type { ImportSourceRow } from '@/lib/import-db'
+import type { ImportSourcePublic } from '@/lib/import-db'
 import {
   buildCategoryPickerOptions,
   formatCategoryDisplayName,
@@ -45,23 +45,37 @@ type SyncResult = {
 const emptyForm: ImportSourceFormValues = {
   name: '',
   yupoo_category_url: '',
+  yupoo_access_password: '',
   catalog_category_id: '',
   catalog_brand_id: '',
 }
 
-function sourceToForm(source: ImportSourceRow): ImportSourceFormValues {
+function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
   return {
     name: source.name,
     yupoo_category_url: source.yupoo_category_url,
+    yupoo_access_password: '',
     catalog_category_id: source.catalog_category_id || '',
     catalog_brand_id: source.catalog_brand_id || '',
   }
 }
 
+function formToApiBody(values: ImportSourceFormValues): Record<string, string> {
+  const body: Record<string, string> = {
+    name: values.name,
+    yupoo_category_url: values.yupoo_category_url,
+    catalog_category_id: values.catalog_category_id,
+    catalog_brand_id: values.catalog_brand_id,
+  }
+  const pwd = values.yupoo_access_password.trim()
+  if (pwd) body.yupoo_access_password = pwd
+  return body
+}
+
 export default function AdminImportPage() {
   const t = useAppTheme()
   const { user, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
-  const [sources, setSources] = useState<ImportSourceRow[]>([])
+  const [sources, setSources] = useState<ImportSourcePublic[]>([])
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [categoryLabels, setCategoryLabels] = useState<Map<string, string>>(new Map())
   const [brands, setBrands] = useState<BrandOption[]>([])
@@ -90,7 +104,7 @@ export default function AdminImportPage() {
       cache: 'no-store',
     })
       .then(async (r) => {
-        const data = await parseJsonResponse<{ error?: string } | ImportSourceRow[]>(r)
+        const data = await parseJsonResponse<{ error?: string } | ImportSourcePublic[]>(r)
         if (!r.ok) {
           throw new Error(!Array.isArray(data) && data.error ? data.error : 'Failed to load sources')
         }
@@ -206,7 +220,7 @@ export default function AdminImportPage() {
           ...adminAuthHeaders(user),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(formToApiBody(form)),
       })
       const data = await parseJsonResponse<{ error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'Create failed')
@@ -220,7 +234,7 @@ export default function AdminImportPage() {
     }
   }
 
-  const startEdit = (source: ImportSourceRow) => {
+  const startEdit = (source: ImportSourcePublic) => {
     setEditingId(source.id)
     setEditForm(sourceToForm(source))
     setError('')
@@ -245,7 +259,7 @@ export default function AdminImportPage() {
           ...adminAuthHeaders(user),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(formToApiBody(editForm)),
       })
       const data = await parseJsonResponse<{ error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'Update failed')
@@ -259,7 +273,7 @@ export default function AdminImportPage() {
     }
   }
 
-  const handleDelete = async (source: ImportSourceRow) => {
+  const handleDelete = async (source: ImportSourcePublic) => {
     if (!user || !isSuperAdmin) return
     if (
       !window.confirm(
@@ -488,6 +502,9 @@ export default function AdminImportPage() {
             saving={saving}
             categories={categories}
             brands={brands}
+            hasPassword={
+              sources.find((s) => s.id === editingId)?.hasPassword ?? false
+            }
           />
         </section>
       ) : null}
@@ -515,6 +532,9 @@ export default function AdminImportPage() {
                     <div className={`text-xs truncate max-w-xs ${t.muted}`}>
                       {source.yupoo_category_url}
                     </div>
+                    {source.hasPassword ? (
+                      <div className={`text-xs mt-0.5 ${t.muted}`}>Password set</div>
+                    ) : null}
                   </AdminTd>
                   <AdminTd>
                     {source.catalog_category_id

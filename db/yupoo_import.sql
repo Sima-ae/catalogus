@@ -15,15 +15,17 @@ ALTER TABLE products
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS source_album_id VARCHAR(64) NULL AFTER source_url;
 
-ALTER TABLE products
-  ADD UNIQUE INDEX IF NOT EXISTS uq_products_source_album_id (source_album_id);
+-- Same Yupoo album may exist per brand (see db/import_brand_dedup.sql).
+ALTER TABLE products DROP INDEX IF EXISTS uq_products_source_album_id;
 
--- Prefer db/import_brand_dedup.sql on existing DBs (per-brand album uniqueness).
+ALTER TABLE products
+  ADD UNIQUE INDEX IF NOT EXISTS uq_products_source_album_brand (source_album_id, brand(64));
 
 CREATE TABLE IF NOT EXISTS import_sources (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   yupoo_category_url TEXT NOT NULL,
+  yupoo_access_password VARCHAR(255) NULL,
   catalog_category_id VARCHAR(36) NULL,
   catalog_brand_id VARCHAR(36) NULL,
   enabled TINYINT(1) NOT NULL DEFAULT 1,

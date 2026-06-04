@@ -67,6 +67,7 @@ export type ImportSourceRow = {
   id: string
   name: string
   yupoo_category_url: string
+  yupoo_access_password?: string | null
   catalog_category_id: string | null
   catalog_brand_id: string | null
   enabled: number | boolean
@@ -75,6 +76,17 @@ export type ImportSourceRow = {
   brand_name?: string | null
   /** Skipped albums on the latest import job for this source. */
   skipped_items?: number
+}
+
+/** API-safe import source (password never returned). */
+export type ImportSourcePublic = Omit<ImportSourceRow, 'yupoo_access_password'> & {
+  hasPassword: boolean
+}
+
+export function toImportSourcePublic(row: ImportSourceRow): ImportSourcePublic {
+  const { yupoo_access_password, ...rest } = row
+  const pwd = String(yupoo_access_password ?? '').trim()
+  return { ...rest, hasPassword: pwd.length > 0 }
 }
 
 export type ImportJobRow = {
@@ -145,17 +157,20 @@ export async function getImportSource(id: string): Promise<ImportSourceRow | nul
 export async function createImportSource(input: {
   name: string
   yupoo_category_url: string
+  yupoo_access_password?: string | null
   catalog_category_id?: string | null
   catalog_brand_id?: string | null
 }): Promise<ImportSourceRow> {
   const id = randomUUID()
+  const pwd = normalizeImportSourcePassword(input.yupoo_access_password)
   await queryDb(
-    `INSERT INTO import_sources (id, name, yupoo_category_url, catalog_category_id, catalog_brand_id)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO import_sources (id, name, yupoo_category_url, yupoo_access_password, catalog_category_id, catalog_brand_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name.trim(),
       input.yupoo_category_url.trim(),
+      pwd,
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
     ]
@@ -168,23 +183,56 @@ export async function updateImportSource(
   input: {
     name: string
     yupoo_category_url: string
+    yupoo_access_password?: string | null | undefined
+    clear_yupoo_access_password?: boolean
     catalog_category_id?: string | null
     catalog_brand_id?: string | null
   }
 ): Promise<ImportSourceRow | null> {
-  await queryDb(
-    `UPDATE import_sources
-     SET name = ?, yupoo_category_url = ?, catalog_category_id = ?, catalog_brand_id = ?
-     WHERE id = ?`,
-    [
-      input.name.trim(),
-      input.yupoo_category_url.trim(),
-      input.catalog_category_id || null,
-      input.catalog_brand_id || null,
-      id,
-    ]
-  )
+  const pwd = resolveImportSourcePasswordUpdate(input)
+  if (pwd === undefined) {
+    await queryDb(
+      `UPDATE import_sources
+       SET name = ?, yupoo_category_url = ?, catalog_category_id = ?, catalog_brand_id = ?
+       WHERE id = ?`,
+      [
+        input.name.trim(),
+        input.yupoo_category_url.trim(),
+        input.catalog_category_id || null,
+        input.catalog_brand_id || null,
+        id,
+      ]
+    )
+  } else {
+    await queryDb(
+      `UPDATE import_sources
+       SET name = ?, yupoo_category_url = ?, yupoo_access_password = ?, catalog_category_id = ?, catalog_brand_id = ?
+       WHERE id = ?`,
+      [
+        input.name.trim(),
+        input.yupoo_category_url.trim(),
+        pwd,
+        input.catalog_category_id || null,
+        input.catalog_brand_id || null,
+        id,
+      ]
+    )
+  }
   return getImportSource(id)
+}
+
+function normalizeImportSourcePassword(value: string | null | undefined): string | null {
+  const pwd = String(value ?? '').trim()
+  return pwd || null
+}
+
+function resolveImportSourcePasswordUpdate(input: {
+  yupoo_access_password?: string | null | undefined
+  clear_yupoo_access_password?: boolean
+}): string | null | undefined {
+  if (input.clear_yupoo_access_password) return null
+  if (input.yupoo_access_password === undefined) return undefined
+  return normalizeImportSourcePassword(input.yupoo_access_password)
 }
 
 export async function deleteImportSource(id: string): Promise<boolean> {

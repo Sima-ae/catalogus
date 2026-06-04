@@ -4,18 +4,26 @@
  *
  *   npm run import:worker
  *   npm run import:worker -- --job=<uuid>
+ *   npm run import:worker -- --job=<uuid> --password=<store-access-code>
  *   npm run import:worker -- --job=<uuid> --refresh
  *   npm run import:worker -- --job=<uuid> --refresh --retry-all
  *
  * Skipped albums already exist for the same brand (source_album_id + brand).
  * --refresh  re-fetch Yupoo and update those products (keeps active/draft status).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
+ * --password  overrides the import source's saved Yupoo access password for this run.
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { fetchHtml, sleep } from '@/lib/yupoo/client'
 import { parseCategoryAlbums } from '@/lib/yupoo/parse-category'
 import { parseAlbumPage } from '@/lib/yupoo/parse-album'
+import {
+  createYupooFetchContext,
+  isYupooPasswordGateHtml,
+  YUPOO_PASSWORD_REQUIRED_MSG,
+  type YupooFetchContext,
+} from '@/lib/yupoo/session'
 import { translateProductText } from '@/lib/translate'
 import type { ImportJobItemRow, ImportSourceRow } from '@/lib/import-db'
 import {
@@ -65,6 +73,23 @@ function workerFlags() {
   }
 }
 
+function resolveCliPassword(): string | null {
+  const arg = process.argv.find((a) => a.startsWith('--password='))
+  if (!arg) return null
+  const value = arg.split('=').slice(1).join('=')
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function resolveYupooPassword(
+  source: ImportSourceRow,
+  cliPassword: string | null
+): string | null {
+  if (cliPassword) return cliPassword
+  const stored = String(source.yupoo_access_password ?? '').trim()
+  return stored || null
+}
+
 async function resolveJobId(): Promise<string | null> {
   const arg = process.argv.find((a) => a.startsWith('--job='))
   if (arg) return arg.split('=')[1] || null
@@ -72,11 +97,22 @@ async function resolveJobId(): Promise<string | null> {
   return queued?.id ?? null
 }
 
+function assertNotPasswordGated(html: string, hasPassword: boolean) {
+  if (hasPassword) return
+  if (isYupooPasswordGateHtml(html)) {
+    throw new Error(YUPOO_PASSWORD_REQUIRED_MSG)
+  }
+}
+
 async function buildImportInput(
   item: ImportJobItemRow,
-  source: ImportSourceRow
+  source: ImportSourceRow,
+  fetchPage: (url: string) => Promise<string>,
+  hasPassword: boolean
 ) {
-  const html = await fetchHtml(item.album_url)
+  const html = await fetchPage(item.album_url)
+  assertNotPasswordGated(html, hasPassword)
+
   const album = parseAlbumPage(html, item.album_url, item.album_id)
 
   if (!album.images.length) {
@@ -108,6 +144,7 @@ function inputForRefresh(input: ProductInput): Partial<ProductInput> {
 
 async function processJob(jobId: string) {
   const flags = workerFlags()
+  const cliPassword = resolveCliPassword()
   const job = await getImportJob(jobId)
   if (!job) {
     console.error('Job not found:', jobId)
@@ -124,6 +161,15 @@ async function processJob(jobId: string) {
     console.error('Import source must have catalog_category_id mapped to an active category.')
     process.exit(1)
   }
+
+  const yupooPassword = resolveYupooPassword(source, cliPassword)
+  let yupooCtx: YupooFetchContext | null = null
+  if (yupooPassword) {
+    console.log('==> Yupoo access password: using authenticated fetch')
+    yupooCtx = await createYupooFetchContext(source.yupoo_category_url, yupooPassword)
+  }
+  const fetchPage = yupooCtx ? yupooCtx.fetchHtml.bind(yupooCtx) : fetchHtml
+  const hasPassword = Boolean(yupooPassword)
 
   if (flags.retryAll) {
     const reset = await resetCompletedJobItems(jobId)
@@ -149,8 +195,12 @@ async function processJob(jobId: string) {
 
   if (!items.length && job.total_albums === 0) {
     console.log('==> Fetch category:', source.yupoo_category_url)
-    const html = await fetchHtml(source.yupoo_category_url)
+    const html = await fetchPage(source.yupoo_category_url)
+    assertNotPasswordGated(html, hasPassword)
     const albums = parseCategoryAlbums(html, source.yupoo_category_url)
+    if (!albums.length && isYupooPasswordGateHtml(html)) {
+      throw new Error(YUPOO_PASSWORD_REQUIRED_MSG)
+    }
     console.log(`==> Found ${albums.length} albums`)
     await createImportJobItems(jobId, albums)
     await updateImportJob(jobId, { total_albums: albums.length })
@@ -198,7 +248,12 @@ async function processJob(jobId: string) {
       )
       await sleep(1200)
 
-      const { input, album, translated } = await buildImportInput(item, source)
+      const { input, album, translated } = await buildImportInput(
+        item,
+        source,
+        fetchPage,
+        hasPassword
+      )
 
       if (existing && flags.refresh) {
         await updateProduct(existing.id, inputForRefresh(input))

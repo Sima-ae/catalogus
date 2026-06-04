@@ -3,16 +3,25 @@ export type ImportSourceInput = {
   yupoo_category_url: string
   catalog_category_id: string
   catalog_brand_id: string
+  /** Set when client sends yupoo_access_password in JSON body. */
+  yupoo_access_password?: string
+  /** True when body includes yupoo_access_password (even empty = clear). */
+  yupoo_access_password_provided?: boolean
 }
 
 export function parseImportSourceBody(body: unknown): ImportSourceInput | null {
   if (!body || typeof body !== 'object') return null
   const raw = body as Record<string, unknown>
+  const passwordProvided = Object.prototype.hasOwnProperty.call(raw, 'yupoo_access_password')
   return {
     name: String(raw.name ?? '').trim(),
     yupoo_category_url: String(raw.yupoo_category_url ?? '').trim(),
     catalog_category_id: String(raw.catalog_category_id ?? '').trim(),
     catalog_brand_id: String(raw.catalog_brand_id ?? '').trim(),
+    ...(passwordProvided
+      ? { yupoo_access_password: String(raw.yupoo_access_password ?? '').trim() }
+      : {}),
+    yupoo_access_password_provided: passwordProvided,
   }
 }
 
