@@ -118,7 +118,7 @@ export const MESSAGES_HU: Record<string, string> = {
   'product.reviewsCount': '({count} értékelés)',
   'product.downloads': '{count} letöltés',
   'product.customerReviews': 'Vásárlói értékelések',
-  'product.noReviewsYet': 'Még nincs értékelés ehhez a termékhez.',
+  'product.noReviewsYet': 'Ehhez a termékhez még nincsenek értékelések.',
   'product.select.sizeAndColor': 'Kérjük, válasszon méretet és színt',
   'product.select.size': 'Kérjük, válasszon méretet',
   'product.select.color': 'Kérjük, válasszon színt',

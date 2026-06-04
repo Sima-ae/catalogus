@@ -98,7 +98,7 @@ export const MESSAGES_UK: Record<string, string> = {
   'product.reviewsCount': '({count} відгуків)',
   'product.downloads': '{count} завантажень',
   'product.customerReviews': 'Відгуки клієнтів',
-  'product.noReviewsYet': 'Поки немає відгуків про цей товар.',
+  'product.noReviewsYet': 'Поки що немає відгуків про цей товар.',
   'product.select.sizeAndColor': 'Оберіть розмір і колір',
   'product.select.size': 'Оберіть розмір',
   'product.select.color': 'Оберіть колір',

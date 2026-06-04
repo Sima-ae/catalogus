@@ -98,7 +98,7 @@ export const MESSAGES_SV: Record<string, string> = {
   'product.reviewsCount': '({count} recensioner)',
   'product.downloads': '{count} nedladdningar',
   'product.customerReviews': 'Kundrecensioner',
-  'product.noReviewsYet': 'Inga recensioner för denna produkt ännu.',
+  'product.noReviewsYet': 'Det finns inga recensioner för den här produkten ännu.',
   'product.select.sizeAndColor': 'Välj storlek och färg',
   'product.select.size': 'Välj storlek',
   'product.select.color': 'Välj färg',

@@ -98,7 +98,7 @@ export const MESSAGES_DA: Record<string, string> = {
   'product.reviewsCount': '({count} anmeldelser)',
   'product.downloads': '{count} downloads',
   'product.customerReviews': 'Kundeanmeldelser',
-  'product.noReviewsYet': 'Ingen anmeldelser af dette produkt endnu.',
+  'product.noReviewsYet': 'Der er endnu ingen anmeldelser for dette produkt.',
   'product.select.sizeAndColor': 'Vælg størrelse og farve',
   'product.select.size': 'Vælg størrelse',
   'product.select.color': 'Vælg farve',

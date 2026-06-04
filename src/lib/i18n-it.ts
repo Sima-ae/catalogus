@@ -118,7 +118,7 @@ export const MESSAGES_IT: Record<string, string> = {
   'product.reviewsCount': '({count} recensioni)',
   'product.downloads': '{count} download',
   'product.customerReviews': 'Recensioni dei clienti',
-  'product.noReviewsYet': 'Nessuna recensione per questo prodotto.',
+  'product.noReviewsYet': 'Non ci sono ancora recensioni per questo prodotto.',
   'product.select.sizeAndColor': 'Seleziona taglia e colore',
   'product.select.size': 'Seleziona una taglia',
   'product.select.color': 'Seleziona un colore',

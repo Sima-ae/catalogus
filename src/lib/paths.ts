@@ -40,3 +40,10 @@ export function shopCategoryUrl(categoryName: string): string {
   if (!name) return appPath('/')
   return `${appPath('/')}?category=${encodeURIComponent(name)}`
 }
+
+/** Homepage filtered by product brand (matches shop sidebar / ?brand=). */
+export function shopBrandUrl(brandName: string): string {
+  const name = brandName.trim()
+  if (!name) return appPath('/')
+  return `${appPath('/')}?brand=${encodeURIComponent(name)}`
+}

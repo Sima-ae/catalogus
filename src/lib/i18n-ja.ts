@@ -98,7 +98,7 @@ export const MESSAGES_JA: Record<string, string> = {
   'product.reviewsCount': '（{count} 件のレビュー）',
   'product.downloads': '{count} 件のダウンロード',
   'product.customerReviews': 'カスタマーレビュー',
-  'product.noReviewsYet': 'この商品のレビューはまだありません。',
+  'product.noReviewsYet': 'この商品にはまだレビューがありません。',
   'product.select.sizeAndColor': 'サイズと色を選択してください',
   'product.select.size': 'サイズを選択してください',
   'product.select.color': '色を選択してください',

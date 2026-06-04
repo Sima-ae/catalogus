@@ -98,7 +98,7 @@ export const MESSAGES_KA: Record<string, string> = {
   'product.reviewsCount': '({count} მიმოხილვა)',
   'product.downloads': '{count} ჩამოტვირთვა',
   'product.customerReviews': 'მომხმარებლის მიმოხილვები',
-  'product.noReviewsYet': 'ამ პროდუქტზე ჯერ მიმოხილვები არ არის.',
+  'product.noReviewsYet': 'ამ პროდუქტისთვის ჯერ არ არის მიმოხილვები.',
   'product.select.sizeAndColor': 'აირჩიეთ ზომა და ფერი',
   'product.select.size': 'აირჩიეთ ზომა',
   'product.select.color': 'აირჩიეთ ფერი',

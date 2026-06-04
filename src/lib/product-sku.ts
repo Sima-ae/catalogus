@@ -9,6 +9,23 @@ export function brandSkuPrefix(brandName: string | null | undefined): string {
     .slice(0, 32)
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Drop leading brand slug from SKU when it matches the product brand (case-insensitive). */
+export function stripBrandPrefixFromSku(
+  sku: string,
+  brandName: string | null | undefined
+): string {
+  const raw = String(sku ?? '').trim()
+  if (!raw) return raw
+  const prefix = brandSkuPrefix(brandName)
+  if (!prefix) return raw
+  const stripped = raw.replace(new RegExp(`^${escapeRegExp(prefix)}-`, 'i'), '')
+  return stripped.replace(/(^-+|-+$)/g, '') || raw
+}
+
 /** Remove Yupoo import marker segments from SKU (case-insensitive). */
 export function stripYupooFromSku(sku: string): string {
   let s = sku.replace(/yupoo/gi, '')

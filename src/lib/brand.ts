@@ -8,5 +8,14 @@ export const APP_LOGO_MARK = 'SC'
 export const APP_COPYRIGHT = 'Super Clones © 2026'
 export const APP_DEFAULT_AUTHOR = 'Super Clones'
 export const APP_DEFAULT_AUTHOR_ICON = 'S'
+/** Shown when a product has no version set (product page meta, etc.). */
+export const APP_DEFAULT_PRODUCT_VERSION = APP_NAME
+
+/** Product version label; empty / placeholder → Super Clones. */
+export function resolveProductVersion(value: unknown): string {
+  const v = String(value ?? '').trim()
+  if (!v || v === '—' || v === '-') return APP_DEFAULT_PRODUCT_VERSION
+  return v
+}
 export const CART_STORAGE_KEY = 'superclones-cart'
 export const LEGACY_CART_STORAGE_KEY = 'triplezero-cart'

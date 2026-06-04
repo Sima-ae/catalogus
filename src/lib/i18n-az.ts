@@ -98,7 +98,7 @@ export const MESSAGES_AZ: Record<string, string> = {
   'product.reviewsCount': "({count} yorum)",
   'product.downloads': "{count} indirme",
   'product.customerReviews': "Müşteri yorumları",
-  'product.noReviewsYet': "Bu ürün için henüz yorum yok.",
+  'product.noReviewsYet': 'Bu məhsul üçün hələ rəy yoxdur.',
   'product.select.sizeAndColor': "Lütfen beden ve renk seçin",
   'product.select.size': "Lütfen beden seçin",
   'product.select.color': "Lütfen renk seçin",

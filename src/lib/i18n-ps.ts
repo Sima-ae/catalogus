@@ -98,7 +98,7 @@ export const MESSAGES_PS: Record<string, string> = {
   'product.reviewsCount': "({count} تقييمات)",
   'product.downloads': "{count} تنزيلات",
   'product.customerReviews': "آراء العملاء",
-  'product.noReviewsYet': "لا توجد تقييمات لهذا المنتج بعد.",
+  'product.noReviewsYet': 'د دې محصول لپاره تر اوسه هېڅ بیاکتنې نشته.',
   'product.select.sizeAndColor': "يرجى اختيار المقاس واللون",
   'product.select.size': "يرجى اختيار المقاس",
   'product.select.color': "يرجى اختيار اللون",

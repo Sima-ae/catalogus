@@ -98,7 +98,7 @@ export const MESSAGES_NB: Record<string, string> = {
   'product.reviewsCount': '({count} anmeldelser)',
   'product.downloads': '{count} nedlastinger',
   'product.customerReviews': 'Kundeanmeldelser',
-  'product.noReviewsYet': 'Ingen anmeldelser for dette produktet ennå.',
+  'product.noReviewsYet': 'Det er ingen anmeldelser for dette produktet ennå.',
   'product.select.sizeAndColor': 'Velg størrelse og farge',
   'product.select.size': 'Velg størrelse',
   'product.select.color': 'Velg farge',

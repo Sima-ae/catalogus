@@ -8,7 +8,6 @@ import {
   isBrandingGalleryImageUrl,
   upgradeYupooImageUrl,
 } from '@/lib/product-image-url'
-import { brandSkuPrefix } from '@/lib/product-sku'
 import {
   extractYupooStyleCode,
   isYupooShopTagline,
@@ -158,15 +157,12 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
   }
 }
 
-/** One SKU per Yupoo album + brand; style code alone collides across brands. */
-export function buildSku(album: YupooAlbumData, brandName?: string | null): string {
+/** One SKU per Yupoo album (album id + optional style hint; no brand prefix). */
+export function buildSku(album: YupooAlbumData, _brandName?: string | null): string {
   const id = String(album.albumId).trim()
-  const brand = brandSkuPrefix(brandName)
   const hint = album.skuHint?.trim()
-  if (brand && hint) return `${brand}-${hint}-${id}`
-  if (brand) return `${brand}-${id}`
   if (hint) return `${hint}-${id}`
-  return `ALBUM-${id}`
+  return id
 }
 
 export { parseAttributes }

@@ -98,7 +98,7 @@ export const MESSAGES_AT: Record<string, string> = {
   'product.reviewsCount': "({count} تقييمات)",
   'product.downloads': "{count} تنزيلات",
   'product.customerReviews': "آراء العملاء",
-  'product.noReviewsYet': "لا توجد تقييمات لهذا المنتج بعد.",
+  'product.noReviewsYet': 'لا توجد تقييمات لهذا المنتج بعد.',
   'product.select.sizeAndColor': "يرجى اختيار المقاس واللون",
   'product.select.size': "يرجى اختيار المقاس",
   'product.select.color': "يرجى اختيار اللون",

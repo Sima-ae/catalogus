@@ -22,6 +22,7 @@ import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
+import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import { useI18n } from '@/lib/i18n-context'
@@ -597,7 +598,7 @@ export default function ProductPageClient() {
 
             {/* Product Header */}
             <div>
-              {product.version && product.version !== '—' ? (
+              {product.version && product.version !== APP_DEFAULT_PRODUCT_VERSION ? (
                 <div className="mb-2">
                   <span
                     className={`text-sm px-2 py-1 rounded ${
@@ -924,18 +925,32 @@ export default function ProductPageClient() {
               )}
             </div>
 
-            {product.category ? (
-              <div>
-                <Link
-                  href={product.categoryHref}
-                  className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
-                    theme === 'dark'
-                      ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
-                      : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  {getTopCategoryLabel(product.category, t)}
-                </Link>
+            {product.category || product.brand ? (
+              <div className="flex flex-wrap gap-2">
+                {product.category ? (
+                  <Link
+                    href={product.categoryHref}
+                    className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
+                      theme === 'dark'
+                        ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
+                        : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    {getTopCategoryLabel(product.category, t)}
+                  </Link>
+                ) : null}
+                {product.brand ? (
+                  <Link
+                    href={product.brandHref}
+                    className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
+                      theme === 'dark'
+                        ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
+                        : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
+                    }`}
+                  >
+                    {product.brand}
+                  </Link>
+                ) : null}
               </div>
             ) : null}
           </div>

@@ -1,4 +1,5 @@
-import { appPath, appUrl, shopCategoryUrl } from '@/lib/paths'
+import { resolveProductVersion } from '@/lib/brand'
+import { appPath, appUrl, shopBrandUrl, shopCategoryUrl } from '@/lib/paths'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 import { cleanImportDescription } from '@/lib/yupoo/import-text'
@@ -14,6 +15,8 @@ export type ProductPageView = {
   sku: string
   category: string
   categoryHref: string
+  brand: string
+  brandHref: string
   author: string
   author_icon: string
   rating: number
@@ -57,6 +60,7 @@ function galleryFromApi(raw: Record<string, unknown>): string[] | null {
 /** Map API / database product row to product page UI model (database fields only). */
 export function toProductPageView(raw: Record<string, unknown>): ProductPageView {
   const category = String(raw.category || '').trim()
+  const brandDisplay = String(raw.brand ?? '').trim()
   const sourceUrl = raw.source_url != null ? String(raw.source_url) : null
   const galleryRaw = galleryFromApi(raw)
   const { main, gallery } = resolveProductDisplayImages(
@@ -89,13 +93,15 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     sku: String(raw.sku || '—'),
     category,
     categoryHref: category ? shopCategoryUrl(category) : appPath('/'),
+    brand: brandDisplay,
+    brandHref: brandDisplay ? shopBrandUrl(brandDisplay) : appPath('/'),
     author: String(raw.author || ''),
     author_icon: String(raw.author_icon || ''),
     rating: Number(raw.rating) || 0,
     reviewCount: Number(raw.review_count) || 0,
     downloads: Number(raw.download_count) || 0,
     lastUpdated: formatDate(raw.updated_at || raw.created_at),
-    version: String(raw.version || '—'),
+    version: resolveProductVersion(raw.version),
     compatibility:
       String(raw.compatibility || '').trim() || requirements[0] || '—',
     license: String(raw.license_type || '—'),

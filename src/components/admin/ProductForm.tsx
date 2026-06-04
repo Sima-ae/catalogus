@@ -5,7 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/types'
 import { appPath } from '@/lib/paths'
-import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
+import {
+  APP_DEFAULT_AUTHOR,
+  APP_DEFAULT_AUTHOR_ICON,
+  APP_DEFAULT_PRODUCT_VERSION,
+  resolveProductVersion,
+} from '@/lib/brand'
 import { arrayToLines, parseProductBody, pipeToLines } from '@/lib/product-body'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useI18n } from '@/lib/i18n-context'
@@ -31,7 +36,7 @@ const defaultForm = {
   sku: '',
   status: 'active',
   featured: false,
-  version: '',
+  version: APP_DEFAULT_PRODUCT_VERSION,
   license_type: '',
   demo_url: '',
   documentation_url: '',
@@ -420,35 +425,6 @@ export default function ProductForm({
         </div>
       </section>
 
-      <section className="card space-y-4">
-        <h2 className="card-section-title">{tr('productForm.sectionTabs')}</h2>
-        <p className="form-hint">{tr('productForm.tabsHint')}</p>
-        <Field
-          label={tr('productForm.features')}
-          name="features"
-          value={form.features}
-          onChange={onChange}
-          multiline
-          rows={6}
-        />
-        <Field
-          label={tr('productForm.requirements')}
-          name="requirements"
-          value={form.requirements}
-          onChange={onChange}
-          multiline
-          rows={5}
-        />
-        <Field
-          label={tr('productForm.compatibility')}
-          name="compatibility"
-          value={form.compatibility}
-          onChange={onChange}
-          multiline
-          rows={2}
-        />
-      </section>
-
       {!isSeller && (
         <section className="card space-y-4">
           <h2 className="card-section-title">{tr('productForm.sectionVariants')}</h2>
@@ -484,6 +460,35 @@ export default function ProductForm({
           />
         </section>
       )}
+
+      <section className="card space-y-4">
+        <h2 className="card-section-title">{tr('productForm.sectionTabs')}</h2>
+        <p className="form-hint">{tr('productForm.tabsHint')}</p>
+        <Field
+          label={tr('productForm.features')}
+          name="features"
+          value={form.features}
+          onChange={onChange}
+          multiline
+          rows={6}
+        />
+        <Field
+          label={tr('productForm.requirements')}
+          name="requirements"
+          value={form.requirements}
+          onChange={onChange}
+          multiline
+          rows={5}
+        />
+        <Field
+          label={tr('productForm.compatibility')}
+          name="compatibility"
+          value={form.compatibility}
+          onChange={onChange}
+          multiline
+          rows={2}
+        />
+      </section>
 
       {!isSeller && (
         <section className="card space-y-4">
@@ -568,7 +573,7 @@ function mapProductToForm(p: Partial<Product>) {
     sku: p.sku || '',
     status: p.status || 'active',
     featured: !!p.featured,
-    version: p.version || '',
+    version: resolveProductVersion(p.version),
     license_type: p.license_type || '',
     demo_url: p.demo_url || '',
     documentation_url: p.documentation_url || '',
