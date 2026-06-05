@@ -318,6 +318,10 @@ export default function ProductForm({
         </div>
       )}
 
+      {variant === 'page' ? (
+        <div className="flex flex-wrap items-center justify-end gap-3">{formActions}</div>
+      ) : null}
+
       <section className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <h2 className="card-section-title mb-0">{tr('productForm.sectionBasicInfo')}</h2>
