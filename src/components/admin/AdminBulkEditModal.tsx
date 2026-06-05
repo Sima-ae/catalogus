@@ -35,6 +35,25 @@ function countByField(products: Product[], field: 'category' | 'brand'): Map<str
   return counts
 }
 
+function namesFromCounts(counts: Map<string, number>): Set<string> {
+  const names = new Set<string>()
+  for (const name of Array.from(counts.keys())) {
+    if (name !== '—') names.add(name)
+  }
+  return names
+}
+
+function orderedNames(selected: Set<string>, order: string[]): string[] {
+  const out: string[] = []
+  for (const name of order) {
+    if (selected.has(name) && !out.includes(name)) out.push(name)
+  }
+  for (const name of Array.from(selected)) {
+    if (!out.includes(name)) out.push(name)
+  }
+  return out
+}
+
 function CurrentValues({
   label,
   counts,
@@ -51,7 +70,7 @@ function CurrentValues({
         Current {label}
       </span>
       <div className="flex flex-wrap gap-1.5">
-        {entries.map(([name, count]) => (
+        {entries.map(([name, n]) => (
           <span
             key={name}
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
@@ -61,7 +80,7 @@ function CurrentValues({
             }`}
           >
             {name}
-            <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>({count})</span>
+            <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>({n})</span>
           </span>
         ))}
       </div>
@@ -86,22 +105,17 @@ export default function AdminBulkEditModal({
   const categoryCounts = useMemo(() => countByField(selectedProducts, 'category'), [selectedProducts])
   const brandCounts = useMemo(() => countByField(selectedProducts, 'brand'), [selectedProducts])
 
-  const uniformCategory = useMemo(() => {
-    if (categoryCounts.size !== 1) return null
-    return Array.from(categoryCounts.keys())[0] ?? null
-  }, [categoryCounts])
+  const currentCategoryNames = useMemo(() => namesFromCounts(categoryCounts), [categoryCounts])
+  const currentBrandNames = useMemo(() => namesFromCounts(brandCounts), [brandCounts])
 
-  const uniformBrand = useMemo(() => {
-    if (brandCounts.size !== 1) return null
-    const name = Array.from(brandCounts.keys())[0] ?? null
-    return name && name !== '—' ? name : null
-  }, [brandCounts])
+  const categoryOrder = useMemo(() => categories.map((c) => c.name), [categories])
+  const brandOrder = useMemo(() => brands.map((b) => b.name), [brands])
 
   const checkboxClass =
     'h-4 w-4 rounded border-gray-400 accent-primary-600 text-primary-600 focus:ring-primary-500'
 
-  const [categoryTarget, setCategoryTarget] = useState<string | null>(null)
-  const [brandTarget, setBrandTarget] = useState<string | null>(null)
+  const [extraCategories, setExtraCategories] = useState<Set<string>>(new Set())
+  const [extraBrands, setExtraBrands] = useState<Set<string>>(new Set())
   const [clearBrand, setClearBrand] = useState(false)
   const [changePrice, setChangePrice] = useState(false)
   const [price, setPrice] = useState('')
@@ -111,8 +125,8 @@ export default function AdminBulkEditModal({
 
   useEffect(() => {
     if (!open) return
-    setCategoryTarget(null)
-    setBrandTarget(null)
+    setExtraCategories(new Set())
+    setExtraBrands(new Set())
     setClearBrand(false)
     setChangePrice(false)
     setPrice('')
@@ -143,27 +157,71 @@ export default function AdminBulkEditModal({
 
   if (!open) return null
 
+  const isCategoryChecked = (name: string) =>
+    currentCategoryNames.has(name) || extraCategories.has(name)
+
+  const isBrandChecked = (name: string) =>
+    !clearBrand && (currentBrandNames.has(name) || extraBrands.has(name))
+
   const toggleCategory = (name: string) => {
-    setCategoryTarget((prev) => (prev === name ? null : name))
+    if (currentCategoryNames.has(name)) return
+    setExtraCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
   }
 
   const toggleBrand = (name: string) => {
+    if (currentBrandNames.has(name)) return
     setClearBrand(false)
-    setBrandTarget((prev) => (prev === name ? null : name))
+    setExtraBrands((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
   }
 
   const toggleClearBrand = () => {
-    setBrandTarget(null)
-    setClearBrand((prev) => !prev)
+    setClearBrand((prev) => {
+      const next = !prev
+      if (next) setExtraBrands(new Set())
+      return next
+    })
+  }
+
+  const buildCategoryValue = (): string | undefined => {
+    if (extraCategories.size === 0) return undefined
+    const all = new Set([
+      ...Array.from(currentCategoryNames),
+      ...Array.from(extraCategories),
+    ])
+    return orderedNames(all, categoryOrder).join(' / ')
+  }
+
+  const buildBrandValue = (): string | undefined => {
+    if (extraBrands.size === 0) return undefined
+    const all = new Set([
+      ...Array.from(currentBrandNames),
+      ...Array.from(extraBrands),
+    ])
+    return orderedNames(all, brandOrder).join(' X ')
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const patch: BulkEditPayload = {}
 
-    if (categoryTarget) patch.category = categoryTarget
+    const categoryValue = buildCategoryValue()
+    if (categoryValue) patch.category = categoryValue
+
     if (clearBrand) patch.brand = null
-    else if (brandTarget) patch.brand = brandTarget
+    else {
+      const brandValue = buildBrandValue()
+      if (brandValue) patch.brand = brandValue
+    }
 
     if (changePrice) {
       const n = Number(price)
@@ -188,8 +246,8 @@ export default function AdminBulkEditModal({
   }
 
   const hasChanges =
-    categoryTarget !== null ||
-    brandTarget !== null ||
+    extraCategories.size > 0 ||
+    extraBrands.size > 0 ||
     clearBrand ||
     changePrice ||
     changeOriginalPrice ||
@@ -231,8 +289,8 @@ export default function AdminBulkEditModal({
               Bulk edit
             </h2>
             <p className={`text-sm mt-0.5 ${muted}`}>
-              {count} selected — check a new category or brand to apply. Duplicates are moved to
-              trash automatically.
+              {count} selected — current categories/brands stay checked. Add more to combine
+              (brands: Supreme X Nike).
             </p>
           </div>
           <button
@@ -253,23 +311,26 @@ export default function AdminBulkEditModal({
 
             <fieldset className="space-y-2">
               <legend className={`text-sm font-medium ${label}`}>Set category</legend>
-              <p className={`text-xs ${muted}`}>Check one category to move all selected products.</p>
+              <p className={`text-xs ${muted}`}>
+                Current categories stay checked. Add more to combine (e.g. SHOES / BAGS).
+              </p>
               <div
                 className={`max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1 ${
                   isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
                 }`}
               >
                 {categories.map((c) => {
-                  const isCurrent = categoryCounts.has(c.name)
+                  const isCurrent = currentCategoryNames.has(c.name)
                   const isActiveCurrent =
                     isCurrent && categoryCounts.get(c.name) === count
-                  const checked =
-                    categoryTarget === c.name ||
-                    (categoryTarget === null && c.name === uniformCategory)
+                  const checked = isCategoryChecked(c.name)
+                  const locked = isCurrent
                   return (
                     <label
                       key={c.id}
-                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
+                        locked ? 'cursor-default' : 'cursor-pointer'
+                      } ${
                         checked
                           ? isDark
                             ? 'bg-primary-500/20'
@@ -281,7 +342,7 @@ export default function AdminBulkEditModal({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleCategory(c.name)}
-                        disabled={busy}
+                        disabled={busy || locked}
                         className={checkboxClass}
                       />
                       <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -290,9 +351,7 @@ export default function AdminBulkEditModal({
                       {isActiveCurrent ? (
                         <span className={`text-xs ${muted}`}>current</span>
                       ) : isCurrent ? (
-                        <span className={`text-xs ${muted}`}>
-                          {categoryCounts.get(c.name)}
-                        </span>
+                        <span className={`text-xs ${muted}`}>{categoryCounts.get(c.name)}</span>
                       ) : null}
                     </label>
                   )
@@ -302,7 +361,9 @@ export default function AdminBulkEditModal({
 
             <fieldset className="space-y-2">
               <legend className={`text-sm font-medium ${label}`}>Set brand</legend>
-              <p className={`text-xs ${muted}`}>Check one brand — uncheck to leave unchanged.</p>
+              <p className={`text-xs ${muted}`}>
+                Current brands stay checked. Add collabs with X (e.g. Supreme X Nike).
+              </p>
               <div
                 className={`max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1 ${
                   isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
@@ -329,16 +390,17 @@ export default function AdminBulkEditModal({
                   </span>
                 </label>
                 {brands.map((b) => {
-                  const isCurrent = brandCounts.has(b.name)
+                  const isCurrent = currentBrandNames.has(b.name)
                   const isActiveCurrent =
                     isCurrent && brandCounts.get(b.name) === count
-                  const checked =
-                    brandTarget === b.name ||
-                    (brandTarget === null && !clearBrand && b.name === uniformBrand)
+                  const checked = isBrandChecked(b.name)
+                  const locked = isCurrent
                   return (
                     <label
                       key={b.id}
-                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
+                        locked ? 'cursor-default' : 'cursor-pointer'
+                      } ${
                         checked
                           ? isDark
                             ? 'bg-primary-500/20'
@@ -350,7 +412,7 @@ export default function AdminBulkEditModal({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleBrand(b.name)}
-                        disabled={busy}
+                        disabled={busy || locked || clearBrand}
                         className={checkboxClass}
                       />
                       <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -365,7 +427,36 @@ export default function AdminBulkEditModal({
                   )
                 })}
               </div>
+              {extraBrands.size > 0 ? (
+                <p className={`text-xs ${muted}`}>
+                  Will set brand to:{' '}
+                  <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
+                    {orderedNames(
+                      new Set([
+                        ...Array.from(currentBrandNames),
+                        ...Array.from(extraBrands),
+                      ]),
+                      brandOrder
+                    ).join(' X ')}
+                  </strong>
+                </p>
+              ) : null}
             </fieldset>
+
+            {extraCategories.size > 0 ? (
+              <p className={`text-xs ${muted}`}>
+                Will set category to:{' '}
+                <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
+                  {orderedNames(
+                    new Set([
+                      ...Array.from(currentCategoryNames),
+                      ...Array.from(extraCategories),
+                    ]),
+                    categoryOrder
+                  ).join(' / ')}
+                </strong>
+              </p>
+            ) : null}
 
             <div className="space-y-2">
               <label className="flex items-center gap-2">
@@ -374,7 +465,7 @@ export default function AdminBulkEditModal({
                   checked={changePrice}
                   onChange={(e) => setChangePrice(e.target.checked)}
                   disabled={busy}
-                  className="rounded border-gray-400"
+                  className={checkboxClass}
                 />
                 <span className={`text-sm font-medium ${label}`}>Set price</span>
               </label>
@@ -399,7 +490,7 @@ export default function AdminBulkEditModal({
                   checked={changeOriginalPrice}
                   onChange={(e) => setChangeOriginalPrice(e.target.checked)}
                   disabled={busy}
-                  className="rounded border-gray-400"
+                  className={checkboxClass}
                 />
                 <span className={`text-sm font-medium ${label}`}>Set original price</span>
               </label>

@@ -288,6 +288,36 @@ export async function resolveCategoryById(
   return rows[0] ?? null
 }
 
+/** Resolve category for bulk edit; supports compound labels (e.g. "SHOES / BAGS"). */
+async function resolveBulkCategoryInput(categoryName: string): Promise<{ id: string; name: string }> {
+  const trimmed = categoryName.trim()
+  try {
+    return await resolveProductCategoryInput(trimmed)
+  } catch (err) {
+    if (!(err instanceof UnknownCategoryError)) throw err
+    const firstSegment = trimmed.split('/').map((s) => s.trim()).find(Boolean)
+    if (firstSegment) {
+      const resolved = await resolveCategoryByName(firstSegment)
+      if (resolved) return { id: resolved.id, name: trimmed }
+    }
+    throw err
+  }
+}
+
+/** Resolve brand for bulk edit; supports collab labels (e.g. "Supreme X Nike"). */
+async function resolveBulkBrandInput(
+  brandName: string
+): Promise<{ id?: string; name: string | null }> {
+  try {
+    return await resolveProductBrandInput(brandName)
+  } catch (err) {
+    if (err instanceof UnknownBrandError) {
+      return { name: brandName, id: undefined }
+    }
+    throw err
+  }
+}
+
 async function resolveProductCategoryInput(
   categoryName: string,
   categoryId?: string | null
@@ -815,6 +845,48 @@ export async function deleteProductById(id: string) {
   await queryDb('DELETE FROM products WHERE id = ?', [id])
 }
 
+async function deleteProductRelatedRows(productIds: string[]): Promise<void> {
+  if (!productIds.length) return
+  const placeholders = productIds.map(() => '?').join(', ')
+  try {
+    await queryDb(
+      `DELETE FROM catalog_product_positions WHERE product_id IN (${placeholders})`,
+      productIds
+    )
+  } catch {
+    /* table may not exist on older databases */
+  }
+}
+
+/** Hard-delete products that are already in trash (ignores non-trash ids). */
+export async function permanentlyDeleteTrashProducts(productIds: string[]): Promise<number> {
+  if (!productIds.length) return 0
+
+  const placeholders = productIds.map(() => '?').join(', ')
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM products WHERE id IN (${placeholders}) AND status = 'trash'`,
+    productIds
+  )
+  const ids = rows.map((r) => r.id)
+  if (!ids.length) return 0
+
+  await deleteProductRelatedRows(ids)
+  const ph = ids.map(() => '?').join(', ')
+  const result = await queryDb<{ affectedRows?: number }>(
+    `DELETE FROM products WHERE id IN (${ph})`,
+    ids
+  )
+  return result?.affectedRows ?? ids.length
+}
+
+/** Permanently remove every product in trash. */
+export async function emptyProductTrash(): Promise<number> {
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM products WHERE status = 'trash'`
+  )
+  return permanentlyDeleteTrashProducts(rows.map((r) => r.id))
+}
+
 export type ProductStatusValue = 'active' | 'draft' | 'inactive' | 'trash'
 
 export type BulkProductPatch = {
@@ -1039,12 +1111,11 @@ export async function bulkUpdateProducts(
   } = {}
 
   if (patch.category !== undefined) {
-    resolved.category = await resolveProductCategoryInput(patch.category)
+    resolved.category = await resolveBulkCategoryInput(patch.category)
   }
 
   if (patch.brand !== undefined && patch.brand?.trim() && (await brandsTableExists())) {
-    const b = await resolveProductBrandInput(patch.brand.trim())
-    resolved.brand = { id: b.id, name: b.name }
+    resolved.brand = await resolveBulkBrandInput(patch.brand.trim())
   } else if (patch.brand !== undefined) {
     resolved.brand = { name: null }
   }

@@ -492,30 +492,39 @@ export default function AdminProductsPage() {
           value={stats.total}
           icon={<CubeIcon className="w-6 h-6 text-white" />}
           accentColor="bg-primary-500"
+          active={statusFilter === 'all'}
+          onClick={() => setStatusFilter('all')}
         />
         <StatCard
           title="Published"
           value={stats.active}
           icon={<CheckCircleIcon className="w-6 h-6 text-white" />}
           accentColor="bg-green-500"
+          active={statusFilter === 'active'}
+          onClick={() => setStatusFilter('active')}
         />
         <StatCard
           title="Draft"
           value={stats.draft}
           icon={<DocumentTextIcon className="w-6 h-6 text-white" />}
           accentColor="bg-amber-500"
+          active={statusFilter === 'draft'}
+          onClick={() => setStatusFilter('draft')}
         />
         <StatCard
           title="Inactive"
           value={stats.inactive}
           icon={<NoSymbolIcon className="w-6 h-6 text-white" />}
           accentColor="bg-gray-500"
+          active={statusFilter === 'inactive'}
+          onClick={() => setStatusFilter('inactive')}
         />
         <StatCard
           title="Trash"
           value={stats.trash ?? 0}
           icon={<TrashIcon className="w-6 h-6 text-white" />}
           accentColor="bg-red-600"
+          href={appPath('/admin/trash')}
         />
       </div>
 

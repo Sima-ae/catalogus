@@ -19,12 +19,14 @@ import {
   ArrowDownTrayIcon,
   Bars3Icon,
   XMarkIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon },
   { name: 'Pricelist', href: '/pricelist', icon: DocumentTextIcon },
   { name: 'Products', href: '/admin/products', icon: CubeIcon },
+  { name: 'Trash', href: '/admin/trash', icon: TrashIcon },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
   { name: 'Users', href: '/admin/users', icon: UsersIcon },
   { name: 'Categories', href: '/admin/categories', icon: TagIcon },
