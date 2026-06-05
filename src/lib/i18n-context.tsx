@@ -22,10 +22,12 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 export function I18nProvider({
   initialLocale,
   categoryMessages: initialCategoryMessages = {},
+  tagMessages: initialTagMessages = {},
   children,
 }: {
   initialLocale?: string | null
   categoryMessages?: Record<string, string>
+  tagMessages?: Record<string, string>
   children: React.ReactNode
 }) {
   const [locale, setLocaleState] = useState<Locale>(
@@ -33,12 +35,18 @@ export function I18nProvider({
   )
   const [categoryMessages, setCategoryMessages] =
     useState<Record<string, string>>(initialCategoryMessages)
+  const [tagMessages, setTagMessages] =
+    useState<Record<string, string>>(initialTagMessages)
 
   const staticMessages = useMemo(() => getMessages(locale), [locale])
 
   useEffect(() => {
     setCategoryMessages(initialCategoryMessages)
   }, [initialCategoryMessages])
+
+  useEffect(() => {
+    setTagMessages(initialTagMessages)
+  }, [initialTagMessages])
 
   useEffect(() => {
     let cancelled = false
@@ -58,6 +66,24 @@ export function I18nProvider({
     }
   }, [locale])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch(appPath(`/api/i18n/tag-messages?locale=${encodeURIComponent(locale)}`), {
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: unknown) => {
+        if (cancelled || !data || typeof data !== 'object' || Array.isArray(data)) return
+        setTagMessages(data as Record<string, string>)
+      })
+      .catch(() => {
+        if (!cancelled) setTagMessages({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
+
   const value = useMemo<I18nContextValue>(() => {
     return {
       locale,
@@ -69,11 +95,12 @@ export function I18nProvider({
         }
       },
       t: (key, values) => {
-        const msg = staticMessages[key] ?? categoryMessages[key] ?? key
+        const msg =
+          staticMessages[key] ?? categoryMessages[key] ?? tagMessages[key] ?? key
         return formatMessage(msg, values)
       },
     }
-  }, [locale, staticMessages, categoryMessages])
+  }, [locale, staticMessages, categoryMessages, tagMessages])
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }

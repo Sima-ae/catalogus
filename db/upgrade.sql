@@ -443,6 +443,19 @@ WHERE version IS NULL
 -- Required on production: npx tsx scripts/remove-brand-from-skus.ts
 -- (SQL-only updates miss mismatched rows, e.g. LOUIS-VUITTON-… with brand GUCCI.)
 
+-- Localized product tag labels (auto-generated when products are saved)
+CREATE TABLE IF NOT EXISTS tag_translations (
+  tag_name VARCHAR(191) NOT NULL,
+  locale VARCHAR(8) NOT NULL,
+  label VARCHAR(255) NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (tag_name, locale),
+  KEY idx_tag_translations_locale (locale)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backfill tag translations for existing products:
+--   npx tsx scripts/sync-tag-translations.ts
+
 -- Manual catalog sort order per shop view (homepage, /new, category, subcategory, brand).
 CREATE TABLE IF NOT EXISTS catalog_product_positions (
   scope VARCHAR(128) NOT NULL,

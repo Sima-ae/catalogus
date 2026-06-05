@@ -36,6 +36,10 @@ import {
 } from '@/lib/catalog-products'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
 import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/AdminBulkEditModal'
+import ProductLabelPill from '@/components/admin/ProductLabelPill'
+import { getTopCategoryLabel } from '@/lib/i18n-categories'
+import { getTagLabel } from '@/lib/i18n-tags'
+import { parseBrandCompound, parseCategoryCompound } from '@/lib/product-taxonomy'
 import { useI18n } from '@/lib/i18n-context'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
@@ -780,8 +784,39 @@ export default function AdminProductsPage() {
                   </div>
                 </AdminTd>
                 <AdminTd className="font-mono text-xs whitespace-nowrap">{p.sku || '—'}</AdminTd>
-                <AdminTd>{p.category || '—'}</AdminTd>
-                <AdminTd>{p.brand || '—'}</AdminTd>
+                <AdminTd>
+                  {p.category ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {parseCategoryCompound(p.category).map((cat) => (
+                        <ProductLabelPill
+                          key={cat}
+                          label={getTopCategoryLabel(cat, tr)}
+                          isDark={t.isDark}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
+                </AdminTd>
+                <AdminTd>
+                  {p.brand || (p.tags && p.tags.length > 0) ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {parseBrandCompound(p.brand || '').map((brand) => (
+                        <ProductLabelPill key={brand} label={brand} isDark={t.isDark} />
+                      ))}
+                      {(p.tags ?? []).map((tag) => (
+                        <ProductLabelPill
+                          key={tag}
+                          label={getTagLabel(tag, tr)}
+                          isDark={t.isDark}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
+                </AdminTd>
                 <AdminTd>{formatPrice(p.price)}</AdminTd>
                 <AdminTd>
                   <span

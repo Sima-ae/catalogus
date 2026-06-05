@@ -18,6 +18,7 @@ import { LanguagePickerProvider } from '@/lib/language-picker-context'
 import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
 import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
 import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
+import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -41,7 +42,10 @@ export default async function RootLayout({
       ? rawLocale
       : DEFAULT_LOCALE
   const messages = getMessages(locale)
-  const categoryMessages = await getCategoryTranslationMessages(locale)
+  const [categoryMessages, tagMessages] = await Promise.all([
+    getCategoryTranslationMessages(locale),
+    getTagTranslationMessages(locale),
+  ])
   const preloadText = messages['loading.generic'] || 'Loading…'
 
   return (
@@ -59,7 +63,11 @@ export default async function RootLayout({
           >
             <SiteAccessGuard>
               <ThemeProvider>
-                <I18nProvider initialLocale={locale} categoryMessages={categoryMessages}>
+                <I18nProvider
+                  initialLocale={locale}
+                  categoryMessages={categoryMessages}
+                  tagMessages={tagMessages}
+                >
                     <LanguagePickerProvider>
                       <CatalogModeProvider>
                         <ProductCardDisplayProvider>

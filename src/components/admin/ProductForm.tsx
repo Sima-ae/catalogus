@@ -376,7 +376,10 @@ export default function ProductForm({
             )}
           </div>
         </div>
-        <Field label={tr('productForm.name')} name="name" value={form.name} onChange={onChange} required />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label={tr('productForm.name')} name="name" value={form.name} onChange={onChange} required />
+          <Field label={tr('productForm.tags')} name="tags" value={form.tags} onChange={onChange} />
+        </div>
         <Field
           label={tr('productForm.shortDescription')}
           name="short_description"
@@ -431,7 +434,7 @@ export default function ProductForm({
             </label>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
           <Field
             label={tr('productForm.price')}
             name="price"
@@ -449,7 +452,6 @@ export default function ProductForm({
             value={form.original_price}
             onChange={onChange}
           />
-          <Field label={tr('productForm.tags')} name="tags" value={form.tags} onChange={onChange} />
         </div>
         <div>
           <Field label={tr('productForm.sku')} name="sku" value={form.sku} onChange={onChange} required />

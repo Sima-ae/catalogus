@@ -10,6 +10,7 @@ import {
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
+import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 import { serializeProductRow } from '@/lib/product-serialize'
 import {
@@ -476,6 +477,10 @@ export async function insertProduct(input: ProductInput) {
     columns.map((c) => insertMap[c])
   )
 
+  void syncTagTranslationsForTags(input.tags).catch((err) => {
+    console.error('[tag-translations] sync after insert failed:', err)
+  })
+
   return fetchProductRow(id)
 }
 
@@ -590,6 +595,13 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 
   values.push(id)
   await queryDb(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, values)
+
+  if (input.tags !== undefined) {
+    void syncTagTranslationsForTags(input.tags).catch((err) => {
+      console.error('[tag-translations] sync after update failed:', err)
+    })
+  }
+
   return fetchProductRow(id)
 }
 
