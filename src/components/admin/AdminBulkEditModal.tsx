@@ -86,6 +86,20 @@ export default function AdminBulkEditModal({
   const categoryCounts = useMemo(() => countByField(selectedProducts, 'category'), [selectedProducts])
   const brandCounts = useMemo(() => countByField(selectedProducts, 'brand'), [selectedProducts])
 
+  const uniformCategory = useMemo(() => {
+    if (categoryCounts.size !== 1) return null
+    return Array.from(categoryCounts.keys())[0] ?? null
+  }, [categoryCounts])
+
+  const uniformBrand = useMemo(() => {
+    if (brandCounts.size !== 1) return null
+    const name = Array.from(brandCounts.keys())[0] ?? null
+    return name && name !== '—' ? name : null
+  }, [brandCounts])
+
+  const checkboxClass =
+    'h-4 w-4 rounded border-gray-400 accent-primary-600 text-primary-600 focus:ring-primary-500'
+
   const [categoryTarget, setCategoryTarget] = useState<string | null>(null)
   const [brandTarget, setBrandTarget] = useState<string | null>(null)
   const [clearBrand, setClearBrand] = useState(false)
@@ -247,7 +261,11 @@ export default function AdminBulkEditModal({
               >
                 {categories.map((c) => {
                   const isCurrent = categoryCounts.has(c.name)
-                  const checked = categoryTarget === c.name
+                  const isActiveCurrent =
+                    isCurrent && categoryCounts.get(c.name) === count
+                  const checked =
+                    categoryTarget === c.name ||
+                    (categoryTarget === null && c.name === uniformCategory)
                   return (
                     <label
                       key={c.id}
@@ -264,13 +282,17 @@ export default function AdminBulkEditModal({
                         checked={checked}
                         onChange={() => toggleCategory(c.name)}
                         disabled={busy}
-                        className="rounded border-gray-400"
+                        className={checkboxClass}
                       />
                       <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                         {c.label}
                       </span>
-                      {isCurrent ? (
+                      {isActiveCurrent ? (
                         <span className={`text-xs ${muted}`}>current</span>
+                      ) : isCurrent ? (
+                        <span className={`text-xs ${muted}`}>
+                          {categoryCounts.get(c.name)}
+                        </span>
                       ) : null}
                     </label>
                   )
@@ -300,7 +322,7 @@ export default function AdminBulkEditModal({
                     checked={clearBrand}
                     onChange={toggleClearBrand}
                     disabled={busy}
-                    className="rounded border-gray-400"
+                    className={checkboxClass}
                   />
                   <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                     Clear brand
@@ -308,7 +330,11 @@ export default function AdminBulkEditModal({
                 </label>
                 {brands.map((b) => {
                   const isCurrent = brandCounts.has(b.name)
-                  const checked = brandTarget === b.name
+                  const isActiveCurrent =
+                    isCurrent && brandCounts.get(b.name) === count
+                  const checked =
+                    brandTarget === b.name ||
+                    (brandTarget === null && !clearBrand && b.name === uniformBrand)
                   return (
                     <label
                       key={b.id}
@@ -325,13 +351,15 @@ export default function AdminBulkEditModal({
                         checked={checked}
                         onChange={() => toggleBrand(b.name)}
                         disabled={busy}
-                        className="rounded border-gray-400"
+                        className={checkboxClass}
                       />
                       <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                         {b.name}
                       </span>
-                      {isCurrent ? (
+                      {isActiveCurrent ? (
                         <span className={`text-xs ${muted}`}>current</span>
+                      ) : isCurrent ? (
+                        <span className={`text-xs ${muted}`}>{brandCounts.get(b.name)}</span>
                       ) : null}
                     </label>
                   )
