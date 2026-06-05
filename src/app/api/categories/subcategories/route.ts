@@ -6,7 +6,7 @@ import { CATALOG_FILTER_CACHE_CONTROL, jsonCached } from '@/lib/http-cache'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/** Subcategories under ?category= that have active products (optional ?brand=). */
+/** Subcategories under ?category= (optional ?brand= for product counts). */
 export async function GET(request: NextRequest) {
   try {
     const category = request.nextUrl.searchParams.get('category')?.trim()

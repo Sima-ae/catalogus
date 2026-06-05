@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto'
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { queryDb, resetDbPool } from '@/lib/db'
+import { invalidateActiveCategoriesCache } from '@/lib/categories-persistence'
 import { slugifyCategory } from '@/lib/category-slug'
 
 function loadDotEnv() {
@@ -54,6 +55,14 @@ async function findChildCategory(parentId: string, name: string): Promise<Catego
   return rows[0] ?? null
 }
 
+async function countProducts(categoryId: string): Promise<number> {
+  const [{ c }] = await queryDb<{ c: number }[]>(
+    `SELECT COUNT(*) AS c FROM products WHERE category_id = ?`,
+    [categoryId]
+  )
+  return Number(c ?? 0)
+}
+
 async function main() {
   loadDotEnv()
   const dryRun = process.argv.includes('--dry-run')
@@ -65,8 +74,24 @@ async function main() {
     return
   }
 
+  const topShoes = await findTopLevelCategory('SHOES')
   let kidsShoes = await findChildCategory(kids.id, 'SHOES')
+  const kidsShoesNamedChild = await findChildCategory(kids.id, 'KIDS SHOES')
   const kidsShoesTop = await findTopLevelCategory('KIDS SHOES')
+
+  if (!kidsShoes && kidsShoesNamedChild) {
+    console.log(`Renaming subcategory KIDS › KIDS SHOES → KIDS › SHOES (${kidsShoesNamedChild.id})`)
+    if (!dryRun) {
+      await queryDb(
+        `UPDATE categories SET name = 'SHOES', slug = ? WHERE id = ?`,
+        [slugifyCategory('SHOES'), kidsShoesNamedChild.id]
+      )
+      invalidateActiveCategoriesCache()
+      kidsShoes = { ...kidsShoesNamedChild, name: 'SHOES' }
+    } else {
+      kidsShoes = kidsShoesNamedChild
+    }
+  }
 
   if (!kidsShoes) {
     const id = randomUUID()
@@ -77,6 +102,7 @@ async function main() {
          VALUES (?, 'SHOES', ?, NULL, ?, 1)`,
         [id, slugifyCategory('SHOES'), kids.id]
       )
+      invalidateActiveCategoriesCache()
       kidsShoes = { id, name: 'SHOES', parent_id: kids.id, active: 1 }
     } else {
       kidsShoes = { id: '(new)', name: 'SHOES', parent_id: kids.id, active: 1 }
@@ -85,14 +111,12 @@ async function main() {
     console.log(`KIDS › SHOES already exists (${kidsShoes.id})`)
   }
 
-  if (!kidsShoes || kidsShoes.id === '(new)') {
-    if (dryRun) {
-      console.log('\nDry run complete — would create KIDS › SHOES.')
-      return
-    }
-    kidsShoes = await findChildCategory(kids.id, 'SHOES')
+  if (dryRun && kidsShoes.id === '(new)') {
+    console.log('\nDry run complete — would create KIDS › SHOES.')
+    return
   }
 
+  kidsShoes = await findChildCategory(kids.id, 'SHOES')
   if (!kidsShoes) {
     console.error('Could not resolve KIDS › SHOES category id.')
     process.exitCode = 1
@@ -100,14 +124,12 @@ async function main() {
   }
 
   const storageLabel = 'KIDS › SHOES'
-  let movedFromTop = 0
+  let movedFromTopKidsShoes = 0
   let movedFromLabel = 0
+  let movedFromImport = 0
 
   if (kidsShoesTop && kidsShoesTop.id !== kidsShoes.id) {
-    const [{ c }] = await queryDb<{ c: number }[]>(
-      `SELECT COUNT(*) AS c FROM products WHERE category_id = ?`,
-      [kidsShoesTop.id]
-    )
+    const c = await countProducts(kidsShoesTop.id)
     console.log(`Top-level KIDS SHOES (${kidsShoesTop.id}): ${c} products to move`)
     if (c > 0 && !dryRun) {
       await queryDb(
@@ -115,9 +137,10 @@ async function main() {
         [kidsShoes.id, storageLabel, kidsShoesTop.id]
       )
     }
-    movedFromTop = c
+    movedFromTopKidsShoes = c
     if (!dryRun) {
       await queryDb(`UPDATE categories SET active = 0 WHERE id = ?`, [kidsShoesTop.id])
+      invalidateActiveCategoriesCache()
       console.log('Deactivated top-level KIDS SHOES category')
     }
   }
@@ -134,7 +157,7 @@ async function main() {
   )
   movedFromLabel = labelRows.length
   if (labelRows.length > 0) {
-    console.log(`${labelRows.length} products matched by category label — updating to KIDS › SHOES`)
+    console.log(`${labelRows.length} products matched by category label`)
     if (!dryRun) {
       await queryDb(
         `UPDATE products SET category_id = ?, category = ?
@@ -149,16 +172,56 @@ async function main() {
     }
   }
 
+  if (topShoes) {
+    const importRows = await queryDb<{ id: string }[]>(
+      `SELECT DISTINCT p.id
+       FROM products p
+       INNER JOIN import_job_items i ON i.product_id = p.id AND i.status IN ('imported', 'skipped')
+       INNER JOIN import_jobs j ON j.id = i.job_id
+       INNER JOIN import_sources s ON s.id = j.source_id AND s.catalog_category_id = ?
+       WHERE p.category_id = ?`,
+      [kids.id, topShoes.id]
+    )
+    movedFromImport = importRows.length
+    if (importRows.length > 0) {
+      console.log(
+        `${importRows.length} products imported via KIDS source but assigned to top-level SHOES`
+      )
+      if (!dryRun) {
+        await queryDb(
+          `UPDATE products p
+           INNER JOIN import_job_items i ON i.product_id = p.id AND i.status IN ('imported', 'skipped')
+           INNER JOIN import_jobs j ON j.id = i.job_id
+           INNER JOIN import_sources s ON s.id = j.source_id AND s.catalog_category_id = ?
+           SET p.category_id = ?, p.category = ?
+           WHERE p.category_id = ?`,
+          [kids.id, kidsShoes.id, storageLabel, topShoes.id]
+        )
+      }
+    }
+  }
+
   const [{ activeCount }] = await queryDb<{ activeCount: number }[]>(
     `SELECT COUNT(*) AS activeCount FROM products
      WHERE status = 'active' AND category_id = ?`,
     [kidsShoes.id]
   )
 
+  const kidsChildren = await queryDb<{ name: string }[]>(
+    `SELECT name FROM categories WHERE active = 1 AND parent_id = ? ORDER BY name`,
+    [kids.id]
+  )
+  console.log('KIDS subcategories in DB:', kidsChildren.map((r) => r.name).join(', ') || '(none)')
+
   console.log(
     dryRun
-      ? `\nDry run: would move ${movedFromTop} from top-level KIDS SHOES, ${movedFromLabel} by label.`
-      : `\nDone. Active products on KIDS › SHOES: ${activeCount} (subcategory pill shows when > 0).`
+      ? `\nDry run summary:
+  - create KIDS › SHOES: ${kidsShoes.id === '(new)' ? 'yes' : 'no'}
+  - move from top-level KIDS SHOES: ${movedFromTopKidsShoes}
+  - move by category label: ${movedFromLabel}
+  - move from top SHOES (KIDS import source): ${movedFromImport}`
+      : `\nDone. Active products on KIDS › SHOES: ${activeCount}
+Shop subcategory pill "SCHOENEN" appears under KINDEREN after deploy + hard refresh.`
   )
 }
 

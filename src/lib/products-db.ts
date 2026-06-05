@@ -421,7 +421,7 @@ export type ShopSubcategoryOption = {
   productCount: number
 }
 
-/** Active subcategories under a parent that have at least one active product. */
+/** Direct subcategories under a parent — always listed; productCount is for display/sorting only. */
 export async function listShopSubcategoriesWithProducts(
   parentCategoryName: string,
   brandName?: string
@@ -434,7 +434,7 @@ export async function listShopSubcategoriesWithProducts(
   const idPlaceholders = childIds.map(() => '?').join(', ')
 
   const brand = brandName?.trim()
-  const brandClause =
+  const brandJoin =
     brand && brand !== 'All'
       ? `AND (
            LOWER(TRIM(p.brand)) = LOWER(?)
@@ -449,19 +449,19 @@ export async function listShopSubcategoriesWithProducts(
   const rows = await queryDb<{ id: string; name: string; productCount: number }[]>(
     `SELECT c.id, c.name, COUNT(DISTINCT p.id) AS productCount
      FROM categories c
-     INNER JOIN products p ON p.status = 'active' AND p.category_id = c.id
-     ${brandClause}
+     LEFT JOIN products p ON p.status = 'active' AND p.category_id = c.id ${brandJoin}
      WHERE c.id IN (${idPlaceholders}) AND c.active = 1
      GROUP BY c.id, c.name
-     HAVING productCount > 0
      ORDER BY c.name ASC`,
     [...brandParams, ...childIds]
   )
 
-  return rows.map((row) => ({
-    id: String(row.id),
-    name: String(row.name),
-    productCount: Number(row.productCount ?? 0),
+  const countsById = new Map(rows.map((row) => [String(row.id), Number(row.productCount ?? 0)]))
+
+  return children.map((child) => ({
+    id: String(child.id),
+    name: String(child.name),
+    productCount: countsById.get(String(child.id)) ?? 0,
   }))
 }
 

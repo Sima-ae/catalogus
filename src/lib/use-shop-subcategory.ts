@@ -50,9 +50,7 @@ export function useShopSubcategory(selectedCategory: string) {
             ? ((data as { subcategories: ShopSubcategoryRow[] }).subcategories ?? [])
             : []
         setSubcategories(
-          rows.filter(
-            (row) => row?.name && Number(row.productCount) > 0
-          ) as ShopSubcategoryRow[]
+          rows.filter((row) => row?.name) as ShopSubcategoryRow[]
         )
       })
       .catch(() => {
