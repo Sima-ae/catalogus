@@ -637,18 +637,26 @@ export async function listProductsPaginated(
   return listProductsPaginatedAdmin(page, limit)
 }
 
-/** Paginated admin catalog with optional status/search filters in SQL. */
+/** Paginated admin catalog with optional status/search/category/brand filters in SQL. */
 export async function listProductsPaginatedAdmin(
   page: number,
   limit: number,
-  options: { status?: AdminProductStatusFilter; search?: string } = {}
+  options: {
+    status?: AdminProductStatusFilter
+    search?: string
+    category?: string
+    brand?: string
+  } = {}
 ): Promise<CatalogProductsPage> {
-  const safeLimit = Math.min(120, Math.max(1, limit))
+  const safeLimit = Math.min(500, Math.max(1, limit))
   const safePage = Math.max(1, page)
   const offset = (safePage - 1) * safeLimit
 
-  const select = await productSelectSql()
-  const { whereSql, params } = buildAdminProductFilters(options.status, options.search)
+  const [select, hasBrandsTable] = await Promise.all([productSelectSql(), brandsTableExists()])
+  const { whereSql, params } = buildAdminProductFilters({
+    ...options,
+    includeBrandJoin: hasBrandsTable,
+  })
   const fromIndex = select.search(/\bFROM\b/i)
   const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
 
@@ -807,6 +815,93 @@ export async function deleteProductById(id: string) {
 }
 
 export type ProductStatusValue = 'active' | 'draft' | 'inactive' | 'trash'
+
+export type BulkProductPatch = {
+  category?: string
+  brand?: string | null
+  price?: number
+  original_price?: number | null
+  status?: ProductStatusValue
+}
+
+/** Apply the same field changes to many products (only defined patch keys are updated). */
+export async function bulkUpdateProducts(
+  productIds: string[],
+  patch: BulkProductPatch
+): Promise<number> {
+  if (!productIds.length) return 0
+
+  const setParts: string[] = []
+  const setValues: unknown[] = []
+
+  if (patch.category !== undefined) {
+    const resolved = await resolveProductCategoryInput(patch.category)
+    const schema = await getProductSchemaFlags()
+    setParts.push('category = ?')
+    setValues.push(resolved.name)
+    if (schema.categoryId) {
+      setParts.push('category_id = ?')
+      setValues.push(resolved.id)
+    }
+  }
+
+  if (patch.brand !== undefined && (await brandsTableExists())) {
+    const hasBrandCol = await productsHaveBrandColumn()
+    const hasBrandId = await productsHaveBrandIdColumn()
+    const trimmed = patch.brand?.trim() ?? ''
+    if (!trimmed) {
+      if (hasBrandCol) {
+        setParts.push('brand = ?')
+        setValues.push(null)
+      }
+      if (hasBrandId) {
+        setParts.push('brand_id = ?')
+        setValues.push(null)
+      }
+    } else {
+      const resolved = await resolveProductBrandInput(trimmed)
+      if (hasBrandCol) {
+        setParts.push('brand = ?')
+        setValues.push(resolved.name)
+      }
+      if (hasBrandId && resolved.id) {
+        setParts.push('brand_id = ?')
+        setValues.push(resolved.id)
+      }
+    }
+  }
+
+  if (patch.price !== undefined) {
+    setParts.push('price = ?')
+    setValues.push(patch.price)
+  }
+
+  if (patch.original_price !== undefined) {
+    setParts.push('original_price = ?')
+    setValues.push(patch.original_price)
+  }
+
+  if (patch.status !== undefined) {
+    setParts.push('status = ?')
+    setValues.push(patch.status)
+  }
+
+  if (!setParts.length) return 0
+
+  const batchSize = 200
+  let updated = 0
+  for (let i = 0; i < productIds.length; i += batchSize) {
+    const batch = productIds.slice(i, i + batchSize)
+    const placeholders = batch.map(() => '?').join(', ')
+    const result = await queryDb<{ affectedRows?: number }>(
+      `UPDATE products SET ${setParts.join(', ')} WHERE id IN (${placeholders})`,
+      [...setValues, ...batch]
+    )
+    updated += result?.affectedRows ?? batch.length
+  }
+
+  return updated
+}
 
 export async function bulkUpdateProductStatus(
   productIds: string[],

@@ -34,6 +34,8 @@ import {
   isCatalogProductsPage,
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
+import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
+import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/AdminBulkEditModal'
 import { useI18n } from '@/lib/i18n-context'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
@@ -147,15 +149,67 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [brandFilter, setBrandFilter] = useState('all')
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [categories, setCategories] = useState<CategoryPickerOption[]>([])
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
     return () => window.clearTimeout(timer)
   }, [search])
+
+  useEffect(() => {
+    if (!user) return
+    const headers = adminAuthHeaders(user)
+    Promise.all([
+      fetch(appPath('/api/admin/categories'), { headers, cache: 'no-store' }),
+      fetch(appPath('/api/brands'), { cache: 'no-store' }),
+    ])
+      .then(async ([catRes, brandRes]) => {
+        if (catRes.ok) {
+          const data = await catRes.json()
+          if (Array.isArray(data)) {
+            setCategories(
+              buildCategoryPickerOptions(
+                data.map(
+                  (c: {
+                    id: string
+                    name: string
+                    parent_id?: string | null
+                    parent_name?: string | null
+                  }) => ({
+                    id: c.id,
+                    name: c.name,
+                    parent_id: c.parent_id,
+                    parent_name: c.parent_name,
+                  })
+                )
+              )
+            )
+          }
+        }
+        if (brandRes.ok) {
+          const data = await brandRes.json()
+          if (Array.isArray(data)) {
+            setBrands(
+              data
+                .map((b: { id: string; name: string }) => ({
+                  id: String(b.id),
+                  name: String(b.name),
+                }))
+                .sort((a, b) => a.name.localeCompare(b.name))
+            )
+          }
+        }
+      })
+      .catch(() => {})
+  }, [user])
 
   const loadProducts = useCallback(() => {
     if (!user) return
@@ -170,6 +224,8 @@ export default function AdminProductsPage() {
         limit: pageSize,
         status: statusFilter,
         search: debouncedSearch || undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        brand: brandFilter !== 'all' ? brandFilter : undefined,
       }) + '&scope=admin'
 
     Promise.all([
@@ -209,7 +265,7 @@ export default function AdminProductsPage() {
         setProductStats(null)
       })
       .finally(() => setLoading(false))
-  }, [user, currentPage, pageSize, statusFilter, debouncedSearch])
+  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch])
 
   useEffect(() => {
     loadProducts()
@@ -217,7 +273,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, pageSize])
+  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize])
 
   const stats = useMemo(() => {
     if (productStats) {
@@ -337,6 +393,32 @@ export default function AdminProductsPage() {
     }
   }
 
+  const runBulkEdit = async (patch: BulkEditPayload) => {
+    if (!user || !selectedIds.length) return
+
+    setBulkWorking(true)
+    setError('')
+
+    try {
+      const res = await fetch(appPath('/api/admin/products/bulk-update'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds: selectedIds, ...patch }),
+      })
+      const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
+      if (!res.ok) throw new Error(data.error || 'Bulk edit failed')
+      setBulkEditOpen(false)
+      loadProducts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk edit failed')
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
   const publishAllDrafts = async () => {
     if (!user || stats.draft <= 0) return
     if (!confirm(`Publish all ${stats.draft} draft product(s)?`)) return
@@ -432,7 +514,7 @@ export default function AdminProductsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          <label className="sm:w-44 space-y-1">
+          <label className="sm:w-40 space-y-1">
             <span className={`text-sm font-medium ${t.muted}`}>Status</span>
             <select
               className="input w-full"
@@ -446,7 +528,37 @@ export default function AdminProductsPage() {
               <option value="trash">Trash</option>
             </select>
           </label>
-          <label className="sm:w-36 space-y-1">
+          <label className="sm:w-48 space-y-1">
+            <span className={`text-sm font-medium ${t.muted}`}>Category</span>
+            <select
+              className="input w-full"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="all">All categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sm:w-44 space-y-1">
+            <span className={`text-sm font-medium ${t.muted}`}>Brand</span>
+            <select
+              className="input w-full"
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+            >
+              <option value="all">All brands</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sm:w-32 space-y-1">
             <span className={`text-sm font-medium ${t.muted}`}>Per page</span>
             <select
               className="input w-full"
@@ -468,6 +580,12 @@ export default function AdminProductsPage() {
           {statusFilter !== 'all' && (
             <> · status: {statusLabel(statusFilter)}</>
           )}
+          {categoryFilter !== 'all' && (
+            <> · category: {categoryFilter}</>
+          )}
+          {brandFilter !== 'all' && (
+            <> · brand: {brandFilter}</>
+          )}
         </p>
 
         {selected.size > 0 && (
@@ -477,6 +595,14 @@ export default function AdminProductsPage() {
             <span className={`text-sm font-medium ${t.heading}`}>
               {selected.size} selected
             </span>
+            <button
+              type="button"
+              className="btn-primary text-sm"
+              disabled={bulkWorking}
+              onClick={() => setBulkEditOpen(true)}
+            >
+              Bulk edit
+            </button>
             {statusFilter === 'trash' ? (
               <button
                 type="button"
@@ -535,7 +661,11 @@ export default function AdminProductsPage() {
 
       {loading ? (
         <p className={t.muted}>{tr('loading.products')}</p>
-      ) : totalItems === 0 && !debouncedSearch && statusFilter === 'all' ? (
+      ) : totalItems === 0 &&
+        !debouncedSearch &&
+        statusFilter === 'all' &&
+        categoryFilter === 'all' &&
+        brandFilter === 'all' ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">No products yet.</p>
           <Link href={appPath('/admin/products/new')} className="btn-primary inline-flex items-center gap-2">
@@ -552,6 +682,8 @@ export default function AdminProductsPage() {
             onClick={() => {
               setSearch('')
               setStatusFilter('all')
+              setCategoryFilter('all')
+              setBrandFilter('all')
             }}
           >
             Clear filters
@@ -661,6 +793,15 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+      <AdminBulkEditModal
+        open={bulkEditOpen}
+        count={selected.size}
+        categories={categories}
+        brands={brands}
+        busy={bulkWorking}
+        onClose={() => setBulkEditOpen(false)}
+        onApply={runBulkEdit}
+      />
     </AdminPageShell>
   )
 }

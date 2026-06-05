@@ -185,26 +185,68 @@ export function parseAdminProductsQuery(
   return { ...base, status }
 }
 
-/** WHERE clause for admin product tables (status + search). */
+export type AdminProductFilterOptions = {
+  status?: AdminProductStatusFilter
+  search?: string
+  category?: string
+  brand?: string
+  includeBrandJoin?: boolean
+}
+
+/** WHERE clause for admin product tables (status, search, category, brand). */
 export function buildAdminProductFilters(
-  status?: AdminProductStatusFilter,
+  statusOrOptions?: AdminProductStatusFilter | AdminProductFilterOptions,
   search?: string
 ): CatalogSqlFilters {
+  const options: AdminProductFilterOptions =
+    typeof statusOrOptions === 'object' && statusOrOptions !== null
+      ? statusOrOptions
+      : { status: statusOrOptions, search }
+
   const where: string[] = []
   const params: unknown[] = []
+  const includeBrand = options.includeBrandJoin === true
 
-  if (status && status !== 'all') {
+  if (options.status && options.status !== 'all') {
     where.push('p.status = ?')
-    params.push(status)
+    params.push(options.status)
   }
 
-  const searchTerm = search?.trim()
+  if (options.category && options.category !== 'All') {
+    where.push('(p.category = ? OR c.name = ?)')
+    params.push(options.category, options.category)
+  }
+
+  if (options.brand && options.brand !== 'All') {
+    if (includeBrand) {
+      where.push('(p.brand = ? OR b.name = ?)')
+      params.push(options.brand, options.brand)
+    } else {
+      where.push('p.brand = ?')
+      params.push(options.brand)
+    }
+  }
+
+  const searchTerm = options.search?.trim()
   if (searchTerm) {
     const like = `%${searchTerm}%`
-    where.push(
-      `(p.name LIKE ? OR p.sku LIKE ? OR p.brand LIKE ? OR p.description LIKE ? OR p.short_description LIKE ? OR p.category LIKE ? OR c.name LIKE ? OR p.tags LIKE ?)`
-    )
-    params.push(like, like, like, like, like, like, like, like)
+    const searchParts = [
+      'p.name LIKE ?',
+      'p.sku LIKE ?',
+      'p.brand LIKE ?',
+      'p.description LIKE ?',
+      'p.short_description LIKE ?',
+      'p.category LIKE ?',
+      'c.name LIKE ?',
+      'p.tags LIKE ?',
+    ]
+    const searchParams = [like, like, like, like, like, like, like, like]
+    if (includeBrand) {
+      searchParts.push('b.name LIKE ?')
+      searchParams.push(like)
+    }
+    where.push(`(${searchParts.join(' OR ')})`)
+    params.push(...searchParams)
   }
 
   return {
