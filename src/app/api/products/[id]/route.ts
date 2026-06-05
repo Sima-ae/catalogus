@@ -5,6 +5,7 @@ import {
   DuplicateSkuError,
   getProductById,
   MissingSkuError,
+  type ProductInput,
   UnknownBrandError,
   UnknownCategoryError,
   updateProduct,
@@ -88,11 +89,12 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as Record<string, unknown>
-    let input = isProductImageOrderPatch(body)
+    const imageOnly = isProductImageOrderPatch(body)
+    let input: Partial<ProductInput> = imageOnly
       ? parseProductImageOrderBody(body)
       : parseProductBody(body)
-    if (auth.access.kind === 'seller') {
-      input = applySellerProductInput(input, auth.access.actor)
+    if (!imageOnly && auth.access.kind === 'seller') {
+      input = applySellerProductInput(input as ProductInput, auth.access.actor)
     }
 
     const product = await updateProduct(params.id, input)
