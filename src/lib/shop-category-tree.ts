@@ -9,6 +9,27 @@ function isActiveRow(row: CategoryTreeRow): boolean {
   return active !== false && active !== 0
 }
 
+/**
+ * Names like "KIDS SLIPPERS" under parent "SLIPPERS" are separate shop categories,
+ * not subcategories — they must not roll up into the parent filter or subcategory pills.
+ */
+export function isQualifiedSiblingCategory(parentName: string, childName: string): boolean {
+  const parent = normalizeName(parentName)
+  const child = normalizeName(childName)
+  if (!parent || !child || parent === child) return false
+  return child.endsWith(` ${parent}`)
+}
+
+/** Shop sidebar / pills: true for top-level rows and detached qualified siblings. */
+export function isShopTopLevelCategory(rows: CategoryTreeRow[], name: string): boolean {
+  const cat = findCategoryByName(rows, name)
+  if (!cat) return false
+  if (!cat.parent_id) return true
+  const parent = rows.find((row) => row.id === cat.parent_id)
+  if (!parent?.name) return false
+  return isQualifiedSiblingCategory(parent.name, cat.name)
+}
+
 /** Find a category row by display name (case-insensitive). */
 export function findCategoryByName(
   rows: CategoryTreeRow[],
@@ -38,7 +59,12 @@ export function getDirectChildCategories(
   const parent = findCategoryByName(rows, parentName)
   if (!parent) return []
   return rows
-    .filter((row) => row.parent_id === parent.id && isActiveRow(row))
+    .filter(
+      (row) =>
+        row.parent_id === parent.id &&
+        isActiveRow(row) &&
+        !isQualifiedSiblingCategory(parent.name, row.name)
+    )
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 }
 
@@ -52,16 +78,17 @@ function getCategoryAndDescendantIds(
 ): { ids: string[]; names: string[] } {
   const ids: string[] = [cat.id]
   const names: string[] = [cat.name]
-  const walk = (parentId: string) => {
+  const walk = (parentId: string, parentName: string) => {
     for (const row of rows) {
       if (row.parent_id === parentId && isActiveRow(row)) {
+        if (isQualifiedSiblingCategory(parentName, row.name)) continue
         ids.push(row.id)
         names.push(row.name)
-        walk(row.id)
+        walk(row.id, row.name)
       }
     }
   }
-  walk(cat.id)
+  walk(cat.id, cat.name)
   return { ids, names }
 }
 
@@ -98,7 +125,12 @@ export function resolveShopCategoryFilter(
         normalizeName(row.name) === normalizeName(subcategory) &&
         isActiveRow(row)
     )
-    if (!child) return { categoryIds: [], legacyNames: [], strictIdOnly: true }
+    if (
+      !child ||
+      isQualifiedSiblingCategory(parent.name, child.name)
+    ) {
+      return { categoryIds: [], legacyNames: [], strictIdOnly: true }
+    }
     return { categoryIds: [child.id], legacyNames: [], strictIdOnly: true }
   }
 
@@ -139,5 +171,7 @@ export function findParentCategoryName(
   const cat = findCategoryByName(rows, name)
   if (!cat?.parent_id) return null
   const parent = rows.find((row) => row.id === cat.parent_id)
-  return parent?.name?.trim() || null
+  if (!parent?.name) return null
+  if (isQualifiedSiblingCategory(parent.name, cat.name)) return null
+  return parent.name.trim()
 }

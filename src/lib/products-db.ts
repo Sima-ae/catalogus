@@ -11,7 +11,11 @@ import {
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
-import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
+import {
+  getDirectChildCategories,
+  isQualifiedSiblingCategory,
+  resolveShopCategoryFilter,
+} from '@/lib/shop-category-tree'
 import { serializeProductRow } from '@/lib/product-serialize'
 import {
   brandsTableExists,
@@ -357,14 +361,12 @@ export async function listShopSubcategoriesWithProducts(
   parentCategoryName: string,
   brandName?: string
 ): Promise<ShopSubcategoryOption[]> {
-  const parentRows = await queryDb<{ id: string }[]>(
-    `SELECT id FROM categories
-     WHERE active = 1 AND (name = ? OR slug = ?)
-     LIMIT 1`,
-    [parentCategoryName.trim(), slugifyCategory(parentCategoryName)]
-  )
-  const parentId = parentRows[0]?.id
-  if (!parentId) return []
+  const categories = await loadActiveCategories()
+  const children = getDirectChildCategories(categories, parentCategoryName)
+  if (!children.length) return []
+
+  const childIds = children.map((row) => row.id)
+  const idPlaceholders = childIds.map(() => '?').join(', ')
 
   const brand = brandName?.trim()
   const brandClause =
@@ -384,11 +386,11 @@ export async function listShopSubcategoriesWithProducts(
      FROM categories c
      INNER JOIN products p ON p.status = 'active' AND p.category_id = c.id
      ${brandClause}
-     WHERE c.parent_id = ? AND c.active = 1
+     WHERE c.id IN (${idPlaceholders}) AND c.active = 1
      GROUP BY c.id, c.name
      HAVING productCount > 0
      ORDER BY c.name ASC`,
-    [...brandParams, parentId]
+    [...brandParams, ...childIds]
   )
 
   return rows.map((row) => ({
@@ -1225,7 +1227,8 @@ export async function listCategories(activeOnly = false) {
 
 async function assertValidCategoryParent(
   categoryId: string | null,
-  parentId: string | null | undefined
+  parentId: string | null | undefined,
+  categoryName?: string
 ) {
   const parent = parentId?.trim() || null
   if (!parent) return null
@@ -1239,6 +1242,12 @@ async function assertValidCategoryParent(
   if (categoryId && parentRow.parent_id === categoryId) {
     throw new Error('Invalid parent category (circular reference)')
   }
+  const name = categoryName?.trim()
+  if (name && isQualifiedSiblingCategory(String(parentRow.name ?? ''), name)) {
+    throw new Error(
+      `${name} is a separate top-level category, not a subcategory of ${parentRow.name}`
+    )
+  }
   return parent
 }
 
@@ -1248,7 +1257,7 @@ export async function insertCategory(input: {
   description?: string
   parent_id?: string | null
 }) {
-  const parent_id = await assertValidCategoryParent(null, input.parent_id)
+  const parent_id = await assertValidCategoryParent(null, input.parent_id, input.name)
   const id = randomUUID()
   await queryDb(
     'INSERT INTO categories (id, name, slug, description, parent_id, active) VALUES (?, ?, ?, ?, ?, 1)',
@@ -1280,7 +1289,7 @@ export async function updateCategoryById(
   input: { name: string; slug: string; description?: string; active?: boolean; parent_id?: string | null }
 ) {
   const prev = await getCategoryById(id)
-  const parent_id = await assertValidCategoryParent(id, input.parent_id)
+  const parent_id = await assertValidCategoryParent(id, input.parent_id, input.name)
 
   await queryDb(
     'UPDATE categories SET name = ?, slug = ?, description = ?, active = ?, parent_id = ? WHERE id = ?',

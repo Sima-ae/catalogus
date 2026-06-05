@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
 import { loadActiveCategories } from '@/lib/categories-persistence'
+import { buildLegacyCategoryTextMatch } from '@/lib/catalog-products'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 
 export class UnknownBrandError extends Error {
@@ -73,17 +74,17 @@ async function listActiveBrandsForShopCategory(
     if (!categoryFilter.strictIdOnly && categoryFilter.legacyNames.length) {
       const legacyNames = categoryFilter.legacyNames.filter(Boolean)
       if (legacyNames.length) {
-        const namePlaceholders = legacyNames.map(() => '?').join(', ')
-        categoryMatch = `(${categoryMatch} OR (p.category_id IS NULL AND p.category IN (${namePlaceholders})))`
-        params.push(...legacyNames)
+        const legacy = buildLegacyCategoryTextMatch(legacyNames)
+        categoryMatch = `(${categoryMatch} OR (p.category_id IS NULL AND ${legacy.sql}))`
+        params.push(...legacy.params)
       }
     }
   } else if (categoryFilter.legacyNames.length) {
     const legacyNames = categoryFilter.legacyNames.filter(Boolean)
-    const namePlaceholders = legacyNames.map(() => '?').join(', ')
-    categoryMatch = `p.category IN (${namePlaceholders})`
+    const legacy = buildLegacyCategoryTextMatch(legacyNames)
+    categoryMatch = legacy.sql
     params.length = 0
-    params.push(...legacyNames)
+    params.push(...legacy.params)
   }
 
   return queryDb<Record<string, unknown>[]>(

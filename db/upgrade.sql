@@ -456,6 +456,16 @@ CREATE TABLE IF NOT EXISTS tag_translations (
 -- Backfill tag translations for existing products:
 --   npx tsx scripts/sync-tag-translations.ts
 
+-- Detach qualified sibling categories (e.g. KIDS SLIPPERS) wrongly nested under SLIPPERS.
+-- They are separate top-level categories, not subcategories of the shorter name.
+UPDATE categories child
+INNER JOIN categories parent ON parent.id = child.parent_id
+  AND parent.active = 1
+  AND child.active = 1
+SET child.parent_id = NULL
+WHERE LOWER(TRIM(child.name)) LIKE CONCAT('% ', LOWER(TRIM(parent.name)))
+  AND LOWER(TRIM(child.name)) <> LOWER(TRIM(parent.name));
+
 -- Manual catalog sort order per shop view (homepage, /new, category, subcategory, brand).
 CREATE TABLE IF NOT EXISTS catalog_product_positions (
   scope VARCHAR(128) NOT NULL,

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { useShopCategories } from '@/lib/use-shop-categories'
-import { findParentCategoryName } from '@/lib/shop-category-tree'
+import {
+  findParentCategoryName,
+  isShopTopLevelCategory,
+} from '@/lib/shop-category-tree'
 import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
 export function useShopCategory() {
@@ -18,6 +21,7 @@ export function useShopCategory() {
     const raw = searchParams.get('category')?.trim()
     if (!raw) return 'All'
     if (categoryMenu.includes(raw)) return raw
+    if (isShopTopLevelCategory(categoryRows, raw)) return raw
 
     const parent = findParentCategoryName(categoryRows, raw)
     if (parent) return parent
@@ -29,6 +33,7 @@ export function useShopCategory() {
   useEffect(() => {
     const raw = searchParams.get('category')?.trim()
     if (!raw || raw === 'All' || categoryMenu.includes(raw)) return
+    if (isShopTopLevelCategory(categoryRows, raw)) return
 
     const parent = findParentCategoryName(categoryRows, raw)
     if (!parent) return

@@ -24,7 +24,8 @@
     "db:reapply-descriptions": "tsx scripts/reapply-description-cleanup.ts",
     "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts",
     "db:seed-site-access-codes": "tsx scripts/seed-site-access-codes.ts",
-    "db:sync-category-translations": "tsx scripts/sync-category-translations.ts"
+    "db:sync-category-translations": "tsx scripts/sync-category-translations.ts",
+    "test:category-tree": "tsx scripts/test-shop-category-tree.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

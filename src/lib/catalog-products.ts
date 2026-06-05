@@ -80,6 +80,19 @@ export type CatalogSqlFilters = {
   params: unknown[]
 }
 
+/** Match legacy `products.category` text, including compound values (e.g. "SHOES / BAGS"). */
+export function buildLegacyCategoryTextMatch(names: string[]): { sql: string; params: unknown[] } {
+  const parts: string[] = []
+  const params: unknown[] = []
+  for (const name of names) {
+    parts.push(
+      '(p.category = ? OR p.category LIKE ? OR p.category LIKE ? OR p.category LIKE ?)'
+    )
+    params.push(name, `${name} / %`, `% / ${name}`, `% / ${name} / %`)
+  }
+  return { sql: `(${parts.join(' OR ')})`, params }
+}
+
 export type CatalogFilterOptions = {
   /** Include brands.name in search / brand filter (when brands table is joined). */
   includeBrandJoin?: boolean
@@ -110,11 +123,9 @@ export function buildActiveCatalogFilters(
     if (!query.strictCategoryIdOnly && query.legacyCategoryNames?.length) {
       const legacyNames = query.legacyCategoryNames.filter(Boolean)
       if (legacyNames.length) {
-        const namePlaceholders = legacyNames.map(() => '?').join(', ')
-        where.push(
-          `(${idClause} OR (p.category_id IS NULL AND p.category IN (${namePlaceholders})))`
-        )
-        params.push(...legacyNames)
+        const legacy = buildLegacyCategoryTextMatch(legacyNames)
+        where.push(`(${idClause} OR (p.category_id IS NULL AND ${legacy.sql}))`)
+        params.push(...legacy.params)
       } else {
         where.push(idClause)
       }
