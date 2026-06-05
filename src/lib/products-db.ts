@@ -637,8 +637,51 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     }
   }
 
+  if (input.brand !== undefined && hasBrandCol) {
+    const albumRows = await queryDb<{ source_album_id: string | null }[]>(
+      `SELECT source_album_id FROM products WHERE id = ? LIMIT 1`,
+      [id]
+    )
+    const albumId = albumRows[0]?.source_album_id?.trim()
+    if (albumId) {
+      await releaseSourceAlbumBrandSlot(albumId, brandName ?? null, id)
+    }
+  }
+
   values.push(id)
-  await queryDb(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, values)
+  const updateSql = `UPDATE products SET ${fields.join(', ')} WHERE id = ?`
+
+  try {
+    await queryDb(updateSql, values)
+  } catch (err: unknown) {
+    if (
+      isSourceAlbumBrandConstraintError(err) &&
+      input.brand !== undefined &&
+      hasBrandCol
+    ) {
+      const albumRows = await queryDb<{ source_album_id: string | null }[]>(
+        `SELECT source_album_id FROM products WHERE id = ? LIMIT 1`,
+        [id]
+      )
+      const albumId = albumRows[0]?.source_album_id?.trim()
+      if (albumId && (await releaseSourceAlbumBrandSlot(albumId, brandName ?? null, id)) > 0) {
+        await queryDb(updateSql, values)
+      } else {
+        throw err
+      }
+    } else if (isSkuUniqueConstraintError(err) && input.sku !== undefined) {
+      const sku = requireProductSku(input.sku, brandPrefixes)
+      const other = await findProductBySku(sku, id)
+      if (other && other.status !== 'trash') {
+        await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [other.id])
+        await queryDb(updateSql, values)
+      } else {
+        throw err
+      }
+    } else {
+      throw err
+    }
+  }
 
   if (input.tags !== undefined) {
     void syncTagTranslationsForTags(input.tags).catch((err) => {
@@ -1009,6 +1052,54 @@ function isSkuUniqueConstraintError(err: unknown): boolean {
   return message.includes('uq_products_sku') || message.includes("key 'sku'")
 }
 
+function isSourceAlbumBrandConstraintError(err: unknown): boolean {
+  const code = (err as { code?: string })?.code
+  if (code !== 'ER_DUP_ENTRY') return false
+  const message = String((err as { message?: string })?.message ?? '').toLowerCase()
+  return (
+    message.includes('uq_products_source_album_brand') ||
+    message.includes('source_album_brand')
+  )
+}
+
+/**
+ * Free the (source_album_id, brand) unique slot for `keepProductId`.
+ * Trashed rows still occupy the index — their album link is cleared instead.
+ */
+async function releaseSourceAlbumBrandSlot(
+  albumId: string,
+  brandName: string | null,
+  keepProductId: string
+): Promise<number> {
+  const album = albumId.trim()
+  if (!album) return 0
+
+  const brandKey = brandName?.trim() ?? ''
+  const rows = await queryDb<{ id: string; status: string }[]>(
+    `SELECT id, status FROM products
+     WHERE source_album_id = ?
+       AND LOWER(TRIM(COALESCE(brand, ''))) = LOWER(TRIM(?))
+       AND id <> ?`,
+    [album, brandKey, keepProductId]
+  )
+
+  let handled = 0
+  for (const row of rows) {
+    if (row.status === 'trash') {
+      await queryDb(`UPDATE products SET source_album_id = NULL WHERE id = ?`, [row.id])
+    } else {
+      await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
+    }
+    handled++
+  }
+  return handled
+}
+
+type BulkPatchOutcome = {
+  status: 'updated' | 'trashed' | 'skipped'
+  conflictsResolved: number
+}
+
 async function applyBulkPatchToProduct(
   row: ProductBulkRow,
   patch: BulkProductPatch,
@@ -1016,7 +1107,7 @@ async function applyBulkPatchToProduct(
     category?: { id: string; name: string }
     brand?: { id?: string; name: string | null }
   }
-): Promise<'updated' | 'trashed' | 'skipped'> {
+): Promise<BulkPatchOutcome> {
   const targetBrandName =
     patch.brand !== undefined
       ? patch.brand?.trim()
@@ -1041,13 +1132,25 @@ async function applyBulkPatchToProduct(
   const needsStatusChange = patch.status !== undefined
 
   if (!needsBrandChange && !needsCategoryChange && !needsPriceChange && !needsStatusChange) {
-    return 'skipped'
+    return { status: 'skipped', conflictsResolved: 0 }
   }
+
+  let conflictsResolved = 0
 
   const skuDuplicate = await findProductBySku(row.sku, row.id)
   if (skuDuplicate && skuDuplicate.status !== 'trash') {
-    await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
-    return 'trashed'
+    await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [skuDuplicate.id])
+    conflictsResolved++
+  }
+
+  if (needsBrandChange && row.source_album_id?.trim()) {
+    const brandForSlot =
+      targetBrandName !== undefined ? targetBrandName : row.brand
+    conflictsResolved += await releaseSourceAlbumBrandSlot(
+      row.source_album_id,
+      brandForSlot ?? null,
+      row.id
+    )
   }
 
   const setParts: string[] = []
@@ -1102,18 +1205,37 @@ async function applyBulkPatchToProduct(
     setValues.push(patch.status)
   }
 
-  if (!setParts.length) return 'skipped'
+  if (!setParts.length) return { status: 'skipped', conflictsResolved }
 
-  try {
-    await queryDb(`UPDATE products SET ${setParts.join(', ')} WHERE id = ?`, [
+  const runUpdate = () =>
+    queryDb(`UPDATE products SET ${setParts.join(', ')} WHERE id = ?`, [
       ...setValues,
       row.id,
     ])
-    return 'updated'
+
+  try {
+    await runUpdate()
+    return { status: 'updated', conflictsResolved }
   } catch (err: unknown) {
+    if (isSourceAlbumBrandConstraintError(err) && needsBrandChange && row.source_album_id?.trim()) {
+      conflictsResolved += await releaseSourceAlbumBrandSlot(
+        row.source_album_id,
+        targetBrandName ?? null,
+        row.id
+      )
+      if (conflictsResolved > 0) {
+        await runUpdate()
+        return { status: 'updated', conflictsResolved }
+      }
+    }
     if (isSkuUniqueConstraintError(err)) {
-      await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
-      return 'trashed'
+      const other = await findProductBySku(row.sku, row.id)
+      if (other && other.status !== 'trash') {
+        await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [other.id])
+        conflictsResolved++
+        await runUpdate()
+        return { status: 'updated', conflictsResolved }
+      }
     }
     throw err
   }
@@ -1166,9 +1288,12 @@ export async function bulkUpdateProducts(
     if (!row) continue
 
     const outcome = await applyBulkPatchToProduct(row, patch, resolved)
-    if (outcome === 'updated') updated++
-    else if (outcome === 'trashed') trashedDuplicates++
+    if (outcome.status === 'updated') updated++
+    else if (outcome.status === 'trashed') trashedDuplicates++
     else skippedAlreadyCorrect++
+    if (outcome.conflictsResolved > 0) {
+      trashedDuplicates += outcome.conflictsResolved
+    }
   }
 
   return { updated, trashedDuplicates, skippedAlreadyCorrect }
