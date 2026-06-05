@@ -11,7 +11,7 @@ import {
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
-import { sanitizeProductDescriptions } from '@/lib/yupoo/import-text'
+import { sanitizeProductDescriptions, sanitizeProductName } from '@/lib/yupoo/import-text'
 import {
   getDirectChildCategories,
   isQualifiedSiblingCategory,
@@ -468,8 +468,9 @@ export async function insertProduct(input: ProductInput) {
   const hasBrandCol = await productsHaveBrandColumn()
   const hasBrandId = await productsHaveBrandIdColumn()
   const contentCols = await productsContentColumns()
+  const productName = sanitizeProductName(String(input.name ?? '').trim())
   const { description, short_description } = sanitizeProductDescriptions(
-    input.name,
+    productName,
     input.description,
     input.short_description,
     brand.name
@@ -477,7 +478,7 @@ export async function insertProduct(input: ProductInput) {
 
   const insertMap: Record<string, unknown> = {
     id,
-    name: input.name,
+    name: productName,
     description,
     short_description,
     price: input.price,
@@ -567,7 +568,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   const brandPrefixes = await getBrandSkuPrefixes()
 
   const map: Record<string, unknown> = {
-    name: input.name,
+    name: input.name !== undefined ? sanitizeProductName(String(input.name).trim()) : undefined,
     description: input.description,
     short_description: input.short_description,
     price: input.price,
@@ -620,7 +621,10 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   }
 
   if (input.description !== undefined || input.short_description !== undefined) {
-    let nameForClean = input.name !== undefined ? String(input.name).trim() : ''
+    let nameForClean =
+      input.name !== undefined
+        ? sanitizeProductName(String(input.name).trim())
+        : ''
     if (!nameForClean) {
       const nameRows = await queryDb<{ name: string }[]>(
         `SELECT name FROM products WHERE id = ? LIMIT 1`,

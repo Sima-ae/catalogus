@@ -3,7 +3,7 @@ import {
   resolveProductDisplayImages,
 } from '@/lib/product-image-url'
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
-import { cleanImportDescription } from '@/lib/yupoo/import-text'
+import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
 
 /** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
 export function parsePipeField(value: unknown): string[] | null {
@@ -73,7 +73,7 @@ export function serializeProductRow(
     ? stripAllBrandPrefixesFromSku(rawSku, prefixes)
     : rawSku
 
-  const name = String(row.name ?? '').trim()
+  const name = sanitizeProductName(String(row.name ?? '').trim())
   const rawDescription = row.description != null ? String(row.description) : ''
   const rawShort =
     row.short_description != null && row.short_description !== ''

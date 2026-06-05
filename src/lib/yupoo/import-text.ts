@@ -33,6 +33,8 @@ export function isYupooShopTagline(text: string): boolean {
   if (!t) return false
   if (YUPOO_SHOP_TAGLINE_RE.test(t)) return true
   if (/^southern\s+pk\b/i.test(t)) return true
+  if (/^guanhui\s+foreign\s+trade$/i.test(t)) return true
+  if (t === '冠汇外贸') return true
   if (
     /^(wholesale|factory|free shipping|dropshipping)\b/i.test(t) &&
     !/\b(jordan|nike|adidas|dunk|yeezy|air max|kobe|samba|gazelle)\b/i.test(t)
@@ -86,6 +88,8 @@ export function sanitizeYupooAlbumTitle(text: string): string {
   t = t.replace(/\s+\d{2}(?:\.\d)?(?:\s+\d{2}(?:\.\d)?){2,}.*$/, '').trim()
 
   if (isYupooShopTagline(t)) return ''
+
+  t = stripGuanhuiForeignTrade(t)
 
   return t.length > 120 ? t.slice(0, 120).trim() : t
 }
@@ -491,6 +495,20 @@ export function stripGuanhuiForeignTrade(text: string): string {
     .replace(/\s+/g, ' ')
     .trim()
 
+  return result
+}
+
+/** Remove supplier shop label from product titles (EN + CN). */
+export function sanitizeProductName(name: string): string {
+  const original = String(name ?? '').trim()
+  if (!original) return original
+  let result = stripGuanhuiForeignTrade(original)
+  result = result
+    .replace(/\s*[-–—|｜]\s*guanhui\s+foreign\s+trade\s*$/gi, '')
+    .replace(/\s*[-–—|｜]\s*冠汇外贸\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!result) return original
   return result
 }
 

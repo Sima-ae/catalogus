@@ -7,6 +7,7 @@ import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
   cleanImportDescription,
+  sanitizeProductName,
 } from '@/lib/yupoo/import-text'
 import { resolveYupooProductTitleAsync } from '@/lib/yupoo/product-title'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
@@ -28,13 +29,15 @@ export async function buildProductInputFromImport(
 
   const rawTitle = translated.rawTitle || album.title
   const rawDescription = translated.enDescription || album.description
-  const name = await resolveYupooProductTitleAsync({
-    albumTitle: rawTitle,
-    description: album.description,
-    thumbTitle,
-    fallbackSku: sku,
-    fallbackAlbumId: album.albumId,
-  })
+  const name = sanitizeProductName(
+    await resolveYupooProductTitleAsync({
+      albumTitle: rawTitle,
+      description: album.description,
+      thumbTitle,
+      fallbackSku: sku,
+      fallbackAlbumId: album.albumId,
+    })
+  )
   const description = cleanImportDescription(rawDescription, name, brandName)
   const short_description =
     catalogCardDescription(name, description, undefined, brandName).slice(0, 280) ||

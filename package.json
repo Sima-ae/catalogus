@@ -20,6 +20,7 @@
     "db:remove-yupoo-sku": "tsx scripts/remove-yupoo-from-skus.ts",
     "db:remove-keshi-descriptions": "tsx scripts/remove-guangzhou-keshi-descriptions.ts",
     "db:clean-supplier-descriptions": "tsx scripts/clean-supplier-descriptions.ts",
+    "db:clean-product-titles": "tsx scripts/clean-product-titles.ts",
     "db:restore-descriptions": "tsx scripts/restore-product-descriptions.ts",
     "db:reapply-descriptions": "tsx scripts/reapply-description-cleanup.ts",
     "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts",
