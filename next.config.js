@@ -145,7 +145,11 @@ const nextConfig = {
       },
       {
         key: 'Referrer-Policy',
-        value: 'origin-when-cross-origin',
+        value: 'no-referrer',
+      },
+      {
+        key: 'X-Robots-Tag',
+        value: 'noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate',
       },
       {
         key: 'Permissions-Policy',

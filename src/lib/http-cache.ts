@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { NO_INDEX_RESPONSE_HEADERS } from '@/lib/no-index'
 
 /** Read-only catalog metadata — admin changes propagate within ~60s. */
 export const CATALOG_METADATA_CACHE_CONTROL =
@@ -17,6 +18,9 @@ export function jsonCached<T>(
   cacheControl: string = CATALOG_METADATA_CACHE_CONTROL
 ): NextResponse {
   return NextResponse.json(data, {
-    headers: { 'Cache-Control': cacheControl },
+    headers: {
+      'Cache-Control': cacheControl,
+      ...NO_INDEX_RESPONSE_HEADERS,
+    },
   })
 }

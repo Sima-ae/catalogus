@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { APP_NAME } from '@/lib/brand'
 import { loadSiteSettings } from '@/lib/settings-persistence'
 import { resolveSiteTagline } from '@/lib/site-tagline'
+import { withNoIndexMetadata } from '@/lib/no-index'
 import { type Locale, DEFAULT_LOCALE } from '@/lib/i18n'
 import { appUrl } from '@/lib/paths'
 
@@ -44,19 +45,14 @@ export async function buildRootMetadata(locale: Locale = DEFAULT_LOCALE): Promis
   const seo = await getSiteSeo(locale)
   const defaultTitle = formatDefaultTitle(seo)
 
-  return {
+  return withNoIndexMetadata({
     metadataBase: new URL(appUrl()),
     title: {
       default: defaultTitle,
       template: `%s | ${seo.siteName}`,
     },
     description: seo.tagline,
-    openGraph: {
-      title: defaultTitle,
-      description: seo.tagline,
-      siteName: seo.siteName,
-    },
-  }
+  })
 }
 
 export async function buildPageMetadata(
@@ -65,8 +61,8 @@ export async function buildPageMetadata(
   locale: Locale = DEFAULT_LOCALE
 ): Promise<Metadata> {
   const seo = await getSiteSeo(locale)
-  return {
+  return withNoIndexMetadata({
     title: pageTitle,
     description: description?.trim() || seo.tagline,
-  }
+  })
 }

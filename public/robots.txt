@@ -1,0 +1,3 @@
+# Private catalog — do not index any pages, assets, or API responses.
+User-agent: *
+Disallow: /

@@ -15,6 +15,7 @@ import {
   parseLocaleFromPathname,
   resolveLocaleFromCookie,
 } from '@/lib/i18n-routing'
+import { applyNoIndexHeaders } from '@/lib/no-index'
 
 const GATE_PATH = '/site-access-gate'
 const LOCALE_HEADER = 'x-catalogus-locale'
@@ -127,13 +128,15 @@ async function siteAccessFromApi(request: NextRequest): Promise<{
 
 /** Permanent redirect legacy /catalogus URLs to site root. Enforce site-wide access password. */
 export async function middleware(request: NextRequest) {
+  const finish = (response: NextResponse) => applyNoIndexHeaders(response)
+
   const { pathname, search } = request.nextUrl
 
   if (process.env.NODE_ENV === 'production' && pathname === '/debug') {
     const home = request.nextUrl.clone()
     home.pathname = '/'
     home.search = ''
-    return NextResponse.redirect(home)
+    return finish(NextResponse.redirect(home))
   }
 
   if (pathname === '/catalogus' || pathname.startsWith('/catalogus/')) {
@@ -141,7 +144,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = stripped
     url.search = search
-    return NextResponse.redirect(url, 308)
+    return finish(NextResponse.redirect(url, 308))
   }
 
   if (
@@ -150,7 +153,7 @@ export async function middleware(request: NextRequest) {
     isPricelistApiPath(pathname) ||
     isPublicApi(pathname)
   ) {
-    return NextResponse.next()
+    return finish(NextResponse.next())
   }
 
   let required = false
@@ -168,21 +171,20 @@ export async function middleware(request: NextRequest) {
 
   if (!required || allowed) {
     const localeResponse = applyLocaleRouting(request)
-    return localeResponse ?? NextResponse.next()
+    return finish(localeResponse ?? NextResponse.next())
   }
 
   if (pathname === GATE_PATH) {
-    return NextResponse.next()
+    return finish(NextResponse.next())
   }
 
   if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
-    return NextResponse.next()
+    return finish(NextResponse.next())
   }
 
   if (pathname.startsWith('/api/')) {
-    return NextResponse.json(
-      { error: 'Site access password required' },
-      { status: 401 }
+    return finish(
+      NextResponse.json({ error: 'Site access password required' }, { status: 401 })
     )
   }
 
@@ -198,7 +200,7 @@ export async function middleware(request: NextRequest) {
       sameSite: 'lax',
     })
   }
-  return res
+  return finish(res)
 }
 
 export const config = {

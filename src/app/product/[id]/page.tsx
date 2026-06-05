@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getProductById } from '@/lib/products-db'
 import { formatPageTitle, getSiteSeo } from '@/lib/site-metadata'
+import { withNoIndexMetadata } from '@/lib/no-index'
 import { getServerLocale } from '@/lib/i18n-server-locale'
 import ProductPageClient from './ProductPageClient'
 
@@ -15,10 +16,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const product = (await getProductById(params.id)) as Record<string, unknown> | null
     if (!product) {
-      return {
+      return withNoIndexMetadata({
         title: formatPageTitle('Product not found', seo.siteName),
         description: `This product is not available on ${seo.siteName}.`,
-      }
+      })
     }
 
     const name = String(product.name || 'Product').trim()
@@ -30,29 +31,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const description =
       rawDescription.slice(0, 160) || `${name} — available on ${seo.siteName}.`
 
-    const imageUrl = product.image_url ? String(product.image_url) : undefined
-
-    return {
+    return withNoIndexMetadata({
       title: name,
       description,
-      openGraph: {
-        title: formatPageTitle(name, seo.siteName),
-        description,
-        type: 'website',
-        ...(imageUrl ? { images: [{ url: imageUrl, alt: name }] } : {}),
-      },
-      twitter: {
-        card: imageUrl ? 'summary_large_image' : 'summary',
-        title: name,
-        description,
-        ...(imageUrl ? { images: [imageUrl] } : {}),
-      },
-    }
+    })
   } catch {
-    return {
+    return withNoIndexMetadata({
       title: seo.siteName,
       description: seo.tagline,
-    }
+    })
   }
 }
 
