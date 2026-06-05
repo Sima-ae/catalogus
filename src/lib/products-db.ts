@@ -326,9 +326,23 @@ async function resolveProductCategoryInput(
     const byId = await resolveCategoryById(categoryId)
     if (byId) return byId
   }
-  const resolved = await resolveCategoryByName(categoryName)
-  if (!resolved) throw new UnknownCategoryError(categoryName.trim())
+  const trimmed = categoryName.trim()
+  if (!trimmed) throw new UnknownCategoryError('')
+  if (trimmed.includes('/')) {
+    return resolveBulkCategoryInput(trimmed)
+  }
+  const resolved = await resolveCategoryByName(trimmed)
+  if (!resolved) throw new UnknownCategoryError(trimmed)
   return resolved
+}
+
+async function resolveBrandForStorage(brandName: string | null | undefined) {
+  const trimmed = brandName?.trim()
+  if (!trimmed) return { name: null as string | null, id: undefined as string | undefined }
+  if (/\s+X\s+/i.test(trimmed)) {
+    return resolveBulkBrandInput(trimmed)
+  }
+  return resolveProductBrandInput(trimmed)
 }
 
 export type ShopSubcategoryOption = {
@@ -397,7 +411,7 @@ async function fetchProductRow(id: string) {
 export async function insertProduct(input: ProductInput) {
   const category = await resolveProductCategoryInput(input.category, input.category_id)
   const brand =
-    (await brandsTableExists()) ? await resolveProductBrandInput(input.brand) : { name: null, id: undefined }
+    (await brandsTableExists()) ? await resolveBrandForStorage(input.brand) : { name: null, id: undefined }
   const brandPrefixes = await getBrandSkuPrefixes()
   const sku = requireProductSku(input.sku, brandPrefixes)
   await assertSkuIsUnique(sku)
@@ -484,7 +498,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   }
 
   if (input.brand !== undefined && (await brandsTableExists())) {
-    const resolved = await resolveProductBrandInput(input.brand)
+    const resolved = await resolveBrandForStorage(input.brand)
     brandName = resolved.name
     brandId = resolved.id
   }

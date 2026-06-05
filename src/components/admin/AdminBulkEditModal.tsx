@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import type { CategoryPickerOption } from '@/lib/category-picker'
+import { joinBrandNames, joinCategoryNames } from '@/lib/product-taxonomy'
 import type { Product } from '@/lib/types'
 
 type BrandOption = { id: string; name: string }
@@ -41,17 +42,6 @@ function namesFromCounts(counts: Map<string, number>): Set<string> {
     if (name !== '—') names.add(name)
   }
   return names
-}
-
-function orderedNames(selected: Set<string>, order: string[]): string[] {
-  const out: string[] = []
-  for (const name of order) {
-    if (selected.has(name) && !out.includes(name)) out.push(name)
-  }
-  for (const name of Array.from(selected)) {
-    if (!out.includes(name)) out.push(name)
-  }
-  return out
 }
 
 function CurrentValues({
@@ -188,13 +178,13 @@ export default function AdminBulkEditModal({
       ...Array.from(currentCategoryNames),
       ...Array.from(extraCategories),
     ])
-    return orderedNames(all, categoryOrder).join(' / ')
+    return joinCategoryNames(all, categoryOrder)
   }
 
   const buildBrandValue = (): string | null | undefined => {
     if (!brandsTouched) return undefined
     if (selectedBrands.size === 0) return null
-    return orderedNames(selectedBrands, brandOrder).join(' X ')
+    return joinBrandNames(selectedBrands, brandOrder)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -394,7 +384,7 @@ export default function AdminBulkEditModal({
                   <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
                     {selectedBrands.size === 0
                       ? 'No brand'
-                      : orderedNames(selectedBrands, brandOrder).join(' X ')}
+                      : joinBrandNames(selectedBrands, brandOrder)}
                   </strong>
                 </p>
               ) : null}
@@ -404,13 +394,13 @@ export default function AdminBulkEditModal({
               <p className={`text-xs ${muted}`}>
                 Will set category to:{' '}
                 <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
-                  {orderedNames(
+                  {joinCategoryNames(
                     new Set([
                       ...Array.from(currentCategoryNames),
                       ...Array.from(extraCategories),
                     ]),
                     categoryOrder
-                  ).join(' / ')}
+                  )}
                 </strong>
               </p>
             ) : null}

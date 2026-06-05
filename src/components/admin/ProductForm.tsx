@@ -17,7 +17,14 @@ import { useI18n } from '@/lib/i18n-context'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
+import {
+  joinBrandNames,
+  joinCategoryNames,
+  parseBrandCompound,
+  parseCategoryCompound,
+} from '@/lib/product-taxonomy'
 import ProductImageGalleryEditor from '@/components/admin/ProductImageGalleryEditor'
+import TaxonomyCheckboxList from '@/components/admin/TaxonomyCheckboxList'
 
 type BrandOption = { id: string; name: string; slug: string }
 
@@ -84,6 +91,8 @@ export default function ProductForm({
   const [form, setForm] = useState(defaultForm)
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<BrandOption[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -122,9 +131,19 @@ export default function ProductForm({
       .catch(() => {})
   }, [])
 
+  const categoryOrder = useMemo(() => categories.map((c) => c.name), [categories])
+  const brandOrder = useMemo(() => brands.map((b) => b.name), [brands])
+
+  const applyTaxonomyFromStrings = (category: string, brand: string) => {
+    setSelectedCategories(new Set(parseCategoryCompound(category)))
+    setSelectedBrands(new Set(parseBrandCompound(brand)))
+  }
+
   useEffect(() => {
     if (mode === 'create' && initial) {
-      setForm((f) => ({ ...f, ...mapProductToForm(initial) }))
+      const mapped = mapProductToForm(initial)
+      setForm((f) => ({ ...f, ...mapped }))
+      applyTaxonomyFromStrings(mapped.category, mapped.brand)
       setLoading(false)
       return
     }
@@ -141,7 +160,9 @@ export default function ProductForm({
         return r.json()
       })
       .then((p: Product) => {
-        setForm(mapProductToForm(p))
+        const mapped = mapProductToForm(p)
+        setForm(mapped)
+        applyTaxonomyFromStrings(mapped.category, mapped.brand)
         setSaved(false)
       })
       .catch((err) => {
@@ -184,8 +205,20 @@ export default function ProductForm({
       return
     }
 
+    if (selectedCategories.size === 0) {
+      setError(tr('productForm.selectCategory'))
+      setSaving(false)
+      return
+    }
+
+    const category = joinCategoryNames(selectedCategories, categoryOrder)
+    const brand =
+      selectedBrands.size > 0 ? joinBrandNames(selectedBrands, brandOrder) : null
+
     const payload = parseProductBody({
       ...form,
+      category,
+      brand,
       price: form.price,
       original_price: form.original_price,
     } as Record<string, unknown>)
@@ -212,7 +245,9 @@ export default function ProductForm({
         return
       }
       const updated = data as Product
-      setForm(mapProductToForm(updated))
+      const mapped = mapProductToForm(updated)
+      setForm(mapped)
+      applyTaxonomyFromStrings(mapped.category, mapped.brand)
       setSaved(true)
       onSaved?.(updated)
       if (mode === 'create' && variant === 'page') {
@@ -288,27 +323,25 @@ export default function ProductForm({
           <h2 className="card-section-title mb-0">{tr('productForm.sectionBasicInfo')}</h2>
           {variant === 'modal' ? formActions : null}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_select]:py-1.5 [&_select]:text-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 [&_.form-label]:mb-1 [&_.form-label]:text-xs">
           <div>
             <label className="form-label">{tr('productForm.category')}</label>
-            <select
-              name="category"
-              value={form.category}
-              onChange={onChange}
-              required
-              className="input w-full"
-            >
-              <option value="">{tr('productForm.selectCategory')}</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.label}
-                </option>
-              ))}
-              {form.category &&
-                !categories.some((c) => c.name === form.category) && (
-                <option value={form.category}>{form.category}</option>
-              )}
-            </select>
+            <TaxonomyCheckboxList
+              options={categories.map((c) => ({
+                id: c.id,
+                name: c.name,
+                label: c.label,
+              }))}
+              selected={selectedCategories}
+              onChange={setSelectedCategories}
+              disabled={saving}
+              preview={
+                selectedCategories.size > 0
+                  ? joinCategoryNames(selectedCategories, categoryOrder)
+                  : ''
+              }
+              emptyPreview={tr('productForm.selectCategory')}
+            />
             {!isSeller && (
               <p className="text-xs mt-1 form-hint">
                 <Link href="/admin/categories/new" className={t.link}>
@@ -319,22 +352,21 @@ export default function ProductForm({
           </div>
           <div>
             <label className="form-label">{tr('productForm.brand')}</label>
-            <select
-              name="brand"
-              value={form.brand}
-              onChange={onChange}
-              className="input w-full"
-            >
-              <option value="">{tr('productForm.noBrand')}</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-              {form.brand && !brands.some((b) => b.name === form.brand) && (
-                <option value={form.brand}>{form.brand}</option>
-              )}
-            </select>
+            <TaxonomyCheckboxList
+              options={brands.map((b) => ({
+                id: b.id,
+                name: b.name,
+                label: b.name,
+              }))}
+              selected={selectedBrands}
+              onChange={setSelectedBrands}
+              disabled={saving}
+              preview={
+                selectedBrands.size > 0
+                  ? joinBrandNames(selectedBrands, brandOrder)
+                  : tr('productForm.noBrand')
+              }
+            />
             {!isSeller && (
               <p className="text-xs mt-1 form-hint">
                 <Link href="/admin/brands/new" className={t.link}>
