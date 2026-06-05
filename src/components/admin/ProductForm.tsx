@@ -339,6 +339,8 @@ export default function ProductForm({
               selected={selectedCategories}
               onChange={setSelectedCategories}
               disabled={saving}
+              searchPlaceholder={tr('productForm.searchCategory')}
+              noMatchesMessage={tr('productForm.searchNoMatches')}
               preview={
                 selectedCategories.size > 0
                   ? joinCategoryNames(selectedCategories, categoryOrder)
@@ -365,6 +367,8 @@ export default function ProductForm({
               selected={selectedBrands}
               onChange={setSelectedBrands}
               disabled={saving}
+              searchPlaceholder={tr('productForm.searchBrand')}
+              noMatchesMessage={tr('productForm.searchNoMatches')}
               preview={
                 selectedBrands.size > 0
                   ? joinBrandNames(selectedBrands, brandOrder)

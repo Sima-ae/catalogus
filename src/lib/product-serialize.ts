@@ -3,6 +3,7 @@ import {
   resolveProductDisplayImages,
 } from '@/lib/product-image-url'
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
+import { cleanImportDescription } from '@/lib/yupoo/import-text'
 
 /** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
 export function parsePipeField(value: unknown): string[] | null {
@@ -72,10 +73,26 @@ export function serializeProductRow(
     ? stripAllBrandPrefixesFromSku(rawSku, prefixes)
     : rawSku
 
+  const name = String(row.name ?? '').trim()
+  const rawDescription = row.description != null ? String(row.description) : ''
+  const rawShort =
+    row.short_description != null && row.short_description !== ''
+      ? String(row.short_description)
+      : ''
+  const description = rawDescription
+    ? cleanImportDescription(rawDescription, name, brand || null)
+    : rawDescription
+  const short_description = rawShort
+    ? cleanImportDescription(rawShort, name, brand || null)
+    : rawShort || undefined
+
   return {
     ...rest,
     sku,
     id: String(row.id ?? ''),
+    name,
+    description,
+    short_description,
     image_url: main,
     category,
     category_id: row.category_id ?? row.resolved_category_id ?? null,

@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/theme'
 import type { CategoryPickerOption } from '@/lib/category-picker'
 import { joinBrandNames, joinCategoryNames } from '@/lib/product-taxonomy'
 import type { Product } from '@/lib/types'
+import SearchableCheckboxScroller from '@/components/admin/SearchableCheckboxScroller'
 
 type BrandOption = { id: string; name: string }
 
@@ -287,12 +288,15 @@ export default function AdminBulkEditModal({
               <p className={`text-xs ${muted}`}>
                 Current categories stay checked. Add more to combine (e.g. SHOES / BAGS).
               </p>
-              <div
-                className={`max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1 ${
-                  isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
-                }`}
-              >
-                {categories.map((c) => {
+              <SearchableCheckboxScroller
+                items={categories.map((c) => ({ id: c.id, label: c.label, name: c.name }))}
+                searchPlaceholder="Search categories…"
+                noMatchesMessage="No matches"
+                maxHeightClass="max-h-40"
+                disabled={busy}
+                renderItem={(item) => {
+                  const c = categories.find((cat) => cat.id === item.id)
+                  if (!c) return null
                   const isCurrent = currentCategoryNames.has(c.name)
                   const isActiveCurrent =
                     isCurrent && categoryCounts.get(c.name) === count
@@ -300,7 +304,6 @@ export default function AdminBulkEditModal({
                   const locked = isCurrent
                   return (
                     <label
-                      key={c.id}
                       className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
                         locked ? 'cursor-default' : 'cursor-pointer'
                       } ${
@@ -328,8 +331,8 @@ export default function AdminBulkEditModal({
                       ) : null}
                     </label>
                   )
-                })}
-              </div>
+                }}
+              />
             </fieldset>
 
             <fieldset className="space-y-2">
@@ -338,19 +341,21 @@ export default function AdminBulkEditModal({
                 Uncheck to remove a brand. Uncheck all for no brand. Combine collabs with X
                 (e.g. Supreme X Nike).
               </p>
-              <div
-                className={`max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1 ${
-                  isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
-                }`}
-              >
-                {brands.map((b) => {
+              <SearchableCheckboxScroller
+                items={brands.map((b) => ({ id: b.id, label: b.name, name: b.name }))}
+                searchPlaceholder="Search brands…"
+                noMatchesMessage="No matches"
+                maxHeightClass="max-h-40"
+                disabled={busy}
+                renderItem={(item) => {
+                  const b = brands.find((brand) => brand.id === item.id)
+                  if (!b) return null
                   const isCurrent = currentBrandNames.has(b.name)
                   const isActiveCurrent =
                     isCurrent && brandCounts.get(b.name) === count
                   const checked = isBrandChecked(b.name)
                   return (
                     <label
-                      key={b.id}
                       className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
                         checked
                           ? isDark
@@ -376,8 +381,8 @@ export default function AdminBulkEditModal({
                       ) : null}
                     </label>
                   )
-                })}
-              </div>
+                }}
+              />
               {brandsTouched ? (
                 <p className={`text-xs ${muted}`}>
                   Will set brand to:{' '}

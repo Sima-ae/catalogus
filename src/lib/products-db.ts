@@ -11,6 +11,7 @@ import {
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
+import { sanitizeProductDescriptions } from '@/lib/yupoo/import-text'
 import {
   getDirectChildCategories,
   isQualifiedSiblingCategory,
@@ -467,12 +468,18 @@ export async function insertProduct(input: ProductInput) {
   const hasBrandCol = await productsHaveBrandColumn()
   const hasBrandId = await productsHaveBrandIdColumn()
   const contentCols = await productsContentColumns()
+  const { description, short_description } = sanitizeProductDescriptions(
+    input.name,
+    input.description,
+    input.short_description,
+    brand.name
+  )
 
   const insertMap: Record<string, unknown> = {
     id,
     name: input.name,
-    description: input.description,
-    short_description: input.short_description || null,
+    description,
+    short_description,
     price: input.price,
     original_price: input.original_price ?? null,
     image_url: input.image_url,
@@ -610,6 +617,43 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
       schema.source_album_id && input.source_album_id !== undefined
         ? input.source_album_id || null
         : undefined,
+  }
+
+  if (input.description !== undefined || input.short_description !== undefined) {
+    let nameForClean = input.name !== undefined ? String(input.name).trim() : ''
+    if (!nameForClean) {
+      const nameRows = await queryDb<{ name: string }[]>(
+        `SELECT name FROM products WHERE id = ? LIMIT 1`,
+        [id]
+      )
+      nameForClean = String(nameRows[0]?.name ?? '').trim()
+    }
+
+    let brandForClean: string | null | undefined = brandName
+    if (brandForClean === undefined) {
+      const brandRows = await queryDb<{ brand: string | null }[]>(
+        `SELECT brand FROM products WHERE id = ? LIMIT 1`,
+        [id]
+      )
+      brandForClean = brandRows[0]?.brand?.trim() || null
+    }
+
+    if (input.description !== undefined) {
+      map.description = sanitizeProductDescriptions(
+        nameForClean,
+        String(input.description),
+        null,
+        brandForClean
+      ).description
+    }
+    if (input.short_description !== undefined) {
+      map.short_description = sanitizeProductDescriptions(
+        nameForClean,
+        '',
+        input.short_description,
+        brandForClean
+      ).short_description
+    }
   }
 
   if (!hasCategoryId) {

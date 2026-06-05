@@ -393,6 +393,8 @@ function isSupplierOnlyLine(line: string): boolean {
   if (/supplier\s+product\s+catalog/i.test(t) && t.length < 200) return true
   if (/^guang(?:zhou)?\s+keshi\b/i.test(t)) return true
   if (/^guangtai\b/i.test(t) && t.length < 120) return true
+  if (/^guanhui\s+foreign\s+trade$/i.test(t)) return true
+  if (/^冠汇外贸$/.test(t)) return true
   if (/^(?:yangli|niuli|quanniuli|quanyangli)\b/i.test(t) && t.length < 80) return true
   return false
 }
@@ -466,6 +468,39 @@ export function stripSupplierBoilerplateFromDescription(
   return result
 }
 
+/** Remove Yupoo supplier shop label "Guanhui foreign trade" (EN + CN). */
+export function stripGuanhuiForeignTrade(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/\bGuanhui\s+foreign\s+trade\b/gi, ' ')
+  result = result.replace(/冠汇外贸/g, ' ')
+  result = result.replace(/\(\s*Guanhui\s+foreign\s+trade\s*\)/gi, ' ')
+  result = result.replace(/\(\s*冠汇外贸\s*\)/g, ' ')
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^guanhui\s+foreign\s+trade$/i.test(line) && line !== '冠汇外贸')
+    .join('\n')
+
+  result = result
+    .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
+/** Replace calendar years in copy (e.g. 2023, 2024, 2025) with the current catalog year. */
+export function normalizeDescriptionYears(text: string, targetYear = '2026'): string {
+  return String(text ?? '').replace(/\b(19|20)\d{2}\b/g, (year) =>
+    year === targetYear ? year : targetYear
+  )
+}
+
 /** SKU prefix + trademark boilerplate cleanup for import and shop display. */
 export function cleanImportDescription(
   text: string,
@@ -476,11 +511,32 @@ export function cleanImportDescription(
   result = stripDuplicateSkuPrefix(result, title)
   result = stripProductTrademarkBoilerplate(result, brandName)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
+  result = stripGuanhuiForeignTrade(result)
+  result = normalizeDescriptionYears(result)
   result = stripChineseIconsAndDecorations(result)
   result = result
     .replace(/\bshipping\s+from\s+guangzhou\b/gi, ' ')
     .replace(/\bfree\s+shipping\b/gi, ' ')
   return result.replace(/\s+/g, ' ').trim()
+}
+
+/** Normalize description fields on create/update and API responses. */
+export function sanitizeProductDescriptions(
+  name: string,
+  description: string,
+  shortDescription: string | null | undefined,
+  brandName?: string | null
+): { description: string; short_description: string | null } {
+  const productName = String(name ?? '').trim()
+  const cleanedDesc = cleanImportDescription(String(description ?? ''), productName, brandName)
+  const rawShort = String(shortDescription ?? '').trim()
+  const cleanedShort = rawShort
+    ? cleanImportDescription(rawShort, productName, brandName)
+    : ''
+  return {
+    description: cleanedDesc,
+    short_description: cleanedShort || null,
+  }
 }
 
 /** @deprecated Use resolveYupooProductTitle — kept for callers passing only album fields. */

@@ -1,11 +1,19 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useAppTheme } from '@/lib/theme-classes'
+import SearchableCheckboxScroller from '@/components/admin/SearchableCheckboxScroller'
 
 export type TaxonomyOption = {
   id: string
   name: string
   label: string
+}
+
+type ListItem = {
+  id: string
+  label: string
+  name: string
 }
 
 type Props = {
@@ -15,6 +23,8 @@ type Props = {
   disabled?: boolean
   preview?: string | null
   emptyPreview?: string
+  searchPlaceholder?: string
+  noMatchesMessage?: string
 }
 
 export default function TaxonomyCheckboxList({
@@ -24,6 +34,8 @@ export default function TaxonomyCheckboxList({
   disabled = false,
   preview,
   emptyPreview,
+  searchPlaceholder = 'Search…',
+  noMatchesMessage = 'No matches',
 }: Props) {
   const t = useAppTheme()
   const checkboxClass =
@@ -40,21 +52,36 @@ export default function TaxonomyCheckboxList({
     )
   }
 
-  const knownNames = new Set(options.map((o) => o.name))
-  const extraSelected = Array.from(selected).filter((name) => !knownNames.has(name))
+  const items = useMemo(() => {
+    const knownNames = new Set(options.map((o) => o.name))
+    const list: ListItem[] = options.map((opt) => ({
+      id: opt.id,
+      label: opt.label,
+      name: opt.name,
+    }))
+    for (const name of Array.from(selected)) {
+      if (!knownNames.has(name)) {
+        list.push({
+          id: `extra-${name}`,
+          label: name,
+          name,
+        })
+      }
+    }
+    return list
+  }, [options, selected])
 
   return (
     <div className="space-y-2">
-      <div
-        className={`max-h-44 overflow-y-auto rounded-lg border p-2 space-y-1 ${
-          t.isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
-        }`}
-      >
-        {options.map((opt) => {
-          const checked = selected.has(opt.name)
+      <SearchableCheckboxScroller
+        items={items}
+        searchPlaceholder={searchPlaceholder}
+        noMatchesMessage={noMatchesMessage}
+        disabled={disabled}
+        renderItem={(item) => {
+          const checked = selected.has(item.name)
           return (
             <label
-              key={opt.id}
               className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
                 checked
                   ? t.isDark
@@ -66,40 +93,19 @@ export default function TaxonomyCheckboxList({
               <input
                 type="checkbox"
                 checked={checked}
-                onChange={() => toggle(opt.name)}
+                onChange={() => toggle(item.name)}
                 disabled={disabled}
                 className={checkboxClass}
               />
               <span className={`text-sm flex-1 ${t.isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                {opt.label}
+                {item.label}
               </span>
             </label>
           )
-        })}
-        {extraSelected.map((name) => (
-          <label
-            key={`extra-${name}`}
-            className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
-              t.isDark ? 'bg-primary-500/20' : 'bg-primary-50'
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked
-              onChange={() => toggle(name)}
-              disabled={disabled}
-              className={checkboxClass}
-            />
-            <span className={`text-sm flex-1 ${t.isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              {name}
-            </span>
-          </label>
-        ))}
-      </div>
+        }}
+      />
       {preview !== undefined && preview !== null ? (
-        <p className={`text-xs ${t.muted}`}>
-          {preview || emptyPreview || '—'}
-        </p>
+        <p className={`text-xs ${t.muted}`}>{preview || emptyPreview || '—'}</p>
       ) : null}
     </div>
   )
