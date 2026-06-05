@@ -47,6 +47,28 @@ function listToFormFields(list: string[]): { main: string; galleryLines: string 
   }
 }
 
+const HOLD_MS = 180
+const MOVE_CANCEL_PX = 8
+
+function reorderImageList(list: string[], fromUrl: string, toUrl: string): string[] {
+  const from = list.indexOf(fromUrl)
+  const to = list.indexOf(toUrl)
+  if (from < 0 || to < 0 || from === to) return list
+  const next = [...list]
+  const [moved] = next.splice(from, 1)
+  next.splice(to, 0, moved)
+  return next
+}
+
+type ImageDragState = {
+  url: string
+  pointerId: number
+  startX: number
+  startY: number
+  holdTimer: number | null
+  active: boolean
+}
+
 type Props = {
   imageUrl: string
   galleryLines: string
@@ -175,6 +197,12 @@ export default function ProductImageGalleryEditor({
   const [urlDraft, setUrlDraft] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [draggingUrl, setDraggingUrl] = useState<string | null>(null)
+  const [overUrl, setOverUrl] = useState<string | null>(null)
+  const dragRef = useRef<ImageDragState | null>(null)
+  const suppressClickRef = useRef(false)
+
+  const reorderEnabled = images.length > 1
 
   const displayImages = useMemo(
     () => images.map((url) => toDisplayProductImageUrl(url, sourceUrl) || url),
@@ -241,6 +269,94 @@ export default function ProductImageGalleryEditor({
     applyList(next)
   }
 
+  const clearDrag = useCallback(() => {
+    const d = dragRef.current
+    if (d?.holdTimer) clearTimeout(d.holdTimer)
+    dragRef.current = null
+    setDraggingUrl(null)
+    setOverUrl(null)
+  }, [])
+
+  const finishDrag = useCallback(
+    (fromUrl: string, toUrl: string) => {
+      const next = reorderImageList(images, fromUrl, toUrl)
+      if (next === images) return
+      suppressClickRef.current = true
+      window.setTimeout(() => {
+        suppressClickRef.current = false
+      }, 0)
+      applyList(next)
+    },
+    [applyList, images]
+  )
+
+  const onTilePointerDown = (e: React.PointerEvent<HTMLDivElement>, url: string) => {
+    if (!reorderEnabled || uploading) return
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('button, a, input, textarea, select')) return
+
+    const holdTimer = window.setTimeout(() => {
+      if (!dragRef.current || dragRef.current.url !== url) return
+      dragRef.current.active = true
+      setDraggingUrl(url)
+    }, HOLD_MS)
+
+    dragRef.current = {
+      url,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      holdTimer,
+      active: false,
+    }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onTilePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d || e.pointerId !== d.pointerId) return
+
+    const moved = Math.hypot(e.clientX - d.startX, e.clientY - d.startY)
+    if (!d.active && moved > MOVE_CANCEL_PX) {
+      if (d.holdTimer) clearTimeout(d.holdTimer)
+      dragRef.current = null
+      return
+    }
+
+    if (!d.active) return
+
+    e.preventDefault()
+    const el = document.elementFromPoint(e.clientX, e.clientY)
+    const sortable = el?.closest('[data-gallery-sortable]') as HTMLElement | null
+    setOverUrl(sortable?.dataset.gallerySortable ?? null)
+  }
+
+  const onTilePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d || e.pointerId !== d.pointerId) return
+
+    if (d.holdTimer) clearTimeout(d.holdTimer)
+
+    const dropUrl = overUrl
+    const wasActive = d.active
+    const dragUrl = d.url
+
+    clearDrag()
+    e.currentTarget.releasePointerCapture(e.pointerId)
+
+    if (wasActive && dropUrl && dropUrl !== dragUrl) {
+      finishDrag(dragUrl, dropUrl)
+    }
+  }
+
+  const onTilePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d || e.pointerId !== d.pointerId) return
+    clearDrag()
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+
   const border = t.isDark ? 'border-dark-600' : 'border-gray-200'
   const tileBg = t.isDark ? 'bg-dark-800' : 'bg-gray-50'
 
@@ -258,31 +374,56 @@ export default function ProductImageGalleryEditor({
         {images.map((url, index) => {
           const displaySrc = toDisplayProductImageUrl(url, sourceUrl) || url
           const isMain = index === 0
+          const isDragging = draggingUrl === url
+          const isOver = overUrl === url && draggingUrl != null && !isDragging
           return (
-            <GalleryImageTile
-              key={`${url}-${index}`}
-              displaySrc={displaySrc}
-              alt={
-                isMain
-                  ? tr('productForm.imagesMainAlt')
-                  : tr('productForm.imagesGalleryAlt', { index: index + 1 })
-              }
-              isMain={isMain}
-              setAsMainLabel={tr('productForm.imagesSetAsMain')}
-              mainBadgeLabel={tr('productForm.imagesMainBadge')}
-              removeAriaLabel={
-                isMain ? tr('productForm.imagesRemoveMain') : tr('productForm.imagesRemove')
-              }
-              removeTitle={tr('productForm.imagesRemoveTitle')}
-              onSetAsMain={() => setAsMain(index)}
-              onRemove={() => removeAt(index)}
-              onOpenLightbox={() => setLightboxIndex(index)}
-              viewFullSizeLabel={tr('product.viewImageFullSize', {
-                name: tr('productForm.sectionImages'),
-              })}
-              border={border}
-              tileBg={tileBg}
-            />
+            <div
+              key={url}
+              data-gallery-sortable={url}
+              onPointerDown={(e) => onTilePointerDown(e, url)}
+              onPointerMove={onTilePointerMove}
+              onPointerUp={onTilePointerUp}
+              onPointerCancel={onTilePointerCancel}
+              onClickCapture={(e) => {
+                if (suppressClickRef.current || draggingUrl) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              }}
+              className={`relative transition-shadow duration-150 ${
+                reorderEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''
+              } ${isDragging ? 'z-20 scale-[0.98] opacity-55 shadow-lg' : ''} ${
+                isOver ? 'ring-2 ring-primary-500 ring-offset-2 rounded-lg' : ''
+              }`}
+              style={reorderEnabled ? { touchAction: 'none' } : undefined}
+            >
+              <GalleryImageTile
+                displaySrc={displaySrc}
+                alt={
+                  isMain
+                    ? tr('productForm.imagesMainAlt')
+                    : tr('productForm.imagesGalleryAlt', { index: index + 1 })
+                }
+                isMain={isMain}
+                setAsMainLabel={tr('productForm.imagesSetAsMain')}
+                mainBadgeLabel={tr('productForm.imagesMainBadge')}
+                removeAriaLabel={
+                  isMain ? tr('productForm.imagesRemoveMain') : tr('productForm.imagesRemove')
+                }
+                removeTitle={tr('productForm.imagesRemoveTitle')}
+                onSetAsMain={() => setAsMain(index)}
+                onRemove={() => removeAt(index)}
+                onOpenLightbox={() => {
+                  if (suppressClickRef.current) return
+                  setLightboxIndex(index)
+                }}
+                viewFullSizeLabel={tr('product.viewImageFullSize', {
+                  name: tr('productForm.sectionImages'),
+                })}
+                border={border}
+                tileBg={tileBg}
+              />
+            </div>
           )
         })}
 

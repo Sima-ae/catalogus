@@ -27,6 +27,7 @@ import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
+import { getTagLabel } from '@/lib/i18n-tags'
 
 type ProductReview = {
   id: string
@@ -925,7 +926,7 @@ export default function ProductPageClient() {
               )}
             </div>
 
-            {product.category || product.brand ? (
+            {product.category || product.brand || (product.tags?.length ?? 0) > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {product.category ? (
                   <Link
@@ -951,6 +952,18 @@ export default function ProductPageClient() {
                     {product.brand}
                   </Link>
                 ) : null}
+                {(product.tags ?? []).map((tag) => (
+                  <span
+                    key={tag}
+                    className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide ${
+                      theme === 'dark'
+                        ? 'text-gray-300 bg-dark-700'
+                        : 'text-gray-700 bg-gray-200'
+                    }`}
+                  >
+                    {getTagLabel(tag, t)}
+                  </span>
+                ))}
               </div>
             ) : null}
           </div>
