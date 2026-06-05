@@ -37,6 +37,23 @@ export function pricelistRowNeedsPrice(
   return !Number.isFinite(n) || n < 0
 }
 
+/** Row has a saved numeric price (green field in the table). */
+export function pricelistRowHasFilledPrice(row: PricelistRow): boolean {
+  if (row.seller_stock_status || row.display_stock_status) return false
+  const raw = row.seller_unit_price ?? row.display_unit_price
+  if (raw == null) return false
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0
+}
+
+export function countPricelistRowsWithFilledPrice(items: PricelistRow[]): number {
+  let n = 0
+  for (const row of items) {
+    if (pricelistRowHasFilledPrice(row)) n++
+  }
+  return n
+}
+
 export function countPricelistRowsNeedingPrice(
   items: PricelistRow[],
   opts?: { guestShareLink?: boolean }

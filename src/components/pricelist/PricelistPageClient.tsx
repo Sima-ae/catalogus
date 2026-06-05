@@ -26,10 +26,12 @@ import { translatePricelistOwnerLabel } from '@/lib/i18n-pricelist'
 import {
   collectPricelistFilterOptions,
   countPricelistRowsNeedingPrice,
+  countPricelistRowsWithFilledPrice,
   filterPricelistRows,
 } from '@/lib/pricelist-filters'
 import PricelistListFiltersBar from '@/components/pricelist/PricelistListFilters'
 import PricelistMissingPricesButton from '@/components/pricelist/PricelistMissingPricesButton'
+import PricelistExportButton from '@/components/pricelist/PricelistExportButton'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -140,12 +142,38 @@ export default function PricelistPageClient() {
     [items, searchQuery, categoryFilter, brandFilter, showMissingPricesOnly, guestShareLink]
   )
 
+  const exportScopeItems = useMemo(
+    () =>
+      filterPricelistRows(items, {
+        searchQuery,
+        categoryFilter,
+        brandFilter,
+        guestShareLink,
+      }),
+    [items, searchQuery, categoryFilter, brandFilter, guestShareLink]
+  )
+
+  const filledPriceExportCount = useMemo(
+    () => countPricelistRowsWithFilledPrice(exportScopeItems),
+    [exportScopeItems]
+  )
+
   const hasActiveFilters = Boolean(
     categoryFilter || brandFilter || showMissingPricesOnly
   )
 
   /** Share-link guests (after pricelist password) can filter missing prices too. */
   const showMissingPricesButton = canEditPrices && viewMode === 'table'
+  const canExportPricelist = !isGuest && Boolean(user) && (Boolean(isSuperAdmin) || isAdmin)
+  const showExportButton = canExportPricelist && viewMode === 'table'
+
+  const exportOwnerLabel =
+    isPlatformList
+      ? t('pricelist.owner.platform')
+      : translatePricelistOwnerLabel(
+          owners.find((o) => o.id === ownerId) ?? { label: currentOwnerLabel },
+          t
+        )
 
   const totalFiltered = filteredItems.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PRICELIST_PAGE_SIZE) || 1)
@@ -182,13 +210,25 @@ export default function PricelistPageClient() {
     return filteredItems.slice(start, start + PRICELIST_PAGE_SIZE)
   }, [filteredItems, safePage])
 
-  const missingPricesTrailing = showMissingPricesButton ? (
-    <PricelistMissingPricesButton
-      active={showMissingPricesOnly}
-      count={missingPriceCount}
-      onToggle={() => setShowMissingPricesOnly((on) => !on)}
-    />
-  ) : null
+  const missingPricesTrailing =
+    showMissingPricesButton || showExportButton ? (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {showExportButton ? (
+          <PricelistExportButton
+            items={exportScopeItems}
+            ownerLabel={exportOwnerLabel}
+            disabled={filledPriceExportCount === 0}
+          />
+        ) : null}
+        {showMissingPricesButton ? (
+          <PricelistMissingPricesButton
+            active={showMissingPricesOnly}
+            count={missingPriceCount}
+            onToggle={() => setShowMissingPricesOnly((on) => !on)}
+          />
+        ) : null}
+      </div>
+    ) : null
 
   const paginationProps = {
     page: safePage,
