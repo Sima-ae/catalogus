@@ -29,8 +29,10 @@ const tree: CategoryTreeRow[] = [
   row('soccer-shirts', 'SHIRTS', 'soccer'),
   row('soccer-shoes', 'SHOES', 'soccer'),
   row('soccer-bags', 'BAGS', 'soccer'),
+  row('kids-shoes-top', 'KIDS SHOES', 'shoes-top'),
   row('kids', 'KIDS'),
   row('kids-sandals', 'SANDALS', 'kids'),
+  row('kids-shoes', 'SHOES', 'kids'),
 ]
 
 function ids(result: ReturnType<typeof resolveShopCategoryFilter>): string[] {
@@ -39,6 +41,7 @@ function ids(result: ReturnType<typeof resolveShopCategoryFilter>): string[] {
 
 // Qualified sibling detection
 assert.equal(isQualifiedSiblingCategory('SLIPPERS', 'KIDS SLIPPERS'), true)
+assert.equal(isQualifiedSiblingCategory('SHOES', 'KIDS SHOES'), true)
 assert.equal(isQualifiedSiblingCategory('SOCCER', 'SHOES'), false)
 assert.equal(isQualifiedSiblingCategory('KIDS', 'SANDALS'), false)
 assert.equal(isQualifiedSiblingCategory('SHOES', 'SHOES'), false)
@@ -72,9 +75,19 @@ const soccerShirts = resolveShopCategoryFilter(tree, {
 assert.deepEqual(ids(soccerShirts), ['soccer-shirts'])
 assert.equal(soccerShirts?.strictIdOnly, true)
 
-// Duplicate name: top-level SHOES vs SOCCER › SHOES
+// SHOES must not include KIDS SHOES or SOCCER › SHOES
 const topShoes = resolveShopCategoryFilter(tree, { category: 'SHOES' })
 assert.deepEqual(ids(topShoes), ['shoes-top'])
+
+const kidsShoesFilter = resolveShopCategoryFilter(tree, { category: 'KIDS SHOES' })
+assert.deepEqual(ids(kidsShoesFilter), ['kids-shoes-top'])
+
+const kidsShoesSub = resolveShopCategoryFilter(tree, {
+  category: 'KIDS',
+  subcategory: 'SHOES',
+})
+assert.deepEqual(ids(kidsShoesSub), ['kids-shoes'])
+assert.equal(kidsShoesSub?.strictIdOnly, true)
 
 const soccerShoesSub = resolveShopCategoryFilter(tree, {
   category: 'SOCCER',
@@ -86,6 +99,10 @@ assert.deepEqual(ids(soccerShoesSub), ['soccer-shoes'])
 assert.deepEqual(
   getDirectChildCategories(tree, 'SLIPPERS').map((c) => c.name),
   []
+)
+assert.deepEqual(
+  getDirectChildCategories(tree, 'KIDS').map((c) => c.name).sort(),
+  ['SANDALS', 'SHOES'].sort()
 )
 assert.deepEqual(
   getDirectChildCategories(tree, 'SOCCER').map((c) => c.name).sort(),

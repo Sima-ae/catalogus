@@ -456,7 +456,7 @@ CREATE TABLE IF NOT EXISTS tag_translations (
 -- Backfill tag translations for existing products:
 --   npx tsx scripts/sync-tag-translations.ts
 
--- Detach qualified sibling categories (e.g. KIDS SLIPPERS) wrongly nested under SLIPPERS.
+-- Detach qualified sibling categories (e.g. KIDS SLIPPERS, KIDS SHOES) wrongly nested under SLIPPERS / SHOES.
 -- They are separate top-level categories, not subcategories of the shorter name.
 UPDATE categories child
 INNER JOIN categories parent ON parent.id = child.parent_id
@@ -465,6 +465,26 @@ INNER JOIN categories parent ON parent.id = child.parent_id
 SET child.parent_id = NULL
 WHERE LOWER(TRIM(child.name)) LIKE CONCAT('% ', LOWER(TRIM(parent.name)))
   AND LOWER(TRIM(child.name)) <> LOWER(TRIM(parent.name));
+
+-- Backfill unambiguous category labels (SOCCER › SHOES vs bare SHOES):
+--   npm run db:fix-product-categories
+
+-- KIDS › SHOES subcategory (shop pills under KINDEREN): create + migrate products
+--   npm run db:ensure-kids-shoes
+SET @kids_parent_id := (
+  SELECT id FROM categories
+  WHERE active = 1 AND LOWER(TRIM(name)) = 'kids'
+    AND (parent_id IS NULL OR TRIM(parent_id) = '')
+  LIMIT 1
+);
+INSERT INTO categories (id, name, slug, description, parent_id, active)
+SELECT UUID(), 'SHOES', 'shoes', NULL, @kids_parent_id, 1
+FROM DUAL
+WHERE @kids_parent_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM categories c
+    WHERE c.active = 1 AND c.parent_id = @kids_parent_id AND LOWER(TRIM(c.name)) = 'shoes'
+  );
 
 -- Manual catalog sort order per shop view (homepage, /new, category, subcategory, brand).
 CREATE TABLE IF NOT EXISTS catalog_product_positions (

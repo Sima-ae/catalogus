@@ -19,11 +19,13 @@ import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
 import {
   joinBrandNames,
-  joinCategoryNames,
+  joinCategoryStorageLabels,
+  categoryIdsFromCompound,
+  primaryCategoryId,
   parseBrandCompound,
-  parseCategoryCompound,
 } from '@/lib/product-taxonomy'
 import ProductImageGalleryEditor from '@/components/admin/ProductImageGalleryEditor'
+import CategoryCheckboxList from '@/components/admin/CategoryCheckboxList'
 import TaxonomyCheckboxList from '@/components/admin/TaxonomyCheckboxList'
 
 type BrandOption = { id: string; name: string; slug: string }
@@ -91,12 +93,17 @@ export default function ProductForm({
   const [form, setForm] = useState(defaultForm)
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<BrandOption[]>([])
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(mode === 'edit')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [taxonomySeed, setTaxonomySeed] = useState<{
+    category: string
+    brand: string
+    categoryId?: string | null
+  } | null>(null)
 
   useEffect(() => {
     fetch(appPath('/api/categories'))
@@ -131,19 +138,39 @@ export default function ProductForm({
       .catch(() => {})
   }, [])
 
-  const categoryOrder = useMemo(() => categories.map((c) => c.name), [categories])
   const brandOrder = useMemo(() => brands.map((b) => b.name), [brands])
 
-  const applyTaxonomyFromStrings = (category: string, brand: string) => {
-    setSelectedCategories(new Set(parseCategoryCompound(category)))
-    setSelectedBrands(new Set(parseBrandCompound(brand)))
+  const categoryPreview = useMemo(
+    () =>
+      selectedCategoryIds.length > 0
+        ? joinCategoryStorageLabels(new Set(selectedCategoryIds), categories)
+        : '',
+    [selectedCategoryIds, categories]
+  )
+
+  useEffect(() => {
+    if (!categories.length || !taxonomySeed) return
+    setSelectedCategoryIds(
+      categoryIdsFromCompound(taxonomySeed.category, categories, taxonomySeed.categoryId)
+    )
+    setSelectedBrands(new Set(parseBrandCompound(taxonomySeed.brand)))
+  }, [categories, taxonomySeed])
+
+  const toggleCategoryId = (id: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
   }
 
   useEffect(() => {
     if (mode === 'create' && initial) {
       const mapped = mapProductToForm(initial)
       setForm((f) => ({ ...f, ...mapped }))
-      applyTaxonomyFromStrings(mapped.category, mapped.brand)
+      setTaxonomySeed({
+        category: mapped.category,
+        brand: mapped.brand,
+        categoryId: initial?.category_id,
+      })
       setLoading(false)
       return
     }
@@ -162,7 +189,11 @@ export default function ProductForm({
       .then((p: Product) => {
         const mapped = mapProductToForm(p)
         setForm(mapped)
-        applyTaxonomyFromStrings(mapped.category, mapped.brand)
+        setTaxonomySeed({
+          category: mapped.category,
+          brand: mapped.brand,
+          categoryId: p.category_id,
+        })
         setSaved(false)
       })
       .catch((err) => {
@@ -205,19 +236,21 @@ export default function ProductForm({
       return
     }
 
-    if (selectedCategories.size === 0) {
+    if (selectedCategoryIds.length === 0) {
       setError(tr('productForm.selectCategory'))
       setSaving(false)
       return
     }
 
-    const category = joinCategoryNames(selectedCategories, categoryOrder)
+    const category = joinCategoryStorageLabels(new Set(selectedCategoryIds), categories)
+    const category_id = primaryCategoryId(selectedCategoryIds, categories)
     const brand =
       selectedBrands.size > 0 ? joinBrandNames(selectedBrands, brandOrder) : null
 
     const payload = parseProductBody({
       ...form,
       category,
+      category_id,
       brand,
       price: form.price,
       original_price: form.original_price,
@@ -247,7 +280,11 @@ export default function ProductForm({
       const updated = data as Product
       const mapped = mapProductToForm(updated)
       setForm(mapped)
-      applyTaxonomyFromStrings(mapped.category, mapped.brand)
+      setTaxonomySeed({
+        category: mapped.category,
+        brand: mapped.brand,
+        categoryId: updated.category_id,
+      })
       setSaved(true)
       onSaved?.(updated)
       if (mode === 'create' && variant === 'page') {
@@ -330,24 +367,20 @@ export default function ProductForm({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 [&_.form-label]:mb-1 [&_.form-label]:text-xs">
           <div>
             <label className="form-label">{tr('productForm.category')}</label>
-            <TaxonomyCheckboxList
-              options={categories.map((c) => ({
-                id: c.id,
-                name: c.name,
-                label: c.label,
-              }))}
-              selected={selectedCategories}
-              onChange={setSelectedCategories}
+            <CategoryCheckboxList
+              options={categories}
+              selectedIds={selectedCategoryIds}
+              onToggle={toggleCategoryId}
               disabled={saving}
               searchPlaceholder={tr('productForm.searchCategory')}
               noMatchesMessage={tr('productForm.searchNoMatches')}
-              preview={
-                selectedCategories.size > 0
-                  ? joinCategoryNames(selectedCategories, categoryOrder)
-                  : ''
-              }
-              emptyPreview={tr('productForm.selectCategory')}
+              maxHeightClass="max-h-44"
             />
+            {categoryPreview ? (
+              <p className={`text-xs mt-1 ${t.muted}`}>{categoryPreview}</p>
+            ) : (
+              <p className={`text-xs mt-1 ${t.muted}`}>{tr('productForm.selectCategory')}</p>
+            )}
             {!isSeller && (
               <p className="text-xs mt-1 form-hint">
                 <Link href="/admin/categories/new" className={t.link}>

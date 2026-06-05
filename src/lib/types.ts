@@ -12,6 +12,7 @@ export interface Product {
   source_url?: string | null
   source_album_id?: string | null
   category: string
+  category_id?: string | null
   brand?: string
   brand_id?: string | null
   tags?: string[]

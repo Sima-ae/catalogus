@@ -336,20 +336,36 @@ export async function resolveCategoryById(
   return rows[0] ?? null
 }
 
-/** Resolve category for bulk edit; supports compound labels (e.g. "SHOES / BAGS"). */
+async function resolveCategoryByQualifiedLabel(
+  label: string
+): Promise<{ id: string; name: string } | null> {
+  const trimmed = label.trim()
+  if (!trimmed) return null
+
+  const pathMatch = trimmed.match(/^(.+?)\s*[›>]\s*(.+)$/)
+  if (pathMatch) {
+    const parentName = pathMatch[1]!.trim()
+    const childName = pathMatch[2]!.trim()
+    const parent = await resolveCategoryByName(parentName)
+    if (!parent) return null
+    return resolveCategoryByName(childName, { parentId: parent.id })
+  }
+
+  return resolveCategoryByName(trimmed)
+}
+
+/** Resolve category for bulk edit; supports compound labels (e.g. "SOCCER › SHOES / BAGS"). */
 async function resolveBulkCategoryInput(categoryName: string): Promise<{ id: string; name: string }> {
   const trimmed = categoryName.trim()
-  try {
-    return await resolveProductCategoryInput(trimmed)
-  } catch (err) {
-    if (!(err instanceof UnknownCategoryError)) throw err
-    const firstSegment = trimmed.split('/').map((s) => s.trim()).find(Boolean)
-    if (firstSegment) {
-      const resolved = await resolveCategoryByName(firstSegment)
-      if (resolved) return { id: resolved.id, name: trimmed }
-    }
-    throw err
-  }
+  if (!trimmed) throw new UnknownCategoryError('')
+
+  const firstSegment = trimmed.split('/').map((s) => s.trim()).find(Boolean)
+  if (!firstSegment) throw new UnknownCategoryError(trimmed)
+
+  const resolved = await resolveCategoryByQualifiedLabel(firstSegment)
+  if (!resolved) throw new UnknownCategoryError(firstSegment)
+
+  return { id: resolved.id, name: trimmed }
 }
 
 /** Resolve brand for bulk edit; supports collab labels (e.g. "Supreme X Nike"). */
@@ -370,18 +386,24 @@ async function resolveProductCategoryInput(
   categoryName: string,
   categoryId?: string | null
 ) {
+  const trimmed = categoryName.trim()
+
   if (categoryId?.trim()) {
     const byId = await resolveCategoryById(categoryId)
-    if (byId) return byId
+    if (byId) {
+      return { id: byId.id, name: trimmed || byId.name }
+    }
   }
-  const trimmed = categoryName.trim()
+
   if (!trimmed) throw new UnknownCategoryError('')
+
   if (trimmed.includes('/')) {
     return resolveBulkCategoryInput(trimmed)
   }
-  const resolved = await resolveCategoryByName(trimmed)
+
+  const resolved = await resolveCategoryByQualifiedLabel(trimmed)
   if (!resolved) throw new UnknownCategoryError(trimmed)
-  return resolved
+  return { id: resolved.id, name: trimmed }
 }
 
 async function resolveBrandForStorage(brandName: string | null | undefined) {
