@@ -442,3 +442,13 @@ WHERE version IS NULL
 -- Remove ALL brand-name prefixes from SKUs (any brand slug in SKU, not only assigned brand).
 -- Required on production: npx tsx scripts/remove-brand-from-skus.ts
 -- (SQL-only updates miss mismatched rows, e.g. LOUIS-VUITTON-… with brand GUCCI.)
+
+-- Manual catalog sort order per shop view (homepage, /new, category, subcategory, brand).
+CREATE TABLE IF NOT EXISTS catalog_product_positions (
+  scope VARCHAR(128) NOT NULL,
+  product_id VARCHAR(36) NOT NULL,
+  position INT NOT NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (scope, product_id),
+  KEY idx_catalog_positions_scope_order (scope, position)
+);

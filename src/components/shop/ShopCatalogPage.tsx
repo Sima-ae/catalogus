@@ -33,6 +33,9 @@ import {
 } from '@heroicons/react/24/outline'
 import { type CatalogMode } from '@/lib/catalog'
 import { buildCatalogProductsUrl, isCatalogProductsPage } from '@/lib/catalog-products'
+import { catalogSortScope } from '@/lib/catalog-sort-scope'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
+import { useAuth } from '@/lib/auth-local'
 import AppFooter from '@/components/layout/AppFooter'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -71,7 +74,9 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [error, setError] = useState<string | null>(null)
   const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
+  const [reorderSaving, setReorderSaving] = useState(false)
   const hasLoadedOnce = useRef(false)
+  const { user } = useAuth()
   const prevFilterRef = useRef<string | null>(null)
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -98,6 +103,48 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
   const filterBrand = searchParams.get('brand')?.trim() || 'All'
   const filterSignature = `${urlCategory}|${urlSubcategory}|${filterBrand}|${debouncedSearch}|${config.mode}`
+  const reorderScope = catalogSortScope({
+    mode: config.mode === 'new' ? 'new' : undefined,
+    category: urlCategory !== 'All' ? urlCategory : undefined,
+    subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
+    brand: filterBrand !== 'All' ? filterBrand : undefined,
+    search: debouncedSearch || undefined,
+  })
+
+  const handleReorder = async (productIds: string[]) => {
+    if (!reorderScope || !user) return
+    setReorderSaving(true)
+    try {
+      const res = await fetch(appPath('/api/admin/catalog/reorder'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scope: reorderScope,
+          productIds,
+          page: currentPage,
+          pageSize: CATALOG_PAGE_SIZE,
+        }),
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(data.error || `HTTP ${res.status}`)
+      }
+      setProducts((prev) => {
+        const byId = new Map(prev.map((p) => [p.id, p]))
+        return productIds.map((id) => byId.get(id)).filter(Boolean) as Product[]
+      })
+    } catch (err) {
+      setReloadToken((t) => t + 1)
+      setError(
+        `Failed to save order: ${err instanceof Error ? err.message : 'Unknown error'}`
+      )
+    } finally {
+      setReorderSaving(false)
+    }
+  }
 
   const handleProductDeleted = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId))
@@ -338,6 +385,9 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
                 totalItems={totalItems}
                 onPageChange={setCurrentPage}
                 onProductDeleted={handleProductDeleted}
+                onReorder={handleReorder}
+                reorderScope={reorderScope}
+                reorderSaving={reorderSaving}
                 centered={config.centerCatalog}
                 loading={resultsLoading}
               />

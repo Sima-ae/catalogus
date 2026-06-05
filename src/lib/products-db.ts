@@ -20,6 +20,8 @@ import {
   UnknownBrandError,
 } from '@/lib/brands-db'
 import { getBrandSkuPrefixes } from '@/lib/brand-sku-prefixes'
+import { catalogPositionJoin } from '@/lib/catalog-positions-db'
+import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import {
   DuplicateSkuError,
   MissingSkuError,
@@ -600,15 +602,18 @@ export async function listActiveProductsPaginated(
   const offset = (query.page - 1) * limit
   const fromIndex = select.search(/\bFROM\b/i)
   const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+  const sortScope = catalogSortScope(query)
+  const { joinSql, orderSql, scopeParam } = await catalogPositionJoin(sortScope)
+  const idParams = scopeParam ? [scopeParam, ...params] : params
 
   const [countRows, idRows] = await Promise.all([
     queryDb<{ total: number }[]>(
-      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
-      params
+      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${joinSql} ${whereSql}`,
+      idParams
     ),
     queryDb<{ id: string }[]>(
-      `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      `SELECT p.id ${fromClause} ${joinSql} ${whereSql} GROUP BY p.id ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+      [...idParams, limit, offset]
     ),
   ])
 
