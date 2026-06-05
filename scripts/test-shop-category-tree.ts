@@ -8,6 +8,7 @@ import {
   categoryHasChildren,
   findParentCategoryName,
   getDirectChildCategories,
+  getHomonymousSubcategoryIdsElsewhere,
   isQualifiedSiblingCategory,
   isShopTopLevelCategory,
   resolveShopCategoryFilter,
@@ -80,6 +81,11 @@ assert.equal(soccerShirts?.categoryStorageLabel, 'SOCCER › SHIRTS')
 // SHOES must not include KIDS SHOES or SOCCER › SHOES
 const topShoes = resolveShopCategoryFilter(tree, { category: 'SHOES' })
 assert.deepEqual(ids(topShoes), ['shoes-top'])
+assert.deepEqual(topShoes?.excludeCategoryIds?.sort(), ['kids-shoes', 'soccer-shoes'].sort())
+assert.deepEqual(
+  getHomonymousSubcategoryIdsElsewhere(tree, tree.find((r) => r.id === 'shoes-top')!).sort(),
+  ['kids-shoes', 'soccer-shoes'].sort()
+)
 
 const kidsShoesFilter = resolveShopCategoryFilter(tree, { category: 'KIDS SHOES' })
 assert.deepEqual(ids(kidsShoesFilter), ['kids-shoes-top'])

@@ -18,6 +18,8 @@ export type CatalogProductsQuery = {
   strictCategoryIdOnly?: boolean
   /** Qualified subcategory label (e.g. KIDS › SHOES) for text + id matching. */
   categoryStorageLabel?: string
+  /** Homonymous subcategory ids under other parents — exclude from top-level roll-ups. */
+  excludeCategoryIds?: string[]
   brand?: string
   tag?: string
   search?: string
@@ -114,6 +116,24 @@ export function buildQualifiedCategoryTextMatch(labels: string[]): {
   return { sql: `(${parts.join(' OR ')})`, params }
 }
 
+/** Legacy `products.category` text applies only when FK is unset (avoids KIDS › SHOES leaking into SHOES). */
+export const PRODUCT_CATEGORY_ID_UNSET_SQL =
+  '(p.category_id IS NULL OR TRIM(p.category_id) = \'\')'
+
+export function combineCategoryIdAndLegacyTextMatch(
+  idClause: string,
+  idParams: unknown[],
+  textMatch: { sql: string; params: unknown[] }
+): { sql: string; params: unknown[] } {
+  if (textMatch.sql === '1 = 0') {
+    return { sql: idClause, params: idParams }
+  }
+  return {
+    sql: `(${idClause} OR (${PRODUCT_CATEGORY_ID_UNSET_SQL} AND ${textMatch.sql}))`,
+    params: [...idParams, ...textMatch.params],
+  }
+}
+
 export type CatalogFilterOptions = {
   /** Include brands.name in search / brand filter (when brands table is joined). */
   includeBrandJoin?: boolean
@@ -146,19 +166,24 @@ export function buildActiveCatalogFilters(
         ...(query.legacyCategoryNames ?? []),
       ].filter(Boolean) as string[]
       const textMatch = buildQualifiedCategoryTextMatch(labels)
-      if (textMatch.sql !== '1 = 0') {
-        where.push(`(${idClause} OR ${textMatch.sql})`)
-        params.push(...categoryIds, ...categoryIds, ...textMatch.params)
-      } else {
-        where.push(idClause)
-        params.push(...categoryIds, ...categoryIds)
-      }
+      const combined = combineCategoryIdAndLegacyTextMatch(
+        idClause,
+        [...categoryIds, ...categoryIds],
+        textMatch
+      )
+      where.push(combined.sql)
+      params.push(...combined.params)
     } else if (query.legacyCategoryNames?.length) {
       const legacyNames = query.legacyCategoryNames.filter(Boolean)
       if (legacyNames.length) {
         const legacy = buildQualifiedCategoryTextMatch(legacyNames)
-        where.push(`(${idClause} OR ${legacy.sql})`)
-        params.push(...categoryIds, ...categoryIds, ...legacy.params)
+        const combined = combineCategoryIdAndLegacyTextMatch(
+          idClause,
+          [...categoryIds, ...categoryIds],
+          legacy
+        )
+        where.push(combined.sql)
+        params.push(...combined.params)
       } else {
         where.push(idClause)
         params.push(...categoryIds, ...categoryIds)
@@ -167,6 +192,15 @@ export function buildActiveCatalogFilters(
       where.push(idClause)
       params.push(...categoryIds, ...categoryIds)
     }
+  }
+
+  const excludeCategoryIds = query.excludeCategoryIds?.filter(Boolean)
+  if (excludeCategoryIds?.length) {
+    const excludePlaceholders = excludeCategoryIds.map(() => '?').join(', ')
+    where.push(
+      `(${PRODUCT_CATEGORY_ID_UNSET_SQL} OR p.category_id NOT IN (${excludePlaceholders}))`
+    )
+    params.push(...excludeCategoryIds)
   }
 
   if (query.brand && query.brand !== 'All') {
@@ -257,6 +291,7 @@ export type AdminProductFilterOptions = {
   legacyCategoryNames?: string[]
   /** Qualified subcategory label for text + id matching. */
   categoryStorageLabel?: string
+  excludeCategoryIds?: string[]
 }
 
 /** WHERE clause for admin product tables (status, search, category, brand). */
@@ -290,17 +325,14 @@ export function buildAdminProductFilters(
         ...(options.legacyCategoryNames ?? []),
       ].filter(Boolean) as string[]
       const textMatch = buildQualifiedCategoryTextMatch(labels)
-      if (textMatch.sql !== '1 = 0') {
-        where.push(`(${idClause} OR ${textMatch.sql})`)
-        params.push(...categoryIds, ...textMatch.params)
-      } else {
-        where.push(idClause)
-        params.push(...categoryIds)
-      }
+      const combined = combineCategoryIdAndLegacyTextMatch(idClause, categoryIds, textMatch)
+      where.push(combined.sql)
+      params.push(...combined.params)
     } else if (options.legacyCategoryNames?.length) {
       const legacy = buildQualifiedCategoryTextMatch(options.legacyCategoryNames.filter(Boolean))
-      where.push(`(${idClause} OR ${legacy.sql})`)
-      params.push(...categoryIds, ...legacy.params)
+      const combined = combineCategoryIdAndLegacyTextMatch(idClause, categoryIds, legacy)
+      where.push(combined.sql)
+      params.push(...combined.params)
     } else {
       where.push(idClause)
       params.push(...categoryIds)
@@ -310,6 +342,15 @@ export function buildAdminProductFilters(
   } else if (options.category && options.category !== 'All') {
     where.push('(p.category = ? OR c.name = ?)')
     params.push(options.category, options.category)
+  }
+
+  const excludeCategoryIds = options.excludeCategoryIds?.filter(Boolean)
+  if (excludeCategoryIds?.length) {
+    const excludePlaceholders = excludeCategoryIds.map(() => '?').join(', ')
+    where.push(
+      `(${PRODUCT_CATEGORY_ID_UNSET_SQL} OR p.category_id NOT IN (${excludePlaceholders}))`
+    )
+    params.push(...excludeCategoryIds)
   }
 
   if (options.brand && options.brand !== 'All') {

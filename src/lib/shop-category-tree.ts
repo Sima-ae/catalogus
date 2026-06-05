@@ -106,12 +106,32 @@ export type ShopCategoryFilterResult = {
   strictIdOnly: boolean
   /** Primary qualified label when strictIdOnly (subcategory pill filter). */
   categoryStorageLabel?: string
+  /** Homonymous subcategory ids under other parents (e.g. KIDS › SHOES when filtering top SHOES). */
+  excludeCategoryIds?: string[]
 }
 
 function storageLabelForRow(rows: CategoryTreeRow[], row: CategoryTreeRow): string {
   if (!row.parent_id) return String(row.name).trim()
   const parent = rows.find((r) => r.id === row.parent_id)
   return formatCategoryDisplayName(String(row.name), parent?.name ? String(parent.name) : null)
+}
+
+/** Same display name under a different parent (e.g. SHOES under KIDS vs top-level SHOES). */
+export function getHomonymousSubcategoryIdsElsewhere(
+  rows: CategoryTreeRow[],
+  anchor: CategoryTreeRow
+): string[] {
+  if (anchor.parent_id) return []
+  const nameKey = normalizeName(anchor.name)
+  return rows
+    .filter(
+      (row) =>
+        row.parent_id &&
+        row.parent_id !== anchor.id &&
+        normalizeName(row.name) === nameKey &&
+        isActiveRow(row)
+    )
+    .map((row) => row.id)
 }
 
 /** Resolve which categories a shop filter should match (by id, not ambiguous name). */
@@ -158,7 +178,13 @@ export function resolveShopCategoryFilter(
     .map((id) => rows.find((row) => row.id === id))
     .filter((row): row is CategoryTreeRow => Boolean(row))
     .map((row) => storageLabelForRow(rows, row))
-  return { categoryIds: ids, legacyNames, strictIdOnly: false }
+  const excludeCategoryIds = getHomonymousSubcategoryIdsElsewhere(rows, anchor)
+  return {
+    categoryIds: ids,
+    legacyNames,
+    strictIdOnly: false,
+    excludeCategoryIds: excludeCategoryIds.length ? excludeCategoryIds : undefined,
+  }
 }
 
 /** @deprecated Use resolveShopCategoryFilter — kept for callers that only need names. */

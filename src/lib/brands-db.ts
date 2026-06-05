@@ -2,7 +2,11 @@ import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import { slugifyCategory } from '@/lib/category-slug'
 import { loadActiveCategories } from '@/lib/categories-persistence'
-import { buildQualifiedCategoryTextMatch } from '@/lib/catalog-products'
+import {
+  buildQualifiedCategoryTextMatch,
+  combineCategoryIdAndLegacyTextMatch,
+  PRODUCT_CATEGORY_ID_UNSET_SQL,
+} from '@/lib/catalog-products'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 
 export class UnknownBrandError extends Error {
@@ -70,18 +74,30 @@ async function listActiveBrandsByProductsInCategory(
   if (hasCategoryId) {
     if (categoryFilter.strictIdOnly && qualifiedLabels.length) {
       const textMatch = buildQualifiedCategoryTextMatch(qualifiedLabels)
-      categoryMatch = `(${categoryMatch} OR ${textMatch.sql})`
-      params.push(...textMatch.params)
+      const combined = combineCategoryIdAndLegacyTextMatch(categoryMatch, params, textMatch)
+      categoryMatch = combined.sql
+      params.length = 0
+      params.push(...combined.params)
     } else if (!categoryFilter.strictIdOnly && qualifiedLabels.length) {
       const textMatch = buildQualifiedCategoryTextMatch(qualifiedLabels)
-      categoryMatch = `(${categoryMatch} OR ${textMatch.sql})`
-      params.push(...textMatch.params)
+      const combined = combineCategoryIdAndLegacyTextMatch(categoryMatch, params, textMatch)
+      categoryMatch = combined.sql
+      params.length = 0
+      params.push(...combined.params)
     }
   } else if (qualifiedLabels.length) {
     const textMatch = buildQualifiedCategoryTextMatch(qualifiedLabels)
     categoryMatch = textMatch.sql
     params.length = 0
     params.push(...textMatch.params)
+  }
+
+  const excludeIds = categoryFilter.excludeCategoryIds?.filter(Boolean)
+  let excludeSql = ''
+  if (excludeIds?.length) {
+    const excludePlaceholders = excludeIds.map(() => '?').join(', ')
+    excludeSql = ` AND (${PRODUCT_CATEGORY_ID_UNSET_SQL} OR p.category_id NOT IN (${excludePlaceholders}))`
+    params.push(...excludeIds)
   }
 
   return queryDb<Record<string, unknown>[]>(
@@ -92,7 +108,7 @@ async function listActiveBrandsByProductsInCategory(
          SELECT 1 FROM products p
          WHERE p.status = 'active'
            AND ${brandMatch}
-           AND ${categoryMatch}
+           AND ${categoryMatch}${excludeSql}
        )
      ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
     params

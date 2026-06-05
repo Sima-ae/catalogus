@@ -127,6 +127,7 @@ async function main() {
   let movedFromTopKidsShoes = 0
   let movedFromLabel = 0
   let movedFromImport = 0
+  let movedFromTopShoesLabel = 0
 
   if (kidsShoesTop && kidsShoesTop.id !== kidsShoes.id) {
     const c = await countProducts(kidsShoesTop.id)
@@ -199,6 +200,37 @@ async function main() {
         )
       }
     }
+
+    const topShoesLabelRows = await queryDb<{ id: string }[]>(
+      `SELECT id FROM products
+       WHERE category_id = ?
+         AND (
+           LOWER(TRIM(category)) IN ('kids shoes', 'kids › shoes', 'kids > shoes')
+           OR category LIKE '%KIDS SHOES%'
+           OR category LIKE '%KIDS › SHOES%'
+           OR category LIKE '%KIDS / SHOES%'
+         )`,
+      [topShoes.id]
+    )
+    movedFromTopShoesLabel = topShoesLabelRows.length
+    if (topShoesLabelRows.length > 0) {
+      console.log(
+        `${topShoesLabelRows.length} products on top-level SHOES with KIDS category text`
+      )
+      if (!dryRun) {
+        await queryDb(
+          `UPDATE products SET category_id = ?, category = ?
+           WHERE category_id = ?
+             AND (
+               LOWER(TRIM(category)) IN ('kids shoes', 'kids › shoes', 'kids > shoes')
+               OR category LIKE '%KIDS SHOES%'
+               OR category LIKE '%KIDS › SHOES%'
+               OR category LIKE '%KIDS / SHOES%'
+             )`,
+          [kidsShoes.id, storageLabel, topShoes.id]
+        )
+      }
+    }
   }
 
   const [{ activeCount }] = await queryDb<{ activeCount: number }[]>(
@@ -219,7 +251,8 @@ async function main() {
   - create KIDS › SHOES: ${kidsShoes.id === '(new)' ? 'yes' : 'no'}
   - move from top-level KIDS SHOES: ${movedFromTopKidsShoes}
   - move by category label: ${movedFromLabel}
-  - move from top SHOES (KIDS import source): ${movedFromImport}`
+  - move from top SHOES (KIDS import source): ${movedFromImport}
+  - move from top SHOES (KIDS category text): ${movedFromTopShoesLabel}`
       : `\nDone. Active products on KIDS › SHOES: ${activeCount}
 Shop subcategory pill "SCHOENEN" appears under KINDEREN after deploy + hard refresh.`
   )

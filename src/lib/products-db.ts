@@ -813,6 +813,7 @@ export async function listActiveProductsPaginated(
       legacyCategoryNames: categoryFilter?.legacyNames,
       strictCategoryIdOnly: categoryFilter?.strictIdOnly,
       categoryStorageLabel: categoryFilter?.categoryStorageLabel,
+      excludeCategoryIds: categoryFilter?.excludeCategoryIds,
     },
     { includeBrandJoin: hasBrandsTable }
   )
@@ -897,6 +898,7 @@ async function resolveAdminCategoryFilterOptions(
     categoryIds: resolved.categoryIds,
     strictCategoryIdOnly: resolved.strictIdOnly,
     legacyCategoryNames: resolved.legacyNames,
+    excludeCategoryIds: resolved.excludeCategoryIds,
   }
 }
 
