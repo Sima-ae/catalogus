@@ -94,7 +94,7 @@ async function listActiveBrandsByProductsInCategory(
   )
 }
 
-/** Brands linked in admin (brand_categories) and/or with products in this category scope. */
+/** Brands with at least one active product in the current category/subcategory scope. */
 async function listActiveBrandsForShopCategory(
   categoryName: string,
   subcategory?: string
@@ -110,35 +110,7 @@ async function listActiveBrandsForShopCategory(
     return []
   }
 
-  const byProducts = await listActiveBrandsByProductsInCategory(categoryFilter, filterIds)
-
-  if (!(await brandCategoriesTableExists())) {
-    return byProducts
-  }
-
-  const idPlaceholders = filterIds.map(() => '?').join(', ')
-  const byLinks = await queryDb<Record<string, unknown>[]>(
-    `SELECT DISTINCT b.*
-     FROM brands b
-     INNER JOIN brand_categories bc ON bc.brand_id = b.id
-     WHERE b.active = 1 AND bc.category_id IN (${idPlaceholders})
-     ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
-    filterIds
-  )
-
-  const merged = new Map<string, Record<string, unknown>>()
-  for (const row of [...byLinks, ...byProducts]) {
-    merged.set(String(row.id), row)
-  }
-
-  return Array.from(merged.values()).sort((a, b) => {
-    const orderA = Number(a.sort_order ?? 9999)
-    const orderB = Number(b.sort_order ?? 9999)
-    if (orderA !== orderB) return orderA - orderB
-    return String(a.name ?? '').localeCompare(String(b.name ?? ''), undefined, {
-      sensitivity: 'base',
-    })
-  })
+  return listActiveBrandsByProductsInCategory(categoryFilter, filterIds)
 }
 
 export async function getBrandCategoryIds(brandId: string): Promise<string[]> {

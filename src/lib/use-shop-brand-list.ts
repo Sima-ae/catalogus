@@ -49,7 +49,7 @@ async function fetchShopBrandMenu(
   return request
 }
 
-/** Brand labels for shop filters — optional category narrows linked brands. */
+/** Brand labels for shop filters — only brands with products in the selected category. */
 export function useShopBrandList(
   selectedCategory: string = 'All',
   selectedSubcategory: string = 'All'
