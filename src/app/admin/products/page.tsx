@@ -39,10 +39,30 @@ import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/Adm
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
-import { parseBrandCompound, parseCategoryCompound } from '@/lib/product-taxonomy'
+import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSegment } from '@/lib/product-taxonomy'
 import { useI18n } from '@/lib/i18n-context'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
+
+function formatAdminProductCategoryLabels(
+  product: Product,
+  categories: CategoryPickerOption[],
+  tr: (key: string) => string
+): string[] {
+  if (product.category_id) {
+    const match = categories.find((c) => c.id === product.category_id)
+    if (match) {
+      return [getTopCategoryLabel(match.listLabel, tr)]
+    }
+  }
+  const labels: string[] = []
+  for (const segment of parseCategoryCompound(product.category)) {
+    const opt = resolveCategoryOptionFromSegment(segment, categories)
+    const label = opt ? getTopCategoryLabel(opt.listLabel, tr) : getTopCategoryLabel(segment, tr)
+    if (!labels.includes(label)) labels.push(label)
+  }
+  return labels
+}
 
 const PAGE_SIZES = [50, 100, 250, 500] as const
 type PageSize = (typeof PAGE_SIZES)[number]
@@ -216,6 +236,11 @@ export default function AdminProductsPage() {
       .catch(() => {})
   }, [user])
 
+  const categoryFilterLabel = useMemo(() => {
+    if (categoryFilter === 'all') return null
+    return categories.find((c) => c.id === categoryFilter)?.listLabel ?? categoryFilter
+  }, [categoryFilter, categories])
+
   const loadProducts = useCallback(() => {
     if (!user) return
 
@@ -229,7 +254,7 @@ export default function AdminProductsPage() {
         limit: pageSize,
         status: statusFilter,
         search: debouncedSearch || undefined,
-        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
         brand: brandFilter !== 'all' ? brandFilter : undefined,
       }) + '&scope=admin'
 
@@ -572,7 +597,7 @@ export default function AdminProductsPage() {
             >
               <option value="all">All categories</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.name}>
+                <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
@@ -615,8 +640,8 @@ export default function AdminProductsPage() {
           {statusFilter !== 'all' && (
             <> · status: {statusLabel(statusFilter)}</>
           )}
-          {categoryFilter !== 'all' && (
-            <> · category: {categoryFilter}</>
+          {categoryFilterLabel && (
+            <> · category: {categoryFilterLabel}</>
           )}
           {brandFilter !== 'all' && (
             <> · brand: {brandFilter}</>
@@ -787,10 +812,10 @@ export default function AdminProductsPage() {
                 <AdminTd>
                   {p.category ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {parseCategoryCompound(p.category).map((cat) => (
+                      {formatAdminProductCategoryLabels(p, categories, tr).map((cat) => (
                         <ProductLabelPill
                           key={cat}
-                          label={getTopCategoryLabel(cat, tr)}
+                          label={cat}
                           isDark={t.isDark}
                         />
                       ))}

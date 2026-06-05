@@ -1,4 +1,5 @@
 import type { CategoryTreeRow } from '@/lib/category-picker'
+import { formatCategoryDisplayName } from '@/lib/category-picker'
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase()
@@ -99,10 +100,18 @@ export type ShopCategoryFilterInput = {
 
 export type ShopCategoryFilterResult = {
   categoryIds: string[]
-  /** For legacy rows without category_id — only used when strictIdOnly is false. */
+  /** Qualified labels for legacy `products.category` text (e.g. KIDS › SHOES). */
   legacyNames: string[]
-  /** When true, match category_id only (e.g. SOCCER › SHOES vs top-level SHOES). */
+  /** When true, match one subcategory only (not parent roll-up). */
   strictIdOnly: boolean
+  /** Primary qualified label when strictIdOnly (subcategory pill filter). */
+  categoryStorageLabel?: string
+}
+
+function storageLabelForRow(rows: CategoryTreeRow[], row: CategoryTreeRow): string {
+  if (!row.parent_id) return String(row.name).trim()
+  const parent = rows.find((r) => r.id === row.parent_id)
+  return formatCategoryDisplayName(String(row.name), parent?.name ? String(parent.name) : null)
 }
 
 /** Resolve which categories a shop filter should match (by id, not ambiguous name). */
@@ -131,7 +140,12 @@ export function resolveShopCategoryFilter(
     ) {
       return { categoryIds: [], legacyNames: [], strictIdOnly: true }
     }
-    return { categoryIds: [child.id], legacyNames: [], strictIdOnly: true }
+    return {
+      categoryIds: [child.id],
+      legacyNames: [storageLabelForRow(rows, child)],
+      strictIdOnly: true,
+      categoryStorageLabel: storageLabelForRow(rows, child),
+    }
   }
 
   const anchor =
@@ -139,8 +153,12 @@ export function resolveShopCategoryFilter(
     findCategoryByName(rows, category)
   if (!anchor) return undefined
 
-  const { ids, names } = getCategoryAndDescendantIds(rows, anchor)
-  return { categoryIds: ids, legacyNames: names, strictIdOnly: false }
+  const { ids } = getCategoryAndDescendantIds(rows, anchor)
+  const legacyNames = ids
+    .map((id) => rows.find((row) => row.id === id))
+    .filter((row): row is CategoryTreeRow => Boolean(row))
+    .map((row) => storageLabelForRow(rows, row))
+  return { categoryIds: ids, legacyNames, strictIdOnly: false }
 }
 
 /** @deprecated Use resolveShopCategoryFilter — kept for callers that only need names. */

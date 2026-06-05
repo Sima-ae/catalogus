@@ -16,6 +16,8 @@ export type CatalogProductsQuery = {
   /** Legacy product names when category_id is missing (not used for strict subcategory filters). */
   legacyCategoryNames?: string[]
   strictCategoryIdOnly?: boolean
+  /** Qualified subcategory label (e.g. KIDS › SHOES) for text + id matching. */
+  categoryStorageLabel?: string
   brand?: string
   tag?: string
   search?: string
@@ -93,6 +95,25 @@ export function buildLegacyCategoryTextMatch(names: string[]): { sql: string; pa
   return { sql: `(${parts.join(' OR ')})`, params }
 }
 
+/** Match `products.category` compound text using qualified labels (not bare SHOES). */
+export function buildQualifiedCategoryTextMatch(labels: string[]): {
+  sql: string
+  params: unknown[]
+} {
+  const parts: string[] = []
+  const params: unknown[] = []
+  for (const raw of labels) {
+    const label = raw.trim()
+    if (!label) continue
+    parts.push(
+      '(p.category = ? OR p.category LIKE ? OR p.category LIKE ? OR p.category LIKE ?)'
+    )
+    params.push(label, `${label} / %`, `% / ${label}`, `% / ${label} / %`)
+  }
+  if (!parts.length) return { sql: '1 = 0', params: [] }
+  return { sql: `(${parts.join(' OR ')})`, params }
+}
+
 export type CatalogFilterOptions = {
   /** Include brands.name in search / brand filter (when brands table is joined). */
   includeBrandJoin?: boolean
@@ -118,19 +139,33 @@ export function buildActiveCatalogFilters(
   if (categoryIds?.length) {
     const idPlaceholders = categoryIds.map(() => '?').join(', ')
     const idClause = `(p.category_id IN (${idPlaceholders}) OR c.id IN (${idPlaceholders}))`
-    params.push(...categoryIds, ...categoryIds)
 
-    if (!query.strictCategoryIdOnly && query.legacyCategoryNames?.length) {
-      const legacyNames = query.legacyCategoryNames.filter(Boolean)
-      if (legacyNames.length) {
-        const legacy = buildLegacyCategoryTextMatch(legacyNames)
-        where.push(`(${idClause} OR (p.category_id IS NULL AND ${legacy.sql}))`)
-        params.push(...legacy.params)
+    if (query.strictCategoryIdOnly) {
+      const labels = [
+        query.categoryStorageLabel?.trim(),
+        ...(query.legacyCategoryNames ?? []),
+      ].filter(Boolean) as string[]
+      const textMatch = buildQualifiedCategoryTextMatch(labels)
+      if (textMatch.sql !== '1 = 0') {
+        where.push(`(${idClause} OR ${textMatch.sql})`)
+        params.push(...categoryIds, ...categoryIds, ...textMatch.params)
       } else {
         where.push(idClause)
+        params.push(...categoryIds, ...categoryIds)
+      }
+    } else if (query.legacyCategoryNames?.length) {
+      const legacyNames = query.legacyCategoryNames.filter(Boolean)
+      if (legacyNames.length) {
+        const legacy = buildQualifiedCategoryTextMatch(legacyNames)
+        where.push(`(${idClause} OR ${legacy.sql})`)
+        params.push(...categoryIds, ...categoryIds, ...legacy.params)
+      } else {
+        where.push(idClause)
+        params.push(...categoryIds, ...categoryIds)
       }
     } else {
       where.push(idClause)
+      params.push(...categoryIds, ...categoryIds)
     }
   }
 
@@ -184,6 +219,8 @@ export type AdminProductStatusFilter = 'all' | 'active' | 'draft' | 'inactive' |
 
 export type AdminProductsQuery = CatalogProductsQuery & {
   status?: AdminProductStatusFilter
+  /** Admin category filter — unique category row id (required for subcategories). */
+  categoryId?: string
 }
 
 /** Admin product list — requires `page` (and usually `scope=admin`). */
@@ -203,15 +240,23 @@ export function parseAdminProductsQuery(
       ? statusRaw
       : undefined
 
-  return { ...base, status }
+  const categoryId = searchParams.get('categoryId')?.trim() || undefined
+
+  return { ...base, status, categoryId }
 }
 
 export type AdminProductFilterOptions = {
   status?: AdminProductStatusFilter
   search?: string
+  /** @deprecated Use categoryIds — bare names collide (KIDS › SHOES vs SHOES). */
   category?: string
   brand?: string
   includeBrandJoin?: boolean
+  categoryIds?: string[]
+  strictCategoryIdOnly?: boolean
+  legacyCategoryNames?: string[]
+  /** Qualified subcategory label for text + id matching. */
+  categoryStorageLabel?: string
 }
 
 /** WHERE clause for admin product tables (status, search, category, brand). */
@@ -233,7 +278,36 @@ export function buildAdminProductFilters(
     params.push(options.status)
   }
 
-  if (options.category && options.category !== 'All') {
+  const categoryIds = options.categoryIds?.filter(Boolean)
+
+  if (categoryIds?.length) {
+    const idPlaceholders = categoryIds.map(() => '?').join(', ')
+    const idClause = `p.category_id IN (${idPlaceholders})`
+
+    if (options.strictCategoryIdOnly) {
+      const labels = [
+        options.categoryStorageLabel?.trim(),
+        ...(options.legacyCategoryNames ?? []),
+      ].filter(Boolean) as string[]
+      const textMatch = buildQualifiedCategoryTextMatch(labels)
+      if (textMatch.sql !== '1 = 0') {
+        where.push(`(${idClause} OR ${textMatch.sql})`)
+        params.push(...categoryIds, ...textMatch.params)
+      } else {
+        where.push(idClause)
+        params.push(...categoryIds)
+      }
+    } else if (options.legacyCategoryNames?.length) {
+      const legacy = buildQualifiedCategoryTextMatch(options.legacyCategoryNames.filter(Boolean))
+      where.push(`(${idClause} OR ${legacy.sql})`)
+      params.push(...categoryIds, ...legacy.params)
+    } else {
+      where.push(idClause)
+      params.push(...categoryIds)
+    }
+  } else if (categoryIds && categoryIds.length === 0) {
+    where.push('1 = 0')
+  } else if (options.category && options.category !== 'All') {
     where.push('(p.category = ? OR c.name = ?)')
     params.push(options.category, options.category)
   }
@@ -281,12 +355,16 @@ export function buildAdminProductsUrl(
   query: AdminProductsQuery
 ): string {
   const url = buildCatalogProductsUrl(basePath, query)
+  const params = new URLSearchParams(url.split('?')[1] ?? '')
   if (query.status && query.status !== 'all') {
-    const params = new URLSearchParams(url.split('?')[1] ?? '')
     params.set('status', query.status)
-    return `${basePath}?${params.toString()}`
   }
-  return url
+  if (query.categoryId) {
+    params.delete('category')
+    params.set('categoryId', query.categoryId)
+  }
+  const qs = params.toString()
+  return qs ? `${basePath}?${qs}` : basePath
 }
 
 export function buildCatalogProductsUrl(

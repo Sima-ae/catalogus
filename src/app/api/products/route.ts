@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
               status: adminQuery?.status,
               search: adminQuery?.search,
               category: adminQuery?.category,
+              categoryId: adminQuery?.categoryId,
               brand: adminQuery?.brand,
             }
           ),

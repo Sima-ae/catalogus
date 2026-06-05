@@ -29,6 +29,7 @@
     "db:fix-product-categories": "tsx scripts/fix-ambiguous-product-categories.ts",
     "db:ensure-kids-shoes": "tsx scripts/ensure-kids-shoes-subcategory.ts",
     "test:category-taxonomy": "tsx scripts/test-category-taxonomy.ts",
+    "test:category-filter-sql": "tsx scripts/test-category-filter-sql.ts",
     "test:category-tree": "tsx scripts/test-shop-category-tree.ts"
   },
   "dependencies": {

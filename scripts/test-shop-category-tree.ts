@@ -74,6 +74,8 @@ const soccerShirts = resolveShopCategoryFilter(tree, {
 })
 assert.deepEqual(ids(soccerShirts), ['soccer-shirts'])
 assert.equal(soccerShirts?.strictIdOnly, true)
+assert.deepEqual(soccerShirts?.legacyNames, ['SOCCER › SHIRTS'])
+assert.equal(soccerShirts?.categoryStorageLabel, 'SOCCER › SHIRTS')
 
 // SHOES must not include KIDS SHOES or SOCCER › SHOES
 const topShoes = resolveShopCategoryFilter(tree, { category: 'SHOES' })
@@ -87,7 +89,7 @@ const kidsShoesSub = resolveShopCategoryFilter(tree, {
   subcategory: 'SHOES',
 })
 assert.deepEqual(ids(kidsShoesSub), ['kids-shoes'])
-assert.equal(kidsShoesSub?.strictIdOnly, true)
+assert.equal(kidsShoesSub?.categoryStorageLabel, 'KIDS › SHOES')
 
 const soccerShoesSub = resolveShopCategoryFilter(tree, {
   category: 'SOCCER',

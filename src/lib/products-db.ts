@@ -4,12 +4,14 @@ import { slugifyCategory } from '@/lib/category-slug'
 import {
   buildActiveCatalogFilters,
   buildAdminProductFilters,
+  type AdminProductFilterOptions,
   type AdminProductStatusFilter,
   type CatalogProductsPage,
   type CatalogProductsQuery,
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
+import { formatCategoryDisplayName } from '@/lib/category-picker'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
 import { sanitizeProductDescriptions, sanitizeProductName } from '@/lib/yupoo/import-text'
 import {
@@ -810,6 +812,7 @@ export async function listActiveProductsPaginated(
       categoryIds: categoryFilter?.categoryIds,
       legacyCategoryNames: categoryFilter?.legacyNames,
       strictCategoryIdOnly: categoryFilter?.strictIdOnly,
+      categoryStorageLabel: categoryFilter?.categoryStorageLabel,
     },
     { includeBrandJoin: hasBrandsTable }
   )
@@ -851,6 +854,52 @@ export async function listProductsPaginated(
   return listProductsPaginatedAdmin(page, limit)
 }
 
+/** Resolve admin category dropdown id → SQL filter (strict id for subcategories). */
+async function resolveAdminCategoryFilterOptions(
+  categoryId: string | undefined
+): Promise<Partial<AdminProductFilterOptions>> {
+  const id = categoryId?.trim()
+  if (!id) return {}
+
+  const categories = await loadActiveCategories()
+  const cat = categories.find((row) => String(row.id) === id)
+  if (!cat) return { categoryIds: [] }
+
+  if (cat.parent_id) {
+    const parent = categories.find((row) => row.id === cat.parent_id)
+    return {
+      categoryIds: [String(cat.id)],
+      strictCategoryIdOnly: true,
+      categoryStorageLabel: formatCategoryDisplayName(
+        String(cat.name),
+        parent?.name ? String(parent.name) : null
+      ),
+      legacyCategoryNames: [
+        formatCategoryDisplayName(
+          String(cat.name),
+          parent?.name ? String(parent.name) : null
+        ),
+      ],
+    }
+  }
+
+  const resolved = resolveShopCategoryFilter(
+    categories.map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      parent_id: row.parent_id ?? null,
+    })),
+    { category: String(cat.name) }
+  )
+  if (!resolved?.categoryIds.length) return { categoryIds: [] }
+
+  return {
+    categoryIds: resolved.categoryIds,
+    strictCategoryIdOnly: resolved.strictIdOnly,
+    legacyCategoryNames: resolved.legacyNames,
+  }
+}
+
 /** Paginated admin catalog with optional status/search/category/brand filters in SQL. */
 export async function listProductsPaginatedAdmin(
   page: number,
@@ -859,6 +908,7 @@ export async function listProductsPaginatedAdmin(
     status?: AdminProductStatusFilter
     search?: string
     category?: string
+    categoryId?: string
     brand?: string
   } = {}
 ): Promise<CatalogProductsPage> {
@@ -866,9 +916,15 @@ export async function listProductsPaginatedAdmin(
   const safePage = Math.max(1, page)
   const offset = (safePage - 1) * safeLimit
 
+  const categoryFilterOpts = await resolveAdminCategoryFilterOptions(options.categoryId)
+
   const [select, hasBrandsTable] = await Promise.all([productSelectSql(), brandsTableExists()])
   const { whereSql, params } = buildAdminProductFilters({
-    ...options,
+    status: options.status,
+    search: options.search,
+    brand: options.brand,
+    category: options.categoryId ? undefined : options.category,
+    ...categoryFilterOpts,
     includeBrandJoin: hasBrandsTable,
   })
   const fromIndex = select.search(/\bFROM\b/i)
