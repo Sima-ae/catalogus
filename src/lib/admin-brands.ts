@@ -1,3 +1,4 @@
+import { formatCategoryDisplayName } from '@/lib/category-picker'
 import { slugifyCategory } from '@/lib/category-slug'
 
 export type DbBrand = {
@@ -20,7 +21,12 @@ export type AdminBrandRow = {
 export function mapDbBrandsToAdminRows(
   dbBrands: Array<
     Record<string, unknown> & {
-      categories?: { id: string; name: string }[]
+      categories?: {
+        id: string
+        name: string
+        parent_id?: string | null
+        parent_name?: string | null
+      }[]
     }
   >
 ): AdminBrandRow[] {
@@ -31,7 +37,8 @@ export function mapDbBrandsToAdminRows(
       slug: String(b.slug ?? ''),
       description: b.description ? String(b.description) : null,
       active: b.active === false || b.active === 0 ? false : true,
-      categories: b.categories?.map((c) => c.name) ?? [],
+      categories:
+        b.categories?.map((c) => formatCategoryDisplayName(c.name, c.parent_name)) ?? [],
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }

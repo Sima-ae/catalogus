@@ -6,7 +6,7 @@ import { CATALOG_FILTER_CACHE_CONTROL, jsonCached } from '@/lib/http-cache'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/** Public read — active brands; optional ?category= & ?subcategory= filter by linked categories. */
+/** Public read — active brands; ?category= uses admin brand_categories links and products in scope. */
 export async function GET(request: NextRequest) {
   try {
     const category = request.nextUrl.searchParams.get('category')?.trim() || undefined

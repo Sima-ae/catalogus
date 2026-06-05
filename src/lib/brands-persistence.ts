@@ -73,7 +73,13 @@ export async function saveBrand(
   | { ok: false; status: number; error: string }
 > {
   try {
-    const row = await updateBrandById(id, input)
+    const row = await updateBrandById(id, {
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      active: input.active,
+      categoryIds: input.categoryIds,
+    })
     if (!row) {
       return { ok: false, status: 404, error: 'Brand not found in database' }
     }

@@ -44,21 +44,13 @@ export async function listBrands(
   return queryDb<Record<string, unknown>[]>('SELECT * FROM brands ORDER BY name ASC')
 }
 
-async function listActiveBrandsForShopCategory(
-  categoryName: string,
-  subcategory?: string
+type ShopCategoryFilter = NonNullable<ReturnType<typeof resolveShopCategoryFilter>>
+
+/** Brands with active products in the current category scope. */
+async function listActiveBrandsByProductsInCategory(
+  categoryFilter: ShopCategoryFilter,
+  filterIds: string[]
 ): Promise<Record<string, unknown>[]> {
-  const categories = await loadActiveCategories()
-  const categoryFilter = resolveShopCategoryFilter(categories, {
-    category: categoryName,
-    subcategory,
-  })
-  const filterIds = categoryFilter?.categoryIds ?? []
-
-  if (!filterIds.length || !categoryFilter) {
-    return []
-  }
-
   const hasBrandId = await productsHaveBrandIdColumn()
   const hasCategoryId = await productsHaveCategoryIdColumn()
   const idPlaceholders = filterIds.map(() => '?').join(', ')
@@ -102,6 +94,53 @@ async function listActiveBrandsForShopCategory(
   )
 }
 
+/** Brands linked in admin (brand_categories) and/or with products in this category scope. */
+async function listActiveBrandsForShopCategory(
+  categoryName: string,
+  subcategory?: string
+): Promise<Record<string, unknown>[]> {
+  const categories = await loadActiveCategories()
+  const categoryFilter = resolveShopCategoryFilter(categories, {
+    category: categoryName,
+    subcategory,
+  })
+  const filterIds = categoryFilter?.categoryIds ?? []
+
+  if (!filterIds.length || !categoryFilter) {
+    return []
+  }
+
+  const byProducts = await listActiveBrandsByProductsInCategory(categoryFilter, filterIds)
+
+  if (!(await brandCategoriesTableExists())) {
+    return byProducts
+  }
+
+  const idPlaceholders = filterIds.map(() => '?').join(', ')
+  const byLinks = await queryDb<Record<string, unknown>[]>(
+    `SELECT DISTINCT b.*
+     FROM brands b
+     INNER JOIN brand_categories bc ON bc.brand_id = b.id
+     WHERE b.active = 1 AND bc.category_id IN (${idPlaceholders})
+     ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
+    filterIds
+  )
+
+  const merged = new Map<string, Record<string, unknown>>()
+  for (const row of [...byLinks, ...byProducts]) {
+    merged.set(String(row.id), row)
+  }
+
+  return Array.from(merged.values()).sort((a, b) => {
+    const orderA = Number(a.sort_order ?? 9999)
+    const orderB = Number(b.sort_order ?? 9999)
+    if (orderA !== orderB) return orderA - orderB
+    return String(a.name ?? '').localeCompare(String(b.name ?? ''), undefined, {
+      sensitivity: 'base',
+    })
+  })
+}
+
 export async function getBrandCategoryIds(brandId: string): Promise<string[]> {
   if (!(await brandCategoriesTableExists())) return []
   const rows = await queryDb<{ category_id: string }[]>(
@@ -111,21 +150,36 @@ export async function getBrandCategoryIds(brandId: string): Promise<string[]> {
   return rows.map((r) => r.category_id)
 }
 
-export async function getBrandCategories(brandId: string) {
+export type BrandCategoryLink = {
+  id: string
+  name: string
+  parent_id?: string | null
+  parent_name?: string | null
+}
+
+export async function getBrandCategories(brandId: string): Promise<BrandCategoryLink[]> {
   if (!(await brandCategoriesTableExists())) return []
-  return queryDb<{ id: string; name: string }[]>(
-    `SELECT c.id, c.name
+  return queryDb<BrandCategoryLink[]>(
+    `SELECT c.id, c.name, c.parent_id, p.name AS parent_name
      FROM brand_categories bc
      INNER JOIN categories c ON c.id = bc.category_id
+     LEFT JOIN categories p ON p.id = c.parent_id
      WHERE bc.brand_id = ?
-     ORDER BY c.name ASC`,
+     ORDER BY COALESCE(p.name, c.name), c.name ASC`,
     [brandId]
   )
 }
 
 export async function setBrandCategories(brandId: string, categoryIds: string[]) {
-  if (!(await brandCategoriesTableExists())) return
   const unique = Array.from(new Set(categoryIds.map((id) => id.trim()).filter(Boolean)))
+  if (!(await brandCategoriesTableExists())) {
+    if (unique.length) {
+      throw new Error(
+        'brand_categories table is missing — run db/upgrade.sql or db/brand_categories.sql'
+      )
+    }
+    return
+  }
   await queryDb('DELETE FROM brand_categories WHERE brand_id = ?', [brandId])
   for (const categoryId of unique) {
     await queryDb(
@@ -135,22 +189,43 @@ export async function setBrandCategories(brandId: string, categoryIds: string[])
   }
 }
 
-/** Admin list: all brands with linked category names. */
+/** Admin list: all brands with linked categories (single query, not N+1). */
 export async function listBrandsWithCategoryLinks() {
   const brands = await listBrands(false)
   if (!(await brandCategoriesTableExists())) {
     return brands.map((b) => ({
       ...b,
-      categories: [] as { id: string; name: string }[],
+      categories: [] as BrandCategoryLink[],
     }))
   }
-  const withCats = await Promise.all(
-    brands.map(async (b) => ({
-      ...b,
-      categories: await getBrandCategories(String(b.id)),
-    }))
+
+  const links = await queryDb<
+    (BrandCategoryLink & { brand_id: string })[]
+  >(
+    `SELECT bc.brand_id, c.id, c.name, c.parent_id, p.name AS parent_name
+     FROM brand_categories bc
+     INNER JOIN categories c ON c.id = bc.category_id
+     LEFT JOIN categories p ON p.id = c.parent_id
+     ORDER BY COALESCE(p.name, c.name), c.name ASC`
   )
-  return withCats
+
+  const byBrand = new Map<string, BrandCategoryLink[]>()
+  for (const row of links) {
+    const brandId = String(row.brand_id)
+    const list = byBrand.get(brandId) ?? []
+    list.push({
+      id: String(row.id),
+      name: String(row.name),
+      parent_id: row.parent_id ?? null,
+      parent_name: row.parent_name ?? null,
+    })
+    byBrand.set(brandId, list)
+  }
+
+  return brands.map((b) => ({
+    ...b,
+    categories: byBrand.get(String(b.id)) ?? [],
+  }))
 }
 
 export async function getBrandById(id: string) {
