@@ -47,3 +47,10 @@ export function shopBrandUrl(brandName: string): string {
   if (!name) return appPath('/')
   return `${appPath('/')}?brand=${encodeURIComponent(name)}`
 }
+
+/** Homepage filtered by product tag (matches shop catalog / ?tag=). */
+export function shopTagUrl(tagName: string): string {
+  const name = tagName.trim()
+  if (!name) return appPath('/')
+  return `${appPath('/')}?tag=${encodeURIComponent(name)}`
+}

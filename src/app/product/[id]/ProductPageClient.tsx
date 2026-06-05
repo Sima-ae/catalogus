@@ -12,6 +12,7 @@ import { useTheme } from '@/lib/theme'
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, XMarkIcon, TruckIcon, ShieldCheckIcon, CreditCardIcon, PencilSquareIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { appPath } from '@/lib/paths'
+import { useLocalizedPath } from '@/lib/use-localized-path'
 import { getCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { useShopCurrency } from '@/lib/shop-currency-context'
@@ -45,6 +46,7 @@ export default function ProductPageClient() {
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
   const { t } = useI18n()
+  const toLocalizedPath = useLocalizedPath()
   const [product, setProduct] = useState<ProductPageView | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -926,7 +928,9 @@ export default function ProductPageClient() {
               )}
             </div>
 
-            {product.category || product.brand || (product.tags?.length ?? 0) > 0 ? (
+            {product.category ||
+            product.brand ||
+            (product.tags?.length ?? 0) > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {product.category ? (
                   <Link
@@ -953,16 +957,17 @@ export default function ProductPageClient() {
                   </Link>
                 ) : null}
                 {(product.tags ?? []).map((tag) => (
-                  <span
+                  <Link
                     key={tag}
-                    className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide ${
+                    href={`${toLocalizedPath('/')}?tag=${encodeURIComponent(tag)}`}
+                    className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
                       theme === 'dark'
-                        ? 'text-gray-300 bg-dark-700'
-                        : 'text-gray-700 bg-gray-200'
+                        ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
+                        : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
                     }`}
                   >
                     {getTagLabel(tag, t)}
-                  </span>
+                  </Link>
                 ))}
               </div>
             ) : null}

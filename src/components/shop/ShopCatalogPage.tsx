@@ -102,12 +102,14 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const urlCategory = searchParams.get('category')?.trim() || 'All'
   const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
   const filterBrand = searchParams.get('brand')?.trim() || 'All'
-  const filterSignature = `${urlCategory}|${urlSubcategory}|${filterBrand}|${debouncedSearch}|${config.mode}`
+  const filterTag = searchParams.get('tag')?.trim() || ''
+  const filterSignature = `${urlCategory}|${urlSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
   const reorderScope = catalogSortScope({
     mode: config.mode === 'new' ? 'new' : undefined,
     category: urlCategory !== 'All' ? urlCategory : undefined,
     subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
     brand: filterBrand !== 'All' ? filterBrand : undefined,
+    tag: filterTag || undefined,
     search: debouncedSearch || undefined,
   })
 
@@ -208,6 +210,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           category: urlCategory !== 'All' ? urlCategory : undefined,
           subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
           brand: filterBrand !== 'All' ? filterBrand : undefined,
+          tag: filterTag || undefined,
           search: debouncedSearch || undefined,
           mode: config.mode === 'new' ? 'new' : undefined,
         })

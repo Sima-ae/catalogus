@@ -400,6 +400,7 @@ export default function ProductForm({
           imageUrl={form.image_url}
           galleryLines={form.gallery_images}
           sourceUrl={form.source_url}
+          productId={mode === 'edit' ? productId : undefined}
           authHeaders={authHeaders}
           onChange={({ image_url, gallery_images }) =>
             setForm((prev) => ({ ...prev, image_url, gallery_images }))

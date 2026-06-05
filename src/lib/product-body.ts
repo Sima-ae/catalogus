@@ -46,6 +46,23 @@ function parseOptionalNumber(value: unknown): number | null | undefined {
   return Number.isFinite(n) ? n : null
 }
 
+/** Partial update for gallery reorder — only image fields. */
+export function parseProductImageOrderBody(
+  body: Record<string, unknown>
+): Pick<ProductInput, 'image_url' | 'gallery_images'> {
+  return {
+    image_url: normalizeProductImageUrl(String(body.image_url || '').trim()),
+    gallery_images: normalizeProductImageList(linesToStringArray(body.gallery_images)),
+  }
+}
+
+export function isProductImageOrderPatch(body: Record<string, unknown>): boolean {
+  const keys = Object.keys(body)
+  return (
+    keys.length > 0 && keys.every((key) => key === 'image_url' || key === 'gallery_images')
+  )
+}
+
 export function parseProductBody(body: Record<string, unknown>): ProductInput {
   const tagsRaw = body.tags
   let tags: string[] | null = null

@@ -5,6 +5,7 @@ export type CatalogSortScopeInput = {
   category?: string
   subcategory?: string
   brand?: string
+  tag?: string
   search?: string
 }
 
@@ -14,7 +15,7 @@ function scopeToken(value: string): string {
 
 /** Stable key for manual catalog sort order (null = search results, no custom order). */
 export function catalogSortScope(input: CatalogSortScopeInput): string | null {
-  if (input.search?.trim()) return null
+  if (input.search?.trim() || input.tag?.trim()) return null
 
   if (input.mode === 'new') return 'new'
 

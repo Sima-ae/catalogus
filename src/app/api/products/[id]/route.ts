@@ -9,7 +9,11 @@ import {
   UnknownCategoryError,
   updateProduct,
 } from '@/lib/products-db'
-import { parseProductBody } from '@/lib/product-body'
+import {
+  isProductImageOrderPatch,
+  parseProductBody,
+  parseProductImageOrderBody,
+} from '@/lib/product-body'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import {
   applySellerProductInput,
@@ -83,8 +87,10 @@ export async function PATCH(
       }
     }
 
-    const body = await request.json()
-    let input = parseProductBody(body as Record<string, unknown>)
+    const body = (await request.json()) as Record<string, unknown>
+    let input = isProductImageOrderPatch(body)
+      ? parseProductImageOrderBody(body)
+      : parseProductBody(body)
     if (auth.access.kind === 'seller') {
       input = applySellerProductInput(input, auth.access.actor)
     }

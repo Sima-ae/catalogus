@@ -17,6 +17,7 @@ export type CatalogProductsQuery = {
   legacyCategoryNames?: string[]
   strictCategoryIdOnly?: boolean
   brand?: string
+  tag?: string
   search?: string
   mode?: CatalogMode
 }
@@ -61,12 +62,13 @@ export function parseCatalogProductsQuery(
   const category = searchParams.get('category')?.trim() || undefined
   const subcategory = searchParams.get('subcategory')?.trim() || undefined
   const brand = searchParams.get('brand')?.trim() || undefined
+  const tag = searchParams.get('tag')?.trim() || undefined
   const search = searchParams.get('search')?.trim() || undefined
   const modeRaw = searchParams.get('mode')?.trim()
   const mode: CatalogMode | undefined =
     modeRaw === 'new' || modeRaw === 'all' ? modeRaw : undefined
 
-  return { page, limit, category, subcategory, brand, search, mode }
+  return { page, limit, category, subcategory, brand, tag, search, mode }
 }
 
 function toMysqlDatetime(d: Date): string {
@@ -129,6 +131,14 @@ export function buildActiveCatalogFilters(
       where.push('p.brand = ?')
       params.push(query.brand)
     }
+  }
+
+  const tag = query.tag?.trim()
+  if (tag) {
+    where.push(
+      `(JSON_CONTAINS(COALESCE(p.tags, '[]'), JSON_QUOTE(?)) OR p.tags LIKE ?)`
+    )
+    params.push(tag, `%"${tag.replace(/"/g, '\\"')}"%`)
   }
 
   const searchTerm = query.search?.trim()
@@ -280,6 +290,7 @@ export function buildCatalogProductsUrl(
     params.set('subcategory', query.subcategory)
   }
   if (query.brand && query.brand !== 'All') params.set('brand', query.brand)
+  if (query.tag) params.set('tag', query.tag)
   if (query.search) params.set('search', query.search)
   if (query.mode) params.set('mode', query.mode)
   return `${basePath}?${params.toString()}`

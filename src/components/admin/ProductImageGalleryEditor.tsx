@@ -15,7 +15,6 @@ import {
   shouldUnoptimizeProductImage,
   toDisplayProductImageUrl,
 } from '@/lib/product-image-url'
-import PricelistProductLightbox from '@/components/pricelist/PricelistProductLightbox'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useI18n } from '@/lib/i18n-context'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
@@ -47,8 +46,7 @@ function listToFormFields(list: string[]): { main: string; galleryLines: string 
   }
 }
 
-const HOLD_MS = 180
-const MOVE_CANCEL_PX = 8
+const DRAG_ACTIVATE_PX = 6
 
 function reorderImageList(list: string[], fromUrl: string, toUrl: string): string[] {
   const from = list.indexOf(fromUrl)
@@ -65,7 +63,6 @@ type ImageDragState = {
   pointerId: number
   startX: number
   startY: number
-  holdTimer: number | null
   active: boolean
 }
 
@@ -73,6 +70,7 @@ type Props = {
   imageUrl: string
   galleryLines: string
   sourceUrl?: string
+  productId?: string
   onChange: (next: { image_url: string; gallery_images: string }) => void
   authHeaders?: Record<string, string>
 }
@@ -92,8 +90,6 @@ function GalleryImageTile({
   removeTitle,
   onSetAsMain,
   onRemove,
-  onOpenLightbox,
-  viewFullSizeLabel,
   border,
   tileBg,
 }: {
@@ -106,8 +102,6 @@ function GalleryImageTile({
   removeTitle: string
   onSetAsMain: () => void
   onRemove: () => void
-  onOpenLightbox: () => void
-  viewFullSizeLabel: string
   border: string
   tileBg: string
 }) {
@@ -117,12 +111,6 @@ function GalleryImageTile({
     <div
       className={`group relative aspect-square overflow-hidden rounded-lg border ${border} ${tileBg}`}
     >
-      <button
-        type="button"
-        onClick={onOpenLightbox}
-        className="absolute inset-0 z-[5] cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset"
-        aria-label={viewFullSizeLabel}
-      />
       <Image
         src={displaySrc}
         alt={alt}
@@ -178,6 +166,7 @@ export default function ProductImageGalleryEditor({
   imageUrl,
   galleryLines,
   sourceUrl = '',
+  productId,
   onChange,
   authHeaders: authHeadersProp,
 }: Props) {
@@ -196,18 +185,12 @@ export default function ProductImageGalleryEditor({
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlDraft, setUrlDraft] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [draggingUrl, setDraggingUrl] = useState<string | null>(null)
   const [overUrl, setOverUrl] = useState<string | null>(null)
+  const [savingOrder, setSavingOrder] = useState(false)
   const dragRef = useRef<ImageDragState | null>(null)
-  const suppressClickRef = useRef(false)
 
-  const reorderEnabled = images.length > 1
-
-  const displayImages = useMemo(
-    () => images.map((url) => toDisplayProductImageUrl(url, sourceUrl) || url),
-    [images, sourceUrl]
-  )
+  const reorderEnabled = images.length > 1 && !savingOrder
 
   const applyList = useCallback(
     (list: string[]) => {
@@ -255,10 +238,59 @@ export default function ProductImageGalleryEditor({
     }
   }
 
+  const clearDrag = useCallback(() => {
+    dragRef.current = null
+    setDraggingUrl(null)
+    setOverUrl(null)
+  }, [])
+
+  const persistImageOrder = useCallback(
+    async (list: string[]) => {
+      if (!productId) return
+      const { main, galleryLines: lines } = listToFormFields(list)
+      const gallery = galleryLinesToList(lines)
+      setSavingOrder(true)
+      setLocalError(null)
+      try {
+        const res = await fetch(appPath(`/api/products/${productId}`), {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            image_url: main,
+            gallery_images: gallery,
+          }),
+        })
+        const data = (await res.json()) as { error?: string }
+        if (!res.ok) {
+          throw new Error(data.error || tr('productForm.errorSaveFailed'))
+        }
+      } catch (e) {
+        setLocalError(e instanceof Error ? e.message : tr('productForm.errorSaveFailed'))
+      } finally {
+        setSavingOrder(false)
+      }
+    },
+    [authHeaders, productId, tr]
+  )
+
+  const finishDrag = useCallback(
+    (fromUrl: string, toUrl: string) => {
+      const next = reorderImageList(images, fromUrl, toUrl)
+      if (next === images) return
+      applyList(next)
+      void persistImageOrder(next)
+    },
+    [applyList, images, persistImageOrder]
+  )
+
   const removeAt = (index: number) => {
     const next = [...images]
     next.splice(index, 1)
     applyList(next)
+    void persistImageOrder(next)
   }
 
   const setAsMain = (index: number) => {
@@ -267,28 +299,8 @@ export default function ProductImageGalleryEditor({
     const [picked] = next.splice(index, 1)
     next.unshift(picked)
     applyList(next)
+    void persistImageOrder(next)
   }
-
-  const clearDrag = useCallback(() => {
-    const d = dragRef.current
-    if (d?.holdTimer) clearTimeout(d.holdTimer)
-    dragRef.current = null
-    setDraggingUrl(null)
-    setOverUrl(null)
-  }, [])
-
-  const finishDrag = useCallback(
-    (fromUrl: string, toUrl: string) => {
-      const next = reorderImageList(images, fromUrl, toUrl)
-      if (next === images) return
-      suppressClickRef.current = true
-      window.setTimeout(() => {
-        suppressClickRef.current = false
-      }, 0)
-      applyList(next)
-    },
-    [applyList, images]
-  )
 
   const onTilePointerDown = (e: React.PointerEvent<HTMLDivElement>, url: string) => {
     if (!reorderEnabled || uploading) return
@@ -296,18 +308,11 @@ export default function ProductImageGalleryEditor({
     const target = e.target as HTMLElement
     if (target.closest('button, a, input, textarea, select')) return
 
-    const holdTimer = window.setTimeout(() => {
-      if (!dragRef.current || dragRef.current.url !== url) return
-      dragRef.current.active = true
-      setDraggingUrl(url)
-    }, HOLD_MS)
-
     dragRef.current = {
       url,
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      holdTimer,
       active: false,
     }
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -318,13 +323,11 @@ export default function ProductImageGalleryEditor({
     if (!d || e.pointerId !== d.pointerId) return
 
     const moved = Math.hypot(e.clientX - d.startX, e.clientY - d.startY)
-    if (!d.active && moved > MOVE_CANCEL_PX) {
-      if (d.holdTimer) clearTimeout(d.holdTimer)
-      dragRef.current = null
-      return
+    if (!d.active) {
+      if (moved < DRAG_ACTIVATE_PX) return
+      d.active = true
+      setDraggingUrl(d.url)
     }
-
-    if (!d.active) return
 
     e.preventDefault()
     const el = document.elementFromPoint(e.clientX, e.clientY)
@@ -335,8 +338,6 @@ export default function ProductImageGalleryEditor({
   const onTilePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = dragRef.current
     if (!d || e.pointerId !== d.pointerId) return
-
-    if (d.holdTimer) clearTimeout(d.holdTimer)
 
     const dropUrl = overUrl
     const wasActive = d.active
@@ -384,12 +385,6 @@ export default function ProductImageGalleryEditor({
               onPointerMove={onTilePointerMove}
               onPointerUp={onTilePointerUp}
               onPointerCancel={onTilePointerCancel}
-              onClickCapture={(e) => {
-                if (suppressClickRef.current || draggingUrl) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }
-              }}
               className={`relative transition-shadow duration-150 ${
                 reorderEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''
               } ${isDragging ? 'z-20 scale-[0.98] opacity-55 shadow-lg' : ''} ${
@@ -413,13 +408,6 @@ export default function ProductImageGalleryEditor({
                 removeTitle={tr('productForm.imagesRemoveTitle')}
                 onSetAsMain={() => setAsMain(index)}
                 onRemove={() => removeAt(index)}
-                onOpenLightbox={() => {
-                  if (suppressClickRef.current) return
-                  setLightboxIndex(index)
-                }}
-                viewFullSizeLabel={tr('product.viewImageFullSize', {
-                  name: tr('productForm.sectionImages'),
-                })}
                 border={border}
                 tileBg={tileBg}
               />
@@ -551,15 +539,11 @@ export default function ProductImageGalleryEditor({
         </div>
       </details>
 
-      <PricelistProductLightbox
-        open={lightboxIndex !== null && displayImages.length > 0}
-        productName={tr('productForm.sectionImages')}
-        images={displayImages}
-        initialIndex={lightboxIndex ?? 0}
-        onClose={() => setLightboxIndex(null)}
-        overlayZClass="z-[130]"
-        resolveImageSrc={(url) => url}
-      />
+      {savingOrder ? (
+        <p className={`text-xs ${t.muted}`} role="status">
+          {tr('productForm.saving')}
+        </p>
+      ) : null}
     </div>
   )
 }
