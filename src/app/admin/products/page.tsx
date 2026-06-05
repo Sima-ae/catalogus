@@ -156,6 +156,7 @@ export default function AdminProductsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
 
@@ -398,6 +399,7 @@ export default function AdminProductsPage() {
 
     setBulkWorking(true)
     setError('')
+    setSuccessMessage('')
 
     try {
       const res = await fetch(appPath('/api/admin/products/bulk-update'), {
@@ -408,9 +410,26 @@ export default function AdminProductsPage() {
         },
         body: JSON.stringify({ productIds: selectedIds, ...patch }),
       })
-      const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
+      const data = await parseJsonResponse<{
+        error?: string
+        updated?: number
+        trashedDuplicates?: number
+        skippedAlreadyCorrect?: number
+      }>(res)
       if (!res.ok) throw new Error(data.error || 'Bulk edit failed')
       setBulkEditOpen(false)
+      const parts: string[] = []
+      if (data.updated) parts.push(`${data.updated} updated`)
+      if (data.trashedDuplicates) {
+        parts.push(`${data.trashedDuplicates} duplicate(s) moved to trash`)
+      }
+      if (data.skippedAlreadyCorrect) {
+        parts.push(`${data.skippedAlreadyCorrect} already correct`)
+      }
+      if (parts.length) {
+        setError('')
+        setSuccessMessage(`Bulk edit complete: ${parts.join(', ')}.`)
+      }
       loadProducts()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bulk edit failed')
@@ -501,6 +520,9 @@ export default function AdminProductsPage() {
       </div>
 
       {error && <p className="text-red-400 mb-4">{error}</p>}
+      {successMessage && (
+        <p className="text-green-600 dark:text-green-400 mb-4">{successMessage}</p>
+      )}
 
       <div className="card mb-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end gap-3">
@@ -795,7 +817,7 @@ export default function AdminProductsPage() {
       )}
       <AdminBulkEditModal
         open={bulkEditOpen}
-        count={selected.size}
+        selectedProducts={pageItems.filter((p) => selected.has(p.id))}
         categories={categories}
         brands={brands}
         busy={bulkWorking}

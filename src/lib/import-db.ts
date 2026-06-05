@@ -450,17 +450,22 @@ export async function resetCompletedJobItems(jobId: string): Promise<number> {
 export async function getImportProductByAlbum(
   albumId: string,
   brandId: string | null | undefined,
-  brandName: string | null | undefined
+  brandName: string | null | undefined,
+  excludeProductId?: string | null
 ): Promise<{ id: string; status: string } | null> {
   const bid = brandId?.trim() || null
   const bname = brandName?.trim() || null
+  const exclude = excludeProductId?.trim() || null
+  const excludeSql = exclude ? ' AND id <> ?' : ''
+  const excludeParam = exclude ? [exclude] : []
 
   if (bid) {
     const rows = await queryDb<{ id: string; status: string }[]>(
       `SELECT id, status FROM products
-       WHERE source_album_id = ? AND brand_id = ?
+       WHERE source_album_id = ? AND brand_id = ?${excludeSql}
+       ORDER BY CASE WHEN status = 'trash' THEN 1 ELSE 0 END, created_at ASC
        LIMIT 1`,
-      [albumId, bid]
+      [albumId, bid, ...excludeParam]
     )
     if (rows[0]) return rows[0]
   }
@@ -468,9 +473,10 @@ export async function getImportProductByAlbum(
   if (bname) {
     const rows = await queryDb<{ id: string; status: string }[]>(
       `SELECT id, status FROM products
-       WHERE source_album_id = ? AND LOWER(TRIM(brand)) = LOWER(?)
+       WHERE source_album_id = ? AND LOWER(TRIM(brand)) = LOWER(?)${excludeSql}
+       ORDER BY CASE WHEN status = 'trash' THEN 1 ELSE 0 END, created_at ASC
        LIMIT 1`,
-      [albumId, bname]
+      [albumId, bname, ...excludeParam]
     )
     if (rows[0]) return rows[0]
   }

@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
-    const updated = await bulkUpdateProducts(productIds, patch)
-    return NextResponse.json({ updated, patch })
+    const result = await bulkUpdateProducts(productIds, patch)
+    return NextResponse.json({ ...result, patch })
   } catch (error) {
     if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
       return NextResponse.json({ error: error.message }, { status: 400 })

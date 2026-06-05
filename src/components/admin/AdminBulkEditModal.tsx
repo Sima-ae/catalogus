@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import type { CategoryPickerOption } from '@/lib/category-picker'
+import type { Product } from '@/lib/types'
 
 type BrandOption = { id: string; name: string }
 
@@ -17,7 +18,7 @@ export type BulkEditPayload = {
 
 type Props = {
   open: boolean
-  count: number
+  selectedProducts: Product[]
   categories: CategoryPickerOption[]
   brands: BrandOption[]
   busy?: boolean
@@ -25,11 +26,52 @@ type Props = {
   onApply: (patch: BulkEditPayload) => void | Promise<void>
 }
 
-const UNCHANGED = ''
+function countByField(products: Product[], field: 'category' | 'brand'): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const p of products) {
+    const key = String(p[field] ?? '').trim() || '—'
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts
+}
+
+function CurrentValues({
+  label,
+  counts,
+  isDark,
+}: {
+  label: string
+  counts: Map<string, number>
+  isDark: boolean
+}) {
+  const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
+  return (
+    <div className="space-y-1.5">
+      <span className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+        Current {label}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {entries.map(([name, count]) => (
+          <span
+            key={name}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+              isDark
+                ? 'bg-dark-800 border-dark-600 text-gray-200'
+                : 'bg-gray-100 border-gray-200 text-gray-800'
+            }`}
+          >
+            {name}
+            <span className={isDark ? 'text-gray-500' : 'text-gray-500'}>({count})</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function AdminBulkEditModal({
   open,
-  count,
+  selectedProducts,
   categories,
   brands,
   busy = false,
@@ -39,24 +81,30 @@ export default function AdminBulkEditModal({
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const panelRef = useRef<HTMLDivElement>(null)
+  const count = selectedProducts.length
 
-  const [category, setCategory] = useState(UNCHANGED)
-  const [brand, setBrand] = useState(UNCHANGED)
+  const categoryCounts = useMemo(() => countByField(selectedProducts, 'category'), [selectedProducts])
+  const brandCounts = useMemo(() => countByField(selectedProducts, 'brand'), [selectedProducts])
+
+  const [categoryTarget, setCategoryTarget] = useState<string | null>(null)
+  const [brandTarget, setBrandTarget] = useState<string | null>(null)
+  const [clearBrand, setClearBrand] = useState(false)
   const [changePrice, setChangePrice] = useState(false)
   const [price, setPrice] = useState('')
   const [changeOriginalPrice, setChangeOriginalPrice] = useState(false)
   const [originalPrice, setOriginalPrice] = useState('')
-  const [status, setStatus] = useState(UNCHANGED)
+  const [status, setStatus] = useState('')
 
   useEffect(() => {
     if (!open) return
-    setCategory(UNCHANGED)
-    setBrand(UNCHANGED)
+    setCategoryTarget(null)
+    setBrandTarget(null)
+    setClearBrand(false)
     setChangePrice(false)
     setPrice('')
     setChangeOriginalPrice(false)
     setOriginalPrice('')
-    setStatus(UNCHANGED)
+    setStatus('')
   }, [open])
 
   useEffect(() => {
@@ -81,13 +129,27 @@ export default function AdminBulkEditModal({
 
   if (!open) return null
 
+  const toggleCategory = (name: string) => {
+    setCategoryTarget((prev) => (prev === name ? null : name))
+  }
+
+  const toggleBrand = (name: string) => {
+    setClearBrand(false)
+    setBrandTarget((prev) => (prev === name ? null : name))
+  }
+
+  const toggleClearBrand = () => {
+    setBrandTarget(null)
+    setClearBrand((prev) => !prev)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const patch: BulkEditPayload = {}
 
-    if (category !== UNCHANGED) patch.category = category
-    if (brand === '__clear__') patch.brand = null
-    else if (brand !== UNCHANGED) patch.brand = brand
+    if (categoryTarget) patch.category = categoryTarget
+    if (clearBrand) patch.brand = null
+    else if (brandTarget) patch.brand = brandTarget
 
     if (changePrice) {
       const n = Number(price)
@@ -105,18 +167,22 @@ export default function AdminBulkEditModal({
       }
     }
 
-    if (status !== UNCHANGED) patch.status = status
+    if (status) patch.status = status
 
     if (!Object.keys(patch).length) return
     void onApply(patch)
   }
 
   const hasChanges =
-    category !== UNCHANGED ||
-    brand !== UNCHANGED ||
+    categoryTarget !== null ||
+    brandTarget !== null ||
+    clearBrand ||
     changePrice ||
     changeOriginalPrice ||
-    status !== UNCHANGED
+    status !== ''
+
+  const muted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const label = isDark ? 'text-gray-300' : 'text-gray-700'
 
   return (
     <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -150,9 +216,9 @@ export default function AdminBulkEditModal({
             >
               Bulk edit
             </h2>
-            <p className={`text-sm mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Update {count} selected product{count === 1 ? '' : 's'}. Leave a field unchanged to
-              keep the current value.
+            <p className={`text-sm mt-0.5 ${muted}`}>
+              {count} selected — check a new category or brand to apply. Duplicates are moved to
+              trash automatically.
             </p>
           </div>
           <button
@@ -167,45 +233,111 @@ export default function AdminBulkEditModal({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="overflow-y-auto px-4 py-4 sm:px-6 space-y-4">
-            <label className="block space-y-1">
-              <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Category
-              </span>
-              <select
-                className="input w-full"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                disabled={busy}
-              >
-                <option value={UNCHANGED}>— Keep unchanged —</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="overflow-y-auto px-4 py-4 sm:px-6 space-y-5">
+            <CurrentValues label="categories" counts={categoryCounts} isDark={isDark} />
+            <CurrentValues label="brands" counts={brandCounts} isDark={isDark} />
 
-            <label className="block space-y-1">
-              <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Brand
-              </span>
-              <select
-                className="input w-full"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                disabled={busy}
+            <fieldset className="space-y-2">
+              <legend className={`text-sm font-medium ${label}`}>Set category</legend>
+              <p className={`text-xs ${muted}`}>Check one category to move all selected products.</p>
+              <div
+                className={`max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1 ${
+                  isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
+                }`}
               >
-                <option value={UNCHANGED}>— Keep unchanged —</option>
-                <option value="__clear__">— Clear brand —</option>
-                {brands.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {categories.map((c) => {
+                  const isCurrent = categoryCounts.has(c.name)
+                  const checked = categoryTarget === c.name
+                  return (
+                    <label
+                      key={c.id}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
+                        checked
+                          ? isDark
+                            ? 'bg-primary-500/20'
+                            : 'bg-primary-50'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCategory(c.name)}
+                        disabled={busy}
+                        className="rounded border-gray-400"
+                      />
+                      <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                        {c.label}
+                      </span>
+                      {isCurrent ? (
+                        <span className={`text-xs ${muted}`}>current</span>
+                      ) : null}
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className="space-y-2">
+              <legend className={`text-sm font-medium ${label}`}>Set brand</legend>
+              <p className={`text-xs ${muted}`}>Check one brand — uncheck to leave unchanged.</p>
+              <div
+                className={`max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1 ${
+                  isDark ? 'border-dark-600 bg-dark-800/50' : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <label
+                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
+                    clearBrand
+                      ? isDark
+                        ? 'bg-primary-500/20'
+                        : 'bg-primary-50'
+                      : 'hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={clearBrand}
+                    onChange={toggleClearBrand}
+                    disabled={busy}
+                    className="rounded border-gray-400"
+                  />
+                  <span className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                    Clear brand
+                  </span>
+                </label>
+                {brands.map((b) => {
+                  const isCurrent = brandCounts.has(b.name)
+                  const checked = brandTarget === b.name
+                  return (
+                    <label
+                      key={b.id}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
+                        checked
+                          ? isDark
+                            ? 'bg-primary-500/20'
+                            : 'bg-primary-50'
+                          : 'hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleBrand(b.name)}
+                        disabled={busy}
+                        className="rounded border-gray-400"
+                      />
+                      <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                        {b.name}
+                      </span>
+                      {isCurrent ? (
+                        <span className={`text-xs ${muted}`}>current</span>
+                      ) : null}
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
 
             <div className="space-y-2">
               <label className="flex items-center gap-2">
@@ -216,9 +348,7 @@ export default function AdminBulkEditModal({
                   disabled={busy}
                   className="rounded border-gray-400"
                 />
-                <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Set price
-                </span>
+                <span className={`text-sm font-medium ${label}`}>Set price</span>
               </label>
               {changePrice ? (
                 <input
@@ -243,9 +373,7 @@ export default function AdminBulkEditModal({
                   disabled={busy}
                   className="rounded border-gray-400"
                 />
-                <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Set original price
-                </span>
+                <span className={`text-sm font-medium ${label}`}>Set original price</span>
               </label>
               {changeOriginalPrice ? (
                 <input
@@ -262,16 +390,14 @@ export default function AdminBulkEditModal({
             </div>
 
             <label className="block space-y-1">
-              <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Status
-              </span>
+              <span className={`text-sm font-medium ${label}`}>Status</span>
               <select
                 className="input w-full"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 disabled={busy}
               >
-                <option value={UNCHANGED}>— Keep unchanged —</option>
+                <option value="">— Keep unchanged —</option>
                 <option value="active">Published</option>
                 <option value="draft">Draft</option>
                 <option value="inactive">Inactive</option>
@@ -288,11 +414,7 @@ export default function AdminBulkEditModal({
             <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={busy || !hasChanges}
-            >
+            <button type="submit" className="btn-primary" disabled={busy || !hasChanges}>
               {busy ? 'Saving…' : `Apply to ${count} product${count === 1 ? '' : 's'}`}
             </button>
           </div>

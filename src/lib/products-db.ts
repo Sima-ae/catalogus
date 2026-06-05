@@ -22,6 +22,7 @@ import {
 import { getBrandSkuPrefixes } from '@/lib/brand-sku-prefixes'
 import { catalogPositionJoin } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
+import { getImportProductByAlbum } from '@/lib/import-db'
 import {
   DuplicateSkuError,
   MissingSkuError,
@@ -824,32 +825,141 @@ export type BulkProductPatch = {
   status?: ProductStatusValue
 }
 
-/** Apply the same field changes to many products (only defined patch keys are updated). */
-export async function bulkUpdateProducts(
-  productIds: string[],
-  patch: BulkProductPatch
-): Promise<number> {
-  if (!productIds.length) return 0
+export type BulkUpdateProductsResult = {
+  updated: number
+  trashedDuplicates: number
+  skippedAlreadyCorrect: number
+}
 
-  const setParts: string[] = []
-  const setValues: unknown[] = []
+type ProductBulkRow = {
+  id: string
+  category: string | null
+  brand: string | null
+  brand_id: string | null
+  category_id: string | null
+  source_album_id: string | null
+  status: string
+}
 
-  if (patch.category !== undefined) {
-    const resolved = await resolveProductCategoryInput(patch.category)
-    const schema = await getProductSchemaFlags()
-    setParts.push('category = ?')
-    setValues.push(resolved.name)
-    if (schema.categoryId) {
-      setParts.push('category_id = ?')
-      setValues.push(resolved.id)
+async function fetchProductsForBulkUpdate(ids: string[]): Promise<ProductBulkRow[]> {
+  if (!ids.length) return []
+  const placeholders = ids.map(() => '?').join(', ')
+  return queryDb<ProductBulkRow[]>(
+    `SELECT id, category, brand, brand_id, category_id, source_album_id, status
+     FROM products WHERE id IN (${placeholders})`,
+    ids
+  )
+}
+
+function brandNamesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase()
+}
+
+function categoryNamesMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase()
+}
+
+async function findAlbumCategoryBrandDuplicate(
+  albumId: string,
+  categoryName: string,
+  brandName: string | null,
+  excludeProductId: string
+): Promise<{ id: string; status: string } | null> {
+  const rows = await queryDb<{ id: string; status: string }[]>(
+    `SELECT id, status FROM products
+     WHERE source_album_id = ?
+       AND LOWER(TRIM(category)) = LOWER(?)
+       AND LOWER(TRIM(COALESCE(brand, ''))) = LOWER(TRIM(COALESCE(?, '')))
+       AND id <> ?
+     ORDER BY CASE WHEN status = 'trash' THEN 1 ELSE 0 END, created_at ASC
+     LIMIT 1`,
+    [albumId, categoryName, brandName ?? '', excludeProductId]
+  )
+  return rows[0] ?? null
+}
+
+async function applyBulkPatchToProduct(
+  row: ProductBulkRow,
+  patch: BulkProductPatch,
+  resolved: {
+    category?: { id: string; name: string }
+    brand?: { id?: string; name: string | null }
+  }
+): Promise<'updated' | 'trashed' | 'skipped'> {
+  const albumId = row.source_album_id?.trim() || null
+  const targetBrandName =
+    patch.brand !== undefined
+      ? patch.brand?.trim()
+        ? resolved.brand?.name ?? patch.brand.trim()
+        : null
+      : undefined
+  const targetCategoryName =
+    patch.category !== undefined ? resolved.category?.name ?? patch.category : undefined
+
+  const brandAlready =
+    patch.brand !== undefined &&
+    (patch.brand === null || patch.brand === ''
+      ? !row.brand?.trim() && !row.brand_id?.trim()
+      : brandNamesMatch(row.brand, targetBrandName ?? patch.brand))
+
+  const categoryAlready =
+    patch.category !== undefined && categoryNamesMatch(row.category, targetCategoryName)
+
+  const needsBrandChange = patch.brand !== undefined && !brandAlready
+  const needsCategoryChange = patch.category !== undefined && !categoryAlready
+  const needsPriceChange = patch.price !== undefined || patch.original_price !== undefined
+  const needsStatusChange = patch.status !== undefined
+
+  if (!needsBrandChange && !needsCategoryChange && !needsPriceChange && !needsStatusChange) {
+    return 'skipped'
+  }
+
+  if (albumId) {
+    if (patch.brand !== undefined && !brandAlready) {
+      const existing = await getImportProductByAlbum(
+        albumId,
+        resolved.brand?.id ?? null,
+        targetBrandName,
+        row.id
+      )
+      if (existing && existing.status !== 'trash') {
+        await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
+        return 'trashed'
+      }
+    }
+
+    if (patch.category !== undefined && !categoryAlready) {
+      const brandForDup = targetBrandName ?? row.brand
+      const existing = await findAlbumCategoryBrandDuplicate(
+        albumId,
+        targetCategoryName!,
+        brandForDup,
+        row.id
+      )
+      if (existing && existing.status !== 'trash') {
+        await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
+        return 'trashed'
+      }
     }
   }
 
-  if (patch.brand !== undefined && (await brandsTableExists())) {
-    const hasBrandCol = await productsHaveBrandColumn()
-    const hasBrandId = await productsHaveBrandIdColumn()
-    const trimmed = patch.brand?.trim() ?? ''
-    if (!trimmed) {
+  const setParts: string[] = []
+  const setValues: unknown[] = []
+  const schema = await getProductSchemaFlags()
+  const hasBrandCol = await productsHaveBrandColumn()
+  const hasBrandId = await productsHaveBrandIdColumn()
+
+  if (patch.category !== undefined && !categoryAlready) {
+    setParts.push('category = ?')
+    setValues.push(resolved.category!.name)
+    if (schema.categoryId) {
+      setParts.push('category_id = ?')
+      setValues.push(resolved.category!.id)
+    }
+  }
+
+  if (patch.brand !== undefined && !brandAlready && (await brandsTableExists())) {
+    if (!targetBrandName) {
       if (hasBrandCol) {
         setParts.push('brand = ?')
         setValues.push(null)
@@ -859,14 +969,13 @@ export async function bulkUpdateProducts(
         setValues.push(null)
       }
     } else {
-      const resolved = await resolveProductBrandInput(trimmed)
       if (hasBrandCol) {
         setParts.push('brand = ?')
-        setValues.push(resolved.name)
+        setValues.push(resolved.brand!.name)
       }
-      if (hasBrandId && resolved.id) {
+      if (hasBrandId && resolved.brand?.id) {
         setParts.push('brand_id = ?')
-        setValues.push(resolved.id)
+        setValues.push(resolved.brand.id)
       }
     }
   }
@@ -886,21 +995,78 @@ export async function bulkUpdateProducts(
     setValues.push(patch.status)
   }
 
-  if (!setParts.length) return 0
+  if (!setParts.length) return 'skipped'
 
-  const batchSize = 200
-  let updated = 0
-  for (let i = 0; i < productIds.length; i += batchSize) {
-    const batch = productIds.slice(i, i + batchSize)
-    const placeholders = batch.map(() => '?').join(', ')
-    const result = await queryDb<{ affectedRows?: number }>(
-      `UPDATE products SET ${setParts.join(', ')} WHERE id IN (${placeholders})`,
-      [...setValues, ...batch]
-    )
-    updated += result?.affectedRows ?? batch.length
+  try {
+    await queryDb(`UPDATE products SET ${setParts.join(', ')} WHERE id = ?`, [
+      ...setValues,
+      row.id,
+    ])
+    return 'updated'
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code
+    if (code === 'ER_DUP_ENTRY' && albumId) {
+      await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
+      return 'trashed'
+    }
+    throw err
+  }
+}
+
+/** Apply field changes to many products; trashes duplicates instead of failing. */
+export async function bulkUpdateProducts(
+  productIds: string[],
+  patch: BulkProductPatch
+): Promise<BulkUpdateProductsResult> {
+  if (!productIds.length) {
+    return { updated: 0, trashedDuplicates: 0, skippedAlreadyCorrect: 0 }
   }
 
-  return updated
+  const hasChanges =
+    patch.category !== undefined ||
+    patch.brand !== undefined ||
+    patch.price !== undefined ||
+    patch.original_price !== undefined ||
+    patch.status !== undefined
+
+  if (!hasChanges) {
+    return { updated: 0, trashedDuplicates: 0, skippedAlreadyCorrect: 0 }
+  }
+
+  const resolved: {
+    category?: { id: string; name: string }
+    brand?: { id?: string; name: string | null }
+  } = {}
+
+  if (patch.category !== undefined) {
+    resolved.category = await resolveProductCategoryInput(patch.category)
+  }
+
+  if (patch.brand !== undefined && patch.brand?.trim() && (await brandsTableExists())) {
+    const b = await resolveProductBrandInput(patch.brand.trim())
+    resolved.brand = { id: b.id, name: b.name }
+  } else if (patch.brand !== undefined) {
+    resolved.brand = { name: null }
+  }
+
+  const rows = await fetchProductsForBulkUpdate(productIds)
+  const byId = new Map(rows.map((r) => [r.id, r]))
+
+  let updated = 0
+  let trashedDuplicates = 0
+  let skippedAlreadyCorrect = 0
+
+  for (const id of productIds) {
+    const row = byId.get(id)
+    if (!row) continue
+
+    const outcome = await applyBulkPatchToProduct(row, patch, resolved)
+    if (outcome === 'updated') updated++
+    else if (outcome === 'trashed') trashedDuplicates++
+    else skippedAlreadyCorrect++
+  }
+
+  return { updated, trashedDuplicates, skippedAlreadyCorrect }
 }
 
 export async function bulkUpdateProductStatus(
