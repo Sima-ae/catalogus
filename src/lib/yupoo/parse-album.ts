@@ -165,4 +165,23 @@ export function buildSku(album: YupooAlbumData, _brandName?: string | null): str
   return id
 }
 
+/** Build the SKU used before a full album page fetch (album id only). */
+export function buildSkuFromAlbumId(
+  albumId: string,
+  skuHint?: string | null,
+  brandName?: string | null
+): string {
+  return buildSku(
+    {
+      albumId,
+      albumUrl: '',
+      title: '',
+      description: '',
+      images: [],
+      skuHint: skuHint ?? null,
+    },
+    brandName
+  )
+}
+
 export { parseAttributes }

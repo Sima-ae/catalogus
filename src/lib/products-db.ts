@@ -27,7 +27,6 @@ import {
 import { getBrandSkuPrefixes } from '@/lib/brand-sku-prefixes'
 import { catalogPositionJoin } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
-import { getImportProductByAlbum } from '@/lib/import-db'
 import {
   DuplicateSkuError,
   MissingSkuError,
@@ -83,24 +82,67 @@ export class UnknownCategoryError extends Error {
 
 export { DuplicateSkuError, MissingSkuError } from '@/lib/product-sku'
 
+const SKU_DUPLICATE_ORDER = `ORDER BY CASE WHEN status = 'trash' THEN 1 ELSE 0 END, created_at ASC, id ASC`
+
+/** Find another product with the same SKU (case-insensitive). */
+export async function findProductBySku(
+  sku: string | null | undefined,
+  excludeProductId?: string | null
+): Promise<{ id: string; status: string } | null> {
+  const normalized = normalizeProductSku(sku)
+  if (!normalized) return null
+
+  const exclude = excludeProductId?.trim()
+  const excludeSql = exclude ? ' AND id <> ?' : ''
+  const excludeParams = exclude ? [exclude] : []
+
+  const rows = await queryDb<{ id: string; status: string }[]>(
+    `SELECT id, status FROM products
+     WHERE sku IS NOT NULL AND LOWER(TRIM(sku)) = LOWER(?)
+     ${excludeSql}
+     ${SKU_DUPLICATE_ORDER}
+     LIMIT 1`,
+    [normalized, ...excludeParams]
+  )
+  return rows[0] ?? null
+}
+
+/**
+ * Find a product imported from a Yupoo album by SKU (`albumId` or `hint-albumId`).
+ * SKU-based — does not use source_album_id or brand.
+ */
+export async function findProductByAlbumSku(
+  albumId: string,
+  excludeProductId?: string | null
+): Promise<{ id: string; status: string } | null> {
+  const id = String(albumId ?? '').trim()
+  if (!id) return null
+
+  const byExact = await findProductBySku(id, excludeProductId)
+  if (byExact) return byExact
+
+  const exclude = excludeProductId?.trim()
+  const excludeSql = exclude ? ' AND id <> ?' : ''
+  const excludeParams = exclude ? [exclude] : []
+
+  const rows = await queryDb<{ id: string; status: string }[]>(
+    `SELECT id, status FROM products
+     WHERE sku IS NOT NULL AND TRIM(sku) <> ''
+       AND (LOWER(TRIM(sku)) = LOWER(?) OR LOWER(TRIM(sku)) LIKE LOWER(?))
+     ${excludeSql}
+     ${SKU_DUPLICATE_ORDER}
+     LIMIT 1`,
+    [id, `%-${id}`, ...excludeParams]
+  )
+  return rows[0] ?? null
+}
+
 async function assertSkuIsUnique(sku: string, excludeProductId?: string) {
   const normalized = normalizeProductSku(sku)
   if (!normalized) throw new MissingSkuError()
 
-  const params: unknown[] = [normalized]
-  let sql = `SELECT id FROM products
-    WHERE sku IS NOT NULL AND LOWER(TRIM(sku)) = LOWER(?)
-    LIMIT 1`
-
-  if (excludeProductId) {
-    sql = `SELECT id FROM products
-      WHERE sku IS NOT NULL AND LOWER(TRIM(sku)) = LOWER(?) AND id <> ?
-      LIMIT 1`
-    params.push(excludeProductId)
-  }
-
-  const rows = await queryDb<{ id: string }[]>(sql, params)
-  if (rows[0]) {
+  const existing = await findProductBySku(normalized, excludeProductId)
+  if (existing) {
     throw new DuplicateSkuError(normalized)
   }
 }
@@ -933,6 +975,7 @@ export type BulkUpdateProductsResult = {
 
 type ProductBulkRow = {
   id: string
+  sku: string | null
   category: string | null
   brand: string | null
   brand_id: string | null
@@ -945,7 +988,7 @@ async function fetchProductsForBulkUpdate(ids: string[]): Promise<ProductBulkRow
   if (!ids.length) return []
   const placeholders = ids.map(() => '?').join(', ')
   return queryDb<ProductBulkRow[]>(
-    `SELECT id, category, brand, brand_id, category_id, source_album_id, status
+    `SELECT id, sku, category, brand, brand_id, category_id, source_album_id, status
      FROM products WHERE id IN (${placeholders})`,
     ids
   )
@@ -959,23 +1002,11 @@ function categoryNamesMatch(a: string | null | undefined, b: string | null | und
   return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase()
 }
 
-async function findAlbumCategoryBrandDuplicate(
-  albumId: string,
-  categoryName: string,
-  brandName: string | null,
-  excludeProductId: string
-): Promise<{ id: string; status: string } | null> {
-  const rows = await queryDb<{ id: string; status: string }[]>(
-    `SELECT id, status FROM products
-     WHERE source_album_id = ?
-       AND LOWER(TRIM(category)) = LOWER(?)
-       AND LOWER(TRIM(COALESCE(brand, ''))) = LOWER(TRIM(COALESCE(?, '')))
-       AND id <> ?
-     ORDER BY CASE WHEN status = 'trash' THEN 1 ELSE 0 END, created_at ASC
-     LIMIT 1`,
-    [albumId, categoryName, brandName ?? '', excludeProductId]
-  )
-  return rows[0] ?? null
+function isSkuUniqueConstraintError(err: unknown): boolean {
+  const code = (err as { code?: string })?.code
+  if (code !== 'ER_DUP_ENTRY') return false
+  const message = String((err as { message?: string })?.message ?? '').toLowerCase()
+  return message.includes('uq_products_sku') || message.includes("key 'sku'")
 }
 
 async function applyBulkPatchToProduct(
@@ -986,7 +1017,6 @@ async function applyBulkPatchToProduct(
     brand?: { id?: string; name: string | null }
   }
 ): Promise<'updated' | 'trashed' | 'skipped'> {
-  const albumId = row.source_album_id?.trim() || null
   const targetBrandName =
     patch.brand !== undefined
       ? patch.brand?.trim()
@@ -1014,33 +1044,10 @@ async function applyBulkPatchToProduct(
     return 'skipped'
   }
 
-  if (albumId) {
-    if (patch.brand !== undefined && !brandAlready) {
-      const existing = await getImportProductByAlbum(
-        albumId,
-        resolved.brand?.id ?? null,
-        targetBrandName,
-        row.id
-      )
-      if (existing && existing.status !== 'trash') {
-        await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
-        return 'trashed'
-      }
-    }
-
-    if (patch.category !== undefined && !categoryAlready) {
-      const brandForDup = targetBrandName ?? row.brand
-      const existing = await findAlbumCategoryBrandDuplicate(
-        albumId,
-        targetCategoryName!,
-        brandForDup,
-        row.id
-      )
-      if (existing && existing.status !== 'trash') {
-        await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
-        return 'trashed'
-      }
-    }
+  const skuDuplicate = await findProductBySku(row.sku, row.id)
+  if (skuDuplicate && skuDuplicate.status !== 'trash') {
+    await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
+    return 'trashed'
   }
 
   const setParts: string[] = []
@@ -1104,8 +1111,7 @@ async function applyBulkPatchToProduct(
     ])
     return 'updated'
   } catch (err: unknown) {
-    const code = (err as { code?: string })?.code
-    if (code === 'ER_DUP_ENTRY' && albumId) {
+    if (isSkuUniqueConstraintError(err)) {
       await queryDb(`UPDATE products SET status = 'trash' WHERE id = ?`, [row.id])
       return 'trashed'
     }

@@ -447,6 +447,7 @@ export async function resetCompletedJobItems(jobId: string): Promise<number> {
   return result?.affectedRows ?? 0
 }
 
+/** @deprecated Prefer findProductByAlbumSku / findProductBySku — duplicates are keyed by SKU. */
 export async function getImportProductByAlbum(
   albumId: string,
   brandId: string | null | undefined,

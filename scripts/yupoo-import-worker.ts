@@ -8,7 +8,7 @@
  *   npm run import:worker -- --job=<uuid> --refresh
  *   npm run import:worker -- --job=<uuid> --refresh --retry-all
  *
- * Skipped albums already exist for the same brand (source_album_id + brand).
+ * Skipped albums already exist (matched by SKU derived from the Yupoo album id).
  * --refresh  re-fetch Yupoo and update those products (keeps active/draft status).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
  * --password  overrides the import source's saved Yupoo access password for this run.
@@ -32,7 +32,6 @@ import {
   createImportJobItems,
   getImportJob,
   getImportSource,
-  getImportProductByAlbum,
   getQueuedImportJob,
   listPendingJobItems,
   resetCompletedJobItems,
@@ -41,8 +40,13 @@ import {
   updateImportJob,
   updateJobItem,
 } from '@/lib/import-db'
-import { insertProduct, updateProduct } from '@/lib/products-db'
-import type { ProductInput } from '@/lib/products-db'
+import {
+  findProductByAlbumSku,
+  findProductBySku,
+  insertProduct,
+  updateProduct,
+  type ProductInput,
+} from '@/lib/products-db'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 
 function loadDotEnv() {
@@ -223,15 +227,10 @@ async function processJob(jobId: string) {
 
   for (const item of items) {
     try {
-      const existing = await getImportProductByAlbum(
-        item.album_id,
-        source.catalog_brand_id,
-        source.brand_name ?? null
-      )
+      let existing = await findProductByAlbumSku(item.album_id)
 
       if (existing && !flags.refresh) {
-        const brandLabel = source.brand_name?.trim() || 'this brand'
-        console.log(`==> Album ${item.album_id} (skip — already imported for ${brandLabel})`)
+        console.log(`==> Album ${item.album_id} (skip — product with same SKU already exists)`)
         await updateJobItem(item.id, {
           status: 'skipped',
           product_id: existing.id,
@@ -254,6 +253,23 @@ async function processJob(jobId: string) {
         fetchPage,
         hasPassword
       )
+
+      if (!existing && input.sku) {
+        existing = await findProductBySku(input.sku)
+      }
+
+      if (existing && !flags.refresh) {
+        console.log(`==> Album ${item.album_id} (skip — SKU ${input.sku} already exists)`)
+        await updateJobItem(item.id, {
+          status: 'skipped',
+          product_id: existing.id,
+          error_message: null,
+        })
+        skipped++
+        processed++
+        await updateImportJob(jobId, { processed, imported, skipped, failed })
+        continue
+      }
 
       if (existing && flags.refresh) {
         await updateProduct(existing.id, inputForRefresh(input))
