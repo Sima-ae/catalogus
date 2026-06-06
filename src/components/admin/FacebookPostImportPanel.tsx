@@ -52,7 +52,6 @@ export default function FacebookPostImportPanel({
   const t = useAppTheme()
   const [postUrl, setPostUrl] = useState('')
   const [price, setPrice] = useState('')
-  const [sku, setSku] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set())
   const [preview, setPreview] = useState<PreviewResult | null>(null)
@@ -69,7 +68,6 @@ export default function FacebookPostImportPanel({
     if (price.trim() === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
       missing.push('price')
     }
-    if (!sku.trim()) missing.push('SKU')
     if (!categoryId) missing.push('category')
     if (selectedBrands.size === 0) missing.push('brand')
     return missing
@@ -134,7 +132,6 @@ export default function FacebookPostImportPanel({
           body: JSON.stringify({
             postUrl: postUrl.trim(),
             price: Number(price),
-            sku: sku.trim(),
             category_id: categoryId,
             category: categoryOption?.listLabel || categoryOption?.label || '',
             brand: brandLabel || null,
@@ -146,6 +143,7 @@ export default function FacebookPostImportPanel({
         kind?: 'import-facebook-post'
         job?: { id: string; status?: string }
         postUrl?: string
+        sku?: string
         workerCommand?: string
       }>(res)
       if (!res.ok) throw new Error(data.error || 'Import failed')
@@ -159,7 +157,9 @@ export default function FacebookPostImportPanel({
         postUrl: data.postUrl || postUrl.trim(),
         workerCommand: data.workerCommand,
       })
-      setImportMessage(`Queued job ${data.job.id}`)
+      setImportMessage(
+        `Queued job ${data.job.id}${data.sku ? ` · SKU ${data.sku}` : ''}`
+      )
       onQueued?.()
     } catch (e) {
       const message =
@@ -186,7 +186,7 @@ export default function FacebookPostImportPanel({
         aria-label={`Facebook post URL for ${sourceName}`}
         disabled={disabled || importing}
       />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="space-y-0.5">
           <span className={`text-xs ${t.muted}`}>Price</span>
           <input
@@ -195,16 +195,6 @@ export default function FacebookPostImportPanel({
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             placeholder="450"
-            disabled={disabled || importing}
-          />
-        </label>
-        <label className="space-y-0.5">
-          <span className={`text-xs ${t.muted}`}>SKU</span>
-          <input
-            className="input w-full text-xs py-1.5"
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-            placeholder="Product SKU"
             disabled={disabled || importing}
           />
         </label>

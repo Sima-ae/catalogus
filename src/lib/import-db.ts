@@ -231,7 +231,7 @@ export async function buildProductInputFromFacebookJobItem(
 ): Promise<ProductInput> {
   const manual = parseFacebookJobItemManual(item.raw_json)
   if (!manual) {
-    throw new Error('Missing manual import fields on job item (price, SKU, category, brand)')
+    throw new Error('Missing manual import fields on job item (price, category, brand)')
   }
   const mirroredUrls = await mirrorFacebookPostImages(post.externalId, post.imageUrls)
   return buildProductInputFromFacebookPost(post, manual, mirroredUrls)

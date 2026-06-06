@@ -19,7 +19,7 @@ import {
   normalizeFacebookPostUrl,
   parseFacebookUrlMeta,
 } from '../src/lib/facebook/parse-url'
-import { mapFacebookPost } from '../src/lib/facebook/map-product'
+import { randomNumericSkuCandidate } from '../src/lib/product-sku'
 import { facebookImportMirrorRelativeDir } from '../src/lib/facebook/mirror-images'
 
 assert.equal(parseEmojiPriceHint('Price 4️⃣5️⃣0️⃣ euro'), 450)
@@ -39,6 +39,12 @@ assert.equal(facebookExternalIdFromUrl(photoCarouselUrl), 'fb-pcb-12220893852251
 assert.ok(isFacebookPermalinkMeta(parseFacebookUrlMeta(sampleUrl)))
 assert.ok(facebookPermalinkFetchUrls(parseFacebookUrlMeta(sampleUrl)).length >= 2)
 assert.ok(externalId.length <= FACEBOOK_EXTERNAL_ID_MAX)
+
+import { mapFacebookPost } from '../src/lib/facebook/map-product'
+
+const sku = randomNumericSkuCandidate(4)
+assert.match(sku, /^\d{4}$/)
+assert.ok(Number(sku) >= 1000 && Number(sku) <= 9999)
 
 const mapped = mapFacebookPost({
   postUrl: sampleUrl,

@@ -8,8 +8,8 @@ import {
   isFacebookImportSource,
 } from '@/lib/import-db'
 import { normalizeFacebookPostUrl } from '@/lib/facebook/parse-url'
-import type { FacebookManualImportFields } from '@/lib/facebook/types'
-import { resolveCategoryById } from '@/lib/products-db'
+import type { FacebookManualImportFields, FacebookManualImportInput } from '@/lib/facebook/types'
+import { resolveCategoryById, generateUniqueNumericSku } from '@/lib/products-db'
 import { categoryStorageLabel } from '@/lib/product-taxonomy'
 import { buildCategoryPickerOptions } from '@/lib/category-picker'
 import { loadActiveCategories } from '@/lib/categories-persistence'
@@ -19,21 +19,17 @@ export const runtime = 'nodejs'
 
 type RouteContext = { params: { id: string } }
 
-function parseManualBody(body: unknown): FacebookManualImportFields | { error: string } {
+function parseManualBody(body: unknown): FacebookManualImportInput | { error: string } {
   if (!body || typeof body !== 'object') {
     return { error: 'Invalid request body' }
   }
   const raw = body as Record<string, unknown>
   const price = Number(raw.price)
-  const sku = String(raw.sku ?? '').trim()
   const category_id = String(raw.category_id ?? raw.catalog_category_id ?? '').trim()
   const brandRaw = String(raw.brand ?? '').trim()
 
   if (!Number.isFinite(price) || price < 0) {
     return { error: 'Valid price is required' }
-  }
-  if (!sku) {
-    return { error: 'SKU is required' }
   }
   if (!category_id) {
     return { error: 'Category is required' }
@@ -44,7 +40,6 @@ function parseManualBody(body: unknown): FacebookManualImportFields | { error: s
 
   return {
     price,
-    sku,
     category_id,
     category: String(raw.category ?? '').trim(),
     brand: brandRaw || null,
@@ -97,6 +92,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const manual: FacebookManualImportFields = {
       ...manualParsed,
       category: categoryLabel,
+      sku: await generateUniqueNumericSku(),
     }
 
     const job = await createSingleFacebookPostImportJob(source, postUrl, manual)
@@ -106,6 +102,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         kind: 'import-facebook-post' as const,
         job,
         postUrl,
+        sku: manual.sku,
         workerCommand: buildImportWorkerCommand(job.id, ['--refresh']),
       },
       { status: 201 }

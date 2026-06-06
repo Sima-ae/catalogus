@@ -36,6 +36,7 @@ import {
   DuplicateSkuError,
   MissingSkuError,
   normalizeProductSku,
+  randomNumericSkuCandidate,
   requireProductSku,
 } from '@/lib/product-sku'
 
@@ -110,6 +111,17 @@ export async function findProductBySku(
     [normalized, ...excludeParams]
   )
   return rows[0] ?? null
+}
+
+/** Random numeric SKU (e.g. "3792") that is not already used by another product. */
+export async function generateUniqueNumericSku(): Promise<string> {
+  for (let digits = 4; digits <= 6; digits++) {
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const sku = randomNumericSkuCandidate(digits)
+      if (!(await findProductBySku(sku))) return sku
+    }
+  }
+  throw new Error('Could not generate a unique SKU; try again.')
 }
 
 /**

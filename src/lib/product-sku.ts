@@ -66,6 +66,14 @@ export function normalizeProductSku(
   return trimmed || null
 }
 
+/** Random numeric SKU candidate (e.g. 4 digits → "3792"). */
+export function randomNumericSkuCandidate(digits = 4): string {
+  const safeDigits = Math.min(8, Math.max(4, Math.floor(digits)))
+  const min = 10 ** (safeDigits - 1)
+  const max = 10 ** safeDigits - 1
+  return String(Math.floor(Math.random() * (max - min + 1)) + min)
+}
+
 /** Require a non-empty SKU (create/update). */
 export function requireProductSku(sku: unknown, brandPrefixes?: string[]): string {
   const normalized = normalizeProductSku(sku, brandPrefixes)

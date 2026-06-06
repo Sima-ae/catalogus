@@ -17,6 +17,9 @@ export type FacebookManualImportFields = {
   brand: string | null
 }
 
+/** Admin form fields before SKU is auto-generated at queue time. */
+export type FacebookManualImportInput = Omit<FacebookManualImportFields, 'sku'>
+
 export type FacebookJobItemRawJson = {
   manual: FacebookManualImportFields
   detectedPriceHint?: number | null

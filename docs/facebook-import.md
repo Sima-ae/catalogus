@@ -1,6 +1,6 @@
 # Facebook post import
 
-Import draft products from a single Facebook post URL. Title, description, and images are fetched automatically; **price, SKU, category, and brand** are entered manually in admin when queuing the import.
+Import draft products from a single Facebook post URL. Title, description, and images are fetched automatically; **price, category, and brand** are entered manually in admin when queuing the import. A unique numeric **SKU** (e.g. `3792`) is generated automatically.
 
 ## Supported URL format (primary)
 
@@ -44,7 +44,7 @@ Photo-only links (`photo?fbid=…&set=pcb.…`) also work, but permalink URLs ar
 ## Admin workflow
 
 1. **Super admin** → Admin → Import → Add source → type **Facebook** (name only).
-2. On the source row, paste the **permalink URL**, then fill in price, SKU, category, brand(s).
+2. On the source row, paste the **permalink URL**, then fill in price, category, brand(s). SKU is assigned automatically when you queue the import.
 3. Click **Import post** → copy worker command.
 4. **On the VPS** (SSH into the server — do not run the worker on your laptop for production):
 
@@ -78,7 +78,8 @@ npx tsx scripts/debug-fb-fetch.ts 'https://www.facebook.com/permalink.php?story_
 | Source | Field |
 |--------|--------|
 | Post (auto) | `name`, `description`, `short_description`, `image_url`, `gallery_images`, `source_url`, `source_album_id` |
-| Form (manual) | `price`, `sku`, `category`, `category_id`, `brand` |
+| Form (manual) | `price`, `category`, `category_id`, `brand` |
+| Auto | `sku` (unique random numeric, e.g. `3792`) |
 | Hint only | Emoji/plain price in post text (preview; form price always wins) |
 
 ## Tests
