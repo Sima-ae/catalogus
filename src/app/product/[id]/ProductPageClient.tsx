@@ -929,7 +929,7 @@ export default function ProductPageClient() {
             </div>
 
             {product.category ||
-            product.brand ||
+            product.brands.length > 0 ||
             (product.tags?.length ?? 0) > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {product.category ? (
@@ -944,18 +944,19 @@ export default function ProductPageClient() {
                     {getTopCategoryLabel(product.category, t)}
                   </Link>
                 ) : null}
-                {product.brand ? (
+                {product.brands.map((brandItem) => (
                   <Link
-                    href={product.brandHref}
+                    key={brandItem.name}
+                    href={brandItem.href}
                     className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
                       theme === 'dark'
                         ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
                         : 'text-gray-700 bg-gray-200 hover:bg-gray-300'
                     }`}
                   >
-                    {product.brand}
+                    {brandItem.name}
                   </Link>
-                ) : null}
+                ))}
                 {(product.tags ?? []).map((tag) => (
                   <Link
                     key={tag}

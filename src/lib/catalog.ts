@@ -1,4 +1,5 @@
 import type { Product } from '@/lib/types'
+import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
 
 export type CatalogMode = 'all' | 'new'
 
@@ -58,7 +59,7 @@ export function filterByCategory(products: Product[], category: string): Product
 
 export function filterByBrand(products: Product[], brand: string): Product[] {
   if (brand === 'All') return products
-  return products.filter((p) => (p.brand || '') === brand)
+  return products.filter((p) => brandCompoundIncludesSegment(p.brand || '', brand))
 }
 
 export function filterBySearch(products: Product[], query: string): Product[] {

@@ -4,6 +4,7 @@ import { slugifyCategory } from '@/lib/category-slug'
 import {
   buildActiveCatalogFilters,
   buildAdminProductFilters,
+  buildProductBrandSegmentFilter,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
   type CatalogProductsPage,
@@ -467,20 +468,26 @@ export async function listShopSubcategoriesWithProducts(
   const brand = brandName?.trim()
   const brandJoin =
     brand && brand !== 'All'
-      ? `AND (
-           LOWER(TRIM(p.brand)) = LOWER(?)
-           OR EXISTS (
-             SELECT 1 FROM brands b
-             WHERE b.active = 1 AND b.id = p.brand_id AND LOWER(TRIM(b.name)) = LOWER(?)
-           )
-         )`
-      : ''
-  const brandParams = brand && brand !== 'All' ? [brand, brand] : []
+      ? (() => {
+          const filter = buildProductBrandSegmentFilter(brand)
+          return {
+            sql: `AND (
+              ${filter.sql}
+              OR EXISTS (
+                SELECT 1 FROM brands bx
+                WHERE bx.active = 1 AND bx.id = p.brand_id AND LOWER(TRIM(bx.name)) = LOWER(?)
+              )
+            )`,
+            params: [...filter.params, brand],
+          }
+        })()
+      : null
+  const brandParams = brandJoin?.params ?? []
 
   const rows = await queryDb<{ id: string; name: string; productCount: number }[]>(
     `SELECT c.id, c.name, COUNT(DISTINCT p.id) AS productCount
      FROM categories c
-     LEFT JOIN products p ON p.status = 'active' AND p.category_id = c.id ${brandJoin}
+     LEFT JOIN products p ON p.status = 'active' AND p.category_id = c.id ${brandJoin?.sql ?? ''}
      WHERE c.id IN (${idPlaceholders}) AND c.active = 1
      GROUP BY c.id, c.name
      ORDER BY c.name ASC`,

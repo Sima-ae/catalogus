@@ -1,4 +1,5 @@
 import type { PricelistRow } from '@/lib/pricelist-db'
+import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
 
 const EMPTY_MARKER = '—'
 
@@ -82,7 +83,7 @@ export function filterPricelistRows(
     list = list.filter((row) => row.category?.trim() === category)
   }
   if (brand) {
-    list = list.filter((row) => row.brand?.trim() === brand)
+    list = list.filter((row) => brandCompoundIncludesSegment(row.brand ?? '', brand))
   }
   if (opts.missingPricesOnly) {
     const needOpts = opts.guestShareLink ? { guestShareLink: true as const } : undefined

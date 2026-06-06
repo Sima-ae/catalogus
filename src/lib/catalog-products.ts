@@ -84,6 +84,37 @@ export type CatalogSqlFilters = {
   params: unknown[]
 }
 
+/** Match products whose sole or collab brand includes `brandName` (e.g. NIKE in "LOUIS VUITTON X NIKE"). */
+export function buildProductBrandSegmentFilter(
+  brandName: string,
+  options: { includeBrandJoin?: boolean } = {}
+): { sql: string; params: unknown[] } {
+  const lower = brandName.trim().toLowerCase()
+  const clauses = [
+    'LOWER(TRIM(p.brand)) = ?',
+    'LOWER(TRIM(p.brand)) LIKE ?',
+    'LOWER(TRIM(p.brand)) LIKE ?',
+    'LOWER(TRIM(p.brand)) LIKE ?',
+  ]
+  const params: unknown[] = [lower, `${lower} x %`, `% x ${lower}`, `% x ${lower} x %`]
+  if (options.includeBrandJoin) {
+    clauses.push('LOWER(TRIM(b.name)) = ?')
+    params.push(lower)
+  }
+  return { sql: `(${clauses.join(' OR ')})`, params }
+}
+
+/** EXISTS-friendly match: product row includes brand `b.name` as sole or collab segment. */
+export function buildProductIncludesBrandSql(): string {
+  return `(
+    p.brand_id = b.id
+    OR LOWER(TRIM(p.brand)) = LOWER(TRIM(b.name))
+    OR LOWER(TRIM(p.brand)) LIKE CONCAT(LOWER(TRIM(b.name)), ' X %')
+    OR LOWER(TRIM(p.brand)) LIKE CONCAT('% X ', LOWER(TRIM(b.name)))
+    OR LOWER(TRIM(p.brand)) LIKE CONCAT('% X ', LOWER(TRIM(b.name)), ' X %')
+  )`
+}
+
 /** Match legacy `products.category` text, including compound values (e.g. "SHOES / BAGS"). */
 export function buildLegacyCategoryTextMatch(names: string[]): { sql: string; params: unknown[] } {
   const parts: string[] = []
@@ -204,13 +235,11 @@ export function buildActiveCatalogFilters(
   }
 
   if (query.brand && query.brand !== 'All') {
-    if (includeBrand) {
-      where.push('(p.brand = ? OR b.name = ?)')
-      params.push(query.brand, query.brand)
-    } else {
-      where.push('p.brand = ?')
-      params.push(query.brand)
-    }
+    const brandFilter = buildProductBrandSegmentFilter(query.brand, {
+      includeBrandJoin: includeBrand,
+    })
+    where.push(brandFilter.sql)
+    params.push(...brandFilter.params)
   }
 
   const tag = query.tag?.trim()
@@ -354,13 +383,11 @@ export function buildAdminProductFilters(
   }
 
   if (options.brand && options.brand !== 'All') {
-    if (includeBrand) {
-      where.push('(p.brand = ? OR b.name = ?)')
-      params.push(options.brand, options.brand)
-    } else {
-      where.push('p.brand = ?')
-      params.push(options.brand)
-    }
+    const brandFilter = buildProductBrandSegmentFilter(options.brand, {
+      includeBrandJoin: includeBrand,
+    })
+    where.push(brandFilter.sql)
+    params.push(...brandFilter.params)
   }
 
   const searchTerm = options.search?.trim()

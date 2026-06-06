@@ -5,6 +5,8 @@ import { loadActiveCategories } from '@/lib/categories-persistence'
 import {
   buildQualifiedCategoryTextMatch,
   combineCategoryIdAndLegacyTextMatch,
+  buildProductBrandSegmentFilter,
+  buildProductIncludesBrandSql,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
 } from '@/lib/catalog-products'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
@@ -55,13 +57,10 @@ async function listActiveBrandsByProductsInCategory(
   categoryFilter: ShopCategoryFilter,
   filterIds: string[]
 ): Promise<Record<string, unknown>[]> {
-  const hasBrandId = await productsHaveBrandIdColumn()
   const hasCategoryId = await productsHaveCategoryIdColumn()
   const idPlaceholders = filterIds.map(() => '?').join(', ')
 
-  const brandMatch = hasBrandId
-    ? `(p.brand_id = b.id OR (p.brand_id IS NULL AND LOWER(TRIM(p.brand)) = LOWER(TRIM(b.name))))`
-    : `LOWER(TRIM(p.brand)) = LOWER(TRIM(b.name))`
+  const brandMatch = buildProductIncludesBrandSql()
 
   let categoryMatch = `p.category_id IN (${idPlaceholders})`
   const params: unknown[] = [...filterIds]

@@ -4,6 +4,13 @@ import { resolveProductDisplayImages } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
 
+import { parseBrandCompound } from '@/lib/product-taxonomy'
+
+export type ProductPageBrand = {
+  name: string
+  href: string
+}
+
 export type ProductPageView = {
   id: string
   name: string
@@ -15,7 +22,11 @@ export type ProductPageView = {
   sku: string
   category: string
   categoryHref: string
+  /** Full stored brand label (single or collab, e.g. "LOUIS VUITTON X NIKE"). */
   brand: string
+  /** One pill per brand segment for collab products. */
+  brands: ProductPageBrand[]
+  /** @deprecated Prefer `brands[0]?.href` */
   brandHref: string
   author: string
   author_icon: string
@@ -80,6 +91,12 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
   const cleanedShort = rawShort ? cleanImportDescription(rawShort, name, brand) : ''
   const shortDescription = cleanedShort || description.slice(0, 280) || description
 
+  const brandLabels = parseBrandCompound(brandDisplay)
+  const brands: ProductPageBrand[] = brandLabels.map((name) => ({
+    name,
+    href: shopBrandUrl(name),
+  }))
+
   return {
     id: String(raw.id ?? ''),
     name,
@@ -95,7 +112,8 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     category,
     categoryHref: category ? shopCategoryUrl(category) : appPath('/'),
     brand: brandDisplay,
-    brandHref: brandDisplay ? shopBrandUrl(brandDisplay) : appPath('/'),
+    brands,
+    brandHref: brands[0]?.href ?? (brandDisplay ? shopBrandUrl(brandDisplay) : appPath('/')),
     author: String(raw.author || ''),
     author_icon: String(raw.author_icon || ''),
     rating: Number(raw.rating) || 0,

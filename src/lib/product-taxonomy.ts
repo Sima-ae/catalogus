@@ -62,6 +62,13 @@ export function brandNamesFromCompound(
   return names
 }
 
+/** True when `compound` includes `segment` as sole or collab brand (case-insensitive). */
+export function brandCompoundIncludesSegment(compound: string, segment: string): boolean {
+  const key = normalizeSegmentKey(segment)
+  if (!key) return false
+  return parseBrandCompound(compound).some((part) => normalizeSegmentKey(part) === key)
+}
+
 export function orderedTaxonomyNames(selected: Set<string>, order: string[]): string[] {
   const out: string[] = []
   for (const name of order) {
