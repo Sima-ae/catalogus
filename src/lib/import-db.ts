@@ -23,15 +23,30 @@ import {
 } from '@/lib/woocommerce/client'
 import { mirrorWooCommerceProductImages } from '@/lib/woocommerce/mirror-images'
 import { wooSlugExternalId } from '@/lib/woocommerce/types'
+import { mirrorFacebookPostImages } from '@/lib/facebook/mirror-images'
+import { mapFacebookPost } from '@/lib/facebook/map-product'
+import type {
+  FacebookJobItemRawJson,
+  FacebookManualImportFields,
+  FacebookPostData,
+} from '@/lib/facebook/types'
+import { facebookExternalIdFromUrl, normalizeFacebookPostUrl } from '@/lib/facebook/parse-url'
 
-export type ImportSourceType = 'yupoo' | 'woocommerce'
+export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook'
 
 export function normalizeImportSourceType(value: string | null | undefined): ImportSourceType {
-  return String(value ?? '').trim().toLowerCase() === 'woocommerce' ? 'woocommerce' : 'yupoo'
+  const raw = String(value ?? '').trim().toLowerCase()
+  if (raw === 'woocommerce') return 'woocommerce'
+  if (raw === 'facebook') return 'facebook'
+  return 'yupoo'
 }
 
 export function isWooCommerceImportSource(source: { source_type?: string | null }): boolean {
   return normalizeImportSourceType(source.source_type) === 'woocommerce'
+}
+
+export function isFacebookImportSource(source: { source_type?: string | null }): boolean {
+  return normalizeImportSourceType(source.source_type) === 'facebook'
 }
 
 export async function buildProductInputFromImport(
@@ -151,6 +166,75 @@ export async function buildProductInputFromWooStoreProduct(
     categoryId: catalog.categoryId,
     brandName: catalog.brandName,
   })
+}
+
+export function parseFacebookJobItemManual(rawJson: string | null | undefined): FacebookManualImportFields | null {
+  if (!rawJson?.trim()) return null
+  try {
+    const parsed = JSON.parse(rawJson) as FacebookJobItemRawJson
+    const manual = parsed?.manual
+    if (!manual?.sku?.trim() || !manual.category_id?.trim() || !manual.category?.trim()) {
+      return null
+    }
+    const price = Number(manual.price)
+    if (!Number.isFinite(price) || price < 0) return null
+    return {
+      price,
+      sku: manual.sku.trim(),
+      category_id: manual.category_id.trim(),
+      category: manual.category.trim(),
+      brand: manual.brand?.trim() || null,
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function buildProductInputFromFacebookPost(
+  post: FacebookPostData,
+  manual: FacebookManualImportFields,
+  mirroredImageUrls: string[]
+): Promise<ProductInput> {
+  const mapped = mapFacebookPost(post)
+  const uniqueImages = cleanProductGalleryUrls(mirroredImageUrls)
+  const mainImage = uniqueImages[0] || ''
+  const gallery = uniqueImages.slice(1)
+  const name = sanitizeProductName(mapped.title || 'Facebook import')
+  const description = cleanImportDescription(mapped.description, name, manual.brand)
+  const short_description =
+    catalogCardDescription(name, description, undefined, manual.brand).slice(0, 280) || undefined
+
+  return {
+    name,
+    description,
+    short_description,
+    price: manual.price,
+    original_price: null,
+    image_url: mainImage,
+    gallery_images: gallery.length ? gallery : null,
+    category: manual.category,
+    category_id: manual.category_id,
+    brand: manual.brand,
+    source_url: mapped.postUrl,
+    source_album_id: mapped.externalId,
+    author: APP_DEFAULT_AUTHOR,
+    author_icon: APP_DEFAULT_AUTHOR_ICON,
+    sku: manual.sku,
+    status: 'draft',
+    featured: false,
+  }
+}
+
+export async function buildProductInputFromFacebookJobItem(
+  item: ImportJobItemRow,
+  post: FacebookPostData
+): Promise<ProductInput> {
+  const manual = parseFacebookJobItemManual(item.raw_json)
+  if (!manual) {
+    throw new Error('Missing manual import fields on job item (price, SKU, category, brand)')
+  }
+  const mirroredUrls = await mirrorFacebookPostImages(post.externalId, post.imageUrls)
+  return buildProductInputFromFacebookPost(post, manual, mirroredUrls)
 }
 
 export type ImportSourceRow = {
@@ -507,6 +591,36 @@ export async function createSingleWooProductImportJob(
       title: slug,
     },
   ])
+  await updateImportJob(job.id, { total_albums: 1 })
+  return (await getImportJob(job.id))!
+}
+
+export async function createSingleFacebookPostImportJob(
+  source: ImportSourceRow,
+  postUrl: string,
+  manual: FacebookManualImportFields
+): Promise<ImportJobRow> {
+  if (!isFacebookImportSource(source)) {
+    throw new Error('Single post import is only supported for Facebook sources')
+  }
+
+  const normalizedUrl = normalizeFacebookPostUrl(postUrl)
+  const externalId = facebookExternalIdFromUrl(normalizedUrl)
+  const rawJson: FacebookJobItemRawJson = { manual }
+
+  const job = await createImportJob(source.id)
+  await queryDb(
+    `INSERT INTO import_job_items (id, job_id, album_url, album_id, album_title, status, raw_json)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+    [
+      randomUUID(),
+      job.id,
+      normalizedUrl,
+      externalId,
+      manual.sku.slice(0, 128),
+      JSON.stringify(rawJson),
+    ]
+  )
   await updateImportJob(job.id, { total_albums: 1 })
   return (await getImportJob(job.id))!
 }

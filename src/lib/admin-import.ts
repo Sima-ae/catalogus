@@ -47,6 +47,9 @@ export function validateImportSourceInput(input: ImportSourceInput): string | nu
   if (!input.name) {
     return 'Name is required'
   }
+  if (input.source_type === 'facebook') {
+    return null
+  }
   if (!input.catalog_category_id) {
     return 'Catalog category is required'
   }

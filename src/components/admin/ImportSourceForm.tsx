@@ -43,11 +43,18 @@ export default function ImportSourceForm({
 }: Props) {
   const t = useAppTheme()
   const isWoo = values.source_type === 'woocommerce'
+  const isFacebook = values.source_type === 'facebook'
 
   const set = (patch: Partial<ImportSourceFormValues>) =>
     onChange({ ...values, ...patch })
 
   const selectedCategory = categories.find((c) => c.id === values.catalog_category_id)
+
+  const normalizeSourceType = (raw: string): ImportSourceType => {
+    if (raw === 'woocommerce') return 'woocommerce'
+    if (raw === 'facebook') return 'facebook'
+    return 'yupoo'
+  }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -58,7 +65,13 @@ export default function ImportSourceForm({
             className="input w-full"
             value={values.name}
             onChange={(e) => set({ name: e.target.value })}
-            placeholder={isWoo ? 'e.g. StuntXL — all products' : 'e.g. BURBERRY 2'}
+            placeholder={
+              isWoo
+                ? 'e.g. StuntXL — all products'
+                : isFacebook
+                  ? 'e.g. Facebook supplier posts'
+                  : 'e.g. BURBERRY 2'
+            }
             required
           />
         </label>
@@ -67,16 +80,20 @@ export default function ImportSourceForm({
           <select
             className="input w-full"
             value={values.source_type}
-            onChange={(e) =>
-              set({ source_type: e.target.value === 'woocommerce' ? 'woocommerce' : 'yupoo' })
-            }
+            onChange={(e) => set({ source_type: normalizeSourceType(e.target.value) })}
           >
             <option value="yupoo">Yupoo</option>
             <option value="woocommerce">WooCommerce</option>
+            <option value="facebook">Facebook</option>
           </select>
         </label>
 
-        {isWoo ? (
+        {isFacebook ? (
+          <p className={`md:col-span-2 text-xs ${t.muted}`}>
+            Facebook sources import one post at a time. Title, description, and images come from
+            the post; price, SKU, category, and brand are entered per import below.
+          </p>
+        ) : isWoo ? (
           <>
             <label className="block space-y-1 md:col-span-2">
               <span className={`text-sm ${t.muted}`}>WooCommerce store URL</span>
@@ -134,46 +151,50 @@ export default function ImportSourceForm({
           </>
         )}
 
-        <label className="block space-y-1">
-          <span className={`text-sm ${t.muted}`}>Catalog category (fallback)</span>
-          <select
-            className="input w-full font-sans"
-            value={values.catalog_category_id}
-            onChange={(e) => set({ catalog_category_id: e.target.value })}
-            required
-          >
-            <option value="">Select category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          {selectedCategory?.isSubcategory && selectedCategory.parent_name ? (
-            <p className={`text-xs mt-1 ${t.muted}`}>
-              Subcategory of {selectedCategory.parent_name}
-            </p>
-          ) : isWoo ? (
-            <p className={`text-xs mt-1 ${t.muted}`}>
-              Used when the WooCommerce product has no category or no name match in catalog.
-            </p>
-          ) : null}
-        </label>
-        <label className="block space-y-1">
-          <span className={`text-sm ${t.muted}`}>Catalog brand (optional)</span>
-          <select
-            className="input w-full"
-            value={values.catalog_brand_id}
-            onChange={(e) => set({ catalog_brand_id: e.target.value })}
-          >
-            <option value="">None — use WooCommerce brand when present</option>
-            {brands.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!isFacebook ? (
+          <>
+            <label className="block space-y-1">
+              <span className={`text-sm ${t.muted}`}>Catalog category (fallback)</span>
+              <select
+                className="input w-full font-sans"
+                value={values.catalog_category_id}
+                onChange={(e) => set({ catalog_category_id: e.target.value })}
+                required
+              >
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              {selectedCategory?.isSubcategory && selectedCategory.parent_name ? (
+                <p className={`text-xs mt-1 ${t.muted}`}>
+                  Subcategory of {selectedCategory.parent_name}
+                </p>
+              ) : isWoo ? (
+                <p className={`text-xs mt-1 ${t.muted}`}>
+                  Used when the WooCommerce product has no category or no name match in catalog.
+                </p>
+              ) : null}
+            </label>
+            <label className="block space-y-1">
+              <span className={`text-sm ${t.muted}`}>Catalog brand (optional)</span>
+              <select
+                className="input w-full"
+                value={values.catalog_brand_id}
+                onChange={(e) => set({ catalog_brand_id: e.target.value })}
+              >
+                <option value="">None — use WooCommerce brand when present</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
         <button type="submit" className="btn-primary" disabled={saving}>

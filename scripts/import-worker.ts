@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Process import jobs (Yupoo + WooCommerce) on the VPS (or locally with db:tunnel).
+ * Process import jobs (Yupoo + WooCommerce + Facebook) on the VPS (or locally with db:tunnel).
  *
  *   npm run import:worker
  *   npm run import:worker -- --job=<uuid>
@@ -29,6 +29,7 @@ import {
   appendJobErrorLog,
   buildProductInputFromImport,
   buildProductInputFromWooStoreProduct,
+  buildProductInputFromFacebookJobItem,
   createImportJobItems,
   createImportJobItemsFromWooProducts,
   discoverWooCommerceJobItems,
@@ -36,6 +37,7 @@ import {
   getImportSource,
   getProductBySourceAlbumId,
   getQueuedImportJob,
+  isFacebookImportSource,
   isWooCommerceImportSource,
   listPendingJobItems,
   resetCompletedJobItems,
@@ -45,6 +47,7 @@ import {
   updateImportJob,
   updateJobItem,
 } from '@/lib/import-db'
+import { fetchFacebookPost } from '@/lib/facebook/parse-post'
 import { sleep as wooSleep, fetchWooStoreProductForJobItem } from '@/lib/woocommerce/client'
 import { wooExternalId } from '@/lib/woocommerce/types'
 import {
@@ -424,6 +427,84 @@ async function processWooCommerceJob(
   return counters
 }
 
+async function processFacebookJob(
+  jobId: string,
+  job: NonNullable<Awaited<ReturnType<typeof getImportJob>>>,
+  flags: ReturnType<typeof workerFlags>
+) {
+  const items = await listPendingJobItems(jobId)
+  if (!items.length) {
+    console.log('No pending Facebook post items for this job.')
+  }
+
+  if (flags.refresh) {
+    console.log('==> Refresh mode: existing products will be updated from Facebook (status unchanged)')
+  }
+
+  let processed = flags.retryAll || flags.retrySkipped ? 0 : job.processed
+  let imported = flags.retryAll || flags.retrySkipped ? 0 : job.imported
+  let skipped = flags.retryAll || flags.retrySkipped ? 0 : job.skipped
+  let failed = flags.retryAll || flags.retrySkipped ? 0 : job.failed
+  let refreshed = 0
+  const counters = { processed, imported, skipped, failed, refreshed }
+
+  for (const item of items) {
+    try {
+      console.log(`==> ${item.album_id}`)
+
+      const post = await fetchFacebookPost(item.album_url)
+      const itemForDedup = { ...item, album_id: post.externalId }
+
+      const skipCheck = await importExistingOrSkip(
+        itemForDedup,
+        { sku: post.externalId } as ProductInput,
+        flags,
+        counters
+      )
+      if (skipCheck.done) {
+        await updateImportJob(jobId, counters)
+        continue
+      }
+
+      const input = await buildProductInputFromFacebookJobItem(item, post)
+
+      if (!input.image_url) {
+        throw new Error('No images found on Facebook post')
+      }
+
+      const secondCheck = await importExistingOrSkip(itemForDedup, input, flags, counters)
+      if (secondCheck.done) {
+        await updateImportJob(jobId, counters)
+        continue
+      }
+
+      await saveImportedProduct(
+        itemForDedup,
+        jobId,
+        input,
+        secondCheck.existing,
+        flags,
+        { post, detectedPriceHint: post.detectedPriceHint, refreshed: Boolean(secondCheck.existing && flags.refresh) },
+        counters
+      )
+
+      if (item.album_id !== post.externalId) {
+        await updateJobItem(item.id, { album_id: post.externalId })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('FAIL:', item.album_id, message)
+      await updateJobItem(item.id, { status: 'failed', error_message: message })
+      await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
+      counters.failed++
+      counters.processed++
+      await updateImportJob(jobId, counters)
+    }
+  }
+
+  return counters
+}
+
 async function processJob(jobId: string) {
   const flags = workerFlags()
   const job = await getImportJob(jobId)
@@ -438,7 +519,7 @@ async function processJob(jobId: string) {
     process.exit(1)
   }
 
-  if (!source.category_name) {
+  if (!isFacebookImportSource(source) && !source.category_name) {
     console.error('Import source must have catalog_category_id mapped to an active category.')
     process.exit(1)
   }
@@ -470,9 +551,11 @@ async function processJob(jobId: string) {
     console.log('No pending items. Use --retry-all on a finished job, or start a new sync in admin.')
   }
 
-  const counters = isWooCommerceImportSource(source)
-    ? await processWooCommerceJob(jobId, job, source, flags)
-    : await processYupooJob(jobId, job, source, flags)
+  const counters = isFacebookImportSource(source)
+    ? await processFacebookJob(jobId, job, flags)
+    : isWooCommerceImportSource(source)
+      ? await processWooCommerceJob(jobId, job, source, flags)
+      : await processYupooJob(jobId, job, source, flags)
 
   await updateImportJob(jobId, {
     status:

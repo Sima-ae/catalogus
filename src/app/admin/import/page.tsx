@@ -12,6 +12,7 @@ import AdminPageShell from '@/components/admin/AdminPageShell'
 import ImportSourceForm, {
   type ImportSourceFormValues,
 } from '@/components/admin/ImportSourceForm'
+import FacebookPostImportPanel from '@/components/admin/FacebookPostImportPanel'
 import {
   AdminTable,
   AdminTableBody,
@@ -35,12 +36,13 @@ import {
 type BrandOption = { id: string; name: string }
 
 type SyncResult = {
-  kind: 'sync' | 'retry-skipped' | 'refresh-all' | 'import-product'
+  kind: 'sync' | 'retry-skipped' | 'refresh-all' | 'import-product' | 'import-facebook-post'
   job: { id: string; status: string }
   workerCommand: string
   skippedCount?: number
   refreshCount?: number
   productUrl?: string
+  postUrl?: string
 }
 
 const emptyForm: ImportSourceFormValues = {
@@ -55,9 +57,12 @@ const emptyForm: ImportSourceFormValues = {
 }
 
 function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
+  const typeRaw = String(source.source_type ?? 'yupoo').toLowerCase()
+  const source_type =
+    typeRaw === 'woocommerce' ? 'woocommerce' : typeRaw === 'facebook' ? 'facebook' : 'yupoo'
   return {
     name: source.name,
-    source_type: source.source_type === 'woocommerce' ? 'woocommerce' : 'yupoo',
+    source_type,
     yupoo_category_url: source.yupoo_category_url || '',
     yupoo_access_password: '',
     woocommerce_store_url: source.woocommerce_store_url || '',
@@ -471,7 +476,9 @@ export default function AdminImportPage() {
                 ? `Refresh queued${syncInfo.refreshCount ? ` (${syncInfo.refreshCount} albums)` : ''}`
                 : syncInfo.kind === 'import-product'
                   ? 'Single product import queued (uses --refresh to update existing)'
-                  : 'Import job queued'}
+                  : syncInfo.kind === 'import-facebook-post'
+                    ? 'Facebook post import queued (uses --refresh to update existing)'
+                    : 'Import job queued'}
           </p>
           {syncInfo.kind === 'import-product' ? (
             <p className="text-sm">
@@ -479,8 +486,17 @@ export default function AdminImportPage() {
               <code className="text-xs">import:worker</code> on the VPS (not in the browser).
             </p>
           ) : null}
+          {syncInfo.kind === 'import-facebook-post' ? (
+            <p className="text-sm">
+              Job queued — Facebook post is fetched when you run{' '}
+              <code className="text-xs">import:worker</code> on the VPS (not in the browser).
+            </p>
+          ) : null}
           {syncInfo.kind === 'import-product' && syncInfo.productUrl ? (
             <p className="text-sm break-all">{syncInfo.productUrl}</p>
+          ) : null}
+          {(syncInfo.kind === 'import-facebook-post' && syncInfo.postUrl) ? (
+            <p className="text-sm break-all">{syncInfo.postUrl}</p>
           ) : null}
           {syncInfo.kind === 'retry-skipped' || syncInfo.kind === 'refresh-all' ? (
             <p className="text-sm">
@@ -595,21 +611,31 @@ export default function AdminImportPage() {
                     <div className={`text-xs mt-0.5 inline-flex rounded px-1.5 py-0.5 ${
                       source.source_type === 'woocommerce'
                         ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200'
-                        : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
+                        : source.source_type === 'facebook'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
+                          : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
                     }`}>
-                      {source.source_type === 'woocommerce' ? 'WooCommerce' : 'Yupoo'}
+                      {source.source_type === 'woocommerce'
+                        ? 'WooCommerce'
+                        : source.source_type === 'facebook'
+                          ? 'Facebook'
+                          : 'Yupoo'}
                     </div>
                     <div className={`text-xs truncate max-w-xs mt-1 ${t.muted}`}>
                       {source.source_type === 'woocommerce'
                         ? source.woocommerce_store_url || '—'
-                        : source.yupoo_category_url || '—'}
+                        : source.source_type === 'facebook'
+                          ? 'Single post imports'
+                          : source.yupoo_category_url || '—'}
                     </div>
                     {source.source_type === 'woocommerce' && source.woocommerce_category_slug ? (
                       <div className={`text-xs mt-0.5 ${t.muted}`}>
                         WC category: {source.woocommerce_category_slug}
                       </div>
                     ) : null}
-                    {source.source_type !== 'woocommerce' && source.hasPassword ? (
+                    {source.source_type !== 'woocommerce' &&
+                    source.source_type !== 'facebook' &&
+                    source.hasPassword ? (
                       <div className={`text-xs mt-0.5 ${t.muted}`}>Password set</div>
                     ) : null}
                     {source.source_type === 'woocommerce' ? (
@@ -640,6 +666,31 @@ export default function AdminImportPage() {
                           {importingUrlId === source.id ? 'Queuing…' : 'Import product URL'}
                         </button>
                       </div>
+                    ) : source.source_type === 'facebook' && user ? (
+                      <FacebookPostImportPanel
+                        sourceId={source.id}
+                        sourceName={source.name}
+                        user={user}
+                        categories={categories}
+                        brands={brands}
+                        disabled={
+                          syncingId === source.id ||
+                          retryingId === source.id ||
+                          refreshingId === source.id
+                        }
+                        onError={setError}
+                        onSyncInfo={(info) => {
+                          setSyncInfo({
+                            kind: info.kind,
+                            job: { id: info.job.id, status: 'queued' },
+                            workerCommand: info.workerCommand,
+                            postUrl: info.postUrl,
+                          })
+                          setCopiedCommand(false)
+                          setCopiedJobId(false)
+                          loadSources()
+                        }}
+                      />
                     ) : null}
                   </AdminTd>
                   <AdminTd>
@@ -657,54 +708,58 @@ export default function AdminImportPage() {
                   </AdminTd>
                   <AdminTd>
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        className="btn-secondary text-sm"
-                        disabled={
-                          syncingId === source.id ||
-                          retryingId === source.id ||
-                          refreshingId === source.id
-                        }
-                        onClick={() => handleSync(source.id)}
-                      >
-                        {syncingId === source.id ? 'Starting...' : 'Start sync'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary text-sm"
-                        disabled={
-                          syncingId === source.id ||
-                          retryingId === source.id ||
-                          refreshingId === source.id ||
-                          !source.last_synced_at
-                        }
-                        title={
-                          source.last_synced_at
-                            ? 'Re-fetch all imported albums from Yupoo and update products'
-                            : 'Run Start sync first'
-                        }
-                        onClick={() => handleRefreshAll(source.id)}
-                      >
-                        {refreshingId === source.id ? 'Queuing…' : 'Refresh all'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary text-sm"
-                        disabled={
-                          syncingId === source.id ||
-                          retryingId === source.id ||
-                          refreshingId === source.id ||
-                          !(Number(source.skipped_items) > 0)
-                        }
-                        title={
-                          Number(source.skipped_items) > 0
-                            ? `${source.skipped_items} skipped on latest job — refresh from Yupoo`
-                            : 'No skipped albums on the latest job'
-                        }
-                        onClick={() => handleRetrySkipped(source.id)}
-                      >
-                        {retryingId === source.id ? 'Queuing…' : 'Retry skipped'}
-                      </button>
+                      {source.source_type !== 'facebook' ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn-secondary text-sm"
+                            disabled={
+                              syncingId === source.id ||
+                              retryingId === source.id ||
+                              refreshingId === source.id
+                            }
+                            onClick={() => handleSync(source.id)}
+                          >
+                            {syncingId === source.id ? 'Starting...' : 'Start sync'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary text-sm"
+                            disabled={
+                              syncingId === source.id ||
+                              retryingId === source.id ||
+                              refreshingId === source.id ||
+                              !source.last_synced_at
+                            }
+                            title={
+                              source.last_synced_at
+                                ? 'Re-fetch all imported albums from Yupoo and update products'
+                                : 'Run Start sync first'
+                            }
+                            onClick={() => handleRefreshAll(source.id)}
+                          >
+                            {refreshingId === source.id ? 'Queuing…' : 'Refresh all'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary text-sm"
+                            disabled={
+                              syncingId === source.id ||
+                              retryingId === source.id ||
+                              refreshingId === source.id ||
+                              !(Number(source.skipped_items) > 0)
+                            }
+                            title={
+                              Number(source.skipped_items) > 0
+                                ? `${source.skipped_items} skipped on latest job — refresh from Yupoo`
+                                : 'No skipped albums on the latest job'
+                            }
+                            onClick={() => handleRetrySkipped(source.id)}
+                          >
+                            {retryingId === source.id ? 'Queuing…' : 'Retry skipped'}
+                          </button>
+                        </>
+                      ) : null}
                       {isSuperAdmin ? (
                         <>
                           <button

@@ -32,6 +32,7 @@
     "test:category-filter-sql": "tsx scripts/test-category-filter-sql.ts",
     "test:category-tree": "tsx scripts/test-shop-category-tree.ts",
     "test:woocommerce-map": "tsx scripts/test-woocommerce-map.ts",
+    "test:facebook-map": "tsx scripts/test-facebook-map.ts",
     "db:mirror-woocommerce-images": "tsx scripts/mirror-woocommerce-images.ts"
   },
   "dependencies": {

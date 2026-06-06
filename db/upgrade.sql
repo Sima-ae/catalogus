@@ -508,3 +508,6 @@ ALTER TABLE import_sources
 
 ALTER TABLE import_sources
   MODIFY COLUMN yupoo_category_url TEXT NULL;
+
+-- Facebook post import (see db/facebook_import.sql)
+-- source_type = 'facebook' — no extra columns required
