@@ -63,6 +63,20 @@ Photo-only links (`photo?fbid=…&set=pcb.…`) also work, but permalink URLs ar
 
 5. Admin → Import → **Review import queue** → edit if needed → Publish.
 
+### Fix broken / missing import images
+
+If thumbnails or the product lightbox show broken images after import or deploy:
+
+```bash
+# On the VPS (where image files should live)
+npm run db:repair-import-images -- --dry-run
+npm run db:repair-import-images -- --remirror
+```
+
+This normalizes DB paths to `/images/imports/…`, re-downloads missing Facebook/WooCommerce files when `source_url` / `wc-*` id is available, and updates products.
+
+Ensure `CATALOGUS_PUBLIC_HTML` is set and `bash scripts/link-public-images.sh` has been run after deploy.
+
 ### Local dev (optional)
 
 With `db:tunnel`, you can queue jobs from local admin but still run the worker **on the VPS** for images. If you run the worker locally without `CATALOGUS_PUBLIC_HTML`, files go to `public/images/imports/` for testing only (gitignored).

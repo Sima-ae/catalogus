@@ -18,6 +18,7 @@ import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import { formatPrice } from '@/lib/format-price'
+import { productImageSrc } from '@/lib/product-image-url'
 import type { Product } from '@/lib/types'
 
 export default function AdminImportReviewPage() {
@@ -190,7 +191,7 @@ export default function AdminImportReviewPage() {
                     {product.image_url && (
                       <div className="relative w-12 h-12 shrink-0">
                         <Image
-                          src={product.image_url}
+                          src={productImageSrc(product.image_url)}
                           alt=""
                           fill
                           className="object-cover rounded"

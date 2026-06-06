@@ -83,6 +83,17 @@ Re-import with refresh also re-downloads images:
 npm run import:worker -- --job=<uuid> --refresh --retry-all
 ```
 
+## Fix broken thumbnails / lightbox images
+
+Normalize paths and re-download missing files (Facebook + WooCommerce):
+
+```bash
+npm run db:repair-import-images -- --dry-run
+npm run db:repair-import-images -- --remirror
+```
+
+After deploy, ensure `CATALOGUS_PUBLIC_HTML` is in `.env` and run `bash scripts/link-public-images.sh`.
+
 ## Tests
 
 ```bash

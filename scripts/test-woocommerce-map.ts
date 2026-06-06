@@ -90,6 +90,7 @@ import {
   wooImportMirrorPathForIndex,
   wooImportMirrorRelativeDir,
 } from '../src/lib/woocommerce/mirror-images'
+import { productImageSrc } from '../src/lib/product-image-url'
 
 assert.equal(wooImportMirrorRelativeDir('wc-3693'), 'imports/woocommerce/wc-3693')
 assert.equal(
@@ -98,5 +99,14 @@ assert.equal(
 )
 assert.equal(isWooImportMirrorPath('/images/imports/woocommerce/wc-3693/001.jpg'), true)
 assert.equal(isWooImportMirrorPath('https://stuntxl.com/wp-content/uploads/a.jpg'), false)
+
+assert.equal(
+  productImageSrc('https://superclones.cloud/images/imports/woocommerce/wc-3693/001.jpg'),
+  '/images/imports/woocommerce/wc-3693/001.jpg'
+)
+assert.equal(
+  productImageSrc('/images/imports/woocommerce/wc-3693/001.jpg'),
+  '/images/imports/woocommerce/wc-3693/001.jpg'
+)
 
 console.log('woocommerce-map: all assertions passed')

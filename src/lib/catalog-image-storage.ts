@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { getCatalogImagesRoots, getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
+import { normalizeProductImageUrl } from '@/lib/product-image-url'
 
 /** Path segment under the images root, e.g. `imports/woocommerce/wc-3693/001.jpg`. */
 export function catalogImageRelativePath(relativePathFromImagesRoot: string): string {
@@ -13,6 +14,30 @@ export function catalogImageRelativePath(relativePathFromImagesRoot: string): st
 
 export function catalogImagePublicPath(relativePathFromImagesRoot: string): string {
   return `/images/${catalogImageRelativePath(relativePathFromImagesRoot)}`
+}
+
+/** Relative path under the images root from a public /images/… URL. */
+export function catalogImageRelativeFromPublicUrl(url: string | null | undefined): string | null {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized.startsWith('/images/')) return null
+  return catalogImageRelativePath(normalized.slice('/images/'.length))
+}
+
+/** True when the mirrored file exists on at least one catalog images root. */
+export async function catalogImageFileExists(url: string | null | undefined): Promise<boolean> {
+  const relative = catalogImageRelativeFromPublicUrl(url)
+  if (!relative) return false
+
+  for (const root of getCatalogImagesRoots()) {
+    const filePath = path.join(root, relative)
+    try {
+      const stat = await fs.stat(filePath)
+      if (stat.isFile() && stat.size > 0) return true
+    } catch {
+      /* try next root */
+    }
+  }
+  return false
 }
 
 export async function writeCatalogImageFile(

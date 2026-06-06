@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { NextResponse } from 'next/server'
 import { getCatalogImagesRoots } from '@/lib/catalog-images-root'
+import { ensureEnvLoaded } from '@/lib/ensure-env'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,7 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ path: string[] }> }
 ) {
+  ensureEnvLoaded()
   const { path: segments } = await context.params
   if (!Array.isArray(segments) || segments.length === 0) {
     return new NextResponse('Not found', { status: 404 })

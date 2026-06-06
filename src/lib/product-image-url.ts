@@ -3,6 +3,7 @@
  * Store and serve catalog images as site-relative paths so dev (localhost) and
  * production (superclones.cloud) both load files from the same host.
  */
+import { appPath } from '@/lib/paths'
 function extractImagePath(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -209,11 +210,11 @@ export function toDisplayProductImageUrl(
   if (!normalized) return ''
 
   if (normalized.includes('/api/yupoo-image')) {
-    return normalized
+    return productImageSrc(normalized)
   }
 
   if (!isYupooImageUrl(normalized)) {
-    return normalized
+    return productImageSrc(normalized)
   }
 
   const params = new URLSearchParams({ url: normalized })
@@ -228,7 +229,7 @@ export function toDisplayProductImageUrl(
     }
   }
 
-  return `/api/yupoo-image?${params.toString()}`
+  return productImageSrc(`/api/yupoo-image?${params.toString()}`)
 }
 
 export function toDisplayProductImageList(
@@ -319,10 +320,33 @@ export function isCatalogHostedImage(url: string | null | undefined): boolean {
   }
 }
 
-/** External CDN URLs (Yupoo etc.) must bypass the Next.js image optimizer. */
+/** Browser-ready src for catalog /images/ paths (applies basePath) and external URLs. */
+export function productImageSrc(url: string | null | undefined): string {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized) return ''
+  if (normalized.startsWith('/')) return appPath(normalized)
+  return normalized
+}
+
+/** Normalize image fields before persisting to the database. */
+export function normalizeProductImagesForStorage(input: {
+  image_url?: string | null
+  gallery_images?: string[] | null
+}): { image_url: string; gallery_images: string[] | null } {
+  const main = normalizeProductImageUrl(input.image_url)
+  const gallery = normalizeProductImageList(input.gallery_images)
+  return {
+    image_url: main,
+    gallery_images: gallery,
+  }
+}
+
+/** Catalog /images/ and external CDN URLs bypass the Next.js image optimizer. */
 export function shouldUnoptimizeProductImage(url: string | null | undefined): boolean {
   const raw = String(url ?? '').trim()
+  if (!raw) return true
   if (raw.includes('/api/yupoo-image')) return true
   if (isYupooImageUrl(raw)) return true
-  return !isCatalogHostedImage(url)
+  if (isCatalogHostedImage(url)) return true
+  return !/^https?:\/\//i.test(raw)
 }

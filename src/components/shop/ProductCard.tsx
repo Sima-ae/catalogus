@@ -11,7 +11,7 @@ import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
-import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
+import { shouldUnoptimizeProductImage, productImageSrc } from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
@@ -66,8 +66,8 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
     saveCatalogNavState(listingKey, returnUrl, product.id, page)
   }
 
-  const mainImage = product.image_url
-  const flipImage = product.gallery_images?.[0]?.trim() || mainImage
+  const mainImage = productImageSrc(product.image_url)
+  const flipImage = productImageSrc(product.gallery_images?.[0]?.trim() || product.image_url)
 
   return (
     <div

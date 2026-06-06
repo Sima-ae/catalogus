@@ -24,6 +24,7 @@ import {
 } from '@/components/admin/AdminTable'
 import { useAppTheme } from '@/lib/theme-classes'
 import { formatPrice } from '@/lib/format-price'
+import { productImageSrc } from '@/lib/product-image-url'
 import type { Product } from '@/lib/types'
 import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
@@ -733,7 +734,7 @@ export default function AdminProductsPage() {
                   <div className="flex items-center gap-3 min-w-[12rem]">
                     {p.image_url ? (
                       <Image
-                        src={p.image_url}
+                        src={productImageSrc(p.image_url)}
                         alt=""
                         width={40}
                         height={40}

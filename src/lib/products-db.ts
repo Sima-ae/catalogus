@@ -39,6 +39,7 @@ import {
   randomNumericSkuCandidate,
   requireProductSku,
 } from '@/lib/product-sku'
+import { normalizeProductImagesForStorage, normalizeProductImageList, normalizeProductImageUrl } from '@/lib/product-image-url'
 
 export { UnknownBrandError } from '@/lib/brands-db'
 
@@ -547,6 +548,7 @@ export async function insertProduct(input: ProductInput) {
     input.short_description,
     brand.name
   )
+  const images = normalizeProductImagesForStorage(input)
 
   const insertMap: Record<string, unknown> = {
     id,
@@ -555,8 +557,8 @@ export async function insertProduct(input: ProductInput) {
     short_description,
     price: input.price,
     original_price: input.original_price ?? null,
-    image_url: input.image_url,
-    gallery_images: jsonCol(input.gallery_images),
+    image_url: images.image_url,
+    gallery_images: jsonCol(images.gallery_images),
     category: category.name,
     ...(hasCategoryId ? { category_id: category.id } : {}),
     ...(hasBrandCol && brand.name ? { brand: brand.name } : {}),
@@ -645,8 +647,12 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     short_description: input.short_description,
     price: input.price,
     original_price: input.original_price,
-    image_url: input.image_url,
-    gallery_images: input.gallery_images !== undefined ? jsonCol(input.gallery_images) : undefined,
+    image_url:
+      input.image_url !== undefined ? normalizeProductImageUrl(input.image_url) : undefined,
+    gallery_images:
+      input.gallery_images !== undefined
+        ? jsonCol(normalizeProductImageList(input.gallery_images))
+        : undefined,
     category: categoryName,
     category_id: categoryId,
     brand: hasBrandCol ? brandName : undefined,

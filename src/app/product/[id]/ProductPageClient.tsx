@@ -18,7 +18,7 @@ import { parseJsonResponse } from '@/lib/fetch-json'
 import { useShopCurrency } from '@/lib/shop-currency-context'
 import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
-import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
+import { productImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
@@ -437,7 +437,7 @@ export default function ProductPageClient() {
                     className="product-gallery-thumb-btn"
                   >
                     <Image
-                      src={image}
+                      src={productImageSrc(image)}
                       alt=""
                       fill
                       sizes="84px"
@@ -471,7 +471,7 @@ export default function ProductPageClient() {
                   aria-label={t('product.viewImageFullSize', { name: product.name })}
                 >
                   <Image
-                    src={product.gallery[selectedImage]}
+                  src={productImageSrc(product.gallery[selectedImage])}
                     alt={product.name}
                     fill
                     sizes="(max-width: 1024px) 85vw, 45vw"
@@ -548,7 +548,7 @@ export default function ProductPageClient() {
                 {/* eslint-disable-next-line @next/next/no-img-element -- full-resolution lightbox */}
                 <img
                   key={product.gallery[selectedImage]}
-                  src={product.gallery[selectedImage]}
+                  src={productImageSrc(product.gallery[selectedImage])}
                   alt={`${product.name} — image ${selectedImage + 1}`}
                   className="relative z-0 max-h-[92vh] max-w-full w-auto h-auto object-contain select-none pointer-events-none"
                   draggable={false}
