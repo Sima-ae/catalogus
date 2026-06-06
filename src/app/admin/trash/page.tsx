@@ -91,7 +91,7 @@ function PaginationBar({
 export default function AdminTrashPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -183,7 +183,7 @@ export default function AdminTrashPage() {
   }
 
   const runPermanentDelete = async (ids: string[], skipConfirm = false) => {
-    if (!user || !ids.length) return
+    if (!user || !ids.length || !isSuperAdmin) return
     if (
       !skipConfirm &&
       !confirm(
@@ -220,7 +220,7 @@ export default function AdminTrashPage() {
   }
 
   const emptyTrash = async () => {
-    if (!user || totalItems === 0) return
+    if (!user || totalItems === 0 || !isSuperAdmin) return
     if (
       !confirm(
         `Permanently delete all ${totalItems} product(s) in trash? This cannot be undone.`
@@ -289,21 +289,25 @@ export default function AdminTrashPage() {
     <AdminPageShell title="Trash">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <p className={`text-sm max-w-xl ${t.muted}`}>
-          Products moved to trash are hidden from the shop. Restore them or delete
-          permanently — empty trash removes everything at once.
+          Products moved to trash are hidden from the shop. Restore them to publish again
+          {isSuperAdmin
+            ? ', or delete permanently — empty trash removes everything at once.'
+            : '. Only a super admin can permanently delete or empty trash.'}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={appPath('/admin/products')} className="btn-secondary text-sm">
             All products
           </Link>
-          <button
-            type="button"
-            className="btn-secondary text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10"
-            disabled={working || loading || totalItems === 0}
-            onClick={() => void emptyTrash()}
-          >
-            Empty trash
-          </button>
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              className="btn-secondary text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10"
+              disabled={working || loading || totalItems === 0}
+              onClick={() => void emptyTrash()}
+            >
+              Empty trash
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -357,14 +361,16 @@ export default function AdminTrashPage() {
             >
               Restore to shop
             </button>
-            <button
-              type="button"
-              className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-              disabled={working}
-              onClick={() => runPermanentDelete(selectedIds)}
-            >
-              Delete permanently
-            </button>
+            {isSuperAdmin ? (
+              <button
+                type="button"
+                className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                disabled={working}
+                onClick={() => runPermanentDelete(selectedIds)}
+              >
+                Delete permanently
+              </button>
+            ) : null}
             <button
               type="button"
               className={`text-sm ${t.muted} hover:underline ml-auto`}
@@ -459,15 +465,17 @@ export default function AdminTrashPage() {
                       >
                         <ArrowPathIcon className="w-5 h-5" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => runPermanentDelete([p.id])}
-                        disabled={working}
-                        className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400"
-                        title="Delete permanently"
-                      >
-                        <TrashIcon className="w-5 h-5" />
-                      </button>
+                      {isSuperAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => runPermanentDelete([p.id])}
+                          disabled={working}
+                          className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400"
+                          title="Delete permanently"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      ) : null}
                     </div>
                   </AdminTd>
                 </AdminTr>
