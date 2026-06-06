@@ -7,6 +7,8 @@ import {
 import {
   dedupeFacebookImageUrls,
   isLikelyProductImageUrl,
+  maximizeFacebookImageUrl,
+  readJpegDimensions,
   unescapeFacebookUrl,
 } from '@/lib/facebook/image-urls'
 
@@ -79,14 +81,14 @@ function pickLargestImageSource(
     (a, b) => (Number(b.width) || 0) * (Number(b.height) || 0) - (Number(a.width) || 0) * (Number(a.height) || 0)
   )
   const best = sorted.find((img) => img.source && isLikelyProductImageUrl(img.source))
-  return best?.source ? [unescapeFacebookJsonUrl(best.source)] : []
+  return best?.source ? [maximizeFacebookImageUrl(unescapeFacebookJsonUrl(best.source))] : []
 }
 
 function mediaImageSrc(media: unknown): string | null {
   if (!media || typeof media !== 'object') return null
-  const image = (media as { image?: { src?: string } }).image
+  const image = (media as { image?: { src?: string; width?: number; height?: number } }).image
   const src = image?.src?.trim()
-  return src && isLikelyProductImageUrl(src) ? unescapeFacebookJsonUrl(src) : null
+  return src && isLikelyProductImageUrl(src) ? maximizeFacebookImageUrl(unescapeFacebookJsonUrl(src)) : null
 }
 
 function extractAttachmentImageUrls(attachments: unknown): string[] {
@@ -141,7 +143,7 @@ export async function fetchFacebookGraphPost(postId: string): Promise<{
 
   const fullPicture = String(data.full_picture ?? '').trim()
   if (fullPicture && isLikelyProductImageUrl(fullPicture)) {
-    imageUrls.push(unescapeFacebookJsonUrl(fullPicture))
+    imageUrls.push(maximizeFacebookImageUrl(unescapeFacebookJsonUrl(fullPicture)))
   }
 
   imageUrls.push(...extractAttachmentImageUrls(data.attachments))
@@ -205,7 +207,7 @@ function parseGraphScrapePayload(data: Record<string, unknown>): {
   const imageUrls: string[] = []
   const pushImage = (value: unknown) => {
     const url = String((value as { url?: string })?.url ?? value ?? '').trim()
-    if (url && isLikelyProductImageUrl(url)) imageUrls.push(unescapeFacebookJsonUrl(url))
+      if (url && isLikelyProductImageUrl(url)) imageUrls.push(maximizeFacebookImageUrl(unescapeFacebookJsonUrl(url)))
   }
 
   const image = data.image as unknown

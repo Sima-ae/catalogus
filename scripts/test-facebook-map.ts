@@ -6,6 +6,11 @@
 import assert from 'node:assert/strict'
 import { parseEmojiPriceHint } from '../src/lib/facebook/parse-emoji-price'
 import {
+  dedupeFacebookImageUrls,
+  estimateFacebookImagePixels,
+  maximizeFacebookImageUrl,
+} from '../src/lib/facebook/image-urls'
+import {
   canonicalizeFacebookUrl,
   FACEBOOK_EXTERNAL_ID_MAX,
   facebookExternalIdFromUrl,
@@ -50,5 +55,16 @@ assert.equal(
   facebookImportMirrorRelativeDir(externalId),
   `imports/facebook/${externalId.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
 )
+
+const asset = '717317615_122208938648516795_943859546803776397'
+const small = `https://scontent.test/v/t39.30808-6/${asset}_n.jpg?stp=cp6_dst-jpg_tt6&cstp=mx600x800&ctp=p600x600`
+const large = `https://scontent.test/v/t39.30808-6/${asset}_n.jpg?stp=cp6_dst-jpg_tt6&cstp=mx1536x2048&ctp=p600x600`
+assert.ok(
+  estimateFacebookImagePixels(maximizeFacebookImageUrl(large)) >
+    estimateFacebookImagePixels(maximizeFacebookImageUrl(small))
+)
+assert.equal(dedupeFacebookImageUrls([small, large]).length, 1)
+assert.ok(maximizeFacebookImageUrl(large).includes('cstp=mx1536x2048'))
+assert.ok(!maximizeFacebookImageUrl(large).includes('ctp='))
 
 console.log('facebook-map tests passed')

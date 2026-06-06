@@ -87,45 +87,48 @@ function isUsableImageUrl(url: string): boolean {
 }
 
 function extractImageUrlsFromHtml(html: string): string[] {
-  const urls = new Set<string>()
+  const urls: string[] = []
+  const seen = new Set<string>()
+
+  const add = (raw: string) => {
+    const url = unescapeEmbeddedUrl(raw)
+    if (!url || seen.has(url) || !isUsableImageUrl(url)) return
+    seen.add(url)
+    urls.push(url)
+  }
 
   for (const raw of collectRegexMatches(
     html,
     /property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi
   )) {
-    const url = unescapeEmbeddedUrl(raw)
-    if (isUsableImageUrl(url)) urls.add(url)
+    add(raw)
   }
   for (const raw of collectRegexMatches(
     html,
     /content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/gi
   )) {
-    const url = unescapeEmbeddedUrl(raw)
-    if (isUsableImageUrl(url)) urls.add(url)
+    add(raw)
   }
 
   for (const raw of collectRegexMatches(html, /"(?:uri|src|url)":"(https:\\\/\\\/[^"]+)"/gi)) {
-    const url = unescapeEmbeddedUrl(raw)
-    if (isUsableImageUrl(url)) urls.add(url)
+    add(raw)
   }
 
   for (const raw of collectRegexMatches(
     html,
     /https:\\\/\\\/[^"'\\s]+scontent[^"'\\s]+/gi
   )) {
-    const url = unescapeEmbeddedUrl(raw)
-    if (isUsableImageUrl(url)) urls.add(url)
+    add(raw)
   }
 
   for (const raw of collectRegexMatches(
     html,
     /https:\/\/[^"'\\s]+(?:scontent|fbcdn)[^"'\\s]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\s]*)?/gi
   )) {
-    const url = unescapeEmbeddedUrl(raw)
-    if (isUsableImageUrl(url)) urls.add(url)
+    add(raw)
   }
 
-  return Array.from(urls)
+  return urls
 }
 
 function extractTextFromHtml(html: string): { title: string; description: string } {
