@@ -498,6 +498,30 @@ export function stripGuanhuiForeignTrade(text: string): string {
   return result
 }
 
+/** Remove supplier label "Imported Yangjing fabric" from descriptions. */
+export function stripImportedYangjingFabric(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/\bImported\s+Yangjing\s+fabric\b/gi, ' ')
+  result = result.replace(/\(\s*Imported\s+Yangjing\s+fabric\s*\)/gi, ' ')
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^imported\s+yangjing\s+fabric\b/i.test(line))
+    .join('\n')
+
+  result = result
+    .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
 /** Remove Yupoo supplier shop label "Xiao Ao" from descriptions. */
 export function stripXiaoAo(text: string): string {
   let result = String(text ?? '')
@@ -580,6 +604,7 @@ export function cleanImportDescription(
   result = stripProductTrademarkBoilerplate(result, brandName)
   result = stripGjiaquan(result)
   result = stripXiaoAo(result)
+  result = stripImportedYangjingFabric(result)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripGuanhuiForeignTrade(result)
   result = normalizeDescriptionYears(result)
