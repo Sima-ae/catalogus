@@ -9,6 +9,7 @@ import {
   isShopTopLevelCategory,
 } from '@/lib/shop-category-tree'
 import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
+import { prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 
 export function useShopCategory() {
   const router = useRouter()
@@ -49,8 +50,15 @@ export function useShopCategory() {
     router.replace(qs ? `${basePath}?${qs}` : basePath)
   }, [categoryMenu, categoryRows, pathname, router, searchParams])
 
+  useEffect(() => {
+    const raw = searchParams.get('category')?.trim()
+    const sub = searchParams.get('subcategory')?.trim() || 'All'
+    if (raw && raw !== 'All') prefetchShopBrandMenu(raw, sub)
+  }, [searchParams])
+
   const setSelectedCategory = useCallback(
     (category: string) => {
+      if (category !== 'All') prefetchShopBrandMenu(category, 'All')
       const basePath = shopCatalogBasePath(pathname)
       const params = new URLSearchParams(
         isShopCatalogPath(pathname) ? searchParams.toString() : ''

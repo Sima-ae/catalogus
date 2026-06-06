@@ -49,26 +49,67 @@ async function fetchShopBrandMenu(
   return request
 }
 
+/** Warm the client cache when the user picks a category (parallel with other fetches). */
+export function prefetchShopBrandMenu(
+  selectedCategory: string,
+  selectedSubcategory: string = 'All'
+): void {
+  if (!selectedCategory || selectedCategory === 'All') return
+  void fetchShopBrandMenu(selectedCategory, selectedSubcategory)
+}
+
+export type ShopBrandListState = {
+  brands: string[]
+  loading: boolean
+}
+
 /** Brand labels for shop filters — only brands with products in the selected category. */
 export function useShopBrandList(
   selectedCategory: string = 'All',
   selectedSubcategory: string = 'All'
-) {
-  const [brands, setBrands] = useState<string[]>(['All'])
+): ShopBrandListState {
+  const cacheKey = brandCacheKey(selectedCategory, selectedSubcategory)
+  const cachedMenu = brandCache.get(cacheKey)
+
+  const [brands, setBrands] = useState<string[]>(() => cachedMenu ?? ['All'])
+  const [loading, setLoading] = useState(
+    () => selectedCategory !== 'All' && !cachedMenu
+  )
 
   useEffect(() => {
+    if (!selectedCategory || selectedCategory === 'All') {
+      setBrands(['All'])
+      setLoading(false)
+      return
+    }
+
+    const hit = brandCache.get(cacheKey)
+    if (hit) {
+      setBrands(hit)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
     let cancelled = false
     fetchShopBrandMenu(selectedCategory, selectedSubcategory)
       .then((menu) => {
-        if (!cancelled) setBrands(menu)
+        if (!cancelled) {
+          setBrands(menu)
+          setLoading(false)
+        }
       })
       .catch(() => {
-        if (!cancelled) setBrands(['All'])
+        if (!cancelled) {
+          setBrands(['All'])
+          setLoading(false)
+        }
       })
+
     return () => {
       cancelled = true
     }
-  }, [selectedCategory, selectedSubcategory])
+  }, [cacheKey, selectedCategory, selectedSubcategory])
 
-  return useMemo(() => brands, [brands])
+  return useMemo(() => ({ brands, loading }), [brands, loading])
 }

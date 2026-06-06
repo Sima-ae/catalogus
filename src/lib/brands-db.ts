@@ -5,8 +5,7 @@ import { loadActiveCategories } from '@/lib/categories-persistence'
 import {
   buildQualifiedCategoryTextMatch,
   combineCategoryIdAndLegacyTextMatch,
-  buildProductBrandSegmentFilter,
-  buildProductIncludesBrandSql,
+  buildProductBrandJoinOnSql,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
 } from '@/lib/catalog-products'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
@@ -60,7 +59,7 @@ async function listActiveBrandsByProductsInCategory(
   const hasCategoryId = await productsHaveCategoryIdColumn()
   const idPlaceholders = filterIds.map(() => '?').join(', ')
 
-  const brandMatch = buildProductIncludesBrandSql()
+  const brandJoinOn = buildProductBrandJoinOnSql()
 
   let categoryMatch = `p.category_id IN (${idPlaceholders})`
   const params: unknown[] = [...filterIds]
@@ -101,14 +100,10 @@ async function listActiveBrandsByProductsInCategory(
 
   return queryDb<Record<string, unknown>[]>(
     `SELECT DISTINCT b.*
-     FROM brands b
-     WHERE b.active = 1
-       AND EXISTS (
-         SELECT 1 FROM products p
-         WHERE p.status = 'active'
-           AND ${brandMatch}
-           AND ${categoryMatch}${excludeSql}
-       )
+     FROM products p
+     INNER JOIN brands b ON ${brandJoinOn}
+     WHERE p.status = 'active'
+       AND ${categoryMatch}${excludeSql}
      ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
     params
   )

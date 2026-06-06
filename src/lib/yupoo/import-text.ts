@@ -498,6 +498,30 @@ export function stripGuanhuiForeignTrade(text: string): string {
   return result
 }
 
+/** Remove Yupoo supplier shop label "Xiao Ao" from descriptions. */
+export function stripXiaoAo(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/\bXiao\s*Ao\b/gi, ' ')
+  result = result.replace(/\(\s*Xiao\s*Ao\s*\)/gi, ' ')
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^xiao\s*ao\b/i.test(line))
+    .join('\n')
+
+  result = result
+    .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
 /** Remove Yupoo supplier shop label "Gjiaquan" from descriptions. */
 export function stripGjiaquan(text: string): string {
   let result = String(text ?? '')
@@ -555,6 +579,7 @@ export function cleanImportDescription(
   result = stripDuplicateSkuPrefix(result, title)
   result = stripProductTrademarkBoilerplate(result, brandName)
   result = stripGjiaquan(result)
+  result = stripXiaoAo(result)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripGuanhuiForeignTrade(result)
   result = normalizeDescriptionYears(result)

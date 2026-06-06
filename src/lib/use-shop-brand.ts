@@ -19,7 +19,8 @@ export function useShopBrand() {
     return raw || 'All'
   }, [searchParams])
 
-  const brandMenu = useShopBrandList(selectedCategory, selectedSubcategory)
+  const brandMenuState = useShopBrandList(selectedCategory, selectedSubcategory)
+  const brandMenu = brandMenuState.brands
 
   const selectedBrand = useMemo(() => {
     const raw = searchParams.get('brand')?.trim()

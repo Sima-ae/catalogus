@@ -7,7 +7,7 @@ export const CATALOG_METADATA_CACHE_CONTROL =
 
 /** Filter-derived lists (brands/subcategories per query). */
 export const CATALOG_FILTER_CACHE_CONTROL =
-  'public, s-maxage=30, stale-while-revalidate=120'
+  'public, s-maxage=120, stale-while-revalidate=600'
 
 /** Infrequently changing activity pool for client-side daily rotation. */
 export const ACTIVITY_POOL_CACHE_CONTROL =

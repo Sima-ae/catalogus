@@ -104,15 +104,22 @@ export function buildProductBrandSegmentFilter(
   return { sql: `(${clauses.join(' OR ')})`, params }
 }
 
-/** EXISTS-friendly match: product row includes brand `b.name` as sole or collab segment. */
-export function buildProductIncludesBrandSql(): string {
-  return `(
-    p.brand_id = b.id
+function productBrandMatchInnerSql(): string {
+  return `p.brand_id = b.id
     OR LOWER(TRIM(p.brand)) = LOWER(TRIM(b.name))
     OR LOWER(TRIM(p.brand)) LIKE CONCAT(LOWER(TRIM(b.name)), ' X %')
     OR LOWER(TRIM(p.brand)) LIKE CONCAT('% X ', LOWER(TRIM(b.name)))
-    OR LOWER(TRIM(p.brand)) LIKE CONCAT('% X ', LOWER(TRIM(b.name)), ' X %')
-  )`
+    OR LOWER(TRIM(p.brand)) LIKE CONCAT('% X ', LOWER(TRIM(b.name)), ' X %')`
+}
+
+/** EXISTS-friendly match: product row includes brand `b.name` as sole or collab segment. */
+export function buildProductIncludesBrandSql(): string {
+  return `(${productBrandMatchInnerSql()})`
+}
+
+/** JOIN `products p` to `brands b` when the row includes that brand (sole or collab). */
+export function buildProductBrandJoinOnSql(): string {
+  return `b.active = 1 AND (${productBrandMatchInnerSql()})`
 }
 
 /** Match legacy `products.category` text, including compound values (e.g. "SHOES / BAGS"). */

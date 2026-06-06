@@ -1,6 +1,7 @@
 'use client'
 
 import FilterPillsScroll from '@/components/shop/FilterPillsScroll'
+import FilterPillsSkeleton from '@/components/shop/FilterPillsSkeleton'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
 
 interface BrandFilterProps {
@@ -18,16 +19,26 @@ export default function BrandFilter({
   onBrandChange,
   centered = false,
 }: BrandFilterProps) {
-  const brands = useShopBrandList(selectedCategory, selectedSubcategory)
+  const { brands, loading } = useShopBrandList(selectedCategory, selectedSubcategory)
 
-  if (selectedCategory === 'All' || brands.length <= 1) return null
+  if (selectedCategory === 'All') return null
+
+  const wrapperClass = centered
+    ? 'mt-2 flex w-full min-w-0 justify-center'
+    : 'mt-4 w-full min-w-0'
+
+  if (loading && brands.length <= 1) {
+    return (
+      <div className={wrapperClass} aria-busy="true" aria-label="Loading brands">
+        <FilterPillsSkeleton centered={centered} />
+      </div>
+    )
+  }
+
+  if (brands.length <= 1) return null
 
   return (
-    <div
-      className={
-        centered ? 'mt-2 flex w-full min-w-0 justify-center' : 'mt-4 w-full min-w-0'
-      }
-    >
+    <div className={wrapperClass}>
       <FilterPillsScroll
         items={brands}
         selected={selectedBrand}

@@ -9,7 +9,7 @@ import {
 import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 
 const ACTIVE_BRANDS_CACHE_NS = 'active-brands'
-const ACTIVE_BRANDS_TTL_MS = 60_000
+const ACTIVE_BRANDS_TTL_MS = 180_000
 
 function activeBrandsCacheKey(categoryName?: string, subcategory?: string): string {
   return `${categoryName?.trim() || ''}|${subcategory?.trim() || ''}`
