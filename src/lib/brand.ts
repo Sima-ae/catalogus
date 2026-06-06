@@ -1,4 +1,6 @@
 export const APP_NAME = 'Super Clones'
+/** Browser tab icon, PWA / home-screen icon, apple-touch-icon. */
+export const APP_ICON_PATH = '/WEBLOGO-centered.png'
 export const APP_LOGO_PATH = '/WEBLOGO-TEXT-BLACK.png'
 export const APP_LOGO_PATH_WHITE = '/WEBLOGO-TEXT-WHITE.png'
 export const APP_LOGO_PATH_WHITE_CENTERED = '/WEBLOGO-TEXT-WHITE-CENTERED.png'

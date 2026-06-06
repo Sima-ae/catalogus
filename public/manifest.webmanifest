@@ -1,0 +1,16 @@
+{
+  "name": "Super Clones",
+  "short_name": "Super Clones",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/WEBLOGO-centered.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

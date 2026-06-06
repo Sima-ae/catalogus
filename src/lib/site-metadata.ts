@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_noStore as noStore } from 'next/cache'
 import type { Metadata } from 'next'
-import { APP_NAME } from '@/lib/brand'
+import { APP_ICON_PATH, APP_NAME } from '@/lib/brand'
 import { loadSiteSettings } from '@/lib/settings-persistence'
 import { resolveSiteTagline } from '@/lib/site-tagline'
 import { withNoIndexMetadata } from '@/lib/no-index'
@@ -47,11 +47,18 @@ export async function buildRootMetadata(locale: Locale = DEFAULT_LOCALE): Promis
 
   return withNoIndexMetadata({
     metadataBase: new URL(appUrl()),
+    applicationName: seo.siteName,
     title: {
       default: defaultTitle,
       template: `%s | ${seo.siteName}`,
     },
     description: seo.tagline,
+    manifest: '/manifest.webmanifest',
+    icons: {
+      icon: [{ url: APP_ICON_PATH, type: 'image/png' }],
+      apple: [{ url: APP_ICON_PATH, type: 'image/png' }],
+      shortcut: APP_ICON_PATH,
+    },
   })
 }
 

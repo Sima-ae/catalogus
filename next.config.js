@@ -113,6 +113,11 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/favicon.ico',
+        destination: '/WEBLOGO-centered.png',
+        permanent: true,
+      },
+      {
         source: '/popular',
         destination: '/new',
         permanent: true,
