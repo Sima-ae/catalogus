@@ -85,4 +85,18 @@ assert.equal(
   'gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'
 )
 
+import {
+  isWooImportMirrorPath,
+  wooImportMirrorPathForIndex,
+  wooImportMirrorRelativeDir,
+} from '../src/lib/woocommerce/mirror-images'
+
+assert.equal(wooImportMirrorRelativeDir('wc-3693'), 'imports/woocommerce/wc-3693')
+assert.equal(
+  wooImportMirrorPathForIndex('wc-3693', 1, 'jpg'),
+  'https://superclones.cloud/images/imports/woocommerce/wc-3693/001.jpg'
+)
+assert.equal(isWooImportMirrorPath('/images/imports/woocommerce/wc-3693/001.jpg'), true)
+assert.equal(isWooImportMirrorPath('https://stuntxl.com/wp-content/uploads/a.jpg'), false)
+
 console.log('woocommerce-map: all assertions passed')

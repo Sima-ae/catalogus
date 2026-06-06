@@ -58,9 +58,30 @@ API: `POST /api/admin/import/sources/{id}/import-product` with `{ "productUrl": 
 ## Notes
 
 - Uses the public WooCommerce Store API (`/wp-json/wc/store/v1/products`) — no API keys required for stuntxl.com.
+- **Product images are downloaded to the VPS** under `/images/imports/woocommerce/{wc-id}/` during import (not hotlinked from stuntxl.com).
 - Brands from WooCommerce are **auto-created** in Admin → Brands when missing.
 - Products without a WooCommerce category use the **fallback catalog category** on the import source.
 - External id stored as `wc-{productId}` in `products.source_album_id` (same dedup/review flow as Yupoo).
+
+## Migrate images for products imported before mirroring
+
+If products still point at `stuntxl.com` URLs, run on the **VPS** (while stuntxl is still online):
+
+```bash
+npm run db:mirror-woocommerce-images
+```
+
+Dry-run first:
+
+```bash
+npm run db:mirror-woocommerce-images -- --dry-run
+```
+
+Re-import with refresh also re-downloads images:
+
+```bash
+npm run import:worker -- --job=<uuid> --refresh --retry-all
+```
 
 ## Tests
 

@@ -20,6 +20,11 @@ async function wooStoreFetch(url: string, init?: RequestInit) {
   })
 }
 
+/** Fetch arbitrary URLs on WooCommerce store hosts (API + wp-content images). Uses HTTP/2. */
+export async function fetchWooRemoteUrl(url: string, init?: RequestInit) {
+  return wooStoreFetch(url, init)
+}
+
 /** Site root only (e.g. https://stuntxl.com) — never a /product/... path. */
 export function normalizeWooCommerceStoreUrl(storeUrl: string): string {
   const trimmed = storeUrl.trim()

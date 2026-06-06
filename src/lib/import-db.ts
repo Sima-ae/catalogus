@@ -21,6 +21,7 @@ import {
   parseWooProductSlugFromUrl,
   normalizeWooCommerceStoreUrl,
 } from '@/lib/woocommerce/client'
+import { mirrorWooCommerceProductImages } from '@/lib/woocommerce/mirror-images'
 import { wooSlugExternalId } from '@/lib/woocommerce/types'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce'
@@ -137,13 +138,15 @@ export async function buildProductInputFromWooStoreProduct(
   source: ImportSourceRow
 ): Promise<ProductInput> {
   const woo = mapWooStoreProduct(product)
-  const catalog = await resolveImportCatalogMapping(woo, {
+  const mirroredUrls = await mirrorWooCommerceProductImages(woo.externalId, woo.imageUrls)
+  const wooWithLocalImages = { ...woo, imageUrls: mirroredUrls }
+  const catalog = await resolveImportCatalogMapping(wooWithLocalImages, {
     catalogCategoryId: source.catalog_category_id,
     catalogCategoryName: source.category_name ?? null,
     catalogBrandId: source.catalog_brand_id,
     catalogBrandName: source.brand_name ?? null,
   })
-  return buildProductInputFromWooCommerceImport(woo, {
+  return buildProductInputFromWooCommerceImport(wooWithLocalImages, {
     categoryName: catalog.categoryName,
     categoryId: catalog.categoryId,
     brandName: catalog.brandName,
