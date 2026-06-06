@@ -30,7 +30,7 @@ import type {
   FacebookManualImportFields,
   FacebookPostData,
 } from '@/lib/facebook/types'
-import { facebookExternalIdFromUrl, normalizeFacebookPostUrl } from '@/lib/facebook/parse-url'
+import { canonicalizeFacebookUrl, facebookExternalIdFromUrl, normalizeFacebookPostUrl } from '@/lib/facebook/parse-url'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook'
 
@@ -604,7 +604,7 @@ export async function createSingleFacebookPostImportJob(
     throw new Error('Single post import is only supported for Facebook sources')
   }
 
-  const normalizedUrl = normalizeFacebookPostUrl(postUrl)
+  const normalizedUrl = canonicalizeFacebookUrl(postUrl)
   const externalId = facebookExternalIdFromUrl(normalizedUrl)
   const rawJson: FacebookJobItemRawJson = { manual }
 
