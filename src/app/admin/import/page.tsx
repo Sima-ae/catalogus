@@ -44,8 +44,11 @@ type SyncResult = {
 
 const emptyForm: ImportSourceFormValues = {
   name: '',
+  source_type: 'yupoo',
   yupoo_category_url: '',
   yupoo_access_password: '',
+  woocommerce_store_url: '',
+  woocommerce_category_slug: '',
   catalog_category_id: '',
   catalog_brand_id: '',
 }
@@ -53,8 +56,11 @@ const emptyForm: ImportSourceFormValues = {
 function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
   return {
     name: source.name,
-    yupoo_category_url: source.yupoo_category_url,
+    source_type: source.source_type === 'woocommerce' ? 'woocommerce' : 'yupoo',
+    yupoo_category_url: source.yupoo_category_url || '',
     yupoo_access_password: '',
+    woocommerce_store_url: source.woocommerce_store_url || '',
+    woocommerce_category_slug: source.woocommerce_category_slug || '',
     catalog_category_id: source.catalog_category_id || '',
     catalog_brand_id: source.catalog_brand_id || '',
   }
@@ -63,7 +69,10 @@ function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
 function formToApiBody(values: ImportSourceFormValues): Record<string, string> {
   const body: Record<string, string> = {
     name: values.name,
+    source_type: values.source_type,
     yupoo_category_url: values.yupoo_category_url,
+    woocommerce_store_url: values.woocommerce_store_url,
+    woocommerce_category_slug: values.woocommerce_category_slug,
     catalog_category_id: values.catalog_category_id,
     catalog_brand_id: values.catalog_brand_id,
   }
@@ -529,10 +538,24 @@ export default function AdminImportPage() {
                 <AdminTr key={source.id}>
                   <AdminTd>
                     <div className="font-medium">{source.name}</div>
-                    <div className={`text-xs truncate max-w-xs ${t.muted}`}>
-                      {source.yupoo_category_url}
+                    <div className={`text-xs mt-0.5 inline-flex rounded px-1.5 py-0.5 ${
+                      source.source_type === 'woocommerce'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200'
+                        : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
+                    }`}>
+                      {source.source_type === 'woocommerce' ? 'WooCommerce' : 'Yupoo'}
                     </div>
-                    {source.hasPassword ? (
+                    <div className={`text-xs truncate max-w-xs mt-1 ${t.muted}`}>
+                      {source.source_type === 'woocommerce'
+                        ? source.woocommerce_store_url || '—'
+                        : source.yupoo_category_url || '—'}
+                    </div>
+                    {source.source_type === 'woocommerce' && source.woocommerce_category_slug ? (
+                      <div className={`text-xs mt-0.5 ${t.muted}`}>
+                        WC category: {source.woocommerce_category_slug}
+                      </div>
+                    ) : null}
+                    {source.source_type !== 'woocommerce' && source.hasPassword ? (
                       <div className={`text-xs mt-0.5 ${t.muted}`}>Password set</div>
                     ) : null}
                   </AdminTd>

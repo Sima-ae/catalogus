@@ -495,3 +495,16 @@ CREATE TABLE IF NOT EXISTS catalog_product_positions (
   PRIMARY KEY (scope, product_id),
   KEY idx_catalog_positions_scope_order (scope, position)
 );
+
+-- WooCommerce import sources (see db/woocommerce_import.sql)
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS source_type VARCHAR(32) NOT NULL DEFAULT 'yupoo' AFTER name;
+
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS woocommerce_store_url TEXT NULL AFTER yupoo_access_password;
+
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS woocommerce_category_slug VARCHAR(128) NULL AFTER woocommerce_store_url;
+
+ALTER TABLE import_sources
+  MODIFY COLUMN yupoo_category_url TEXT NULL;

@@ -12,6 +12,20 @@ import {
 import { resolveYupooProductTitleAsync } from '@/lib/yupoo/product-title'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
+import { mapWooStoreProduct } from '@/lib/woocommerce/map-product'
+import { resolveImportCatalogMapping } from '@/lib/woocommerce/resolve-catalog'
+import type { WooProductData, WooStoreProduct } from '@/lib/woocommerce/types'
+import { listWooStoreProducts, wooProductsToJobItems } from '@/lib/woocommerce/client'
+
+export type ImportSourceType = 'yupoo' | 'woocommerce'
+
+export function normalizeImportSourceType(value: string | null | undefined): ImportSourceType {
+  return String(value ?? '').trim().toLowerCase() === 'woocommerce' ? 'woocommerce' : 'yupoo'
+}
+
+export function isWooCommerceImportSource(source: { source_type?: string | null }): boolean {
+  return normalizeImportSourceType(source.source_type) === 'woocommerce'
+}
 
 export async function buildProductInputFromImport(
   album: YupooAlbumData,
@@ -66,11 +80,78 @@ export async function buildProductInputFromImport(
   }
 }
 
+export async function buildProductInputFromWooCommerceImport(
+  woo: WooProductData,
+  catalog: {
+    categoryName: string
+    categoryId: string | null
+    brandName: string | null
+  }
+): Promise<ProductInput> {
+  const uniqueImages = cleanProductGalleryUrls(woo.imageUrls)
+  const mainImage = uniqueImages[0] || ''
+  const gallery = uniqueImages.slice(1)
+  const name = sanitizeProductName(woo.name)
+  const description = cleanImportDescription(
+    woo.description || woo.shortDescription,
+    name,
+    catalog.brandName
+  )
+  const short_description =
+    catalogCardDescription(
+      name,
+      description || woo.shortDescription,
+      undefined,
+      catalog.brandName
+    ).slice(0, 280) || undefined
+
+  return {
+    name,
+    description,
+    short_description,
+    price: woo.price,
+    original_price: woo.originalPrice,
+    image_url: mainImage,
+    gallery_images: gallery.length ? gallery : null,
+    category: catalog.categoryName,
+    category_id: catalog.categoryId,
+    brand: catalog.brandName,
+    source_url: woo.permalink,
+    source_album_id: woo.externalId,
+    author: APP_DEFAULT_AUTHOR,
+    author_icon: APP_DEFAULT_AUTHOR_ICON,
+    sku: woo.sku,
+    status: 'draft',
+    featured: false,
+  }
+}
+
+export async function buildProductInputFromWooStoreProduct(
+  product: WooStoreProduct,
+  source: ImportSourceRow
+): Promise<ProductInput> {
+  const woo = mapWooStoreProduct(product)
+  const catalog = await resolveImportCatalogMapping(woo, {
+    catalogCategoryId: source.catalog_category_id,
+    catalogCategoryName: source.category_name ?? null,
+    catalogBrandId: source.catalog_brand_id,
+    catalogBrandName: source.brand_name ?? null,
+  })
+  return buildProductInputFromWooCommerceImport(woo, {
+    categoryName: catalog.categoryName,
+    categoryId: catalog.categoryId,
+    brandName: catalog.brandName,
+  })
+}
+
 export type ImportSourceRow = {
   id: string
   name: string
-  yupoo_category_url: string
+  source_type?: string | null
+  yupoo_category_url: string | null
   yupoo_access_password?: string | null
+  woocommerce_store_url?: string | null
+  woocommerce_category_slug?: string | null
   catalog_category_id: string | null
   catalog_brand_id: string | null
   enabled: number | boolean
@@ -159,21 +240,31 @@ export async function getImportSource(id: string): Promise<ImportSourceRow | nul
 
 export async function createImportSource(input: {
   name: string
-  yupoo_category_url: string
+  source_type?: ImportSourceType
+  yupoo_category_url?: string | null
   yupoo_access_password?: string | null
+  woocommerce_store_url?: string | null
+  woocommerce_category_slug?: string | null
   catalog_category_id?: string | null
   catalog_brand_id?: string | null
 }): Promise<ImportSourceRow> {
   const id = randomUUID()
   const pwd = normalizeImportSourcePassword(input.yupoo_access_password)
+  const sourceType = normalizeImportSourceType(input.source_type)
   await queryDb(
-    `INSERT INTO import_sources (id, name, yupoo_category_url, yupoo_access_password, catalog_category_id, catalog_brand_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO import_sources (
+       id, name, source_type, yupoo_category_url, yupoo_access_password,
+       woocommerce_store_url, woocommerce_category_slug,
+       catalog_category_id, catalog_brand_id
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name.trim(),
-      input.yupoo_category_url.trim(),
+      sourceType,
+      input.yupoo_category_url?.trim() || null,
       pwd,
+      input.woocommerce_store_url?.trim() || null,
+      input.woocommerce_category_slug?.trim() || null,
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
     ]
@@ -185,42 +276,44 @@ export async function updateImportSource(
   id: string,
   input: {
     name: string
-    yupoo_category_url: string
+    source_type?: ImportSourceType
+    yupoo_category_url?: string | null
     yupoo_access_password?: string | null | undefined
     clear_yupoo_access_password?: boolean
+    woocommerce_store_url?: string | null
+    woocommerce_category_slug?: string | null
     catalog_category_id?: string | null
     catalog_brand_id?: string | null
   }
 ): Promise<ImportSourceRow | null> {
   const pwd = resolveImportSourcePasswordUpdate(input)
-  if (pwd === undefined) {
-    await queryDb(
-      `UPDATE import_sources
-       SET name = ?, yupoo_category_url = ?, catalog_category_id = ?, catalog_brand_id = ?
-       WHERE id = ?`,
-      [
-        input.name.trim(),
-        input.yupoo_category_url.trim(),
-        input.catalog_category_id || null,
-        input.catalog_brand_id || null,
-        id,
-      ]
-    )
-  } else {
-    await queryDb(
-      `UPDATE import_sources
-       SET name = ?, yupoo_category_url = ?, yupoo_access_password = ?, catalog_category_id = ?, catalog_brand_id = ?
-       WHERE id = ?`,
-      [
-        input.name.trim(),
-        input.yupoo_category_url.trim(),
-        pwd,
-        input.catalog_category_id || null,
-        input.catalog_brand_id || null,
-        id,
-      ]
-    )
-  }
+  const sourceType = input.source_type
+    ? normalizeImportSourceType(input.source_type)
+    : undefined
+
+  const fields = [
+    'name = ?',
+    ...(sourceType ? ['source_type = ?'] : []),
+    'yupoo_category_url = ?',
+    ...(pwd !== undefined ? ['yupoo_access_password = ?'] : []),
+    'woocommerce_store_url = ?',
+    'woocommerce_category_slug = ?',
+    'catalog_category_id = ?',
+    'catalog_brand_id = ?',
+  ]
+  const values: unknown[] = [
+    input.name.trim(),
+    ...(sourceType ? [sourceType] : []),
+    input.yupoo_category_url?.trim() || null,
+    ...(pwd !== undefined ? [pwd] : []),
+    input.woocommerce_store_url?.trim() || null,
+    input.woocommerce_category_slug?.trim() || null,
+    input.catalog_category_id || null,
+    input.catalog_brand_id || null,
+    id,
+  ]
+
+  await queryDb(`UPDATE import_sources SET ${fields.join(', ')} WHERE id = ?`, values)
   return getImportSource(id)
 }
 
@@ -326,6 +419,38 @@ export async function createImportJobItems(
       )
     }
   }
+}
+
+export async function createImportJobItemsFromWooProducts(
+  jobId: string,
+  products: { externalId: string; permalink: string; title: string }[]
+): Promise<void> {
+  for (const product of products) {
+    try {
+      await queryDb(
+        `INSERT INTO import_job_items (id, job_id, album_url, album_id, album_title, status)
+         VALUES (?, ?, ?, ?, ?, 'pending')`,
+        [randomUUID(), jobId, product.permalink, product.externalId, product.title || null]
+      )
+    } catch {
+      await queryDb(
+        `INSERT INTO import_job_items (id, job_id, album_url, album_id, status)
+         VALUES (?, ?, ?, ?, 'pending')`,
+        [randomUUID(), jobId, product.permalink, product.externalId]
+      )
+    }
+  }
+}
+
+export async function discoverWooCommerceJobItems(
+  source: ImportSourceRow
+): Promise<{ externalId: string; permalink: string; title: string }[]> {
+  const storeUrl = String(source.woocommerce_store_url ?? '').trim()
+  if (!storeUrl) throw new Error('WooCommerce store URL is required')
+  const products = await listWooStoreProducts(storeUrl, {
+    categorySlug: source.woocommerce_category_slug,
+  })
+  return wooProductsToJobItems(products)
 }
 
 export async function listPendingJobItems(jobId: string): Promise<ImportJobItemRow[]> {

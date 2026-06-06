@@ -2,11 +2,15 @@
 
 import { useAppTheme } from '@/lib/theme-classes'
 import type { CategoryPickerOption } from '@/lib/category-picker'
+import type { ImportSourceType } from '@/lib/import-db'
 
 export type ImportSourceFormValues = {
   name: string
+  source_type: ImportSourceType
   yupoo_category_url: string
   yupoo_access_password: string
+  woocommerce_store_url: string
+  woocommerce_category_slug: string
   catalog_category_id: string
   catalog_brand_id: string
 }
@@ -38,6 +42,7 @@ export default function ImportSourceForm({
   hasPassword = false,
 }: Props) {
   const t = useAppTheme()
+  const isWoo = values.source_type === 'woocommerce'
 
   const set = (patch: Partial<ImportSourceFormValues>) =>
     onChange({ ...values, ...patch })
@@ -53,40 +58,81 @@ export default function ImportSourceForm({
             className="input w-full"
             value={values.name}
             onChange={(e) => set({ name: e.target.value })}
-            placeholder="e.g. BURBERRY 2"
+            placeholder={isWoo ? 'e.g. StuntXL — all products' : 'e.g. BURBERRY 2'}
             required
           />
-        </label>
-        <label className="block space-y-1 md:col-span-2">
-          <span className={`text-sm ${t.muted}`}>URL</span>
-          <input
-            className="input w-full"
-            value={values.yupoo_category_url}
-            onChange={(e) => set({ yupoo_category_url: e.target.value })}
-            placeholder="https://xxx.x.yupoo.com/categories/..."
-            required
-          />
-        </label>
-        <label className="block space-y-1 md:col-span-2">
-          <span className={`text-sm ${t.muted}`}>Yupoo access password (optional)</span>
-          <input
-            className="input w-full"
-            type="password"
-            autoComplete="new-password"
-            value={values.yupoo_access_password}
-            onChange={(e) => set({ yupoo_access_password: e.target.value })}
-            placeholder={
-              hasPassword
-                ? 'Leave blank to keep current password'
-                : 'Only if supplier homepage is encrypted'
-            }
-          />
-          {hasPassword && !values.yupoo_access_password ? (
-            <p className={`text-xs mt-1 ${t.muted}`}>Password is saved on this source.</p>
-          ) : null}
         </label>
         <label className="block space-y-1">
-          <span className={`text-sm ${t.muted}`}>Catalog category</span>
+          <span className={`text-sm ${t.muted}`}>Source type</span>
+          <select
+            className="input w-full"
+            value={values.source_type}
+            onChange={(e) =>
+              set({ source_type: e.target.value === 'woocommerce' ? 'woocommerce' : 'yupoo' })
+            }
+          >
+            <option value="yupoo">Yupoo</option>
+            <option value="woocommerce">WooCommerce</option>
+          </select>
+        </label>
+
+        {isWoo ? (
+          <>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>WooCommerce store URL</span>
+              <input
+                className="input w-full"
+                value={values.woocommerce_store_url}
+                onChange={(e) => set({ woocommerce_store_url: e.target.value })}
+                placeholder="https://stuntxl.com"
+                required
+              />
+            </label>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>WooCommerce category slug (optional)</span>
+              <input
+                className="input w-full"
+                value={values.woocommerce_category_slug}
+                onChange={(e) => set({ woocommerce_category_slug: e.target.value })}
+                placeholder="e.g. dames-horloges — leave empty for all products"
+              />
+            </label>
+          </>
+        ) : (
+          <>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>Yupoo category URL</span>
+              <input
+                className="input w-full"
+                value={values.yupoo_category_url}
+                onChange={(e) => set({ yupoo_category_url: e.target.value })}
+                placeholder="https://xxx.x.yupoo.com/categories/..."
+                required
+              />
+            </label>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>Yupoo access password (optional)</span>
+              <input
+                className="input w-full"
+                type="password"
+                autoComplete="new-password"
+                value={values.yupoo_access_password}
+                onChange={(e) => set({ yupoo_access_password: e.target.value })}
+                placeholder={
+                  hasPassword
+                    ? 'Leave blank to keep current password'
+                    : 'Only if supplier homepage is encrypted'
+                }
+              />
+              {hasPassword && !values.yupoo_access_password ? (
+                <p className={`text-xs mt-1 ${t.muted}`}>Password is saved on this source.</p>
+              ) : null}
+            </label>
+          </>
+        )}
+
+        <label className="block space-y-1">
+          <span className={`text-sm ${t.muted}`}>Catalog category (fallback)</span>
           <select
             className="input w-full font-sans"
             value={values.catalog_category_id}
@@ -104,6 +150,10 @@ export default function ImportSourceForm({
             <p className={`text-xs mt-1 ${t.muted}`}>
               Subcategory of {selectedCategory.parent_name}
             </p>
+          ) : isWoo ? (
+            <p className={`text-xs mt-1 ${t.muted}`}>
+              Used when the WooCommerce product has no category or no name match in catalog.
+            </p>
           ) : null}
         </label>
         <label className="block space-y-1">
@@ -113,7 +163,7 @@ export default function ImportSourceForm({
             value={values.catalog_brand_id}
             onChange={(e) => set({ catalog_brand_id: e.target.value })}
           >
-            <option value="">None</option>
+            <option value="">None — use WooCommerce brand when present</option>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}

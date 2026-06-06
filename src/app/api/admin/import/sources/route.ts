@@ -48,10 +48,13 @@ export async function POST(request: NextRequest) {
 
     const source = await createImportSource({
       name: input.name,
-      yupoo_category_url: input.yupoo_category_url,
+      source_type: input.source_type,
+      yupoo_category_url: input.yupoo_category_url || null,
       yupoo_access_password: input.yupoo_access_password_provided
         ? input.yupoo_access_password
         : null,
+      woocommerce_store_url: input.woocommerce_store_url || null,
+      woocommerce_category_slug: input.woocommerce_category_slug || null,
       catalog_category_id: input.catalog_category_id,
       catalog_brand_id: input.catalog_brand_id || null,
     })

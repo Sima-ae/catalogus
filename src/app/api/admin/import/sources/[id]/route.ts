@@ -38,13 +38,16 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     const source = await updateImportSource(params.id, {
       name: input.name,
-      yupoo_category_url: input.yupoo_category_url,
+      source_type: input.source_type,
+      yupoo_category_url: input.yupoo_category_url || null,
       ...(input.yupoo_access_password_provided
         ? {
             yupoo_access_password: input.yupoo_access_password,
             clear_yupoo_access_password: !input.yupoo_access_password,
           }
         : {}),
+      woocommerce_store_url: input.woocommerce_store_url || null,
+      woocommerce_category_slug: input.woocommerce_category_slug || null,
       catalog_category_id: input.catalog_category_id,
       catalog_brand_id: input.catalog_brand_id || null,
     })

@@ -13,7 +13,7 @@
     "db:reset-admin-password": "node scripts/reset-admin-password.mjs",
     "db:tunnel": "./scripts/ssh-db-tunnel.sh",
     "db:tunnel:bg": "./scripts/ssh-db-tunnel.sh --background",
-    "import:worker": "tsx scripts/yupoo-import-worker.ts",
+    "import:worker": "tsx scripts/import-worker.ts",
     "db:clean-descriptions": "tsx scripts/clean-product-descriptions.ts",
     "db:dedupe-galleries": "tsx scripts/dedupe-product-galleries.ts",
     "db:fix-yupoo-titles": "tsx scripts/fix-yupoo-product-titles.ts",
@@ -30,7 +30,8 @@
     "db:ensure-kids-shoes": "tsx scripts/ensure-kids-shoes-subcategory.ts",
     "test:category-taxonomy": "tsx scripts/test-category-taxonomy.ts",
     "test:category-filter-sql": "tsx scripts/test-category-filter-sql.ts",
-    "test:category-tree": "tsx scripts/test-shop-category-tree.ts"
+    "test:category-tree": "tsx scripts/test-shop-category-tree.ts",
+    "test:woocommerce-map": "tsx scripts/test-woocommerce-map.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
