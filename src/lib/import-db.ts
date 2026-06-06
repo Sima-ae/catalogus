@@ -15,7 +15,7 @@ import type { TranslatedProductText } from '@/lib/translate'
 import { mapWooStoreProduct } from '@/lib/woocommerce/map-product'
 import { resolveImportCatalogMapping } from '@/lib/woocommerce/resolve-catalog'
 import type { WooProductData, WooStoreProduct } from '@/lib/woocommerce/types'
-import { listWooStoreProducts, wooProductsToJobItems } from '@/lib/woocommerce/client'
+import { listWooStoreProducts, wooProductsToJobItems, getWooStoreProductByUrl } from '@/lib/woocommerce/client'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce'
 
@@ -451,6 +451,24 @@ export async function discoverWooCommerceJobItems(
     categorySlug: source.woocommerce_category_slug,
   })
   return wooProductsToJobItems(products)
+}
+
+export async function createSingleWooProductImportJob(
+  source: ImportSourceRow,
+  productUrl: string
+): Promise<ImportJobRow> {
+  if (!isWooCommerceImportSource(source)) {
+    throw new Error('Single product URL import is only supported for WooCommerce sources')
+  }
+  const storeUrl = String(source.woocommerce_store_url ?? '').trim()
+  if (!storeUrl) throw new Error('WooCommerce store URL is required')
+
+  const product = await getWooStoreProductByUrl(storeUrl, productUrl.trim())
+  const job = await createImportJob(source.id)
+  const items = wooProductsToJobItems([product])
+  await createImportJobItemsFromWooProducts(job.id, items)
+  await updateImportJob(job.id, { total_albums: items.length })
+  return (await getImportJob(job.id))!
 }
 
 export async function listPendingJobItems(jobId: string): Promise<ImportJobItemRow[]> {

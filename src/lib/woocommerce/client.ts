@@ -85,6 +85,61 @@ export async function getWooStoreProduct(
   return data
 }
 
+/** Extract product slug from a WooCommerce product permalink on the same store. */
+export function parseWooProductSlugFromUrl(
+  productUrl: string,
+  storeUrl: string
+): string {
+  const storeOrigin = normalizeStoreUrl(storeUrl)
+  let parsed: URL
+  try {
+    parsed = new URL(productUrl.trim())
+  } catch {
+    throw new Error('Invalid product URL')
+  }
+
+  const store = new URL(storeOrigin)
+  if (parsed.origin !== store.origin) {
+    throw new Error('Product URL must be on the same store as the import source')
+  }
+
+  const segments = parsed.pathname.split('/').filter(Boolean)
+  const productIndex = segments.findIndex((part) => part.toLowerCase() === 'product')
+  const slug =
+    productIndex >= 0 ? segments[productIndex + 1] : segments[segments.length - 1]
+
+  if (!slug) {
+    throw new Error('Could not parse product slug from URL')
+  }
+  return slug
+}
+
+export async function getWooStoreProductBySlug(
+  storeUrl: string,
+  slug: string
+): Promise<WooStoreProduct> {
+  const base = storeApiBase(storeUrl)
+  const key = slug.trim()
+  if (!key) throw new Error('Product slug is required')
+
+  const { data } = await fetchStoreJson<WooStoreProduct[]>(
+    `${base}/products?slug=${encodeURIComponent(key)}`
+  )
+  const product = data[0]
+  if (!product) {
+    throw new Error(`No WooCommerce product found for slug "${key}"`)
+  }
+  return product
+}
+
+export async function getWooStoreProductByUrl(
+  storeUrl: string,
+  productUrl: string
+): Promise<WooStoreProduct> {
+  const slug = parseWooProductSlugFromUrl(productUrl, storeUrl)
+  return getWooStoreProductBySlug(storeUrl, slug)
+}
+
 export function wooProductsToJobItems(products: WooStoreProduct[]): WooProductListItem[] {
   return products.map((product) => ({
     productId: String(product.id),

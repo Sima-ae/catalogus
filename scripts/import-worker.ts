@@ -34,6 +34,7 @@ import {
   discoverWooCommerceJobItems,
   getImportJob,
   getImportSource,
+  getProductBySourceAlbumId,
   getQueuedImportJob,
   isWooCommerceImportSource,
   listPendingJobItems,
@@ -158,6 +159,10 @@ async function importExistingOrSkip(
   counters: { processed: number; imported: number; skipped: number; failed: number; refreshed: number }
 ) {
   let existing = await findProductByAlbumSku(item.album_id)
+
+  if (!existing && item.album_id.startsWith('wc-')) {
+    existing = await getProductBySourceAlbumId(item.album_id)
+  }
 
   if (existing && !flags.refresh) {
     console.log(`==> ${item.album_id} (skip — product with same external id already exists)`)

@@ -35,11 +35,12 @@ import {
 type BrandOption = { id: string; name: string }
 
 type SyncResult = {
-  kind: 'sync' | 'retry-skipped' | 'refresh-all'
+  kind: 'sync' | 'retry-skipped' | 'refresh-all' | 'import-product'
   job: { id: string; status: string }
   workerCommand: string
   skippedCount?: number
   refreshCount?: number
+  productUrl?: string
 }
 
 const emptyForm: ImportSourceFormValues = {
@@ -101,6 +102,8 @@ export default function AdminImportPage() {
   const [syncInfo, setSyncInfo] = useState<SyncResult | null>(null)
   const [copiedCommand, setCopiedCommand] = useState(false)
   const [copiedJobId, setCopiedJobId] = useState(false)
+  const [productUrlBySource, setProductUrlBySource] = useState<Record<string, string>>({})
+  const [importingUrlId, setImportingUrlId] = useState<string | null>(null)
 
   const loadSources = useCallback(() => {
     if (!user || !isAdmin) return
@@ -395,6 +398,41 @@ export default function AdminImportPage() {
     }
   }
 
+  const handleImportProductUrl = async (sourceId: string) => {
+    if (!user) return
+
+    const productUrl = productUrlBySource[sourceId]?.trim()
+    if (!productUrl) {
+      setError('Enter a product URL first')
+      return
+    }
+
+    setImportingUrlId(sourceId)
+    setError('')
+    setSyncInfo(null)
+    setCopiedCommand(false)
+    setCopiedJobId(false)
+
+    try {
+      const res = await fetch(appPath(`/api/admin/import/sources/${sourceId}/import-product`), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productUrl }),
+      })
+      const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || 'Import failed')
+      setSyncInfo(data)
+      loadSources()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Import failed')
+    } finally {
+      setImportingUrlId(null)
+    }
+  }
+
   if (!isAdmin) {
     return (
       <AdminPageShell title="Yupoo Import">
@@ -426,8 +464,13 @@ export default function AdminImportPage() {
               ? `Retry queued${syncInfo.skippedCount ? ` (${syncInfo.skippedCount} skipped albums)` : ''}`
               : syncInfo.kind === 'refresh-all'
                 ? `Refresh queued${syncInfo.refreshCount ? ` (${syncInfo.refreshCount} albums)` : ''}`
-                : 'Import job queued'}
+                : syncInfo.kind === 'import-product'
+                  ? 'Single product import queued (uses --refresh to update existing)'
+                  : 'Import job queued'}
           </p>
+          {syncInfo.kind === 'import-product' && syncInfo.productUrl ? (
+            <p className="text-sm break-all">{syncInfo.productUrl}</p>
+          ) : null}
           {syncInfo.kind === 'retry-skipped' || syncInfo.kind === 'refresh-all' ? (
             <p className="text-sm">
               Re-fetches Yupoo and updates products already in the catalog. Run this command on the
@@ -557,6 +600,35 @@ export default function AdminImportPage() {
                     ) : null}
                     {source.source_type !== 'woocommerce' && source.hasPassword ? (
                       <div className={`text-xs mt-0.5 ${t.muted}`}>Password set</div>
+                    ) : null}
+                    {source.source_type === 'woocommerce' ? (
+                      <div className="mt-2 flex flex-col gap-1.5 max-w-md">
+                        <input
+                          type="url"
+                          className="input w-full text-xs py-1.5"
+                          value={productUrlBySource[source.id] ?? ''}
+                          onChange={(e) =>
+                            setProductUrlBySource((prev) => ({
+                              ...prev,
+                              [source.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="https://stuntxl.com/product/…"
+                          aria-label={`Product URL for ${source.name}`}
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary text-xs self-start"
+                          disabled={
+                            importingUrlId === source.id ||
+                            syncingId === source.id ||
+                            !productUrlBySource[source.id]?.trim()
+                          }
+                          onClick={() => handleImportProductUrl(source.id)}
+                        >
+                          {importingUrlId === source.id ? 'Queuing…' : 'Import product URL'}
+                        </button>
+                      </div>
                     ) : null}
                   </AdminTd>
                   <AdminTd>

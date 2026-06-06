@@ -38,6 +38,17 @@ Re-sync existing products (keeps draft/active status):
 npm run import:worker -- --job=<uuid> --refresh --retry-all
 ```
 
+## Import one product by URL
+
+Use this when a product was **skipped** in bulk sync (already in catalog) or was never picked up:
+
+1. On the WooCommerce import source row, paste the product URL, e.g.  
+   `https://stuntxl.com/product/gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr/`
+2. Click **Import product URL**.
+3. Run the worker command shown — it includes `--refresh` so the existing product is updated instead of skipped.
+
+API: `POST /api/admin/import/sources/{id}/import-product` with `{ "productUrl": "..." }`.
+
 ## Review and publish
 
 1. Open **Admin → Import → Review**.
