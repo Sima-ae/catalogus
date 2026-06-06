@@ -26,6 +26,7 @@ async function main() {
       title: post.title,
       descriptionPreview: post.description.slice(0, 200),
       imageCount: post.imageUrls.length,
+      carouselImageCount: post.carouselImageCount ?? null,
     })
     for (const img of post.imageUrls) console.log(' image', img.slice(0, 140))
   } catch (error) {

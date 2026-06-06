@@ -16,6 +16,7 @@ type PreviewResult = {
   title?: string
   descriptionPreview?: string
   imageCount?: number
+  carouselImageCount?: number | null
   detectedPriceHint?: number | null
   error?: string
 }
@@ -249,6 +250,10 @@ export default function FacebookPostImportPanel({
               ) : null}
               <p className={`mt-1 ${t.muted}`}>
                 {preview.imageCount ?? 0} image(s)
+                {preview.carouselImageCount != null &&
+                preview.carouselImageCount > (preview.imageCount ?? 0)
+                  ? ` (post has ${preview.carouselImageCount}; set FACEBOOK_GRAPH_ACCESS_TOKEN on the VPS to fetch all)`
+                  : ''}
                 {preview.detectedPriceHint != null
                   ? ` · detected price hint: ${preview.detectedPriceHint}`
                   : ''}

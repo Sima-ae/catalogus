@@ -39,6 +39,25 @@ type GraphErrorBody = {
   error?: { message?: string; type?: string; code?: number }
 }
 
+async function graphApiGetAbsolute(url: string): Promise<
+  | { ok: true; data: Record<string, unknown> }
+  | { ok: false; error: string }
+> {
+  const res = await fetchFacebookRemoteUrl(url, {
+    headers: { Accept: 'application/json' },
+  })
+
+  const body = (await res.json().catch(() => null)) as GraphErrorBody | Record<string, unknown> | null
+  if (!res.ok || !body || 'error' in body) {
+    const message =
+      (body as GraphErrorBody | null)?.error?.message ||
+      `Graph API request failed (${res.status})`
+    return { ok: false, error: message }
+  }
+
+  return { ok: true, data: body as Record<string, unknown> }
+}
+
 async function graphApiGet(
   path: string,
   params: Record<string, string> = {}
@@ -117,6 +136,129 @@ function extractAttachmentImageUrls(attachments: unknown): string[] {
   }
 
   return urls
+}
+
+function extractPhotoImageUrls(photo: unknown): string[] {
+  if (!photo || typeof photo !== 'object') return []
+  const row = photo as {
+    images?: Array<{ source?: string; width?: number; height?: number }>
+    webp_images?: Array<{ source?: string; width?: number; height?: number }>
+  }
+  return pickLargestImageSource(row.images ?? row.webp_images)
+}
+
+/** Fetch all photos in a Facebook album (carousel posts) with pagination. */
+export async function fetchFacebookGraphAlbumPhotos(albumId: string): Promise<{
+  imageUrls: string[]
+  error?: string
+}> {
+  const id = albumId.replace(/\D+/g, '')
+  if (!id) return { imageUrls: [], error: 'Invalid album id' }
+
+  const imageUrls: string[] = []
+  let nextUrl: string | null = null
+  let first = true
+  let error: string | undefined
+
+  while (first || nextUrl) {
+    const result = first
+      ? await graphApiGet(`${id}/photos`, {
+          fields: 'images,webp_images',
+          limit: '100',
+        })
+      : await graphApiGetAbsolute(nextUrl!)
+
+    first = false
+    if (!result.ok) {
+      error = result.error
+      break
+    }
+
+    const rows = (result.data.data as unknown[] | undefined) ?? []
+    for (const photo of rows) {
+      imageUrls.push(...extractPhotoImageUrls(photo))
+    }
+
+    const paging = result.data.paging as { next?: string } | undefined
+    nextUrl = paging?.next?.trim() || null
+  }
+
+  const unique = dedupeFacebookImageUrls(imageUrls)
+  if (!unique.length && error) {
+    return { imageUrls: [], error }
+  }
+  return { imageUrls: unique, error: unique.length ? undefined : error ?? 'Album returned no photos' }
+}
+
+/** Fetch post carousel attachments with pagination on subattachments. */
+export async function fetchFacebookGraphPostAllImages(postId: string): Promise<{
+  title?: string
+  description?: string
+  imageUrls: string[]
+  error?: string
+}> {
+  const id = postId.replace(/\D+/g, '')
+  if (!id) return { imageUrls: [], error: 'Invalid post id' }
+
+  const postResult = await graphApiGet(id, {
+    fields:
+      'message,full_picture,attachments{media_type,media{image},subattachments.limit(25){media{image}}}',
+  })
+  if (!postResult.ok) {
+    return { imageUrls: [], error: postResult.error }
+  }
+
+  const message = String(postResult.data.message ?? '').trim()
+  const imageUrls: string[] = []
+  let error: string | undefined
+
+  const fullPicture = String(postResult.data.full_picture ?? '').trim()
+  if (fullPicture && isLikelyProductImageUrl(fullPicture)) {
+    imageUrls.push(maximizeFacebookImageUrl(unescapeFacebookJsonUrl(fullPicture)))
+  }
+
+  imageUrls.push(...extractAttachmentImageUrls(postResult.data.attachments))
+
+  const attachments =
+    (postResult.data.attachments as { data?: unknown[] } | undefined)?.data ?? []
+  for (const attachment of attachments) {
+    if (!attachment || typeof attachment !== 'object') continue
+    const sub = (
+      attachment as {
+        subattachments?: { data?: unknown[]; paging?: { next?: string } }
+      }
+    ).subattachments
+
+    let nextUrl = sub?.paging?.next?.trim() || null
+    while (nextUrl) {
+      const page = await graphApiGetAbsolute(nextUrl)
+      if (!page.ok) {
+        error = page.error
+        break
+      }
+
+      const rows = (page.data.data as unknown[] | undefined) ?? []
+      for (const child of rows) {
+        const src = mediaImageSrc((child as { media?: unknown })?.media)
+        if (src) imageUrls.push(src)
+      }
+
+      const paging = page.data.paging as { next?: string } | undefined
+      nextUrl = paging?.next?.trim() || null
+    }
+  }
+
+  const unique = dedupeFacebookImageUrls(imageUrls)
+  if (!message && !unique.length) {
+    return { imageUrls: [], error: error ?? 'Graph post returned no text or images' }
+  }
+
+  return {
+    description: message || undefined,
+    title: message.split('\n').map((l) => l.trim()).find(Boolean)?.slice(0, 120),
+    imageUrls: unique,
+    error: unique.length ? undefined : error,
+  }
 }
 
 /** Fetch a carousel / post by numeric id — best for set=pcb.{postId} photo links. */
@@ -314,7 +456,6 @@ export async function fetchFacebookGraphPermalink(meta: FacebookUrlMeta): Promis
     title = title || result.title || ''
     description = description || result.description || ''
     imageUrls = [...imageUrls, ...result.imageUrls]
-    if (imageUrls.length && description) break
   }
 
   return {
@@ -362,7 +503,14 @@ export async function fetchFacebookHtml(postUrl: string): Promise<string> {
 }
 
 /** Graph fetch tailored to URL shape (pcb carousel post, single photo, then scrape). */
-export async function fetchFacebookGraphForUrl(meta: FacebookUrlMeta): Promise<{
+export async function fetchFacebookGraphForUrl(
+  meta: FacebookUrlMeta,
+  htmlHints?: {
+    postId?: string | null
+    albumId?: string | null
+    subattachmentCount?: number | null
+  }
+): Promise<{
   title?: string
   description?: string
   imageUrls: string[]
@@ -386,16 +534,28 @@ export async function fetchFacebookGraphForUrl(meta: FacebookUrlMeta): Promise<{
     imageUrls = [...imageUrls, ...result.imageUrls]
   }
 
-  if (meta.storyFbid && meta.pageId) {
-    const permalink = await fetchFacebookGraphPermalink(meta)
-    errors.push(...permalink.errors)
-    title = permalink.title ?? ''
-    description = permalink.description ?? ''
-    imageUrls = [...imageUrls, ...permalink.imageUrls]
+  const postId = htmlHints?.postId || meta.pcbPostId
+  const albumId = htmlHints?.albumId
+  const expectedCount = htmlHints?.subattachmentCount ?? null
+
+  if (albumId) {
+    apply(await fetchFacebookGraphAlbumPhotos(albumId))
   }
 
-  if (meta.pcbPostId && !imageUrls.length) {
-    apply(await fetchFacebookGraphPost(meta.pcbPostId))
+  if (postId) {
+    apply(await fetchFacebookGraphPostAllImages(postId))
+  }
+
+  const uniqueSoFar = dedupeFacebookImageUrls(imageUrls)
+  const needsMore =
+    expectedCount != null && expectedCount > 0 && uniqueSoFar.length < expectedCount
+
+  if (meta.storyFbid && meta.pageId && (!uniqueSoFar.length || needsMore)) {
+    const permalink = await fetchFacebookGraphPermalink(meta)
+    errors.push(...permalink.errors)
+    title = title || permalink.title || ''
+    description = description || permalink.description || ''
+    imageUrls = [...imageUrls, ...permalink.imageUrls]
   }
 
   if (meta.fbid && !imageUrls.length) {

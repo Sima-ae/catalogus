@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
-import { getCatalogImagesRoots } from '@/lib/catalog-images-root'
+import { getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
 import { normalizeProductImageUrl } from '@/lib/product-image-url'
 
 const ALLOWED_TYPES = new Map<string, string>([
@@ -33,7 +33,7 @@ export async function saveProductImageUpload(file: File): Promise<{ url: string 
   const filename = `${randomUUID()}.${ext}`
   const relativePath = path.posix.join('/images', subdir.replace(/\\/g, '/'), filename)
 
-  const roots = getCatalogImagesRoots()
+  const roots = getCatalogImagesWriteRoots()
   let written = false
   let lastError: unknown
 

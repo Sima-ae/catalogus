@@ -1,6 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { getCatalogImagesRoots } from '@/lib/catalog-images-root'
+import { getCatalogImagesRoots, getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
 
 /** Path segment under the images root, e.g. `imports/woocommerce/wc-3693/001.jpg`. */
 export function catalogImageRelativePath(relativePathFromImagesRoot: string): string {
@@ -20,7 +20,7 @@ export async function writeCatalogImageFile(
   buffer: Buffer
 ): Promise<string> {
   const relative = catalogImageRelativePath(relativePathFromImagesRoot)
-  const roots = getCatalogImagesRoots()
+  const roots = getCatalogImagesWriteRoots()
   let written = false
   let lastError: unknown
 

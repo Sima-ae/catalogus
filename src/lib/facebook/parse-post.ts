@@ -6,6 +6,10 @@ import {
 } from '@/lib/facebook/client'
 import { parseEmojiPriceHint } from '@/lib/facebook/parse-emoji-price'
 import {
+  extractFacebookIdsFromHtml,
+  extractViewerImageUrlsFromHtml,
+} from '@/lib/facebook/parse-html-images'
+import {
   canonicalizeFacebookUrl,
   facebookExternalIdFromUrl,
   facebookPermalinkFetchUrls,
@@ -158,21 +162,74 @@ function buildFetchError(graphErrors: string[]): string {
   return 'No images found on Facebook post (set FACEBOOK_GRAPH_ACCESS_TOKEN on the VPS for photo/carousel links)'
 }
 
-/** Hybrid fetch: Graph post/photo → scrape → oEmbed → HTML OG/meta. */
+async function fetchHtmlBundle(meta: ReturnType<typeof parseFacebookUrlMeta>): Promise<{
+  htmlPages: string[]
+  postId: string | null
+  albumId: string | null
+  subattachmentCount: number | null
+  title: string
+  description: string
+  imageUrls: string[]
+}> {
+  const htmlUrls = isFacebookPermalinkMeta(meta)
+    ? facebookPermalinkFetchUrls(meta)
+    : [meta.normalizedUrl]
+
+  const htmlPages: string[] = []
+  let postId: string | null = meta.pcbPostId
+  let albumId: string | null = null
+  let subattachmentCount: number | null = null
+  let title = ''
+  let description = ''
+  let imageUrls: string[] = []
+
+  for (const htmlUrl of htmlUrls) {
+    try {
+      const html = await fetchFacebookHtml(htmlUrl)
+      htmlPages.push(html)
+
+      const ids = extractFacebookIdsFromHtml(html)
+      postId = postId || ids.postId
+      albumId = albumId || ids.albumId
+      subattachmentCount = subattachmentCount || ids.subattachmentCount
+
+      imageUrls = mergeImageUrls(
+        imageUrls,
+        extractViewerImageUrlsFromHtml(html),
+        extractImageUrlsFromHtml(html)
+      )
+
+      const text = extractTextFromHtml(html)
+      title = title || text.title
+      description = description || text.description
+    } catch {
+      /* try next URL variant */
+    }
+  }
+
+  return { htmlPages, postId, albumId, subattachmentCount, title, description, imageUrls }
+}
+
+/** Hybrid fetch: HTML carousel JSON → Graph album/post → scrape → oEmbed. */
 export async function fetchFacebookPost(postUrl: string): Promise<FacebookPostData> {
   const normalizedUrl = canonicalizeFacebookUrl(normalizeFacebookPostUrl(postUrl))
   const meta = parseFacebookUrlMeta(normalizedUrl)
   const externalId = facebookExternalIdFromUrl(normalizedUrl)
 
-  let title = ''
-  let description = ''
-  let imageUrls: string[] = []
+  const htmlBundle = await fetchHtmlBundle(meta)
+  let title = htmlBundle.title
+  let description = htmlBundle.description
+  let imageUrls = htmlBundle.imageUrls
   const graphErrors: string[] = []
 
-  const graph = await fetchFacebookGraphForUrl(meta)
+  const graph = await fetchFacebookGraphForUrl(meta, {
+    postId: htmlBundle.postId,
+    albumId: htmlBundle.albumId,
+    subattachmentCount: htmlBundle.subattachmentCount,
+  })
   graphErrors.push(...graph.errors)
-  title = graph.title ?? ''
-  description = graph.description ?? ''
+  title = title || graph.title || ''
+  description = description || graph.description || ''
   imageUrls = mergeImageUrls(imageUrls, graph.imageUrls)
 
   const oembedUrls = isFacebookPermalinkMeta(meta)
@@ -190,21 +247,6 @@ export async function fetchFacebookPost(postUrl: string): Promise<FacebookPostDa
       imageUrls = mergeImageUrls(imageUrls, extractImageUrlsFromHtml(oembed.html))
       const text = extractTextFromHtml(oembed.html)
       description = description || text.description
-    }
-    if (imageUrls.length && description) break
-  }
-
-  if (!title || !description || !imageUrls.length) {
-    const htmlUrls = isFacebookPermalinkMeta(meta)
-      ? facebookPermalinkFetchUrls(meta)
-      : [meta.normalizedUrl]
-
-    for (const htmlUrl of htmlUrls) {
-      const html = await fetchFacebookHtml(htmlUrl)
-      const text = extractTextFromHtml(html)
-      title = title || text.title
-      description = description || text.description
-      imageUrls = mergeImageUrls(imageUrls, extractImageUrlsFromHtml(html))
     }
   }
 
@@ -228,5 +270,6 @@ export async function fetchFacebookPost(postUrl: string): Promise<FacebookPostDa
     description,
     imageUrls,
     detectedPriceHint,
+    carouselImageCount: htmlBundle.subattachmentCount ?? undefined,
   }
 }

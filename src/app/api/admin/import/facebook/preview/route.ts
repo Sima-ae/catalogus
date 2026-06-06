@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       title: post.title,
       descriptionPreview: post.description.slice(0, 280),
       imageCount: post.imageUrls.length,
+      carouselImageCount: post.carouselImageCount ?? null,
       detectedPriceHint: post.detectedPriceHint,
       externalId: post.externalId,
     })

@@ -58,7 +58,7 @@ API: `POST /api/admin/import/sources/{id}/import-product` with `{ "productUrl": 
 ## Notes
 
 - Uses the public WooCommerce Store API (`/wp-json/wc/store/v1/products`) — no API keys required for stuntxl.com.
-- **Product images are downloaded to the VPS** under `/images/imports/woocommerce/{wc-id}/` during import (not hotlinked from stuntxl.com).
+- **Product images are downloaded to the VPS** under `public_html/images/imports/woocommerce/{wc-id}/` when `CATALOGUS_PUBLIC_HTML` is set and the worker runs on the server (not committed to git).
 - Brands from WooCommerce are **auto-created** in Admin → Brands when missing.
 - Products without a WooCommerce category use the **fallback catalog category** on the import source.
 - External id stored as `wc-{productId}` in `products.source_album_id` (same dedup/review flow as Yupoo).

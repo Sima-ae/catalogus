@@ -32,6 +32,13 @@ for d in "$HOME_DIR" "$PUBLIC_HTML"; do
 done
 chmod -R a+rX "$IMAGES_SRC" 2>/dev/null || true
 
+for sub in imports/facebook imports/woocommerce uploads; do
+  if mkdir -p "${IMAGES_SRC}/${sub}" 2>/dev/null; then
+    chmod a+rX "${IMAGES_SRC}/${sub}" 2>/dev/null || true
+    echo "OK: ${IMAGES_SRC}/${sub}"
+  fi
+done
+
 if test -r "${IMAGES_SRC}/HORLOGES" 2>/dev/null || find "$IMAGES_SRC" -type f 2>/dev/null | head -1 | grep -q .; then
   echo "OK: images readable under $IMAGES_SRC"
 else

@@ -5,6 +5,8 @@ export type FacebookPostData = {
   description: string
   imageUrls: string[]
   detectedPriceHint: number | null
+  /** Facebook-reported carousel size when present in page JSON. */
+  carouselImageCount?: number
 }
 
 export type FacebookManualImportFields = {

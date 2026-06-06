@@ -24,6 +24,10 @@ import {
   type YupooFetchContext,
 } from '@/lib/yupoo/session'
 import { translateProductText } from '@/lib/translate'
+import {
+  describeCatalogImagesWriteTarget,
+  isCatalogImagesVpsWrite,
+} from '@/lib/catalog-images-root'
 import type { ImportJobItemRow, ImportSourceRow } from '@/lib/import-db'
 import {
   appendJobErrorLog,
@@ -574,6 +578,16 @@ async function processJob(jobId: string) {
 async function main() {
   loadDotEnv()
   ensureEnvLoaded()
+
+  console.log(`==> Image storage: ${describeCatalogImagesWriteTarget()}`)
+  if (!isCatalogImagesVpsWrite()) {
+    console.warn(
+      'WARN: CATALOGUS_PUBLIC_HTML is not set — imported images save under public/images in this repo.'
+    )
+    console.warn(
+      '      For production, run import:worker on the VPS (images go to public_html/images, not git).'
+    )
+  }
 
   const jobId = await resolveJobId()
   if (!jobId) {
