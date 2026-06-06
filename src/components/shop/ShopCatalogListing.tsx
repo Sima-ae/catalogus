@@ -51,11 +51,6 @@ export default function ShopCatalogListing({
         centered={centered}
         compact={centered}
       />
-      {canReorder ? (
-        <p className="mb-2 text-center text-xs text-gray-500 dark:text-gray-400">
-          Hold a product card, then drag to reorder
-        </p>
-      ) : null}
       <div className={loading ? 'opacity-60 pointer-events-none' : ''}>
         <SortableProductGrid
           products={products}

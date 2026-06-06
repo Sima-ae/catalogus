@@ -37,6 +37,7 @@ import {
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
 import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/AdminBulkEditModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
+import CatalogPagination from '@/components/shop/CatalogPagination'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
 import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSegment } from '@/lib/product-taxonomy'
@@ -66,68 +67,6 @@ function formatAdminProductCategoryLabels(
 
 const PAGE_SIZES = [50, 100, 250, 500] as const
 type PageSize = (typeof PAGE_SIZES)[number]
-
-function ProductsPaginationBar({
-  page,
-  pageSize,
-  totalItems,
-  onPageChange,
-  t,
-}: {
-  page: number
-  pageSize: PageSize
-  totalItems: number
-  onPageChange: (page: number) => void
-  t: ReturnType<typeof useAppTheme>
-}) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
-  const safePage = Math.min(Math.max(1, page), totalPages)
-  const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
-  const end = Math.min(safePage * pageSize, totalItems)
-
-  return (
-    <div
-      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 px-1 border-b sm:border-b-0 ${t.rowBorder}`}
-    >
-      <p className={`text-sm ${t.muted}`}>
-        {totalItems === 0 ? (
-          'No products on this page'
-        ) : (
-          <>
-            Showing <strong className={t.heading}>{start}</strong>–
-            <strong className={t.heading}>{end}</strong> of{' '}
-            <strong className={t.heading}>{totalItems}</strong>
-            {totalPages > 1 && (
-              <>
-                {' '}
-                · page <strong className={t.heading}>{safePage}</strong> of{' '}
-                <strong className={t.heading}>{totalPages}</strong>
-              </>
-            )}
-          </>
-        )}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          disabled={safePage <= 1}
-          onClick={() => onPageChange(safePage - 1)}
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          className="btn-secondary text-sm"
-          disabled={safePage >= totalPages || totalItems === 0}
-          onClick={() => onPageChange(safePage + 1)}
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  )
-}
 
 function statusLabel(status: string): string {
   if (status === 'active') return 'Published'
@@ -752,12 +691,11 @@ export default function AdminProductsPage() {
       ) : (
         <div className="space-y-0">
           <div className="card rounded-b-none border-b-0 pb-0">
-            <ProductsPaginationBar
+            <CatalogPagination
               page={safePage}
               pageSize={pageSize}
               totalItems={totalItems}
               onPageChange={setCurrentPage}
-              t={t}
             />
           </div>
           <AdminTable>
@@ -874,12 +812,11 @@ export default function AdminProductsPage() {
           </AdminTableBody>
         </AdminTable>
           <div className="card rounded-t-none border-t-0 pt-0">
-            <ProductsPaginationBar
+            <CatalogPagination
               page={safePage}
               pageSize={pageSize}
               totalItems={totalItems}
               onPageChange={setCurrentPage}
-              t={t}
             />
           </div>
         </div>
