@@ -77,6 +77,16 @@ export function parseWooExternalId(externalId: string): number | null {
   return Number.isFinite(id) ? id : null
 }
 
+/** Queued from admin “Import product URL” before the worker resolves the numeric id. */
+export function wooSlugExternalId(slug: string): string {
+  return `wc-slug-${slug.trim()}`
+}
+
+export function parseWooSlugExternalId(externalId: string): string | null {
+  const match = /^wc-slug-(.+)$/.exec(String(externalId).trim())
+  return match?.[1]?.trim() || null
+}
+
 export function wooPriceToDecimal(prices: WooStorePrices | null | undefined): {
   price: number
   originalPrice: number | null

@@ -427,7 +427,12 @@ export default function AdminImportPage() {
       setSyncInfo(data)
       loadSources()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Import failed')
+      const message = e instanceof Error ? e.message : 'Import failed'
+      setError(
+        message === 'Failed to fetch' || message === 'fetch failed'
+          ? 'Could not reach the server. Check your connection or deploy the latest import-product API.'
+          : message
+      )
     } finally {
       setImportingUrlId(null)
     }
@@ -468,6 +473,12 @@ export default function AdminImportPage() {
                   ? 'Single product import queued (uses --refresh to update existing)'
                   : 'Import job queued'}
           </p>
+          {syncInfo.kind === 'import-product' ? (
+            <p className="text-sm">
+              Job queued — WooCommerce is fetched when you run{' '}
+              <code className="text-xs">import:worker</code> on the VPS (not in the browser).
+            </p>
+          ) : null}
           {syncInfo.kind === 'import-product' && syncInfo.productUrl ? (
             <p className="text-sm break-all">{syncInfo.productUrl}</p>
           ) : null}

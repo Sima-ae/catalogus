@@ -1,5 +1,11 @@
 import type { WooStoreProduct, WooProductListItem } from '@/lib/woocommerce/types'
-import { decodeWooHtmlEntities, wooExternalId } from '@/lib/woocommerce/types'
+import {
+  decodeWooHtmlEntities,
+  parseWooExternalId,
+  parseWooSlugExternalId,
+  wooExternalId,
+  wooSlugExternalId,
+} from '@/lib/woocommerce/types'
 
 const DEFAULT_PER_PAGE = 100
 
@@ -31,15 +37,23 @@ async function fetchStoreJson<T>(
   url: string,
   init?: RequestInit
 ): Promise<{ data: T; total: number; totalPages: number }> {
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'CatalogusImport/1.0',
-      ...(init?.headers ?? {}),
-    },
-    cache: 'no-store',
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'CatalogusImport/1.0',
+        ...(init?.headers ?? {}),
+      },
+      cache: 'no-store',
+    })
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `Could not reach WooCommerce store (${detail}). Run import:worker on the VPS if the web app cannot access the store.`
+    )
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -143,6 +157,29 @@ export async function getWooStoreProductByUrl(
 ): Promise<WooStoreProduct> {
   const slug = parseWooProductSlugFromUrl(productUrl, storeUrl)
   return getWooStoreProductBySlug(storeUrl, slug)
+}
+
+/** Resolve a job item to a store product (id, slug, or full product URL). */
+export async function fetchWooStoreProductForJobItem(
+  storeUrl: string,
+  item: { album_id: string; album_url: string }
+): Promise<WooStoreProduct> {
+  const slugFromId = parseWooSlugExternalId(item.album_id)
+  if (slugFromId) {
+    return getWooStoreProductBySlug(storeUrl, slugFromId)
+  }
+
+  const productId = parseWooExternalId(item.album_id)
+  if (productId) {
+    return getWooStoreProduct(storeUrl, productId)
+  }
+
+  const url = String(item.album_url ?? '').trim()
+  if (url) {
+    return getWooStoreProductByUrl(storeUrl, url)
+  }
+
+  throw new Error(`Cannot resolve WooCommerce product for job item ${item.album_id}`)
 }
 
 export function wooProductsToJobItems(products: WooStoreProduct[]): WooProductListItem[] {

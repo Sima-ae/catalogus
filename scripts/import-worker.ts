@@ -45,8 +45,8 @@ import {
   updateImportJob,
   updateJobItem,
 } from '@/lib/import-db'
-import { getWooStoreProduct, sleep as wooSleep } from '@/lib/woocommerce/client'
-import { parseWooExternalId } from '@/lib/woocommerce/types'
+import { sleep as wooSleep, fetchWooStoreProductForJobItem } from '@/lib/woocommerce/client'
+import { wooExternalId } from '@/lib/woocommerce/types'
 import {
   findProductByAlbumSku,
   findProductBySku,
@@ -363,14 +363,16 @@ async function processWooCommerceJob(
 
   for (const item of items) {
     try {
-      const productId = parseWooExternalId(item.album_id)
-      if (!productId) {
-        throw new Error(`Invalid WooCommerce external id: ${item.album_id}`)
-      }
+      console.log(`==> ${item.album_id}`)
+      await wooSleep(300)
+
+      const product = await fetchWooStoreProductForJobItem(storeUrl, item)
+      const externalId = wooExternalId(product.id)
+      const itemForDedup = { ...item, album_id: externalId }
 
       const skipCheck = await importExistingOrSkip(
-        item,
-        { sku: item.album_id } as ProductInput,
+        itemForDedup,
+        { sku: externalId } as ProductInput,
         flags,
         counters
       )
@@ -379,24 +381,24 @@ async function processWooCommerceJob(
         continue
       }
 
-      console.log(`==> Product ${item.album_id}${skipCheck.existing && flags.refresh ? ' (refresh)' : ''}`)
-      await wooSleep(300)
+      console.log(
+        `==> Product ${externalId}${skipCheck.existing && flags.refresh ? ' (refresh)' : ''}`
+      )
 
-      const product = await getWooStoreProduct(storeUrl, productId)
       const input = await buildProductInputFromWooStoreProduct(product, source)
 
       if (!input.image_url) {
         throw new Error('No images found on WooCommerce product')
       }
 
-      const secondCheck = await importExistingOrSkip(item, input, flags, counters)
+      const secondCheck = await importExistingOrSkip(itemForDedup, input, flags, counters)
       if (secondCheck.done) {
         await updateImportJob(jobId, counters)
         continue
       }
 
       await saveImportedProduct(
-        item,
+        itemForDedup,
         jobId,
         input,
         secondCheck.existing,
@@ -404,6 +406,10 @@ async function processWooCommerceJob(
         { product, refreshed: Boolean(secondCheck.existing && flags.refresh) },
         counters
       )
+
+      if (item.album_id !== externalId) {
+        await updateJobItem(item.id, { album_id: externalId })
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('FAIL:', item.album_id, message)

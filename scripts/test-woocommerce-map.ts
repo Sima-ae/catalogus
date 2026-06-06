@@ -67,4 +67,22 @@ assert.equal(
   'https://stuntxl.com'
 )
 
+import { wooSlugExternalId, parseWooSlugExternalId } from '../src/lib/woocommerce/types'
+assert.equal(
+  wooSlugExternalId('gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'),
+  'wc-slug-gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'
+)
+assert.equal(
+  parseWooSlugExternalId('wc-slug-gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'),
+  'gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'
+)
+
+assert.equal(
+  parseWooProductSlugFromUrl(
+    'https://stuntxl.com/product/gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr/?sb_dismiss=callout',
+    'https://stuntxl.com'
+  ),
+  'gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'
+)
+
 console.log('woocommerce-map: all assertions passed')

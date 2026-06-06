@@ -15,7 +15,13 @@ import type { TranslatedProductText } from '@/lib/translate'
 import { mapWooStoreProduct } from '@/lib/woocommerce/map-product'
 import { resolveImportCatalogMapping } from '@/lib/woocommerce/resolve-catalog'
 import type { WooProductData, WooStoreProduct } from '@/lib/woocommerce/types'
-import { listWooStoreProducts, wooProductsToJobItems, getWooStoreProductByUrl, normalizeWooCommerceStoreUrl } from '@/lib/woocommerce/client'
+import {
+  listWooStoreProducts,
+  wooProductsToJobItems,
+  parseWooProductSlugFromUrl,
+  normalizeWooCommerceStoreUrl,
+} from '@/lib/woocommerce/client'
+import { wooSlugExternalId } from '@/lib/woocommerce/types'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce'
 
@@ -487,12 +493,18 @@ export async function createSingleWooProductImportJob(
   }
   const trimmedProductUrl = productUrl.trim()
   const storeUrl = resolveWooStoreUrl(source, trimmedProductUrl)
+  const slug = parseWooProductSlugFromUrl(trimmedProductUrl, storeUrl)
+  const cleanUrl = trimmedProductUrl.split('?')[0].replace(/\/+$/, '') + '/'
 
-  const product = await getWooStoreProductByUrl(storeUrl, trimmedProductUrl)
   const job = await createImportJob(source.id)
-  const items = wooProductsToJobItems([product])
-  await createImportJobItemsFromWooProducts(job.id, items)
-  await updateImportJob(job.id, { total_albums: items.length })
+  await createImportJobItemsFromWooProducts(job.id, [
+    {
+      externalId: wooSlugExternalId(slug),
+      permalink: cleanUrl,
+      title: slug,
+    },
+  ])
+  await updateImportJob(job.id, { total_albums: 1 })
   return (await getImportJob(job.id))!
 }
 
@@ -512,7 +524,7 @@ export async function updateJobItem(
   const fields: string[] = []
   const values: unknown[] = []
 
-  for (const key of ['status', 'raw_json', 'error_message', 'product_id'] as const) {
+  for (const key of ['status', 'raw_json', 'error_message', 'product_id', 'album_id'] as const) {
     if (patch[key] !== undefined) {
       fields.push(`${key} = ?`)
       values.push(patch[key])
