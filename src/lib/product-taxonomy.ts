@@ -28,6 +28,40 @@ export function parseBrandCompound(value: string): string[] {
     .filter(Boolean)
 }
 
+export type BrandOptionLike = { id: string; name: string; slug?: string }
+
+/** Match one collab segment to a brand option (case-insensitive). */
+export function resolveBrandOptionFromSegment(
+  segment: string,
+  options: BrandOptionLike[]
+): BrandOptionLike | undefined {
+  const trimmed = segment.trim()
+  if (!trimmed) return undefined
+
+  const key = normalizeSegmentKey(trimmed)
+  const byName = options.find((o) => normalizeSegmentKey(o.name) === key)
+  if (byName) return byName
+
+  const bySlug = options.find((o) => o.slug && normalizeSegmentKey(o.slug) === key)
+  if (bySlug) return bySlug
+
+  return undefined
+}
+
+/** Resolve compound `products.brand` text to canonical brand names for checkbox state. */
+export function brandNamesFromCompound(
+  compound: string,
+  options: BrandOptionLike[]
+): string[] {
+  const names: string[] = []
+  for (const segment of parseBrandCompound(compound)) {
+    const opt = resolveBrandOptionFromSegment(segment, options)
+    const name = opt?.name ?? segment.trim()
+    if (name && !names.includes(name)) names.push(name)
+  }
+  return names
+}
+
 export function orderedTaxonomyNames(selected: Set<string>, order: string[]): string[] {
   const out: string[] = []
   for (const name of order) {

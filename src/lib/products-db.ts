@@ -20,6 +20,7 @@ import {
   resolveShopCategoryFilter,
 } from '@/lib/shop-category-tree'
 import { serializeProductRow } from '@/lib/product-serialize'
+import { joinBrandNames, parseBrandCompound } from '@/lib/product-taxonomy'
 import {
   brandsTableExists,
   productsHaveBrandColumn,
@@ -374,13 +375,41 @@ async function resolveBulkCategoryInput(categoryName: string): Promise<{ id: str
 async function resolveBulkBrandInput(
   brandName: string
 ): Promise<{ id?: string; name: string | null }> {
-  try {
-    return await resolveProductBrandInput(brandName)
-  } catch (err) {
-    if (err instanceof UnknownBrandError) {
-      return { name: brandName, id: undefined }
+  const trimmed = brandName.trim()
+  const segments = parseBrandCompound(trimmed)
+  if (segments.length <= 1) {
+    try {
+      return await resolveProductBrandInput(trimmed)
+    } catch (err) {
+      if (err instanceof UnknownBrandError) {
+        return { name: trimmed, id: undefined }
+      }
+      throw err
     }
-    throw err
+  }
+
+  const canonicalNames: string[] = []
+  let firstId: string | undefined
+
+  for (const segment of segments) {
+    try {
+      const resolved = await resolveProductBrandInput(segment)
+      if (resolved.name && !canonicalNames.includes(resolved.name)) {
+        canonicalNames.push(resolved.name)
+      }
+      if (!firstId && resolved.id) firstId = resolved.id
+    } catch (err) {
+      if (err instanceof UnknownBrandError) {
+        if (!canonicalNames.includes(segment)) canonicalNames.push(segment)
+      } else {
+        throw err
+      }
+    }
+  }
+
+  return {
+    name: canonicalNames.length ? joinBrandNames(new Set(canonicalNames), canonicalNames) : trimmed,
+    id: firstId,
   }
 }
 

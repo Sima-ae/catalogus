@@ -22,6 +22,7 @@ import {
   joinCategoryStorageLabels,
   categoryIdsFromCompound,
   primaryCategoryId,
+  brandNamesFromCompound,
   parseBrandCompound,
 } from '@/lib/product-taxonomy'
 import ProductImageGalleryEditor from '@/components/admin/ProductImageGalleryEditor'
@@ -153,8 +154,11 @@ export default function ProductForm({
     setSelectedCategoryIds(
       categoryIdsFromCompound(taxonomySeed.category, categories, taxonomySeed.categoryId)
     )
-    setSelectedBrands(new Set(parseBrandCompound(taxonomySeed.brand)))
-  }, [categories, taxonomySeed])
+    const brandNames = brands.length
+      ? brandNamesFromCompound(taxonomySeed.brand, brands)
+      : parseBrandCompound(taxonomySeed.brand)
+    setSelectedBrands(new Set(brandNames))
+  }, [categories, brands, taxonomySeed])
 
   const toggleCategoryId = (id: string) => {
     setSelectedCategoryIds((prev) =>

@@ -41,13 +41,21 @@ export type SerializeProductRowOptions = {
   brandSkuPrefixes?: string[]
 }
 
+/** Prefer stored collab label (`A X B`) over single-brand FK join. */
+export function resolveProductBrandDisplay(row: Record<string, unknown>): string {
+  const stored = String(row.brand ?? '').trim()
+  const resolved = String(row.resolved_brand_name ?? '').trim()
+  if (stored && /\s+X\s+/i.test(stored)) return stored
+  return resolved || stored
+}
+
 export function serializeProductRow(
   row: Record<string, unknown>,
   options?: SerializeProductRowOptions
 ) {
   /** Only expose names that exist in categories/brands tables (keeps shop in sync). */
   const category = String(row.resolved_category_name ?? '').trim()
-  const brand = String(row.resolved_brand_name ?? row.brand ?? '').trim()
+  const brand = resolveProductBrandDisplay(row)
 
   const {
     resolved_category_name: _rn,
