@@ -40,6 +40,7 @@ import {
   listPendingJobItems,
   resetCompletedJobItems,
   resetSkippedJobItems,
+  resolveWooStoreUrl,
   touchImportSourceSynced,
   updateImportJob,
   updateJobItem,
@@ -333,11 +334,7 @@ async function processWooCommerceJob(
   source: ImportSourceRow,
   flags: ReturnType<typeof workerFlags>
 ) {
-  const storeUrl = String(source.woocommerce_store_url ?? '').trim()
-  if (!storeUrl) {
-    throw new Error('WooCommerce store URL is required')
-  }
-
+  const storeUrl = resolveWooStoreUrl(source)
   let items = await listPendingJobItems(jobId)
 
   if (!items.length && job.total_albums === 0) {
@@ -347,6 +344,10 @@ async function processWooCommerceJob(
     await createImportJobItemsFromWooProducts(jobId, products)
     await updateImportJob(jobId, { total_albums: products.length })
     items = await listPendingJobItems(jobId)
+  } else if (!items.length && job.total_albums > 0) {
+    console.log(
+      'No pending items for this job — it may already be finished. Use --refresh --retry-all to re-run.'
+    )
   }
 
   if (flags.refresh) {

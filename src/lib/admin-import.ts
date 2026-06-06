@@ -52,7 +52,7 @@ export function validateImportSourceInput(input: ImportSourceInput): string | nu
   }
   if (input.source_type === 'woocommerce') {
     if (!input.woocommerce_store_url) {
-      return 'WooCommerce store URL is required'
+      return 'WooCommerce store URL is required (site root, e.g. https://stuntxl.com — not a product URL)'
     }
     if (!isValidHttpUrl(input.woocommerce_store_url)) {
       return 'WooCommerce store URL must be a valid http(s) URL'

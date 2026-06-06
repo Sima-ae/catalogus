@@ -52,13 +52,19 @@ assert.equal(mapped.categoryName, 'Dames horloges')
 assert.equal(mapped.sku, 'wc-3693')
 assert.deepEqual(mapped.imageUrls, ['https://stuntxl.com/wp-content/uploads/a.jpg'])
 
-import { parseWooProductSlugFromUrl } from '../src/lib/woocommerce/client'
+import { parseWooProductSlugFromUrl, normalizeWooCommerceStoreUrl } from '../src/lib/woocommerce/client'
 assert.equal(
   parseWooProductSlugFromUrl(
     'https://stuntxl.com/product/gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr/',
     'https://stuntxl.com'
   ),
   'gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr'
+)
+assert.equal(
+  normalizeWooCommerceStoreUrl(
+    'https://stuntxl.com/product/gmt-master-ii-pepsi-v3-meteorite-gain-weight-195gr/'
+  ),
+  'https://stuntxl.com'
 )
 
 console.log('woocommerce-map: all assertions passed')

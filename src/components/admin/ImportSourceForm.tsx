@@ -87,6 +87,9 @@ export default function ImportSourceForm({
                 placeholder="https://stuntxl.com"
                 required
               />
+              <p className={`text-xs mt-1 ${t.muted}`}>
+                Site root only — not a single product URL (use Import product URL below).
+              </p>
             </label>
             <label className="block space-y-1 md:col-span-2">
               <span className={`text-sm ${t.muted}`}>WooCommerce category slug (optional)</span>

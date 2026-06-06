@@ -15,7 +15,7 @@ import type { TranslatedProductText } from '@/lib/translate'
 import { mapWooStoreProduct } from '@/lib/woocommerce/map-product'
 import { resolveImportCatalogMapping } from '@/lib/woocommerce/resolve-catalog'
 import type { WooProductData, WooStoreProduct } from '@/lib/woocommerce/types'
-import { listWooStoreProducts, wooProductsToJobItems, getWooStoreProductByUrl } from '@/lib/woocommerce/client'
+import { listWooStoreProducts, wooProductsToJobItems, getWooStoreProductByUrl, normalizeWooCommerceStoreUrl } from '@/lib/woocommerce/client'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce'
 
@@ -238,6 +238,32 @@ export async function getImportSource(id: string): Promise<ImportSourceRow | nul
   return rows[0] ?? null
 }
 
+function normalizeWooStoreUrlForSource(raw: string | null | undefined): string | null {
+  const trimmed = String(raw ?? '').trim()
+  if (!trimmed) return null
+  return normalizeWooCommerceStoreUrl(trimmed)
+}
+
+/** Resolve store root for API calls (fixes legacy rows that saved a /product/ URL). */
+export function resolveWooStoreUrl(
+  source: ImportSourceRow,
+  productUrl?: string | null
+): string {
+  const fromSource = String(source.woocommerce_store_url ?? '').trim()
+  if (fromSource) {
+    try {
+      return normalizeWooCommerceStoreUrl(fromSource)
+    } catch {
+      /* try product URL origin below */
+    }
+  }
+  const fromProduct = String(productUrl ?? '').trim()
+  if (fromProduct) {
+    return normalizeWooCommerceStoreUrl(fromProduct)
+  }
+  throw new Error('WooCommerce store URL is required on the import source')
+}
+
 export async function createImportSource(input: {
   name: string
   source_type?: ImportSourceType
@@ -263,7 +289,7 @@ export async function createImportSource(input: {
       sourceType,
       input.yupoo_category_url?.trim() || null,
       pwd,
-      input.woocommerce_store_url?.trim() || null,
+      normalizeWooStoreUrlForSource(input.woocommerce_store_url),
       input.woocommerce_category_slug?.trim() || null,
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
@@ -306,7 +332,7 @@ export async function updateImportSource(
     ...(sourceType ? [sourceType] : []),
     input.yupoo_category_url?.trim() || null,
     ...(pwd !== undefined ? [pwd] : []),
-    input.woocommerce_store_url?.trim() || null,
+    normalizeWooStoreUrlForSource(input.woocommerce_store_url),
     input.woocommerce_category_slug?.trim() || null,
     input.catalog_category_id || null,
     input.catalog_brand_id || null,
@@ -445,8 +471,7 @@ export async function createImportJobItemsFromWooProducts(
 export async function discoverWooCommerceJobItems(
   source: ImportSourceRow
 ): Promise<{ externalId: string; permalink: string; title: string }[]> {
-  const storeUrl = String(source.woocommerce_store_url ?? '').trim()
-  if (!storeUrl) throw new Error('WooCommerce store URL is required')
+  const storeUrl = resolveWooStoreUrl(source)
   const products = await listWooStoreProducts(storeUrl, {
     categorySlug: source.woocommerce_category_slug,
   })
@@ -460,10 +485,10 @@ export async function createSingleWooProductImportJob(
   if (!isWooCommerceImportSource(source)) {
     throw new Error('Single product URL import is only supported for WooCommerce sources')
   }
-  const storeUrl = String(source.woocommerce_store_url ?? '').trim()
-  if (!storeUrl) throw new Error('WooCommerce store URL is required')
+  const trimmedProductUrl = productUrl.trim()
+  const storeUrl = resolveWooStoreUrl(source, trimmedProductUrl)
 
-  const product = await getWooStoreProductByUrl(storeUrl, productUrl.trim())
+  const product = await getWooStoreProductByUrl(storeUrl, trimmedProductUrl)
   const job = await createImportJob(source.id)
   const items = wooProductsToJobItems([product])
   await createImportJobItemsFromWooProducts(job.id, items)

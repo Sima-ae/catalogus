@@ -3,8 +3,9 @@ import { decodeWooHtmlEntities, wooExternalId } from '@/lib/woocommerce/types'
 
 const DEFAULT_PER_PAGE = 100
 
-function normalizeStoreUrl(storeUrl: string): string {
-  const trimmed = storeUrl.trim().replace(/\/+$/, '')
+/** Site root only (e.g. https://stuntxl.com) — never a /product/... path. */
+export function normalizeWooCommerceStoreUrl(storeUrl: string): string {
+  const trimmed = storeUrl.trim()
   if (!trimmed) throw new Error('WooCommerce store URL is required')
   let url: URL
   try {
@@ -15,7 +16,11 @@ function normalizeStoreUrl(storeUrl: string): string {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new Error('WooCommerce store URL must use http or https')
   }
-  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`
+  return url.origin
+}
+
+function normalizeStoreUrl(storeUrl: string): string {
+  return normalizeWooCommerceStoreUrl(storeUrl)
 }
 
 function storeApiBase(storeUrl: string): string {
