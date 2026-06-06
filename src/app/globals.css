@@ -391,6 +391,45 @@ body.app-protected [contenteditable='true'] {
   .product-gallery-thumbnail-inactive {
     @apply border-transparent hover:border-gray-600;
   }
+
+  /* Shop product card — Y-axis flip to second gallery image on hover */
+  .product-card-flip {
+    perspective: 1000px;
+  }
+
+  .product-card-flip-inner {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.55s ease;
+  }
+
+  .group:hover .product-card-flip-inner {
+    transform: rotateY(180deg);
+  }
+
+  .product-card-flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .product-card-flip-back {
+    transform: rotateY(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .product-card-flip-inner {
+      transition: none;
+    }
+
+    .group:hover .product-card-flip-inner {
+      transform: none;
+    }
+  }
 }
 
 @layer utilities {

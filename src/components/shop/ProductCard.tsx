@@ -66,6 +66,9 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
     saveCatalogNavState(listingKey, returnUrl, product.id, page)
   }
 
+  const mainImage = product.image_url
+  const flipImage = product.gallery_images?.[0]?.trim() || mainImage
+
   return (
     <div
       data-product-id={product.id}
@@ -80,18 +83,32 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
         scroll={false}
         onClick={saveListingScroll}
       >
-        <div className={`relative aspect-[3/4] mb-3 overflow-hidden rounded-lg ${
+        <div className={`relative aspect-[3/4] mb-3 overflow-hidden rounded-lg product-card-flip ${
           theme === 'dark' ? 'bg-dark-900' : 'bg-gray-100'
         }`}>
-          <Image
-            src={product.image_url}
-            alt={product.name}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
-            className="object-contain group-hover:scale-105 transition-transform duration-300"
-            unoptimized={shouldUnoptimizeProductImage(product.image_url)}
-          />
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300" />
+          <div className="product-card-flip-inner">
+            <div className="product-card-flip-face">
+              <Image
+                src={mainImage}
+                alt={product.name}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
+                className="object-contain"
+                unoptimized={shouldUnoptimizeProductImage(mainImage)}
+              />
+            </div>
+            <div className="product-card-flip-face product-card-flip-back">
+              <Image
+                src={flipImage}
+                alt={product.name}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
+                className="object-contain"
+                unoptimized={shouldUnoptimizeProductImage(flipImage)}
+              />
+            </div>
+          </div>
+          <div className="pointer-events-none absolute inset-0 z-[1] bg-black bg-opacity-0 transition-all duration-300 group-hover:bg-opacity-20" />
           <div className="absolute top-2 left-2 z-10">
             <ProductCardDeleteButton
               productId={product.id}

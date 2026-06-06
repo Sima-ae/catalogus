@@ -19,6 +19,16 @@ function collatorLocale(locale: string): string {
   return COLLATOR_LOCALE[locale] ?? locale
 }
 
+/** Sentence-case legacy ALL CAPS category names when no translation exists. */
+function humanizeAllCapsCategoryLabel(raw: string): string {
+  const letters = raw.replace(/[^A-Za-zÀ-ÿ]/g, '')
+  if (letters.length > 0 && letters === letters.toUpperCase()) {
+    const lower = raw.toLowerCase()
+    return lower.charAt(0).toUpperCase() + lower.slice(1)
+  }
+  return raw
+}
+
 /**
  * Translate category names from the DB/API for the active shop locale.
  * Uses static i18n bundles first, then auto-generated DB translations.
@@ -38,7 +48,7 @@ export function getTopCategoryLabel(
   const key = categoryI18nKey(raw)
   const translated = t(key)
   if (translated && translated !== key) return translated
-  return raw
+  return humanizeAllCapsCategoryLabel(raw)
 }
 
 /** Sort shop category ids: "All" first, then A–Z by translated label for the active locale. */

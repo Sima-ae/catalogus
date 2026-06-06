@@ -6,14 +6,9 @@ export function categoryI18nKey(categoryName: string): string {
   return slug ? `category.${slug}` : 'category.unknown'
 }
 
-/** Preserve ALL CAPS style when the source category name uses it. */
-export function formatCategoryTranslatedLabel(sourceName: string, translated: string): string {
-  const source = String(sourceName ?? '').trim()
+/** Use translated label as-is (do not mirror ALL CAPS from legacy DB names). */
+export function formatCategoryTranslatedLabel(_sourceName: string, translated: string): string {
   const text = String(translated ?? '').trim()
-  if (!text) return source
-  const letters = source.replace(/[^A-Za-zÀ-ÿ]/g, '')
-  if (letters.length > 0 && letters === letters.toUpperCase()) {
-    return text.toUpperCase()
-  }
-  return text
+  if (text) return text
+  return String(_sourceName ?? '').trim()
 }
