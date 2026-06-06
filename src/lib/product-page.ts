@@ -68,6 +68,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     galleryRaw,
     sourceUrl
   )
+  const fullGallery = main ? [main, ...(gallery ?? [])] : [...(gallery ?? [])]
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []
@@ -109,7 +110,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     features,
     requirements,
     image_url: main,
-    gallery: gallery ?? [],
+    gallery: fullGallery,
     availableSizes: parsePipeField(raw.available_sizes) ?? [],
     availableColors: parsePipeField(raw.available_colors) ?? [],
     demo_url: String(raw.demo_url || '').trim() || appPath('/contact'),
