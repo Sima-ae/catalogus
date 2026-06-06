@@ -131,8 +131,8 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
           onClick={saveListingScroll}
         >
           <h3 className={`font-semibold text-xs sm:text-sm line-clamp-2 leading-tight transition-colors ${
-            theme === 'dark' 
-              ? 'group-hover:text-primary-500' 
+            theme === 'dark'
+              ? 'text-gray-100 group-hover:text-white'
               : 'group-hover:text-primary-600'
           }`}>
             {product.name}

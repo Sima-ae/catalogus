@@ -61,7 +61,7 @@ export default function LanguageSwitcher({
       aria-haspopup="dialog"
     >
       <RoundFlag code={currentCode} size={flagSize} />
-      <span className={codeClass}>{slugLabel}</span>
+      <span className={`${codeClass} dark:text-black`}>{slugLabel}</span>
     </button>
   )
 }
