@@ -1,7 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { getCatalogImagesRoots } from '@/lib/catalog-images-root'
-import { normalizeProductImageUrl } from '@/lib/product-image-url'
 
 /** Path segment under the images root, e.g. `imports/woocommerce/wc-3693/001.jpg`. */
 export function catalogImageRelativePath(relativePathFromImagesRoot: string): string {
@@ -13,9 +12,7 @@ export function catalogImageRelativePath(relativePathFromImagesRoot: string): st
 }
 
 export function catalogImagePublicPath(relativePathFromImagesRoot: string): string {
-  return normalizeProductImageUrl(
-    `/images/${catalogImageRelativePath(relativePathFromImagesRoot)}`
-  )
+  return `/images/${catalogImageRelativePath(relativePathFromImagesRoot)}`
 }
 
 export async function writeCatalogImageFile(

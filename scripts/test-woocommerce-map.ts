@@ -94,7 +94,7 @@ import {
 assert.equal(wooImportMirrorRelativeDir('wc-3693'), 'imports/woocommerce/wc-3693')
 assert.equal(
   wooImportMirrorPathForIndex('wc-3693', 1, 'jpg'),
-  'https://superclones.cloud/images/imports/woocommerce/wc-3693/001.jpg'
+  '/images/imports/woocommerce/wc-3693/001.jpg'
 )
 assert.equal(isWooImportMirrorPath('/images/imports/woocommerce/wc-3693/001.jpg'), true)
 assert.equal(isWooImportMirrorPath('https://stuntxl.com/wp-content/uploads/a.jpg'), false)

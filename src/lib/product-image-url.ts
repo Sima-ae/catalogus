@@ -1,11 +1,8 @@
 /**
  * Product images live on the VPS under public_html/images → URL /images/...
- * Always use the public site origin for these paths (not localhost in dev).
+ * Store and serve catalog images as site-relative paths so dev (localhost) and
+ * production (superclones.cloud) both load files from the same host.
  */
-const CATALOG_IMAGE_ORIGIN = (
-  process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() || 'https://superclones.cloud'
-).replace(/\/$/, '')
-
 function extractImagePath(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -28,21 +25,25 @@ function extractImagePath(raw: string): string | null {
     }
   }
 
-  return trimmed
+  if (trimmed.includes('/images/') || trimmed.startsWith('images/')) {
+    return trimmed
+  }
+
+  return null
 }
 
-function normalizeProductImagePath(path: string, origin: string): string {
+function toCatalogImagePath(path: string): string {
   let p = path.replace(/\\/g, '/')
   p = p.replace(/^\/?public_html\//i, '/')
   if (!p.startsWith('/')) p = `/${p}`
-  if (p.startsWith('/images/')) return `${origin}${p}`
-  if (p.startsWith('images/')) return `${origin}/${p}`
-  return `${origin}${p}`
+  if (p.startsWith('/images/')) return p
+  if (p.startsWith('images/')) return `/${p}`
+  return p
 }
 
 /**
- * Canonical public URL for catalog images (/images/... on superclones.cloud).
- * External URLs (e.g. picsum.photos) are returned unchanged.
+ * Canonical URL for product images. Catalog /images/... paths are site-relative;
+ * external URLs (Yupoo CDN, etc.) are returned unchanged.
  */
 export function normalizeProductImageUrl(url: string | null | undefined): string {
   const raw = String(url ?? '').trim()
@@ -50,7 +51,7 @@ export function normalizeProductImageUrl(url: string | null | undefined): string
 
   const catalogPath = extractImagePath(raw)
   if (catalogPath) {
-    return normalizeProductImagePath(catalogPath, CATALOG_IMAGE_ORIGIN)
+    return toCatalogImagePath(catalogPath)
   }
 
   if (/^https?:\/\//i.test(raw)) {
@@ -58,10 +59,26 @@ export function normalizeProductImageUrl(url: string | null | undefined): string
   }
 
   if (raw.includes('/images/') || raw.startsWith('images/')) {
-    return normalizeProductImagePath(raw, CATALOG_IMAGE_ORIGIN)
+    return toCatalogImagePath(raw)
   }
 
   return raw
+}
+
+/** Absolute URL when needed (emails, OG tags). Relative /images/ paths use app origin. */
+export function absoluteCatalogImageUrl(url: string | null | undefined): string {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized) return ''
+  if (/^https?:\/\//i.test(normalized)) return normalized
+  if (normalized.startsWith('/images/')) {
+    const origin = (
+      process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      'https://superclones.cloud'
+    ).replace(/\/$/, '')
+    return `${origin}${normalized}`
+  }
+  return normalized
 }
 
 export function isYupooImageUrl(url: string | null | undefined): boolean {
@@ -125,7 +142,11 @@ function unwrapDisplayImageUrl(url: string): string {
   const raw = url.trim()
   if (!raw.includes('/api/yupoo-image')) return raw
   try {
-    const parsed = new URL(raw, CATALOG_IMAGE_ORIGIN)
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+      process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
+      'https://superclones.cloud'
+    const parsed = new URL(raw, origin)
     const inner = parsed.searchParams.get('url')
     return inner ? decodeURIComponent(inner) : raw
   } catch {
@@ -285,6 +306,7 @@ export function resolveProductDisplayImages(
 export function isCatalogHostedImage(url: string | null | undefined): boolean {
   const normalized = normalizeProductImageUrl(url)
   if (!normalized) return false
+  if (normalized.startsWith('/images/')) return true
   try {
     const u = new URL(normalized)
     const host = u.hostname.toLowerCase()
