@@ -82,6 +82,7 @@ async function main() {
   console.log('  Yangli:', await countPattern('Yangli'))
   console.log('  Niuli:', await countPattern('Niuli'))
   console.log('  Guanhui foreign trade:', await countPattern('Guanhui foreign trade'))
+  console.log('  Gjiaquan:', await countPattern('Gjiaquan'))
 
   if (!dryRun) {
     console.log('\nBulk SQL: removing trailing "Supplier Product Catalog"…')
@@ -156,6 +157,7 @@ async function main() {
   console.log('  Guangtai:', await countPattern('Guangtai'))
   console.log('  Yangli:', await countPattern('Yangli'))
   console.log('  Niuli:', await countPattern('Niuli'))
+  console.log('  Gjiaquan:', await countPattern('Gjiaquan'))
 }
 
 main()

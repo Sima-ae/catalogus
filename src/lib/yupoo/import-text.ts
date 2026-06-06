@@ -409,7 +409,7 @@ function isSupplierParenLabel(inner: string, brandName?: string | null): boolean
   const brand = String(brandName ?? '').trim()
   if (brand && label.toLowerCase() === brand.toLowerCase()) return false
   if (/[\u4e00-\u9fff]/.test(label)) return true
-  if (/yangli|niuli|guangtai|keshi|guangzhou|quanyangli|quanniuli|southern\s*pk/i.test(label)) return true
+  if (/yangli|niuli|guangtai|keshi|guangzhou|quanyangli|quanniuli|gjiaquan|southern\s*pk/i.test(label)) return true
   if (/official\s+website|1\s*:\s*1|high[- ]?end|high[- ]?quality/i.test(label)) return true
   return false
 }
@@ -459,7 +459,7 @@ export function stripSupplierBoilerplateFromDescription(
   result = result.replace(/\(\s*high[- ]?end\s+yangli\s*\)/gi, ' ')
   result = result.replace(/\(\s*[\u4e00-\u9fff]{1,12}\s*\)/g, ' ')
   result = result.replace(/^high[- ]?quality\s+niuli\s+/i, '')
-  result = result.replace(/^(?:yangli|niuli|guangtai|quanniuli|quanyangli)\s+/i, '')
+  result = result.replace(/^(?:yangli|niuli|guangtai|quanniuli|quanyangli|gjiaquan)\s+/i, '')
   result = result.replace(/^southern\s+pk\b[:\s-]*/i, '')
 
   result = result
@@ -486,6 +486,32 @@ export function stripGuanhuiForeignTrade(text: string): string {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !/^guanhui\s+foreign\s+trade$/i.test(line) && line !== '冠汇外贸')
+    .join('\n')
+
+  result = result
+    .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
+/** Remove Yupoo supplier shop label "Gjiaquan" from descriptions. */
+export function stripGjiaquan(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/\bG\s*Jiaquan\b/gi, ' ')
+  result = result.replace(/\bGjiaquan\b/gi, ' ')
+  result = result.replace(/\(\s*Gjiaquan\s*\)/gi, ' ')
+  result = result.replace(/\(\s*G\s*Jiaquan\s*\)/gi, ' ')
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^gjiaquan\b/i.test(line))
     .join('\n')
 
   result = result
@@ -528,6 +554,7 @@ export function cleanImportDescription(
   let result = stripChineseIconsAndDecorations(text)
   result = stripDuplicateSkuPrefix(result, title)
   result = stripProductTrademarkBoilerplate(result, brandName)
+  result = stripGjiaquan(result)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripGuanhuiForeignTrade(result)
   result = normalizeDescriptionYears(result)
