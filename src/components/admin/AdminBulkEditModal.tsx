@@ -62,6 +62,14 @@ function namesFromCounts(counts: Map<string, number>): Set<string> {
   return names
 }
 
+function setIdsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false
+  for (const id of Array.from(a)) {
+    if (!b.has(id)) return false
+  }
+  return true
+}
+
 function CurrentValues({
   label,
   counts,
@@ -124,7 +132,8 @@ export default function AdminBulkEditModal({
   const checkboxClass =
     'h-4 w-4 rounded border-gray-400 accent-primary-600 text-primary-600 focus:ring-primary-500'
 
-  const [extraCategoryIds, setExtraCategoryIds] = useState<Set<string>>(new Set())
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set())
+  const [categoriesTouched, setCategoriesTouched] = useState(false)
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set())
   const [brandsTouched, setBrandsTouched] = useState(false)
   const [changePrice, setChangePrice] = useState(false)
@@ -135,7 +144,8 @@ export default function AdminBulkEditModal({
 
   useEffect(() => {
     if (!open) return
-    setExtraCategoryIds(new Set())
+    setSelectedCategoryIds(new Set(currentCategoryIds))
+    setCategoriesTouched(false)
     setSelectedBrands(new Set(currentBrandNames))
     setBrandsTouched(false)
     setChangePrice(false)
@@ -143,7 +153,7 @@ export default function AdminBulkEditModal({
     setChangeOriginalPrice(false)
     setOriginalPrice('')
     setStatus('')
-  }, [open, currentBrandNames])
+  }, [open, currentCategoryIds, currentBrandNames])
 
   useEffect(() => {
     if (!open) return
@@ -167,14 +177,13 @@ export default function AdminBulkEditModal({
 
   if (!open) return null
 
-  const isCategoryChecked = (id: string) =>
-    currentCategoryIds.has(id) || extraCategoryIds.has(id)
+  const isCategoryChecked = (id: string) => selectedCategoryIds.has(id)
 
   const isBrandChecked = (name: string) => selectedBrands.has(name)
 
   const toggleCategory = (id: string) => {
-    if (currentCategoryIds.has(id)) return
-    setExtraCategoryIds((prev) => {
+    setCategoriesTouched(true)
+    setSelectedCategoryIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -193,9 +202,9 @@ export default function AdminBulkEditModal({
   }
 
   const buildCategoryValue = (): string | undefined => {
-    if (extraCategoryIds.size === 0) return undefined
-    const all = new Set([...Array.from(currentCategoryIds), ...Array.from(extraCategoryIds)])
-    return joinCategoryStorageLabels(all, categories)
+    if (!categoriesTouched || setIdsEqual(selectedCategoryIds, currentCategoryIds)) return undefined
+    if (selectedCategoryIds.size === 0) return undefined
+    return joinCategoryStorageLabels(selectedCategoryIds, categories)
   }
 
   const buildBrandValue = (): string | null | undefined => {
@@ -207,6 +216,8 @@ export default function AdminBulkEditModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const patch: BulkEditPayload = {}
+
+    if (categorySelectionInvalid) return
 
     const categoryValue = buildCategoryValue()
     if (categoryValue) patch.category = categoryValue
@@ -236,8 +247,12 @@ export default function AdminBulkEditModal({
     void onApply(patch)
   }
 
+  const categoriesChanged =
+    categoriesTouched && !setIdsEqual(selectedCategoryIds, currentCategoryIds)
+  const categorySelectionInvalid = categoriesChanged && selectedCategoryIds.size === 0
+
   const hasChanges =
-    extraCategoryIds.size > 0 ||
+    categoriesChanged ||
     brandsTouched ||
     changePrice ||
     changeOriginalPrice ||
@@ -302,7 +317,7 @@ export default function AdminBulkEditModal({
             <fieldset className="space-y-2">
               <legend className={`text-sm font-medium ${label}`}>Set category</legend>
               <p className={`text-xs ${muted}`}>
-                Current categories stay checked. Add more to combine (e.g. SHOES / BAGS).
+                Check or uncheck categories. Combine multiple with / (e.g. SHOES / BAGS).
               </p>
               <SearchableCheckboxScroller
                 items={categories.map((c) => ({
@@ -320,12 +335,9 @@ export default function AdminBulkEditModal({
                   const productCount = countProductsWithCategoryId(selectedProducts, c.id, categories)
                   const isActiveCurrent = isCurrent && productCount === count
                   const checked = isCategoryChecked(c.id)
-                  const locked = isCurrent
                   return (
                     <label
-                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${
-                        locked ? 'cursor-default' : 'cursor-pointer'
-                      } ${
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
                         checked
                           ? isDark
                             ? 'bg-primary-500/20'
@@ -337,7 +349,7 @@ export default function AdminBulkEditModal({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleCategory(c.id)}
-                        disabled={busy || locked}
+                        disabled={busy}
                         className={checkboxClass}
                       />
                       <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -414,15 +426,20 @@ export default function AdminBulkEditModal({
               ) : null}
             </fieldset>
 
-            {extraCategoryIds.size > 0 ? (
+            {categoriesChanged ? (
               <p className={`text-xs ${muted}`}>
                 Will set category to:{' '}
                 <strong className={isDark ? 'text-gray-200' : 'text-gray-800'}>
-                  {joinCategoryStorageLabels(
-                    new Set([...Array.from(currentCategoryIds), ...Array.from(extraCategoryIds)]),
-                    categories
-                  )}
+                  {selectedCategoryIds.size === 0
+                    ? '— select at least one category —'
+                    : joinCategoryStorageLabels(selectedCategoryIds, categories)}
                 </strong>
+              </p>
+            ) : null}
+
+            {categorySelectionInvalid ? (
+              <p className={`text-xs ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                Select at least one category, or cancel to keep current categories.
               </p>
             ) : null}
 
@@ -501,7 +518,7 @@ export default function AdminBulkEditModal({
             <button type="button" className="btn-secondary" disabled={busy} onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={busy || !hasChanges}>
+            <button type="submit" className="btn-primary" disabled={busy || !hasChanges || categorySelectionInvalid}>
               {busy ? 'Saving…' : `Apply to ${count} product${count === 1 ? '' : 's'}`}
             </button>
           </div>
