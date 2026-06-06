@@ -1,3 +1,4 @@
+import { Agent, fetch as undiciFetch } from 'undici'
 import type { WooStoreProduct, WooProductListItem } from '@/lib/woocommerce/types'
 import {
   decodeWooHtmlEntities,
@@ -8,6 +9,16 @@ import {
 } from '@/lib/woocommerce/types'
 
 const DEFAULT_PER_PAGE = 100
+
+/** LiteSpeed/Woo hosts often break HTTP/1.1 (Content-Length + Transfer-Encoding); prefer HTTP/2. */
+const wooStoreFetchAgent = new Agent({ allowH2: true })
+
+async function wooStoreFetch(url: string, init?: RequestInit) {
+  return undiciFetch(url, {
+    ...(init as Parameters<typeof undiciFetch>[1]),
+    dispatcher: wooStoreFetchAgent,
+  })
+}
 
 /** Site root only (e.g. https://stuntxl.com) — never a /product/... path. */
 export function normalizeWooCommerceStoreUrl(storeUrl: string): string {
@@ -37,9 +48,9 @@ async function fetchStoreJson<T>(
   url: string,
   init?: RequestInit
 ): Promise<{ data: T; total: number; totalPages: number }> {
-  let res: Response
+  let res: Awaited<ReturnType<typeof wooStoreFetch>>
   try {
-    res = await fetch(url, {
+    res = await wooStoreFetch(url, {
       ...init,
       headers: {
         Accept: 'application/json',
