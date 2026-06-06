@@ -57,18 +57,24 @@ export default function FacebookPostImportPanel({
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
 
   const brandOrder = useMemo(() => brands.map((b) => b.name), [brands])
   const brandLabel = joinBrandNames(selectedBrands, brandOrder)
 
-  const canImport =
-    postUrl.trim() &&
-    sku.trim() &&
-    categoryId &&
-    selectedBrands.size > 0 &&
-    price.trim() !== '' &&
-    Number.isFinite(Number(price)) &&
-    Number(price) >= 0
+  const missingImportFields = (): string[] => {
+    const missing: string[] = []
+    if (!postUrl.trim()) missing.push('post URL')
+    if (price.trim() === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
+      missing.push('price')
+    }
+    if (!sku.trim()) missing.push('SKU')
+    if (!categoryId) missing.push('category')
+    if (selectedBrands.size === 0) missing.push('brand')
+    return missing
+  }
+
+  const canImport = missingImportFields().length === 0
 
   const handlePreview = async () => {
     const url = postUrl.trim()
@@ -104,9 +110,16 @@ export default function FacebookPostImportPanel({
   }
 
   const handleImport = async () => {
-    if (!canImport) return
+    const missing = missingImportFields()
+    if (missing.length) {
+      const message = `Fill in required fields: ${missing.join(', ')}`
+      setImportMessage(message)
+      onError?.(message)
+      return
+    }
 
     setImporting(true)
+    setImportMessage(null)
     try {
       const categoryOption = categories.find((c) => c.id === categoryId)
       const res = await fetch(
@@ -122,7 +135,7 @@ export default function FacebookPostImportPanel({
             price: Number(price),
             sku: sku.trim(),
             category_id: categoryId,
-            category: categoryOption?.listLabel || categoryOption?.name || '',
+            category: categoryOption?.listLabel || categoryOption?.label || '',
             brand: brandLabel || null,
           }),
         }
@@ -130,22 +143,32 @@ export default function FacebookPostImportPanel({
       const data = await parseJsonResponse<{
         error?: string
         kind?: 'import-facebook-post'
-        job?: { id: string }
+        job?: { id: string; status?: string }
         postUrl?: string
         workerCommand?: string
       }>(res)
       if (!res.ok) throw new Error(data.error || 'Import failed')
-      if (data.kind === 'import-facebook-post' && data.job && data.workerCommand) {
-        onSyncInfo?.({
-          kind: 'import-facebook-post',
-          job: data.job,
-          postUrl: data.postUrl || postUrl.trim(),
-          workerCommand: data.workerCommand,
-        })
+      if (!data.job?.id || !data.workerCommand) {
+        throw new Error('Server did not return a job ID — deploy the latest import-facebook-post API')
       }
+
+      onSyncInfo?.({
+        kind: 'import-facebook-post',
+        job: { id: data.job.id },
+        postUrl: data.postUrl || postUrl.trim(),
+        workerCommand: data.workerCommand,
+      })
+      setImportMessage(`Queued job ${data.job.id}`)
       onQueued?.()
     } catch (e) {
-      onError?.(e instanceof Error ? e.message : 'Import failed')
+      const message =
+        e instanceof Error
+          ? e.message === 'Failed to fetch' || e.message === 'fetch failed'
+            ? 'Could not reach the server. Check your connection or deploy the latest import-facebook-post API.'
+            : e.message
+          : 'Import failed'
+      setImportMessage(message)
+      onError?.(message)
     } finally {
       setImporting(false)
     }
@@ -234,6 +257,20 @@ export default function FacebookPostImportPanel({
           )}
         </div>
       ) : null}
+      {!canImport ? (
+        <p className={`text-xs ${t.muted}`}>
+          Required before import: {missingImportFields().join(', ')}
+        </p>
+      ) : null}
+      {importMessage ? (
+        <p
+          className={`text-xs ${
+            importMessage.startsWith('Queued job') ? 'text-green-400' : 'text-red-400'
+          }`}
+        >
+          {importMessage}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -246,7 +283,7 @@ export default function FacebookPostImportPanel({
         <button
           type="button"
           className="btn-secondary text-xs"
-          disabled={disabled || importing || !canImport}
+          disabled={disabled || importing}
           onClick={() => void handleImport()}
         >
           {importing ? 'Queuing…' : 'Import post'}

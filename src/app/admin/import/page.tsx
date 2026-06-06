@@ -680,15 +680,20 @@ export default function AdminImportPage() {
                         }
                         onError={setError}
                         onSyncInfo={(info) => {
+                          setError('')
+                          setSyncInfo(null)
+                          setCopiedCommand(false)
+                          setCopiedJobId(false)
                           setSyncInfo({
                             kind: info.kind,
                             job: { id: info.job.id, status: 'queued' },
                             workerCommand: info.workerCommand,
                             postUrl: info.postUrl,
                           })
-                          setCopiedCommand(false)
-                          setCopiedJobId(false)
                           loadSources()
+                          if (typeof window !== 'undefined') {
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                          }
                         }}
                       />
                     ) : null}

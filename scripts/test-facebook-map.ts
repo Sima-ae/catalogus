@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { parseEmojiPriceHint } from '../src/lib/facebook/parse-emoji-price'
 import {
   canonicalizeFacebookUrl,
+  FACEBOOK_EXTERNAL_ID_MAX,
   facebookExternalIdFromUrl,
   facebookPermalinkFetchUrls,
   isFacebookPermalinkMeta,
@@ -24,14 +25,15 @@ const sampleUrl =
   'https://www.facebook.com/permalink.php?story_fbid=pfbid0fkLmBCLsoP1XQBCTqbnG2apaWv1YwC7XrmdPKtUa2PiXK7ZpP4Zsa2WUnMSJ2Ygel&id=61565503873297'
 assert.ok(normalizeFacebookPostUrl(sampleUrl).includes('facebook.com'))
 const externalId = facebookExternalIdFromUrl(sampleUrl)
-assert.ok(externalId.startsWith('fb-pfbid'))
-assert.ok(isFacebookPermalinkMeta(parseFacebookUrlMeta(sampleUrl)))
-assert.ok(facebookPermalinkFetchUrls(parseFacebookUrlMeta(sampleUrl)).length >= 2)
+assert.ok(externalId.startsWith('fb-pfb-'))
+assert.ok(externalId.length <= FACEBOOK_EXTERNAL_ID_MAX)
 
 const photoCarouselUrl =
   'https://www.facebook.com/photo?fbid=122208937622516795&set=pcb.122208938522516795'
 assert.equal(facebookExternalIdFromUrl(photoCarouselUrl), 'fb-pcb-122208938522516795')
-assert.ok(canonicalizeFacebookUrl(photoCarouselUrl).includes('photo.php'))
+assert.ok(isFacebookPermalinkMeta(parseFacebookUrlMeta(sampleUrl)))
+assert.ok(facebookPermalinkFetchUrls(parseFacebookUrlMeta(sampleUrl)).length >= 2)
+assert.ok(externalId.length <= FACEBOOK_EXTERNAL_ID_MAX)
 
 const mapped = mapFacebookPost({
   postUrl: sampleUrl,

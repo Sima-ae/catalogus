@@ -38,6 +38,9 @@ function parseManualBody(body: unknown): FacebookManualImportFields | { error: s
   if (!category_id) {
     return { error: 'Category is required' }
   }
+  if (!brandRaw) {
+    return { error: 'Brand is required' }
+  }
 
   return {
     price,

@@ -13,6 +13,17 @@ function hashUrl(url: string): string {
   return createHash('sha256').update(url).digest('hex')
 }
 
+/** import_job_items.album_id and products.source_album_id are VARCHAR(64). */
+export const FACEBOOK_EXTERNAL_ID_MAX = 64
+
+function fitFacebookExternalId(raw: string): string {
+  const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, '')
+  if (safe.length <= FACEBOOK_EXTERNAL_ID_MAX) return safe
+  const prefix = safe.slice(0, 24)
+  const suffix = hashUrl(safe).slice(0, FACEBOOK_EXTERNAL_ID_MAX - prefix.length - 1)
+  return `${prefix}-${suffix}`
+}
+
 /** Normalize and validate a Facebook post URL. */
 export function normalizeFacebookPostUrl(raw: string): string {
   const trimmed = raw.trim()
@@ -93,8 +104,11 @@ export function facebookExternalIdFromUrl(raw: string): string {
   if (meta.pcbPostId) return `fb-pcb-${meta.pcbPostId}`
 
   if (meta.storyFbid) {
-    const safe = meta.storyFbid.replace(/[^a-zA-Z0-9_-]+/g, '').slice(0, 80)
-    return `fb-${safe}`
+    const key = `${meta.storyFbid}:${meta.pageId ?? ''}`
+    const candidate = `fb-pfb-${meta.storyFbid.replace(/[^a-zA-Z0-9_-]+/g, '')}`
+    return fitFacebookExternalId(
+      candidate.length <= FACEBOOK_EXTERNAL_ID_MAX ? candidate : `fb-pfb-${hashUrl(key)}`
+    )
   }
 
   const postsMatch = url.pathname.match(/\/posts\/(\d+)/i)
@@ -106,5 +120,5 @@ export function facebookExternalIdFromUrl(raw: string): string {
     return `fb-page-${meta.pageId}-${hashUrl(url.href).slice(0, 12)}`
   }
 
-  return `fb-${hashUrl(url.href).slice(0, 24)}`
+  return fitFacebookExternalId(`fb-${hashUrl(url.href).slice(0, 24)}`)
 }
