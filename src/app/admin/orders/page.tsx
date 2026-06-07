@@ -61,7 +61,7 @@ export default function AdminOrdersPage() {
   const safePage = Math.min(Math.max(1, currentPage), totalPages)
 
   return (
-    <AdminPageShell title="Orders">
+    <AdminPageShell titleKey="admin.nav.orders">
       {loading ? (
         <p className={t.muted}>Loading...</p>
       ) : totalItems === 0 ? (

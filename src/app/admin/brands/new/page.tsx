@@ -21,7 +21,7 @@ function NewBrandForm() {
 
 export default function NewBrandPage() {
   return (
-    <AdminPageShell title="Add brand">
+    <AdminPageShell titleKey="admin.page.addBrand">
       <Suspense fallback={<p className="text-gray-600 dark:text-gray-400">Loading...</p>}>
         <NewBrandForm />
       </Suspense>

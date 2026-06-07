@@ -9,7 +9,7 @@ export default function ViewUserPage() {
   const id = typeof params.id === 'string' ? params.id : ''
 
   return (
-    <AdminPageShell title="View user">
+    <AdminPageShell titleKey="admin.page.viewUser">
       <UserForm userId={id} readOnly />
     </AdminPageShell>
   )

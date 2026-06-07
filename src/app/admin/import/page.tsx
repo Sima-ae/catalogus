@@ -454,14 +454,14 @@ export default function AdminImportPage() {
 
   if (!isAdmin) {
     return (
-      <AdminPageShell title="Yupoo Import">
+      <AdminPageShell titleKey="admin.page.yupooImport">
         <p className="text-red-400">Only admin users can view this page.</p>
       </AdminPageShell>
     )
   }
 
   return (
-    <AdminPageShell title="Import">
+    <AdminPageShell titleKey="admin.nav.import">
       <div className="flex flex-wrap gap-3 mb-6">
         <Link href={appPath('/admin/import/review')} className="btn-secondary">
           Review import queue

@@ -84,14 +84,14 @@ export default function AdminBrandsPage() {
 
   if (!isAdmin) {
     return (
-      <AdminPageShell title="Brands">
+      <AdminPageShell titleKey="admin.nav.brands">
         <p className="text-red-400">Only admin users can view this page.</p>
       </AdminPageShell>
     )
   }
 
   return (
-    <AdminPageShell title="Brands">
+    <AdminPageShell titleKey="admin.nav.brands">
       <div className="flex justify-end mb-4">
         <Link href={appPath('/admin/brands/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />

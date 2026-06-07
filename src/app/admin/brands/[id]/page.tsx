@@ -9,7 +9,7 @@ export default function ViewBrandPage() {
   const id = typeof params.id === 'string' ? params.id : ''
 
   return (
-    <AdminPageShell title="View brand">
+    <AdminPageShell titleKey="admin.page.viewBrand">
       <BrandForm brandId={id} readOnly />
     </AdminPageShell>
   )

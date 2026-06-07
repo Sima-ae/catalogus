@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/theme'
 import { appPath, isAppPath } from '@/lib/paths'
 import { APP_COPYRIGHT } from '@/lib/brand'
 import BrandLogo from '@/components/brand/BrandLogo'
+import { useI18n } from '@/lib/i18n-context'
 import {
   HomeIcon,
   CubeIcon,
@@ -23,22 +24,23 @@ import {
 } from '@heroicons/react/24/outline'
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: HomeIcon },
-  { name: 'Pricelist', href: '/pricelist', icon: DocumentTextIcon },
-  { name: 'Products', href: '/admin/products', icon: CubeIcon },
-  { name: 'Trash', href: '/admin/trash', icon: TrashIcon },
-  { name: 'Orders', href: '/admin/orders', icon: ShoppingCartIcon },
-  { name: 'Users', href: '/admin/users', icon: UsersIcon },
-  { name: 'Categories', href: '/admin/categories', icon: TagIcon },
-  { name: 'Brands', href: '/admin/brands', icon: BuildingStorefrontIcon },
-  { name: 'Import', href: '/admin/import', icon: ArrowDownTrayIcon },
-  { name: 'Reviews', href: '/admin/reviews', icon: DocumentTextIcon },
-  { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
-  { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
-]
+  { nameKey: 'admin.nav.dashboard', href: '/admin', icon: HomeIcon },
+  { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon },
+  { nameKey: 'admin.nav.products', href: '/admin/products', icon: CubeIcon },
+  { nameKey: 'admin.nav.trash', href: '/admin/trash', icon: TrashIcon },
+  { nameKey: 'admin.nav.orders', href: '/admin/orders', icon: ShoppingCartIcon },
+  { nameKey: 'admin.nav.users', href: '/admin/users', icon: UsersIcon },
+  { nameKey: 'admin.nav.categories', href: '/admin/categories', icon: TagIcon },
+  { nameKey: 'admin.nav.brands', href: '/admin/brands', icon: BuildingStorefrontIcon },
+  { nameKey: 'admin.nav.import', href: '/admin/import', icon: ArrowDownTrayIcon },
+  { nameKey: 'admin.nav.reviews', href: '/admin/reviews', icon: DocumentTextIcon },
+  { nameKey: 'admin.nav.analytics', href: '/admin/analytics', icon: ChartBarIcon },
+  { nameKey: 'admin.nav.settings', href: '/admin/settings', icon: Cog6ToothIcon },
+] as const
 
 export function AdminMobileMenuButton({ onClick }: { onClick: () => void }) {
   const { theme } = useTheme()
+  const { t: tr } = useI18n()
   return (
     <button
       type="button"
@@ -46,7 +48,7 @@ export function AdminMobileMenuButton({ onClick }: { onClick: () => void }) {
       className={`lg:hidden p-2 rounded-lg ${
         theme === 'dark' ? 'hover:bg-dark-700 text-white' : 'hover:bg-gray-100 text-gray-900'
       }`}
-      aria-label="Open admin menu"
+      aria-label={tr('admin.openMenu')}
     >
       <Bars3Icon className="w-6 h-6" />
     </button>
@@ -62,6 +64,7 @@ export default function AdminSidebar({
 }) {
   const pathname = usePathname()
   const { theme } = useTheme()
+  const { t: tr } = useI18n()
   const isDark = theme === 'dark'
 
   const shellClass = isDark
@@ -83,7 +86,7 @@ export default function AdminSidebar({
               type="button"
               onClick={onMobileClose}
               className={`lg:hidden p-2 rounded-lg ${isDark ? 'hover:bg-dark-700' : 'hover:bg-gray-100'}`}
-              aria-label="Close"
+              aria-label={tr('admin.closeMenu')}
             >
               <XMarkIcon className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
             </button>
@@ -96,7 +99,7 @@ export default function AdminSidebar({
           const isActive = isAppPath(pathname, item.href)
           return (
             <Link
-              key={item.name}
+              key={item.nameKey}
               href={appPath(item.href)}
               onClick={onMobileClose}
               className={`flex items-center px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
@@ -104,14 +107,14 @@ export default function AdminSidebar({
               }`}
             >
               <item.icon className="w-5 h-5 mr-3 shrink-0" />
-              <span>{item.name}</span>
+              <span>{tr(item.nameKey)}</span>
             </Link>
           )
         })}
       </nav>
 
       <div className={`mt-6 pt-6 border-t ${borderClass}`}>
-        <h3 className={`text-sm font-medium mb-3 ${mutedText}`}>Quick Actions</h3>
+        <h3 className={`text-sm font-medium mb-3 ${mutedText}`}>{tr('admin.quickActions')}</h3>
         <div className="space-y-2">
           <Link
             href={appPath('/admin/products/new')}
@@ -119,7 +122,7 @@ export default function AdminSidebar({
             className={`flex items-center px-3 py-2 rounded-lg transition-colors text-sm ${navIdle}`}
           >
             <CubeIcon className="w-4 h-4 mr-3" />
-            Add Product
+            {tr('admin.addProduct')}
           </Link>
           <Link
             href={appPath('/admin/categories/new')}
@@ -127,7 +130,7 @@ export default function AdminSidebar({
             className={`flex items-center px-3 py-2 rounded-lg transition-colors text-sm ${navIdle}`}
           >
             <TagIcon className="w-4 h-4 mr-3" />
-            Add Category
+            {tr('admin.addCategory')}
           </Link>
         </div>
       </div>
@@ -141,14 +144,14 @@ export default function AdminSidebar({
             onClick={onMobileClose}
             className={`block transition-colors ${isDark ? 'hover:text-white' : 'hover:text-gray-900'}`}
           >
-            Visit Site
+            {tr('admin.visitSite')}
           </Link>
           <Link
             href={appPath('/admin/settings')}
             onClick={onMobileClose}
             className={`block transition-colors ${isDark ? 'hover:text-white' : 'hover:text-gray-900'}`}
           >
-            Settings
+            {tr('admin.nav.settings')}
           </Link>
         </div>
         <div className="mt-4">
@@ -166,7 +169,7 @@ export default function AdminSidebar({
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          aria-label="Close overlay"
+          aria-label={tr('admin.closeOverlay')}
           onClick={onMobileClose}
         />
       )}

@@ -286,7 +286,7 @@ export default function AdminTrashPage() {
   }, [currentPage, safePage])
 
   return (
-    <AdminPageShell title="Trash">
+    <AdminPageShell titleKey="admin.nav.trash">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <p className={`text-sm max-w-xl ${t.muted}`}>
           Products moved to trash are hidden from the shop. Restore them to publish again

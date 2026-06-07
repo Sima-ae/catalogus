@@ -9,7 +9,7 @@ export default function EditUserPage() {
   const id = typeof params.id === 'string' ? params.id : ''
 
   return (
-    <AdminPageShell title="Edit user">
+    <AdminPageShell titleKey="admin.page.editUser">
       <UserForm userId={id} />
     </AdminPageShell>
   )

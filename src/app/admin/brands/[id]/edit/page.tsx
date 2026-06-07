@@ -9,7 +9,7 @@ export default function EditBrandPage() {
   const id = typeof params.id === 'string' ? params.id : ''
 
   return (
-    <AdminPageShell title="Edit brand">
+    <AdminPageShell titleKey="admin.page.editBrand">
       <BrandForm brandId={id} />
     </AdminPageShell>
   )

@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <AdminPageShell title="Settings">
+    <AdminPageShell titleKey="admin.nav.settings">
       <SiteAccessSettings />
       <CatalogModeSettings />
       <ProductCardDisplaySettings />

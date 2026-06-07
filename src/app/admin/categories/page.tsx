@@ -88,14 +88,14 @@ export default function AdminCategoriesPage() {
 
   if (!isAdmin) {
     return (
-      <AdminPageShell title="Categories">
+      <AdminPageShell titleKey="admin.nav.categories">
         <p className="text-red-400">Only admin users can view this page.</p>
       </AdminPageShell>
     )
   }
 
   return (
-    <AdminPageShell title="Categories">
+    <AdminPageShell titleKey="admin.nav.categories">
       <div className="flex justify-end mb-4">
         <Link href={appPath('/admin/categories/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />

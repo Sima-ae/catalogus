@@ -41,7 +41,7 @@ import { getGateMessages } from '@/lib/i18n-gate-messages'
 import { getAccessOverlay } from '@/lib/i18n-access-overlay'
 import { getProductTrashMessages } from '@/lib/i18n-product-trash'
 import { getProductFormMessages } from '@/lib/i18n-product-form'
-import { getAdminProductsMessages } from '@/lib/i18n-admin-products'
+import { getAdminMessages } from '@/lib/i18n-admin'
 import { getPricelistOutOfStockMessages } from '@/lib/i18n-pricelist-out-of-stock'
 
 export {
@@ -542,7 +542,7 @@ export function getMessages(locale: Locale): Messages {
     ...getAccessOverlay(locale),
     ...getProductTrashMessages(locale),
     ...getProductFormMessages(locale),
-    ...getAdminProductsMessages(locale),
+    ...getAdminMessages(locale),
     ...getPricelistOutOfStockMessages(locale),
   }
 }

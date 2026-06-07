@@ -9,7 +9,7 @@ export default function EditCategoryPage() {
   const id = typeof params.id === 'string' ? params.id : ''
 
   return (
-    <AdminPageShell title="Edit category">
+    <AdminPageShell titleKey="admin.page.editCategory">
       <CategoryForm categoryId={id} />
     </AdminPageShell>
   )

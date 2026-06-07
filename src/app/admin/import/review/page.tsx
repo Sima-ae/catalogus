@@ -126,14 +126,14 @@ export default function AdminImportReviewPage() {
 
   if (!isAdmin) {
     return (
-      <AdminPageShell title="Import review">
+      <AdminPageShell titleKey="admin.page.importReview">
         <p className="text-red-400">Only admin users can view this page.</p>
       </AdminPageShell>
     )
   }
 
   return (
-    <AdminPageShell title="Import review">
+    <AdminPageShell titleKey="admin.page.importReview">
       <div className="flex flex-wrap gap-3 mb-6">
         <Link href={appPath('/admin/import')} className="btn-secondary">
           Import sources

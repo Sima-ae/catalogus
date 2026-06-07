@@ -312,7 +312,7 @@ export default function AdminProductsPage() {
     if (!user || !ids.length) return
 
     const label = statusLabel(status, tr)
-    if (!confirm(`Set ${ids.length} product(s) to "${label}"?`)) return
+    if (!confirm(formatMessage(tr('admin.products.confirmBulkStatus'), { count: ids.length, label }))) return
 
     setBulkWorking(true)
     setError('')
@@ -327,17 +327,17 @@ export default function AdminProductsPage() {
         body: JSON.stringify({ productIds: ids, status }),
       })
       const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
-      if (!res.ok) throw new Error(data.error || 'Bulk update failed')
+      if (!res.ok) throw new Error(data.error || tr('admin.products.bulkUpdateFailed'))
       loadProducts()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Bulk update failed')
+      setError(e instanceof Error ? e.message : tr('admin.products.bulkUpdateFailed'))
     } finally {
       setBulkWorking(false)
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!user || !confirm('Move this product to trash? You can restore it later from the trash filter.')) {
+    if (!user || !confirm(tr('admin.products.confirmMoveToTrash'))) {
       return
     }
     void runBulkDelete([id], true)
@@ -398,7 +398,7 @@ export default function AdminProductsPage() {
         trashedDuplicates?: number
         skippedAlreadyCorrect?: number
       }>(res)
-      if (!res.ok) throw new Error(data.error || 'Bulk edit failed')
+      if (!res.ok) throw new Error(data.error || tr('admin.products.bulkEditFailed'))
       setBulkEditOpen(false)
       const parts: string[] = []
       if (data.updated) parts.push(`${data.updated} updated`)
@@ -414,7 +414,7 @@ export default function AdminProductsPage() {
       }
       loadProducts()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Bulk edit failed')
+      setError(e instanceof Error ? e.message : tr('admin.products.bulkEditFailed'))
     } finally {
       setBulkWorking(false)
     }
@@ -422,7 +422,7 @@ export default function AdminProductsPage() {
 
   const publishAllDrafts = async () => {
     if (!user || stats.draft <= 0) return
-    if (!confirm(`Publish all ${stats.draft} draft product(s)?`)) return
+    if (!confirm(formatMessage(tr('admin.products.confirmPublishAll'), { count: stats.draft }))) return
 
     setBulkWorking(true)
     setError('')
@@ -436,10 +436,10 @@ export default function AdminProductsPage() {
         body: JSON.stringify({ status: 'active', fromStatus: 'draft' }),
       })
       const data = await parseJsonResponse<{ error?: string }>(res)
-      if (!res.ok) throw new Error(data.error || 'Bulk publish failed')
+      if (!res.ok) throw new Error(data.error || tr('admin.products.bulkPublishFailed'))
       loadProducts()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Bulk publish failed')
+      setError(e instanceof Error ? e.message : tr('admin.products.bulkPublishFailed'))
     } finally {
       setBulkWorking(false)
     }
@@ -450,7 +450,7 @@ export default function AdminProductsPage() {
     pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))
 
   return (
-    <AdminPageShell title="Products">
+    <AdminPageShell titleKey="admin.nav.products">
       <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
         {stats.draft > 0 && (
           <button
@@ -459,18 +459,18 @@ export default function AdminProductsPage() {
             disabled={bulkWorking || loading}
             onClick={publishAllDrafts}
           >
-            Publish all drafts ({stats.draft})
+            {formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
           </button>
         )}
         <Link href={appPath('/admin/products/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
-          Add product
+          {tr('admin.products.addProduct')}
         </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         <StatCard
-          title="Total products"
+          title={tr('admin.products.statTotal')}
           value={stats.total}
           icon={<CubeIcon className="w-6 h-6 text-white" />}
           accentColor="bg-primary-500"
@@ -478,7 +478,7 @@ export default function AdminProductsPage() {
           onClick={() => setStatusFilter('all')}
         />
         <StatCard
-          title="Published"
+          title={tr('admin.products.statPublished')}
           value={stats.active}
           icon={<CheckCircleIcon className="w-6 h-6 text-white" />}
           accentColor="bg-green-500"
@@ -486,7 +486,7 @@ export default function AdminProductsPage() {
           onClick={() => setStatusFilter('active')}
         />
         <StatCard
-          title="Draft"
+          title={tr('admin.products.statDraft')}
           value={stats.draft}
           icon={<DocumentTextIcon className="w-6 h-6 text-white" />}
           accentColor="bg-amber-500"
@@ -494,7 +494,7 @@ export default function AdminProductsPage() {
           onClick={() => setStatusFilter('draft')}
         />
         <StatCard
-          title="Inactive"
+          title={tr('admin.products.statInactive')}
           value={stats.inactive}
           icon={<NoSymbolIcon className="w-6 h-6 text-white" />}
           accentColor="bg-gray-500"
@@ -502,7 +502,7 @@ export default function AdminProductsPage() {
           onClick={() => setStatusFilter('inactive')}
         />
         <StatCard
-          title="Trash"
+          title={tr('admin.products.statTrash')}
           value={stats.trash ?? 0}
           icon={<TrashIcon className="w-6 h-6 text-white" />}
           accentColor="bg-red-600"
@@ -518,37 +518,37 @@ export default function AdminProductsPage() {
       <div className="card mb-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end gap-3">
           <label className="flex-1 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>Search</span>
+            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.search')}</span>
             <input
               type="search"
               className="input w-full"
-              placeholder="Name, SKU, category..."
+              placeholder={tr('admin.products.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
           <label className="sm:w-40 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>Status</span>
+            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.filterStatus')}</span>
             <select
               className="input w-full"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             >
-              <option value="all">All statuses</option>
-              <option value="active">Published</option>
-              <option value="draft">Draft</option>
-              <option value="inactive">Inactive</option>
-              <option value="trash">Trash</option>
+              <option value="all">{tr('admin.products.allStatuses')}</option>
+              <option value="active">{tr('adminProducts.status.published')}</option>
+              <option value="draft">{tr('adminProducts.status.draft')}</option>
+              <option value="inactive">{tr('adminProducts.status.inactive')}</option>
+              <option value="trash">{tr('adminProducts.status.trash')}</option>
             </select>
           </label>
           <label className="sm:w-48 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>Category</span>
+            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.filterCategory')}</span>
             <select
               className="input w-full"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
-              <option value="all">All categories</option>
+              <option value="all">{tr('admin.products.allCategories')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
@@ -557,13 +557,13 @@ export default function AdminProductsPage() {
             </select>
           </label>
           <label className="sm:w-44 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>Brand</span>
+            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.filterBrand')}</span>
             <select
               className="input w-full"
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
             >
-              <option value="all">All brands</option>
+              <option value="all">{tr('admin.products.allBrands')}</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.name}>
                   {b.name}
@@ -572,7 +572,7 @@ export default function AdminProductsPage() {
             </select>
           </label>
           <label className="sm:w-32 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>Per page</span>
+            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.perPage')}</span>
             <select
               className="input w-full"
               value={pageSize}
@@ -588,16 +588,18 @@ export default function AdminProductsPage() {
         </div>
 
         <p className={`text-sm ${t.muted}`}>
-          <strong className={t.heading}>{totalItems}</strong> matching ·{' '}
-          <strong className={t.heading}>{stats.total}</strong> total in catalog
+          {formatMessage(tr('admin.products.matchingSummary'), {
+            matching: totalItems,
+            total: stats.total,
+          })}
           {statusFilter !== 'all' && (
-            <> · status: {statusLabel(statusFilter, tr)}</>
+            <> · {tr('admin.products.filterStatusPrefix')}: {statusLabel(statusFilter, tr)}</>
           )}
           {categoryFilterLabel && (
-            <> · category: {categoryFilterLabel}</>
+            <> · {tr('admin.products.filterCategoryPrefix')}: {categoryFilterLabel}</>
           )}
           {brandFilter !== 'all' && (
-            <> · brand: {brandFilter}</>
+            <> · {tr('admin.products.filterBrandPrefix')}: {brandFilter}</>
           )}
         </p>
 
@@ -606,7 +608,7 @@ export default function AdminProductsPage() {
             className={`flex flex-wrap items-center gap-2 pt-3 border-t ${t.rowBorder}`}
           >
             <span className={`text-sm font-medium ${t.heading}`}>
-              {selected.size} selected
+              {formatMessage(tr('admin.products.selected'), { count: selected.size })}
             </span>
             <button
               type="button"
@@ -614,7 +616,7 @@ export default function AdminProductsPage() {
               disabled={bulkWorking}
               onClick={() => setBulkEditOpen(true)}
             >
-              Bulk edit
+              {tr('admin.products.bulkEdit')}
             </button>
             {statusFilter === 'trash' ? (
               <button
@@ -623,7 +625,7 @@ export default function AdminProductsPage() {
                 disabled={bulkWorking}
                 onClick={() => runBulkStatus('active', selectedIds)}
               >
-                Restore to shop
+                {tr('admin.products.restoreToShop')}
               </button>
             ) : (
               <button
@@ -632,7 +634,7 @@ export default function AdminProductsPage() {
                 disabled={bulkWorking}
                 onClick={() => runBulkStatus('active', selectedIds)}
               >
-                Publish
+                {tr('admin.products.publish')}
               </button>
             )}
             <button
@@ -641,7 +643,7 @@ export default function AdminProductsPage() {
               disabled={bulkWorking}
               onClick={() => runBulkStatus('draft', selectedIds)}
             >
-              Set draft
+              {tr('admin.products.setDraft')}
             </button>
             <button
               type="button"
@@ -649,7 +651,7 @@ export default function AdminProductsPage() {
               disabled={bulkWorking}
               onClick={() => runBulkStatus('inactive', selectedIds)}
             >
-              Set inactive
+              {tr('admin.products.setInactive')}
             </button>
             {statusFilter !== 'trash' && (
               <button
@@ -658,7 +660,7 @@ export default function AdminProductsPage() {
                 disabled={bulkWorking}
                 onClick={() => runBulkDelete(selectedIds)}
               >
-                Move to trash
+                {tr('admin.products.moveToTrash')}
               </button>
             )}
             <button
@@ -666,7 +668,7 @@ export default function AdminProductsPage() {
               className={`text-sm ${t.muted} hover:underline ml-auto`}
               onClick={() => setSelected(new Set())}
             >
-              Clear selection
+              {tr('admin.products.clearSelection')}
             </button>
           </div>
         )}
@@ -680,15 +682,15 @@ export default function AdminProductsPage() {
         categoryFilter === 'all' &&
         brandFilter === 'all' ? (
         <div className={`card text-center py-12 ${t.muted}`}>
-          <p className="mb-4">No products yet.</p>
+          <p className="mb-4">{tr('admin.products.noProducts')}</p>
           <Link href={appPath('/admin/products/new')} className="btn-primary inline-flex items-center gap-2">
             <PlusIcon className="w-5 h-5" />
-            Add your first product
+            {tr('admin.products.addFirstProduct')}
           </Link>
         </div>
       ) : totalItems === 0 ? (
         <div className={`card text-center py-12 ${t.muted}`}>
-          <p>No products match your search or filter.</p>
+          <p>{tr('admin.products.noMatches')}</p>
           <button
             type="button"
             className="btn-secondary mt-4"
@@ -699,7 +701,7 @@ export default function AdminProductsPage() {
               setBrandFilter('all')
             }}
           >
-            Clear filters
+            {tr('admin.products.clearFilters')}
           </button>
         </div>
       ) : (

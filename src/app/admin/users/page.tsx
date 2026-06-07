@@ -113,7 +113,7 @@ export default function AdminUsersPage() {
   const canEditUser = (u: UserListRow) => isAdmin && (!isSuperAdminUser(u) || isSuperAdmin)
 
   return (
-    <AdminPageShell title="Users">
+    <AdminPageShell titleKey="admin.nav.users">
       {isAdmin && !showAddUser && (
         <div className="flex justify-end mb-4">
           <button
