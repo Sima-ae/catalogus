@@ -511,3 +511,7 @@ ALTER TABLE import_sources
 
 -- Facebook post import (see db/facebook_import.sql)
 -- source_type = 'facebook' — no extra columns required
+
+-- Lkxox Zen Cart import (see db/lkxox_import.sql)
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS catalog_list_url TEXT NULL AFTER woocommerce_category_slug;

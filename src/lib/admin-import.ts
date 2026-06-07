@@ -7,6 +7,7 @@ export type ImportSourceInput = {
   yupoo_category_url: string
   woocommerce_store_url: string
   woocommerce_category_slug: string
+  catalog_list_url: string
   catalog_category_id: string
   catalog_brand_id: string
   /** Set when client sends yupoo_access_password in JSON body. */
@@ -25,6 +26,7 @@ export function parseImportSourceBody(body: unknown): ImportSourceInput | null {
     yupoo_category_url: String(raw.yupoo_category_url ?? '').trim(),
     woocommerce_store_url: String(raw.woocommerce_store_url ?? '').trim(),
     woocommerce_category_slug: String(raw.woocommerce_category_slug ?? '').trim(),
+    catalog_list_url: String(raw.catalog_list_url ?? '').trim(),
     catalog_category_id: String(raw.catalog_category_id ?? '').trim(),
     catalog_brand_id: String(raw.catalog_brand_id ?? '').trim(),
     ...(passwordProvided
@@ -59,6 +61,15 @@ export function validateImportSourceInput(input: ImportSourceInput): string | nu
     }
     if (!isValidHttpUrl(input.woocommerce_store_url)) {
       return 'WooCommerce store URL must be a valid http(s) URL'
+    }
+    return null
+  }
+  if (input.source_type === 'lkxox') {
+    if (!input.catalog_list_url) {
+      return 'Lkxox catalog list URL is required (e.g. https://www.lkxox.com/products_new.html?disp_order=6)'
+    }
+    if (!isValidHttpUrl(input.catalog_list_url)) {
+      return 'Lkxox catalog list URL must be a valid http(s) URL'
     }
     return null
   }

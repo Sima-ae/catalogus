@@ -11,6 +11,7 @@ export type ImportSourceFormValues = {
   yupoo_access_password: string
   woocommerce_store_url: string
   woocommerce_category_slug: string
+  catalog_list_url: string
   catalog_category_id: string
   catalog_brand_id: string
 }
@@ -44,6 +45,7 @@ export default function ImportSourceForm({
   const t = useAppTheme()
   const isWoo = values.source_type === 'woocommerce'
   const isFacebook = values.source_type === 'facebook'
+  const isLkxox = values.source_type === 'lkxox'
 
   const set = (patch: Partial<ImportSourceFormValues>) =>
     onChange({ ...values, ...patch })
@@ -53,6 +55,7 @@ export default function ImportSourceForm({
   const normalizeSourceType = (raw: string): ImportSourceType => {
     if (raw === 'woocommerce') return 'woocommerce'
     if (raw === 'facebook') return 'facebook'
+    if (raw === 'lkxox') return 'lkxox'
     return 'yupoo'
   }
 
@@ -70,7 +73,9 @@ export default function ImportSourceForm({
                 ? 'e.g. StuntXL — all products'
                 : isFacebook
                   ? 'e.g. Facebook supplier posts'
-                  : 'e.g. BURBERRY 2'
+                  : isLkxox
+                    ? 'e.g. Lkxox — new products'
+                    : 'e.g. BURBERRY 2'
             }
             required
           />
@@ -85,6 +90,7 @@ export default function ImportSourceForm({
             <option value="yupoo">Yupoo</option>
             <option value="woocommerce">WooCommerce</option>
             <option value="facebook">Facebook</option>
+            <option value="lkxox">Lkxox (Zen Cart)</option>
           </select>
         </label>
 
@@ -93,6 +99,22 @@ export default function ImportSourceForm({
             Facebook sources import one post at a time. Title, description, and images come from
             the post; price, SKU, category, and brand are entered per import below.
           </p>
+        ) : isLkxox ? (
+          <>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>Catalog list URL</span>
+              <input
+                className="input w-full"
+                value={values.catalog_list_url}
+                onChange={(e) => set({ catalog_list_url: e.target.value })}
+                placeholder="https://www.lkxox.com/products_new.html?disp_order=6"
+                required
+              />
+              <p className={`text-xs mt-1 ${t.muted}`}>
+                Paginated product listing — worker discovers all pages (e.g. 3040 products).
+              </p>
+            </label>
+          </>
         ) : isWoo ? (
           <>
             <label className="block space-y-1 md:col-span-2">
@@ -175,6 +197,10 @@ export default function ImportSourceForm({
               ) : isWoo ? (
                 <p className={`text-xs mt-1 ${t.muted}`}>
                   Used when the WooCommerce product has no category or no name match in catalog.
+                </p>
+              ) : isLkxox ? (
+                <p className={`text-xs mt-1 ${t.muted}`}>
+                  Applied to all imported products. Brand is auto-detected from each product page.
                 </p>
               ) : null}
             </label>

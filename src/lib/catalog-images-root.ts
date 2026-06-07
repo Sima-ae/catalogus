@@ -38,7 +38,7 @@ export function describeCatalogImagesWriteTarget(): string {
 
 /** Ensure import mirror folders exist under public/images. */
 export function catalogImportMirrorDirs(): string[] {
-  return ['imports/facebook', 'imports/woocommerce', 'uploads']
+  return ['imports/facebook', 'imports/woocommerce', 'imports/lkxox', 'uploads']
 }
 
 /** @deprecated Imports no longer use SSH — kept for older scripts. */

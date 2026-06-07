@@ -52,6 +52,7 @@ const emptyForm: ImportSourceFormValues = {
   yupoo_access_password: '',
   woocommerce_store_url: '',
   woocommerce_category_slug: '',
+  catalog_list_url: '',
   catalog_category_id: '',
   catalog_brand_id: '',
 }
@@ -59,7 +60,13 @@ const emptyForm: ImportSourceFormValues = {
 function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
   const typeRaw = String(source.source_type ?? 'yupoo').toLowerCase()
   const source_type =
-    typeRaw === 'woocommerce' ? 'woocommerce' : typeRaw === 'facebook' ? 'facebook' : 'yupoo'
+    typeRaw === 'woocommerce'
+      ? 'woocommerce'
+      : typeRaw === 'facebook'
+        ? 'facebook'
+        : typeRaw === 'lkxox'
+          ? 'lkxox'
+          : 'yupoo'
   return {
     name: source.name,
     source_type,
@@ -67,6 +74,7 @@ function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
     yupoo_access_password: '',
     woocommerce_store_url: source.woocommerce_store_url || '',
     woocommerce_category_slug: source.woocommerce_category_slug || '',
+    catalog_list_url: source.catalog_list_url || '',
     catalog_category_id: source.catalog_category_id || '',
     catalog_brand_id: source.catalog_brand_id || '',
   }
@@ -79,6 +87,7 @@ function formToApiBody(values: ImportSourceFormValues): Record<string, string> {
     yupoo_category_url: values.yupoo_category_url,
     woocommerce_store_url: values.woocommerce_store_url,
     woocommerce_category_slug: values.woocommerce_category_slug,
+    catalog_list_url: values.catalog_list_url,
     catalog_category_id: values.catalog_category_id,
     catalog_brand_id: values.catalog_brand_id,
   }
@@ -613,20 +622,26 @@ export default function AdminImportPage() {
                         ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200'
                         : source.source_type === 'facebook'
                           ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
-                          : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
+                          : source.source_type === 'lkxox'
+                            ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
+                            : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
                     }`}>
                       {source.source_type === 'woocommerce'
                         ? 'WooCommerce'
                         : source.source_type === 'facebook'
                           ? 'Facebook'
-                          : 'Yupoo'}
+                          : source.source_type === 'lkxox'
+                            ? 'Lkxox'
+                            : 'Yupoo'}
                     </div>
                     <div className={`text-xs truncate max-w-xs mt-1 ${t.muted}`}>
                       {source.source_type === 'woocommerce'
                         ? source.woocommerce_store_url || '—'
                         : source.source_type === 'facebook'
                           ? 'Single post imports'
-                          : source.yupoo_category_url || '—'}
+                          : source.source_type === 'lkxox'
+                            ? source.catalog_list_url || '—'
+                            : source.yupoo_category_url || '—'}
                     </div>
                     {source.source_type === 'woocommerce' && source.woocommerce_category_slug ? (
                       <div className={`text-xs mt-0.5 ${t.muted}`}>

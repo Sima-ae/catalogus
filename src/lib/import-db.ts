@@ -31,13 +31,19 @@ import type {
   FacebookPostData,
 } from '@/lib/facebook/types'
 import { canonicalizeFacebookUrl, facebookExternalIdFromUrl, normalizeFacebookPostUrl } from '@/lib/facebook/parse-url'
+import { discoverAllLkxoxListItems, lkxoxListItemsToJobItems } from '@/lib/lkxox/parse-listing'
+import { mirrorLkxoxProductImages } from '@/lib/lkxox/mirror-images'
+import type { LkxoxProductData } from '@/lib/lkxox/types'
+import { normalizeLkxoxListUrl } from '@/lib/lkxox/client'
+import { resolveOrCreateImportBrand } from '@/lib/woocommerce/resolve-catalog'
 
-export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook'
+export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook' | 'lkxox'
 
 export function normalizeImportSourceType(value: string | null | undefined): ImportSourceType {
   const raw = String(value ?? '').trim().toLowerCase()
   if (raw === 'woocommerce') return 'woocommerce'
   if (raw === 'facebook') return 'facebook'
+  if (raw === 'lkxox') return 'lkxox'
   return 'yupoo'
 }
 
@@ -47,6 +53,10 @@ export function isWooCommerceImportSource(source: { source_type?: string | null 
 
 export function isFacebookImportSource(source: { source_type?: string | null }): boolean {
   return normalizeImportSourceType(source.source_type) === 'facebook'
+}
+
+export function isLkxoxImportSource(source: { source_type?: string | null }): boolean {
+  return normalizeImportSourceType(source.source_type) === 'lkxox'
 }
 
 export async function buildProductInputFromImport(
@@ -237,6 +247,70 @@ export async function buildProductInputFromFacebookJobItem(
   return buildProductInputFromFacebookPost(post, manual, mirroredUrls)
 }
 
+export async function buildProductInputFromLkxoxImport(
+  lkxox: LkxoxProductData,
+  catalog: {
+    categoryName: string
+    categoryId: string | null
+    brandName: string | null
+  }
+): Promise<ProductInput> {
+  const uniqueImages = cleanProductGalleryUrls(lkxox.imageUrls)
+  const mainImage = uniqueImages[0] || ''
+  const gallery = uniqueImages.slice(1)
+  const name = sanitizeProductName(lkxox.name)
+  const description = cleanImportDescription(lkxox.description, name, catalog.brandName)
+  const short_description =
+    catalogCardDescription(name, description, undefined, catalog.brandName).slice(0, 280) ||
+    undefined
+
+  return {
+    name,
+    description,
+    short_description,
+    price: 0,
+    original_price: lkxox.originalPrice,
+    image_url: mainImage,
+    gallery_images: gallery.length ? gallery : null,
+    category: catalog.categoryName,
+    category_id: catalog.categoryId,
+    brand: catalog.brandName,
+    source_url: lkxox.permalink,
+    source_album_id: lkxox.externalId,
+    author: APP_DEFAULT_AUTHOR,
+    author_icon: APP_DEFAULT_AUTHOR_ICON,
+    sku: lkxox.sku,
+    status: 'draft',
+    featured: false,
+  }
+}
+
+async function resolveLkxoxImportCatalog(
+  lkxox: LkxoxProductData,
+  source: ImportSourceRow
+): Promise<{ categoryName: string; categoryId: string | null; brandName: string | null }> {
+  const categoryName = String(source.category_name ?? '').trim() || 'Uncategorized'
+  const categoryId = source.catalog_category_id?.trim() || null
+
+  let brandName = source.brand_name?.trim() || null
+  if (lkxox.brandName) {
+    const resolved = await resolveOrCreateImportBrand(lkxox.brandName)
+    if (resolved) brandName = resolved.name
+  }
+
+  return { categoryName, categoryId, brandName }
+}
+
+export async function buildProductInputFromLkxoxProduct(
+  lkxox: LkxoxProductData,
+  source: ImportSourceRow
+): Promise<ProductInput> {
+  const mirroredUrls = await mirrorLkxoxProductImages(lkxox.externalId, lkxox.imageUrls)
+  const lkxoxWithLocalImages = { ...lkxox, imageUrls: mirroredUrls }
+  const catalog = await resolveLkxoxImportCatalog(lkxoxWithLocalImages, source)
+  return buildProductInputFromLkxoxImport(lkxoxWithLocalImages, catalog)
+}
+
 export type ImportSourceRow = {
   id: string
   name: string
@@ -245,6 +319,7 @@ export type ImportSourceRow = {
   yupoo_access_password?: string | null
   woocommerce_store_url?: string | null
   woocommerce_category_slug?: string | null
+  catalog_list_url?: string | null
   catalog_category_id: string | null
   catalog_brand_id: string | null
   enabled: number | boolean
@@ -337,6 +412,18 @@ function normalizeWooStoreUrlForSource(raw: string | null | undefined): string |
   return normalizeWooCommerceStoreUrl(trimmed)
 }
 
+function normalizeLkxoxListUrlForSource(raw: string | null | undefined): string | null {
+  const trimmed = String(raw ?? '').trim()
+  if (!trimmed) return null
+  return normalizeLkxoxListUrl(trimmed)
+}
+
+export function resolveLkxoxListUrl(source: ImportSourceRow): string {
+  const fromSource = String(source.catalog_list_url ?? '').trim()
+  if (fromSource) return normalizeLkxoxListUrl(fromSource)
+  throw new Error('Lkxox catalog list URL is required on the import source')
+}
+
 /** Resolve store root for API calls (fixes legacy rows that saved a /product/ URL). */
 export function resolveWooStoreUrl(
   source: ImportSourceRow,
@@ -364,6 +451,7 @@ export async function createImportSource(input: {
   yupoo_access_password?: string | null
   woocommerce_store_url?: string | null
   woocommerce_category_slug?: string | null
+  catalog_list_url?: string | null
   catalog_category_id?: string | null
   catalog_brand_id?: string | null
 }): Promise<ImportSourceRow> {
@@ -373,9 +461,9 @@ export async function createImportSource(input: {
   await queryDb(
     `INSERT INTO import_sources (
        id, name, source_type, yupoo_category_url, yupoo_access_password,
-       woocommerce_store_url, woocommerce_category_slug,
+       woocommerce_store_url, woocommerce_category_slug, catalog_list_url,
        catalog_category_id, catalog_brand_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name.trim(),
@@ -384,6 +472,7 @@ export async function createImportSource(input: {
       pwd,
       normalizeWooStoreUrlForSource(input.woocommerce_store_url),
       input.woocommerce_category_slug?.trim() || null,
+      normalizeLkxoxListUrlForSource(input.catalog_list_url),
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
     ]
@@ -401,6 +490,7 @@ export async function updateImportSource(
     clear_yupoo_access_password?: boolean
     woocommerce_store_url?: string | null
     woocommerce_category_slug?: string | null
+    catalog_list_url?: string | null
     catalog_category_id?: string | null
     catalog_brand_id?: string | null
   }
@@ -417,6 +507,7 @@ export async function updateImportSource(
     ...(pwd !== undefined ? ['yupoo_access_password = ?'] : []),
     'woocommerce_store_url = ?',
     'woocommerce_category_slug = ?',
+    'catalog_list_url = ?',
     'catalog_category_id = ?',
     'catalog_brand_id = ?',
   ]
@@ -427,6 +518,7 @@ export async function updateImportSource(
     ...(pwd !== undefined ? [pwd] : []),
     normalizeWooStoreUrlForSource(input.woocommerce_store_url),
     input.woocommerce_category_slug?.trim() || null,
+    normalizeLkxoxListUrlForSource(input.catalog_list_url),
     input.catalog_category_id || null,
     input.catalog_brand_id || null,
     id,
@@ -569,6 +661,21 @@ export async function discoverWooCommerceJobItems(
     categorySlug: source.woocommerce_category_slug,
   })
   return wooProductsToJobItems(products)
+}
+
+export async function createImportJobItemsFromLkxoxProducts(
+  jobId: string,
+  products: { externalId: string; permalink: string; title: string }[]
+): Promise<void> {
+  return createImportJobItemsFromWooProducts(jobId, products)
+}
+
+export async function discoverLkxoxJobItems(
+  source: ImportSourceRow
+): Promise<{ externalId: string; permalink: string; title: string }[]> {
+  const listUrl = resolveLkxoxListUrl(source)
+  const items = await discoverAllLkxoxListItems(listUrl)
+  return lkxoxListItemsToJobItems(items)
 }
 
 export async function createSingleWooProductImportJob(

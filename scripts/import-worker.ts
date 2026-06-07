@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Process import jobs (Yupoo + WooCommerce + Facebook) on the VPS (or locally with db:tunnel).
+ * Process import jobs (Yupoo + WooCommerce + Facebook + Lkxox) on the VPS (or locally with db:tunnel).
  *
  *   npm run import:worker
  *   npm run import:worker -- --job=<uuid>
@@ -34,18 +34,23 @@ import {
   buildProductInputFromImport,
   buildProductInputFromWooStoreProduct,
   buildProductInputFromFacebookJobItem,
+  buildProductInputFromLkxoxProduct,
   createImportJobItems,
   createImportJobItemsFromWooProducts,
+  createImportJobItemsFromLkxoxProducts,
   discoverWooCommerceJobItems,
+  discoverLkxoxJobItems,
   getImportJob,
   getImportSource,
   getProductBySourceAlbumId,
   getQueuedImportJob,
   isFacebookImportSource,
+  isLkxoxImportSource,
   isWooCommerceImportSource,
   listPendingJobItems,
   resetCompletedJobItems,
   resetSkippedJobItems,
+  resolveLkxoxListUrl,
   resolveWooStoreUrl,
   touchImportSourceSynced,
   updateImportJob,
@@ -54,6 +59,8 @@ import {
 import { fetchFacebookPost } from '@/lib/facebook/parse-post'
 import { sleep as wooSleep, fetchWooStoreProductForJobItem } from '@/lib/woocommerce/client'
 import { wooExternalId } from '@/lib/woocommerce/types'
+import { fetchLkxoxHtml, sleep as lkxoxSleep } from '@/lib/lkxox/client'
+import { parseLkxoxProductPage } from '@/lib/lkxox/parse-product'
 import {
   findProductByAlbumSku,
   findProductBySku,
@@ -169,6 +176,10 @@ async function importExistingOrSkip(
   let existing = await findProductByAlbumSku(item.album_id)
 
   if (!existing && item.album_id.startsWith('wc-')) {
+    existing = await getProductBySourceAlbumId(item.album_id)
+  }
+
+  if (!existing && item.album_id.startsWith('lkxox-')) {
     existing = await getProductBySourceAlbumId(item.album_id)
   }
 
@@ -431,6 +442,103 @@ async function processWooCommerceJob(
   return counters
 }
 
+async function processLkxoxJob(
+  jobId: string,
+  job: NonNullable<Awaited<ReturnType<typeof getImportJob>>>,
+  source: ImportSourceRow,
+  flags: ReturnType<typeof workerFlags>
+) {
+  const listUrl = resolveLkxoxListUrl(source)
+  let items = await listPendingJobItems(jobId)
+
+  if (!items.length && job.total_albums === 0) {
+    console.log('==> Discover lkxox products:', listUrl)
+    const products = await discoverLkxoxJobItems(source)
+    console.log(`==> Found ${products.length} products`)
+    await createImportJobItemsFromLkxoxProducts(jobId, products)
+    await updateImportJob(jobId, { total_albums: products.length })
+    items = await listPendingJobItems(jobId)
+  } else if (!items.length && job.total_albums > 0) {
+    console.log(
+      'No pending items for this job — it may already be finished. Use --refresh --retry-all to re-run.'
+    )
+  }
+
+  if (flags.refresh) {
+    console.log('==> Refresh mode: existing products will be updated from lkxox (status unchanged)')
+  }
+
+  let processed = flags.retryAll || flags.retrySkipped ? 0 : job.processed
+  let imported = flags.retryAll || flags.retrySkipped ? 0 : job.imported
+  let skipped = flags.retryAll || flags.retrySkipped ? 0 : job.skipped
+  let failed = flags.retryAll || flags.retrySkipped ? 0 : job.failed
+  let refreshed = 0
+  const counters = { processed, imported, skipped, failed, refreshed }
+
+  for (const item of items) {
+    try {
+      console.log(`==> ${item.album_id}`)
+      await lkxoxSleep(400)
+
+      const html = await fetchLkxoxHtml(item.album_url)
+      const lkxox = parseLkxoxProductPage(html, item.album_url)
+      const externalId = lkxox.externalId
+      const itemForDedup = { ...item, album_id: externalId }
+
+      const skipCheck = await importExistingOrSkip(
+        itemForDedup,
+        { sku: lkxox.sku } as ProductInput,
+        flags,
+        counters
+      )
+      if (skipCheck.done) {
+        await updateImportJob(jobId, counters)
+        continue
+      }
+
+      console.log(
+        `==> Product ${externalId}${skipCheck.existing && flags.refresh ? ' (refresh)' : ''}`
+      )
+
+      const input = await buildProductInputFromLkxoxProduct(lkxox, source)
+
+      if (!input.image_url) {
+        throw new Error('No images found on lkxox product')
+      }
+
+      const secondCheck = await importExistingOrSkip(itemForDedup, input, flags, counters)
+      if (secondCheck.done) {
+        await updateImportJob(jobId, counters)
+        continue
+      }
+
+      await saveImportedProduct(
+        itemForDedup,
+        jobId,
+        input,
+        secondCheck.existing,
+        flags,
+        { lkxox, refreshed: Boolean(secondCheck.existing && flags.refresh) },
+        counters
+      )
+
+      if (item.album_id !== externalId) {
+        await updateJobItem(item.id, { album_id: externalId })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('FAIL:', item.album_id, message)
+      await updateJobItem(item.id, { status: 'failed', error_message: message })
+      await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
+      counters.failed++
+      counters.processed++
+      await updateImportJob(jobId, counters)
+    }
+  }
+
+  return counters
+}
+
 async function processFacebookJob(
   jobId: string,
   job: NonNullable<Awaited<ReturnType<typeof getImportJob>>>,
@@ -557,9 +665,11 @@ async function processJob(jobId: string) {
 
   const counters = isFacebookImportSource(source)
     ? await processFacebookJob(jobId, job, flags)
-    : isWooCommerceImportSource(source)
-      ? await processWooCommerceJob(jobId, job, source, flags)
-      : await processYupooJob(jobId, job, source, flags)
+    : isLkxoxImportSource(source)
+      ? await processLkxoxJob(jobId, job, source, flags)
+      : isWooCommerceImportSource(source)
+        ? await processWooCommerceJob(jobId, job, source, flags)
+        : await processYupooJob(jobId, job, source, flags)
 
   await updateImportJob(jobId, {
     status:
