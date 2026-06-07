@@ -1,11 +1,6 @@
 import { randomUUID } from 'crypto'
 import path from 'path'
-import { shouldWriteCatalogImagesViaSsh } from '@/lib/catalog-images-root'
 import { writeCatalogImageFile } from '@/lib/catalog-image-storage'
-import {
-  type CatalogUploadAuthHeaders,
-  writeCatalogImageViaSsh,
-} from '@/lib/catalog-image-vps-write'
 import { normalizeProductImageUrl } from '@/lib/product-image-url'
 
 const ALLOWED_TYPES = new Map<string, string>([
@@ -17,14 +12,7 @@ const ALLOWED_TYPES = new Map<string, string>([
 
 const MAX_BYTES = 8 * 1024 * 1024
 
-function preferSshUpload(): boolean {
-  return process.env.CATALOG_IMAGE_UPLOAD_VIA_SSH === 'true'
-}
-
-export async function saveProductImageUpload(
-  file: File,
-  _auth?: CatalogUploadAuthHeaders
-): Promise<{ url: string }> {
+export async function saveProductImageUpload(file: File): Promise<{ url: string }> {
   const ext = ALLOWED_TYPES.get(file.type)
   if (!ext) {
     throw new Error('Only JPEG, PNG, WebP, and GIF images are allowed')
@@ -44,28 +32,6 @@ export async function saveProductImageUpload(
   const filename = `${randomUUID()}.${ext}`
   const relativeFile = path.posix.join(subdir, filename)
 
-  if (shouldWriteCatalogImagesViaSsh()) {
-    if (preferSshUpload() && process.env.VPS_SSH_KEY?.trim()) {
-      try {
-        await writeCatalogImageViaSsh(relativeFile, buf)
-        return { url: normalizeProductImageUrl(`/images/${relativeFile}`) }
-      } catch (err) {
-        console.error('SSH catalog upload failed:', err)
-        throw new Error(
-          'Could not save image to VPS via SSH. Upload from https://superclones.cloud/admin or unset CATALOG_IMAGE_UPLOAD_VIA_SSH.'
-        )
-      }
-    }
-    throw new Error(
-      'Local dev cannot write to VPS disk directly. Use localhost admin — uploads go to production automatically.'
-    )
-  }
-
-  try {
-    const url = await writeCatalogImageFile(relativeFile, buf)
-    return { url: normalizeProductImageUrl(url) }
-  } catch (err) {
-    console.error('Product image upload failed:', err)
-    throw new Error('Could not save image to disk')
-  }
+  const url = await writeCatalogImageFile(relativeFile, buf)
+  return { url: normalizeProductImageUrl(url) }
 }

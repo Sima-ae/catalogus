@@ -43,10 +43,7 @@ export async function POST(request: NextRequest) {
       return jsonWithCors(request, { error: 'file is required' }, 400)
     }
 
-    const { url } = await saveProductImageUpload(file, {
-      userId: request.headers.get('x-catalogus-user-id'),
-      userEmail: request.headers.get('x-catalogus-user-email'),
-    })
+    const { url } = await saveProductImageUpload(file)
     return jsonWithCors(request, { url }, 200)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Upload failed'

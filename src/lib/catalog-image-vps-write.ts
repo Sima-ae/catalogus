@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { shouldWriteCatalogImagesViaSsh } from '@/lib/catalog-images-root'
+import { isOffVpsDiskDevelopment } from '@/lib/catalog-images-root'
 
 function sshTarget(): { user: string; host: string; port: string } {
   return {
@@ -47,7 +47,7 @@ export function vpsCatalogImagesRoot(): string | null {
 
 /** Production origin used when local dev proxies uploads (no working SSH key). */
 export function catalogImageUploadProxyOrigin(): string | null {
-  if (!shouldWriteCatalogImagesViaSsh()) return null
+  if (!isOffVpsDiskDevelopment()) return null
   const origin =
     process.env.CATALOG_IMAGE_UPLOAD_PROXY_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
@@ -158,7 +158,7 @@ export function describeVpsCatalogWriteTarget(): string {
 }
 
 export function describeCatalogImageUploadTarget(): string {
-  if (!shouldWriteCatalogImagesViaSsh()) {
+  if (!isOffVpsDiskDevelopment()) {
     return 'local disk'
   }
   const proxy = catalogImageUploadProxyOrigin()

@@ -1,11 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
-import {
-  getCatalogImagesRoots,
-  getCatalogImagesWriteRoots,
-  shouldWriteCatalogImagesViaSsh,
-} from '@/lib/catalog-images-root'
-import { writeCatalogImageViaSsh } from '@/lib/catalog-image-vps-write'
+import { getCatalogImagesRoots, getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
 
 /** Path segment under the images root, e.g. `imports/woocommerce/wc-3693/001.jpg`. */
 export function catalogImageRelativePath(relativePathFromImagesRoot: string): string {
@@ -69,17 +64,6 @@ export async function writeCatalogImageFile(
   buffer: Buffer
 ): Promise<string> {
   const relative = catalogImageRelativePath(relativePathFromImagesRoot)
-
-  if (shouldWriteCatalogImagesViaSsh()) {
-    try {
-      await writeCatalogImageViaSsh(relative, buffer)
-      return catalogImagePublicPath(relative)
-    } catch (err) {
-      console.error('Catalog image VPS write failed:', err)
-      throw new Error('Could not save image to VPS')
-    }
-  }
-
   const roots = getCatalogImagesWriteRoots()
   let written = false
   let lastError: unknown
@@ -97,7 +81,7 @@ export async function writeCatalogImageFile(
   }
 
   if (!written) {
-    console.error('Catalog image write failed:', lastError)
+    console.error('Catalog image write failed:', { roots, lastError })
     throw new Error('Could not save image to disk')
   }
 
