@@ -9,6 +9,7 @@ import {
 } from '@/lib/site-access-cookie'
 
 import { isPricelistSharePath, isPricelistApiPath } from '@/lib/pricelist-share-path'
+import { hasCatalogAdminUploadHeaders } from '@/lib/catalog-image-upload-cors'
 import {
   LOCALE_COOKIE,
   localizedPath,
@@ -183,6 +184,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith('/api/')) {
+    if (pathname === '/api/product-images/upload' && hasCatalogAdminUploadHeaders(request)) {
+      return finish(NextResponse.next())
+    }
     return finish(
       NextResponse.json({ error: 'Site access password required' }, { status: 401 })
     )

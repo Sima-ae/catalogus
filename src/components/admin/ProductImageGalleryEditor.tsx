@@ -18,6 +18,10 @@ import {
 import { useAppTheme } from '@/lib/theme-classes'
 import { useI18n } from '@/lib/i18n-context'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
+import {
+  productImageUploadEndpoint,
+  uploadAbortSignal,
+} from '@/lib/catalog-image-upload-endpoint'
 import { useAuth } from '@/lib/auth-local'
 
 function galleryLinesToList(lines: string): string[] {
@@ -218,13 +222,17 @@ export default function ProductImageGalleryEditor({
   }
 
   const uploadFile = async (file: File) => {
+    if (!authHeaders['X-Catalogus-User-Id'] || !authHeaders['X-Catalogus-User-Email']) {
+      throw new Error(tr('productForm.imagesUploadAuthRequired'))
+    }
+
     const body = new FormData()
     body.append('file', file)
-    const res = await fetch(appPath('/api/product-images/upload'), {
+    const res = await fetch(productImageUploadEndpoint(), {
       method: 'POST',
       headers: authHeaders,
       body,
-      signal: AbortSignal.timeout(120_000),
+      signal: uploadAbortSignal(120_000),
     })
     const data = (await res.json()) as { url?: string; error?: string }
     if (!res.ok || !data.url) {
