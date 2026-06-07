@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
-import fs from 'fs/promises'
 import path from 'path'
-import { getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
+import { shouldWriteCatalogImagesViaSsh } from '@/lib/catalog-images-root'
+import { writeCatalogImageFile } from '@/lib/catalog-image-storage'
 import { normalizeProductImageUrl } from '@/lib/product-image-url'
 
 const ALLOWED_TYPES = new Map<string, string>([
@@ -25,34 +25,23 @@ export async function saveProductImageUpload(file: File): Promise<{ url: string 
   }
 
   const now = new Date()
-  const subdir = path.join(
+  const subdir = path.posix.join(
     'uploads',
     String(now.getUTCFullYear()),
     String(now.getUTCMonth() + 1).padStart(2, '0')
   )
   const filename = `${randomUUID()}.${ext}`
-  const relativePath = path.posix.join('/images', subdir.replace(/\\/g, '/'), filename)
+  const relativeFile = path.posix.join(subdir, filename)
 
-  const roots = getCatalogImagesWriteRoots()
-  let written = false
-  const errors: unknown[] = []
-
-  for (const root of roots) {
-    try {
-      const dir = path.join(root, subdir)
-      await fs.mkdir(dir, { recursive: true })
-      await fs.writeFile(path.join(dir, filename), buf)
-      written = true
-      break
-    } catch (err) {
-      errors.push(err)
+  try {
+    const url = await writeCatalogImageFile(relativeFile, buf)
+    return { url: normalizeProductImageUrl(url) }
+  } catch (err) {
+    if (shouldWriteCatalogImagesViaSsh()) {
+      console.error('Product image VPS upload failed:', err)
+      throw new Error('Could not save image to VPS — check SSH (VPS_HOST, SSH_USER, VPS_SSH_KEY)')
     }
-  }
-
-  if (!written) {
-    console.error('Product image upload failed:', { roots, errors })
+    console.error('Product image upload failed:', err)
     throw new Error('Could not save image to disk')
   }
-
-  return { url: normalizeProductImageUrl(relativePath) }
 }
