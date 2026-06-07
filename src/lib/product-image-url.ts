@@ -1,9 +1,21 @@
 /**
- * Product images live on the VPS under public_html/images → URL /images/...
- * Store and serve catalog images as site-relative paths so dev (localhost) and
- * production (superclones.cloud) both load files from the same host.
+ * Catalog import images are stored on disk under public/images/ → URL /images/...
+ * DB keeps site-relative paths (/images/imports/...). The browser loads them from
+ * whatever host serves the page (localhost or superclones.cloud).
  */
 import { appPath } from '@/lib/paths'
+
+const DEFAULT_CATALOG_ORIGIN = 'https://superclones.cloud'
+
+/** Public origin when an absolute catalog URL is required (emails, OG tags). */
+export function catalogImageOrigin(): string {
+  return (
+    process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    DEFAULT_CATALOG_ORIGIN
+  ).replace(/\/$/, '')
+}
+
 function extractImagePath(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -33,18 +45,17 @@ function extractImagePath(raw: string): string | null {
   return null
 }
 
-function toCatalogImagePath(path: string): string {
+/** Canonical site-relative path, e.g. /images/imports/woocommerce/wc-3693/001.jpg */
+function toCatalogRelativePath(path: string): string {
   let p = path.replace(/\\/g, '/')
   p = p.replace(/^\/?public_html\//i, '/')
   if (!p.startsWith('/')) p = `/${p}`
-  if (p.startsWith('/images/')) return p
-  if (p.startsWith('images/')) return `/${p}`
+  if (p.startsWith('images/')) p = `/${p}`
   return p
 }
 
 /**
- * Canonical URL for product images. Catalog /images/... paths are site-relative;
- * external URLs (Yupoo CDN, etc.) are returned unchanged.
+ * Normalize for DB storage. Catalog paths → /images/... ; external URLs unchanged.
  */
 export function normalizeProductImageUrl(url: string | null | undefined): string {
   const raw = String(url ?? '').trim()
@@ -52,7 +63,7 @@ export function normalizeProductImageUrl(url: string | null | undefined): string
 
   const catalogPath = extractImagePath(raw)
   if (catalogPath) {
-    return toCatalogImagePath(catalogPath)
+    return toCatalogRelativePath(catalogPath)
   }
 
   if (/^https?:\/\//i.test(raw)) {
@@ -60,26 +71,20 @@ export function normalizeProductImageUrl(url: string | null | undefined): string
   }
 
   if (raw.includes('/images/') || raw.startsWith('images/')) {
-    return toCatalogImagePath(raw)
+    return toCatalogRelativePath(raw)
   }
 
   return raw
 }
 
-/** Absolute URL when needed (emails, OG tags). Relative /images/ paths use app origin. */
+/** Full public URL — only when absolute is required outside the browser. */
 export function absoluteCatalogImageUrl(url: string | null | undefined): string {
-  const normalized = normalizeProductImageUrl(url)
-  if (!normalized) return ''
-  if (/^https?:\/\//i.test(normalized)) return normalized
-  if (normalized.startsWith('/images/')) {
-    const origin = (
-      process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
-      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-      'https://superclones.cloud'
-    ).replace(/\/$/, '')
-    return `${origin}${normalized}`
+  const relative = normalizeProductImageUrl(url)
+  if (!relative) return ''
+  if (relative.startsWith('/images/')) {
+    return `${catalogImageOrigin()}${relative}`
   }
-  return normalized
+  return relative
 }
 
 export function isYupooImageUrl(url: string | null | undefined): boolean {
@@ -103,14 +108,9 @@ export function isBrandingGalleryImageUrl(url: string | null | undefined): boole
     const path = u.pathname.toLowerCase()
     const base = path.split('/').pop() || ''
 
-    // Yupoo marketing/static host — never product album photos
     if (host === 's.yupoo.com') return true
-
-    // Platform icon folder on Yupoo CDN (logo@558.png, weibo icons, etc.)
     if (host === 'photo.yupoo.com' && path.startsWith('/icons/')) return true
     if (host.endsWith('x.yupoo.com') && path.startsWith('/icons/')) return true
-
-    // Occasional re-uploads of the same promo icons outside /icons/
     if (/^weibo(@[\d]+x?)?\.(png|jpe?g|gif|webp)$/i.test(base)) return true
     if (/^sinaweibo(@[\d]+x?)?\.(png|jpe?g|gif|webp)$/i.test(base)) return true
     if (/^logo\d?@\d+\.(png|jpe?g|gif|webp)$/i.test(base)) return true
@@ -121,7 +121,6 @@ export function isBrandingGalleryImageUrl(url: string | null | undefined): boole
   }
 }
 
-/** Remove Yupoo/Weibo platform icons from a URL list (product photos kept). */
 export function stripBrandingGalleryImageUrls(urls: string[]): string[] {
   return urls.filter((u) => {
     const trimmed = String(u ?? '').trim()
@@ -129,7 +128,6 @@ export function stripBrandingGalleryImageUrls(urls: string[]): string[] {
   })
 }
 
-/** Prefer medium/original over small/thumb Yupoo CDN paths. */
 export function upgradeYupooImageUrl(url: string): string {
   let u = url.trim()
   u = u.replace(/\/small\./gi, '/medium.')
@@ -143,11 +141,7 @@ function unwrapDisplayImageUrl(url: string): string {
   const raw = url.trim()
   if (!raw.includes('/api/yupoo-image')) return raw
   try {
-    const origin =
-      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-      process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
-      'https://superclones.cloud'
-    const parsed = new URL(raw, origin)
+    const parsed = new URL(raw, catalogImageOrigin())
     const inner = parsed.searchParams.get('url')
     return inner ? decodeURIComponent(inner) : raw
   } catch {
@@ -155,12 +149,14 @@ function unwrapDisplayImageUrl(url: string): string {
   }
 }
 
-/**
- * Stable key for deduping the same photo (Yupoo small/medium/original, proxy vs raw, etc.).
- */
 export function canonicalProductImageKey(url: string | null | undefined): string {
   let raw = unwrapDisplayImageUrl(String(url ?? '').trim())
   if (!raw) return ''
+
+  const catalogPath = extractImagePath(raw)
+  if (catalogPath) {
+    return catalogPath.toLowerCase().split('?')[0] || ''
+  }
 
   raw = normalizeProductImageUrl(raw)
   if (isYupooImageUrl(raw)) {
@@ -178,7 +174,6 @@ export function canonicalProductImageKey(url: string | null | undefined): string
   }
 }
 
-/** Keep first occurrence of each unique image (order preserved). Duplicates only — does not drop product photos. */
 export function dedupeProductImageUrls(urls: string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
@@ -193,15 +188,10 @@ export function dedupeProductImageUrls(urls: string[]): string[] {
   return out
 }
 
-/** Strip platform icons, then dedupe same-photo variants (small/medium/thumb). */
 export function cleanProductGalleryUrls(urls: string[]): string[] {
   return dedupeProductImageUrls(stripBrandingGalleryImageUrls(urls))
 }
 
-/**
- * Yupoo CDN blocks hotlinking — serve through our proxy using the album URL as Referer.
- * Raw Yupoo URLs stay in the database; this is for display only.
- */
 export function toDisplayProductImageUrl(
   url: string | null | undefined,
   sourceUrl?: string | null
@@ -270,7 +260,6 @@ export function normalizeProductImageList(
   return out.length ? out : null
 }
 
-/** Main image first, then gallery URLs from DB (no placeholders/branding, deduped). */
 export function buildProductGallery(
   mainImageRaw: string | null | undefined,
   galleryRaw: string[] | null | undefined
@@ -285,7 +274,6 @@ export function buildProductGallery(
   return cleanProductGalleryUrls(ordered)
 }
 
-/** Pick display main + gallery, promoting the next photo when main is branding. */
 export function resolveProductDisplayImages(
   mainImageRaw: string | null | undefined,
   galleryRaw: string[] | null | undefined,
@@ -303,32 +291,41 @@ export function resolveProductDisplayImages(
   }
 }
 
-/** True when the image is served from our /images/ tree (safe for Next.js optimizer). */
 export function isCatalogHostedImage(url: string | null | undefined): boolean {
-  const normalized = normalizeProductImageUrl(url)
-  if (!normalized) return false
-  if (normalized.startsWith('/images/')) return true
+  const raw = String(url ?? '').trim()
+  if (!raw) return false
+  if (extractImagePath(raw)) return true
   try {
-    const u = new URL(normalized)
+    const u = new URL(raw)
     const host = u.hostname.toLowerCase()
     return (
       (host.includes('superclones.cloud') || host === 'localhost' || host === '127.0.0.1') &&
       u.pathname.includes('/images/')
     )
   } catch {
-    return normalized.includes('/images/')
+    return raw.includes('/images/')
   }
 }
 
-/** Browser-ready src for catalog /images/ paths (applies basePath) and external URLs. */
+/** Browser img src — same-origin /images/... for catalog files; external URLs unchanged. */
 export function productImageSrc(url: string | null | undefined): string {
-  const normalized = normalizeProductImageUrl(url)
-  if (!normalized) return ''
-  if (normalized.startsWith('/')) return appPath(normalized)
-  return normalized
+  const raw = String(url ?? '').trim()
+  if (!raw) return ''
+
+  if (raw.includes('/api/yupoo-image')) {
+    return appPath(raw.startsWith('/') ? raw : `/${raw}`)
+  }
+
+  const catalogPath = extractImagePath(raw)
+  if (catalogPath) {
+    return appPath(toCatalogRelativePath(catalogPath))
+  }
+
+  if (/^https?:\/\//i.test(raw)) return raw
+  if (raw.startsWith('/')) return appPath(raw)
+  return raw
 }
 
-/** Normalize image fields before persisting to the database. */
 export function normalizeProductImagesForStorage(input: {
   image_url?: string | null
   gallery_images?: string[] | null
@@ -341,7 +338,6 @@ export function normalizeProductImagesForStorage(input: {
   }
 }
 
-/** Catalog /images/ and external CDN URLs bypass the Next.js image optimizer. */
 export function shouldUnoptimizeProductImage(url: string | null | undefined): boolean {
   const raw = String(url ?? '').trim()
   if (!raw) return true

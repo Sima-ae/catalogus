@@ -98,6 +98,10 @@ assert.equal(
   '/images/imports/woocommerce/wc-3693/001.jpg'
 )
 assert.equal(isWooImportMirrorPath('/images/imports/woocommerce/wc-3693/001.jpg'), true)
+assert.equal(
+  isWooImportMirrorPath('https://superclones.cloud/images/imports/woocommerce/wc-3693/001.jpg'),
+  true
+)
 assert.equal(isWooImportMirrorPath('https://stuntxl.com/wp-content/uploads/a.jpg'), false)
 
 assert.equal(

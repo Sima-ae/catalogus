@@ -18,7 +18,13 @@ IMAGES_SRC="${PUBLIC_HTML}/images"
 LINK="${APP_DIR}/public/images"
 
 if [[ ! -d "$IMAGES_SRC" ]]; then
-  echo "WARN: $IMAGES_SRC not found — app will serve /images via API route if CATALOGUS_PUBLIC_HTML is set"
+  if [[ "$(uname -s)" == "Darwin" ]] || [[ ! -d "$PUBLIC_HTML" ]]; then
+    echo "WARN: $IMAGES_SRC not found."
+    echo "      This script is for the VPS. On your Mac, leave CATALOGUS_PUBLIC_HTML unset in .env"
+    echo "      and use public/images/imports/ locally (or run this script over SSH on the server)."
+  else
+    echo "WARN: $IMAGES_SRC not found — app will serve /images via API route if CATALOGUS_PUBLIC_HTML is set"
+  fi
   exit 0
 fi
 

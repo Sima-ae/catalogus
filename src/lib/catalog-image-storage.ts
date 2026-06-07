@@ -1,7 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { getCatalogImagesRoots, getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
-import { normalizeProductImageUrl } from '@/lib/product-image-url'
 
 /** Path segment under the images root, e.g. `imports/woocommerce/wc-3693/001.jpg`. */
 export function catalogImageRelativePath(relativePathFromImagesRoot: string): string {
@@ -16,11 +15,31 @@ export function catalogImagePublicPath(relativePathFromImagesRoot: string): stri
   return `/images/${catalogImageRelativePath(relativePathFromImagesRoot)}`
 }
 
+function catalogImagePathFromUrl(url: string | null | undefined): string | null {
+  const raw = String(url ?? '').trim()
+  if (!raw) return null
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const pathname = new URL(raw).pathname
+      if (pathname.startsWith('/images/')) return pathname
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  const normalized = raw.replace(/\\/g, '/')
+  if (normalized.startsWith('/images/')) return normalized
+  if (normalized.startsWith('images/')) return `/${normalized}`
+  return null
+}
+
 /** Relative path under the images root from a public /images/… URL. */
 export function catalogImageRelativeFromPublicUrl(url: string | null | undefined): string | null {
-  const normalized = normalizeProductImageUrl(url)
-  if (!normalized.startsWith('/images/')) return null
-  return catalogImageRelativePath(normalized.slice('/images/'.length))
+  const pathPart = catalogImagePathFromUrl(url)
+  if (!pathPart) return null
+  return catalogImageRelativePath(pathPart.slice('/images/'.length))
 }
 
 /** True when the mirrored file exists on at least one catalog images root. */

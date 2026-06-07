@@ -35,7 +35,7 @@ export async function saveProductImageUpload(file: File): Promise<{ url: string 
 
   const roots = getCatalogImagesWriteRoots()
   let written = false
-  let lastError: unknown
+  const errors: unknown[] = []
 
   for (const root of roots) {
     try {
@@ -45,12 +45,12 @@ export async function saveProductImageUpload(file: File): Promise<{ url: string 
       written = true
       break
     } catch (err) {
-      lastError = err
+      errors.push(err)
     }
   }
 
   if (!written) {
-    console.error('Product image upload failed:', lastError)
+    console.error('Product image upload failed:', { roots, errors })
     throw new Error('Could not save image to disk')
   }
 

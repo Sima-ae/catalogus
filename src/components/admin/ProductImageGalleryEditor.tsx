@@ -182,6 +182,9 @@ export default function ProductImageGalleryEditor({
   )
 
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(
+    null
+  )
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlDraft, setUrlDraft] = useState('')
   const [localError, setLocalError] = useState<string | null>(null)
@@ -215,25 +218,44 @@ export default function ProductImageGalleryEditor({
   }
 
   const uploadFile = async (file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    const res = await fetch(appPath('/api/product-images/upload'), {
+      method: 'POST',
+      headers: authHeaders,
+      body,
+    })
+    const data = (await res.json()) as { url?: string; error?: string }
+    if (!res.ok || !data.url) {
+      throw new Error(data.error || tr('productForm.imagesUploadFailed'))
+    }
+    return data.url
+  }
+
+  const uploadFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList).filter((f) => f.size > 0)
+    if (!files.length) return
+
     setUploading(true)
+    setUploadProgress({ done: 0, total: files.length })
     setLocalError(null)
+
+    const uploaded: string[] = []
     try {
-      const body = new FormData()
-      body.append('file', file)
-      const res = await fetch(appPath('/api/product-images/upload'), {
-        method: 'POST',
-        headers: authHeaders,
-        body,
-      })
-      const data = (await res.json()) as { url?: string; error?: string }
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || tr('productForm.imagesUploadFailed'))
+      for (let i = 0; i < files.length; i++) {
+        const url = await uploadFile(files[i]!)
+        uploaded.push(url)
+        setUploadProgress({ done: i + 1, total: files.length })
       }
-      applyList([...images, data.url])
+      applyList([...images, ...uploaded])
     } catch (e) {
+      if (uploaded.length) {
+        applyList([...images, ...uploaded])
+      }
       setLocalError(e instanceof Error ? e.message : tr('productForm.imagesUploadFailed'))
     } finally {
       setUploading(false)
+      setUploadProgress(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -422,11 +444,12 @@ export default function ProductImageGalleryEditor({
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
             className="sr-only"
             disabled={uploading}
             onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) void uploadFile(file)
+              const files = e.target.files
+              if (files?.length) void uploadFiles(files)
             }}
           />
           <button
@@ -436,7 +459,9 @@ export default function ProductImageGalleryEditor({
             className="btn-secondary text-xs w-full flex items-center justify-center gap-1.5 py-2"
           >
             <PhotoIcon className="h-4 w-4 shrink-0" aria-hidden />
-            {uploading ? tr('productForm.imagesUploading') : tr('productForm.imagesUploadFile')}
+            {uploading && uploadProgress
+              ? `${tr('productForm.imagesUploading')} (${uploadProgress.done}/${uploadProgress.total})`
+              : tr('productForm.imagesUploadFile')}
           </button>
           <button
             type="button"

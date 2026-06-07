@@ -16,6 +16,7 @@ import { catalogImageFileExists } from '@/lib/catalog-image-storage'
 import { describeCatalogImagesWriteTarget } from '@/lib/catalog-images-root'
 import {
   buildProductGallery,
+  isCatalogHostedImage,
   normalizeProductImageList,
   normalizeProductImageUrl,
 } from '@/lib/product-image-url'
@@ -56,11 +57,11 @@ function isRemoteImportUrl(url: string): boolean {
 async function urlsMissingOnDisk(urls: string[]): Promise<string[]> {
   const missing: string[] = []
   for (const url of urls) {
-    if (!url.startsWith('/images/')) {
-      if (isRemoteImportUrl(url)) missing.push(url)
+    if (isCatalogHostedImage(url)) {
+      if (!(await catalogImageFileExists(url))) missing.push(url)
       continue
     }
-    if (!(await catalogImageFileExists(url))) missing.push(url)
+    if (isRemoteImportUrl(url)) missing.push(url)
   }
   return missing
 }
@@ -160,7 +161,7 @@ async function main() {
 
     let nextUrls = combined.map((u) => normalizeProductImageUrl(u)).filter(Boolean)
     const missing = await urlsMissingOnDisk(nextUrls)
-    const needsRemirror = remirror || missing.length > 0
+    const needsRemirror = remirror && missing.length > 0
 
     const storedNormalized =
       normalizeProductImageUrl(row.image_url) !== String(row.image_url ?? '').trim() ||
@@ -172,6 +173,12 @@ async function main() {
     }
 
     console.log(`==> ${row.name} (${row.source_album_id ?? row.id})`)
+
+    if (missing.length > 0 && !remirror) {
+      console.warn(
+        `  ${missing.length} file(s) missing on disk — sync with npm run images:sync-to-vps or re-run with --remirror on the VPS`
+      )
+    }
 
     if (needsRemirror && !dryRun) {
       try {
@@ -194,6 +201,8 @@ async function main() {
       }
     } else if (needsRemirror && dryRun) {
       console.log(`  would re-mirror (${missing.length} missing on disk)`)
+    } else if (missing.length > 0 && dryRun) {
+      console.log(`  would normalize URLs only (${missing.length} missing on disk)`)
     }
 
     const main = nextUrls[0] ?? ''

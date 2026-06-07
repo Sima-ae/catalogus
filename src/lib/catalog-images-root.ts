@@ -1,7 +1,16 @@
+import fs from 'fs'
 import path from 'path'
 
 function resolveRoots(paths: string[]): string[] {
   return Array.from(new Set(paths.map((r) => path.resolve(r))))
+}
+
+function dirExists(dir: string): boolean {
+  try {
+    return fs.existsSync(dir) && fs.statSync(dir).isDirectory()
+  } catch {
+    return false
+  }
 }
 
 /** All directories where catalog images may exist (read / delete). */
@@ -25,15 +34,18 @@ export function getCatalogImagesRoots(): string[] {
 
 /**
  * Directory for new writes (imports, uploads).
- * When CATALOGUS_PUBLIC_HTML is set (VPS), writes go to public_html/images only —
- * not into the git checkout under public/images.
+ * Prefers VPS public_html/images when that path exists on this machine.
+ * Falls back to public/images (local dev when .env still has the VPS path).
  */
 export function getCatalogImagesWriteRoots(): string[] {
   const roots: string[] = []
 
   const publicHtml = process.env.CATALOGUS_PUBLIC_HTML?.trim()
   if (publicHtml) {
-    roots.push(path.join(publicHtml, 'images'))
+    const vpsImages = path.join(publicHtml, 'images')
+    if (dirExists(path.dirname(publicHtml)) || dirExists(vpsImages)) {
+      roots.push(vpsImages)
+    }
   }
 
   const imagesRoot = process.env.CATALOGUS_IMAGES_ROOT?.trim()
@@ -41,9 +53,7 @@ export function getCatalogImagesWriteRoots(): string[] {
     roots.push(imagesRoot)
   }
 
-  if (!roots.length) {
-    roots.push(path.join(process.cwd(), 'public', 'images'))
-  }
+  roots.push(path.join(process.cwd(), 'public', 'images'))
 
   return resolveRoots(roots)
 }
