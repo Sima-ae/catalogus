@@ -9,6 +9,20 @@ cd "$APP_DIR"
 source "$(dirname "$0")/lib/git-safe-directory.sh"
 ensure_git_safe_directory "$APP_DIR"
 
+if [[ "$(uname -s)" == "Darwin" && "$APP_DIR" == /Users/* && "${DEPLOY_ALLOW_LOCAL:-}" != "1" ]]; then
+  echo "ERROR: scripts/deploy.sh is for the VPS only — not your Mac."
+  echo ""
+  echo "  Local development:"
+  echo "    Terminal 1:  npm run db:tunnel"
+  echo "    Terminal 2:  npm run dev"
+  echo ""
+  echo "  Deploy to production (pick one):"
+  echo "    • Push to main → GitHub Actions deploys automatically"
+  echo "    • SSH to the server:"
+  echo "        ssh root@superclones.cloud 'cd /var/www/superclones.cloud && bash scripts/deploy.sh'"
+  exit 1
+fi
+
 if [[ "$(id -un)" != "root" ]]; then
   echo "WARN: not running as root ($(id -un)) — prefer: sudo bash scripts/deploy.sh"
 fi
@@ -68,7 +82,24 @@ echo "==> Install dependencies (include devDependencies for build)"
 npm ci
 
 echo "==> Build Next.js (production)"
+(
+  while true; do
+    sleep 45
+    echo "==> build still running ($(date -u +%H:%M:%S) UTC)…"
+  done
+) &
+HEARTBEAT_PID=$!
+trap 'kill "$HEARTBEAT_PID" 2>/dev/null || true' EXIT
+set +e
 NODE_ENV=production npm run build
+BUILD_EXIT=$?
+set -e
+kill "$HEARTBEAT_PID" 2>/dev/null || true
+wait "$HEARTBEAT_PID" 2>/dev/null || true
+if [[ "$BUILD_EXIT" -ne 0 ]]; then
+  echo "ERROR: next build failed (exit $BUILD_EXIT)"
+  exit "$BUILD_EXIT"
+fi
 
 echo "==> Test MariaDB before restart"
 if ! node scripts/check-db.mjs; then

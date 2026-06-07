@@ -109,7 +109,7 @@ jobs:
 
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes)
+          SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes)
 
           echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
 
@@ -162,5 +162,10 @@ jobs:
           REMOTE
 
           PUBLIC_HTML="${VPS_PUBLIC_HTML:-/home/superclones.cloud/public_html}"
-          ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" \
-            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"
+          # Long-running remote deploy (npm build) — keepalive + heartbeat prevent SSH broken pipe.
+          if ! ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" \
+            "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"; then
+            echo "::error::Deploy SSH session failed (often timeout during next build). Re-run workflow or on VPS: bash scripts/deploy.sh"
+            exit 1
+          fi
+          echo "==> Deploy SSH session finished OK"
