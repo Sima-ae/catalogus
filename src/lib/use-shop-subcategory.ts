@@ -20,7 +20,6 @@ export function useShopSubcategory(selectedCategory: string) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t, locale } = useI18n()
-  const selectedBrand = searchParams.get('brand')?.trim() || 'All'
 
   const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -28,6 +27,7 @@ export function useShopSubcategory(selectedCategory: string) {
   useEffect(() => {
     if (!selectedCategory || selectedCategory === 'All') {
       setSubcategories([])
+      setLoading(false)
       return
     }
 
@@ -35,9 +35,6 @@ export function useShopSubcategory(selectedCategory: string) {
     setLoading(true)
 
     const params = new URLSearchParams({ category: selectedCategory })
-    if (selectedBrand && selectedBrand !== 'All') {
-      params.set('brand', selectedBrand)
-    }
 
     fetch(appPath(`/api/categories/subcategories?${params.toString()}`))
       .then((res) => (res.ok ? res.json() : { subcategories: [] }))
@@ -63,7 +60,7 @@ export function useShopSubcategory(selectedCategory: string) {
     return () => {
       cancelled = true
     }
-  }, [selectedCategory, selectedBrand])
+  }, [selectedCategory])
 
   const subcategoryOptions = useMemo(
     () => sortShopCategoriesByLabel(subcategories.map((row) => row.name), t, locale),

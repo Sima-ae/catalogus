@@ -101,8 +101,6 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const showSocialProof = config.showSocialProof ?? true
   const showFooterTagline = config.showFooterTagline ?? config.mode === 'new'
 
-  const urlCategory = searchParams.get('category')?.trim() || 'All'
-  const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
   const filterBrand = searchParams.get('brand')?.trim() || 'All'
   const filterTag = searchParams.get('tag')?.trim() || ''
   const brandFilterCtx = {
@@ -112,11 +110,11 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     loadingSubcategories,
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
-  const filterSignature = `${urlCategory}|${urlSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
+  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
   const reorderScope = catalogSortScope({
     mode: config.mode === 'new' ? 'new' : undefined,
-    category: urlCategory !== 'All' ? urlCategory : undefined,
-    subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
+    category: selectedCategory !== 'All' ? selectedCategory : undefined,
+    subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
     brand: brandFilterActive ? filterBrand : undefined,
     tag: filterTag || undefined,
     search: debouncedSearch || undefined,
@@ -216,8 +214,8 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
         const url = buildCatalogProductsUrl(appPath('/api/products'), {
           page: pageToLoad,
           limit: CATALOG_PAGE_SIZE,
-          category: urlCategory !== 'All' ? urlCategory : undefined,
-          subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
+          category: selectedCategory !== 'All' ? selectedCategory : undefined,
+          subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
           brand: brandFilterActive ? filterBrand : undefined,
           tag: filterTag || undefined,
           search: debouncedSearch || undefined,

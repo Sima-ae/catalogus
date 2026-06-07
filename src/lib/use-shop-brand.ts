@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
-import { shouldShowShopBrandFilter } from '@/lib/shop-brand-menu'
+import {
+  findShopBrandInMenu,
+  shouldShowShopBrandFilter,
+} from '@/lib/shop-brand-menu'
 import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
 export function useShopBrand() {
@@ -35,23 +38,28 @@ export function useShopBrand() {
     brandFilterActive
   )
   const brandMenu = brandMenuState.brands
+  const loadingBrands = brandMenuState.loading
 
   const selectedBrand = useMemo(() => {
     if (!brandFilterActive) return 'All'
     const raw = searchParams.get('brand')?.trim()
     if (!raw) return 'All'
-    return brandMenu.includes(raw) ? raw : 'All'
-  }, [searchParams, brandMenu, brandFilterActive])
+    const match = findShopBrandInMenu(raw, brandMenu)
+    if (match) return match
+    if (loadingBrands || brandMenu.length === 0) return raw
+    return 'All'
+  }, [searchParams, brandMenu, brandFilterActive, loadingBrands])
 
   useEffect(() => {
     if (!isShopCatalogPath(pathname)) return
-    if (brandFilterActive) {
-      const raw = searchParams.get('brand')?.trim()
-      if (!raw || brandMenu.includes(raw)) return
-      if (brandMenu.length === 0) return
+    const raw = searchParams.get('brand')?.trim()
+    if (!raw) return
+
+    if (!brandFilterActive) {
+      if (loadingSubcategories) return
     } else {
-      const raw = searchParams.get('brand')?.trim()
-      if (!raw) return
+      if (findShopBrandInMenu(raw, brandMenu)) return
+      if (loadingBrands || brandMenu.length === 0) return
     }
 
     const basePath = shopCatalogBasePath(pathname)
@@ -60,7 +68,15 @@ export function useShopBrand() {
     clearCatalogPageParam(params)
     const qs = params.toString()
     router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
-  }, [brandFilterActive, brandMenu, pathname, router, searchParams])
+  }, [
+    brandFilterActive,
+    brandMenu,
+    loadingBrands,
+    loadingSubcategories,
+    pathname,
+    router,
+    searchParams,
+  ])
 
   const setSelectedBrand = useCallback(
     (brand: string) => {

@@ -27,6 +27,12 @@ export function shouldApplyShopBrandFilter(
   return shouldShowShopBrandFilter(ctx)
 }
 
+export function findShopBrandInMenu(brand: string, menu: string[]): string | undefined {
+  const needle = brand.trim().toLowerCase()
+  if (!needle) return undefined
+  return menu.find((name) => name.toLowerCase() === needle)
+}
+
 /** Build shop filter menu: active brand names only (no "All" pill — absence of ?brand= means all brands). */
 export function buildShopBrandMenu(rows: BrandRow[]): string[] {
   const names = rows
