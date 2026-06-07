@@ -84,7 +84,7 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
         onClick={saveListingScroll}
       >
         <div className={`relative aspect-[3/4] mb-3 overflow-hidden rounded-lg product-card-flip ${
-          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-100'
+          theme === 'dark' ? 'bg-dark-900' : 'bg-white'
         }`}>
           <div className="product-card-flip-inner">
             <div className="product-card-flip-face">

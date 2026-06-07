@@ -466,7 +466,7 @@ export default function ProductPageClient() {
                   type="button"
                   onClick={() => setLightboxOpen(true)}
                   className={`product-gallery-main relative block w-full aspect-[3/4] max-h-[min(75vh,720px)] cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
-                    theme === 'dark' ? 'bg-dark-800' : 'bg-gray-100'
+                    theme === 'dark' ? 'bg-dark-800' : 'bg-white'
                   }`}
                   aria-label={t('product.viewImageFullSize', { name: product.name })}
                 >
@@ -484,7 +484,7 @@ export default function ProductPageClient() {
               ) : (
                 <div
                   className={`product-gallery-main relative flex w-full aspect-[3/4] max-h-[min(75vh,720px)] items-center justify-center text-sm ${
-                    theme === 'dark' ? 'bg-dark-800 text-gray-500' : 'bg-gray-100 text-gray-400'
+                    theme === 'dark' ? 'bg-dark-800 text-gray-500' : 'bg-white text-gray-400'
                   }`}
                 >
                   {t('product.noImage')}

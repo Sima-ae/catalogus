@@ -332,7 +332,7 @@ body.app-protected [contenteditable='true'] {
   }
 
   html.light .product-gallery-main {
-    @apply relative w-full aspect-[3/4] max-h-[min(75vh,720px)] bg-gray-100 rounded-lg overflow-hidden;
+    @apply relative w-full aspect-[3/4] max-h-[min(75vh,720px)] bg-white rounded-lg overflow-hidden;
   }
 
   /* Thumbnail strip: fixed height (synced to main image in JS); scroll when overflow */
