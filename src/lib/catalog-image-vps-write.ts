@@ -1,5 +1,7 @@
 import { spawn } from 'child_process'
+import fs from 'fs'
 import path from 'path'
+import { shouldWriteCatalogImagesViaSsh } from '@/lib/catalog-images-root'
 
 function sshTarget(): { user: string; host: string; port: string } {
   return {
@@ -11,9 +13,20 @@ function sshTarget(): { user: string; host: string; port: string } {
 
 function sshArgs(): string[] {
   const { port } = sshTarget()
-  const args = ['-p', port, '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new']
+  const args = [
+    '-p',
+    port,
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'StrictHostKeyChecking=accept-new',
+    '-o',
+    'IdentitiesOnly=yes',
+  ]
   const key = process.env.VPS_SSH_KEY?.trim()
-  if (key) args.push('-i', key)
+  if (key && fs.existsSync(key)) {
+    args.push('-i', key)
+  }
   return args
 }
 
@@ -26,6 +39,16 @@ export function vpsCatalogImagesRoot(): string | null {
   const publicHtml = process.env.CATALOGUS_PUBLIC_HTML?.trim()
   if (!publicHtml) return null
   return path.posix.join(publicHtml.replace(/\\/g, '/'), 'images')
+}
+
+/** Production origin used when local dev proxies uploads (no working SSH key). */
+export function catalogImageUploadProxyOrigin(): string | null {
+  if (!shouldWriteCatalogImagesViaSsh()) return null
+  const origin =
+    process.env.CATALOG_IMAGE_UPLOAD_PROXY_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    'https://superclones.cloud'
+  return origin.replace(/\/$/, '')
 }
 
 function runSsh(remoteCommand: string, stdin?: Buffer): Promise<void> {
@@ -75,8 +98,61 @@ export async function writeCatalogImageViaSsh(
   await runSsh(command, buffer)
 }
 
+export type CatalogUploadAuthHeaders = {
+  userId?: string | null
+  userEmail?: string | null
+}
+
+/** Forward upload to production API — production writes directly to public_html/images. */
+export async function uploadCatalogImageViaProductionProxy(
+  file: File,
+  buffer: Buffer,
+  auth: CatalogUploadAuthHeaders
+): Promise<{ url: string }> {
+  const origin = catalogImageUploadProxyOrigin()
+  if (!origin) {
+    throw new Error('Catalog image upload proxy is not configured')
+  }
+
+  const userId = String(auth.userId ?? '').trim()
+  const userEmail = String(auth.userEmail ?? '').trim()
+  if (!userId || !userEmail) {
+    throw new Error('Admin authentication required for VPS upload proxy')
+  }
+
+  const body = new FormData()
+  body.append('file', new Blob([buffer], { type: file.type }), file.name || 'upload.jpg')
+
+  const res = await fetch(`${origin}/api/product-images/upload`, {
+    method: 'POST',
+    headers: {
+      'X-Catalogus-User-Id': userId,
+      'X-Catalogus-User-Email': userEmail,
+      'X-Catalogus-Upload-Proxy': '1',
+    },
+    body,
+  })
+
+  const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string }
+  if (!res.ok || !data.url) {
+    throw new Error(data.error || `Production upload failed (HTTP ${res.status})`)
+  }
+
+  return { url: data.url }
+}
+
 export function describeVpsCatalogWriteTarget(): string {
   const root = vpsCatalogImagesRoot()
   const { user, host } = sshTarget()
-  return root ? `${user}@${host}:${root}` : ''
+  if (root) return `${user}@${host}:${root}`
+  return ''
+}
+
+export function describeCatalogImageUploadTarget(): string {
+  if (!shouldWriteCatalogImagesViaSsh()) {
+    return 'local disk'
+  }
+  const proxy = catalogImageUploadProxyOrigin()
+  if (proxy) return `${proxy}/api/product-images/upload (proxy) or SSH ${describeVpsCatalogWriteTarget()}`
+  return `SSH ${describeVpsCatalogWriteTarget()}`
 }

@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'file is required' }, { status: 400 })
     }
 
-    const { url } = await saveProductImageUpload(file)
+    const { url } = await saveProductImageUpload(file, {
+      userId: request.headers.get('x-catalogus-user-id'),
+      userEmail: request.headers.get('x-catalogus-user-email'),
+    })
     return NextResponse.json({ url })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Upload failed'
