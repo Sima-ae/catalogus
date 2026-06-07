@@ -19,7 +19,7 @@ export function mapLkxoxProduct(input: {
     permalink: input.permalink.trim(),
     description: input.description.trim(),
     price: 0,
-    originalPrice: lkxoxPriceToDecimal(input.retailText),
+    purchasePrice: lkxoxPriceToDecimal(input.retailText),
     brandName: input.brandName?.trim() || null,
     imageUrls: input.imageUrls.filter(Boolean),
   }

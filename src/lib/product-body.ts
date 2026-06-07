@@ -81,6 +81,10 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
       body.original_price != null && body.original_price !== ''
         ? Number(body.original_price)
         : null,
+    purchase_price:
+      body.purchase_price != null && body.purchase_price !== ''
+        ? Number(body.purchase_price)
+        : null,
     image_url: normalizeProductImageUrl(String(body.image_url || '').trim()),
     category: String(body.category || '').trim(),
     category_id:

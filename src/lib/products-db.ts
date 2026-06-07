@@ -49,6 +49,7 @@ export type ProductInput = {
   short_description?: string
   price: number
   original_price?: number | null
+  purchase_price?: number | null
   image_url: string
   gallery_images?: string[] | null
   category: string
@@ -557,6 +558,7 @@ export async function insertProduct(input: ProductInput) {
     short_description,
     price: input.price,
     original_price: input.original_price ?? null,
+    purchase_price: input.purchase_price ?? null,
     image_url: images.image_url,
     gallery_images: jsonCol(images.gallery_images),
     category: category.name,
@@ -647,6 +649,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     short_description: input.short_description,
     price: input.price,
     original_price: input.original_price,
+    purchase_price: input.purchase_price,
     image_url:
       input.image_url !== undefined ? normalizeProductImageUrl(input.image_url) : undefined,
     gallery_images:
@@ -1189,6 +1192,7 @@ export type BulkProductPatch = {
   brand?: string | null
   price?: number
   original_price?: number | null
+  purchase_price?: number | null
   status?: ProductStatusValue
 }
 
@@ -1310,7 +1314,10 @@ async function applyBulkPatchToProduct(
 
   const needsBrandChange = patch.brand !== undefined && !brandAlready
   const needsCategoryChange = patch.category !== undefined && !categoryAlready
-  const needsPriceChange = patch.price !== undefined || patch.original_price !== undefined
+  const needsPriceChange =
+    patch.price !== undefined ||
+    patch.original_price !== undefined ||
+    patch.purchase_price !== undefined
   const needsStatusChange = patch.status !== undefined
 
   if (!needsBrandChange && !needsCategoryChange && !needsPriceChange && !needsStatusChange) {
@@ -1382,6 +1389,11 @@ async function applyBulkPatchToProduct(
     setValues.push(patch.original_price)
   }
 
+  if (patch.purchase_price !== undefined) {
+    setParts.push('purchase_price = ?')
+    setValues.push(patch.purchase_price)
+  }
+
   if (patch.status !== undefined) {
     setParts.push('status = ?')
     setValues.push(patch.status)
@@ -1437,6 +1449,7 @@ export async function bulkUpdateProducts(
     patch.brand !== undefined ||
     patch.price !== undefined ||
     patch.original_price !== undefined ||
+    patch.purchase_price !== undefined ||
     patch.status !== undefined
 
   if (!hasChanges) {

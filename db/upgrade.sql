@@ -515,3 +515,7 @@ ALTER TABLE import_sources
 -- Lkxox Zen Cart import (see db/lkxox_import.sql)
 ALTER TABLE import_sources
   ADD COLUMN IF NOT EXISTS catalog_list_url TEXT NULL AFTER woocommerce_category_slug;
+
+-- Internal cost / purchase price (admin only — not shown on storefront)
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS purchase_price DECIMAL(12, 2) NULL AFTER original_price;

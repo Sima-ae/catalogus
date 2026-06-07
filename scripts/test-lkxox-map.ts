@@ -82,7 +82,7 @@ assert.equal(parsed.externalId, 'lkxox-17')
 assert.equal(parsed.sku, '50056')
 assert.equal(parsed.brandName, 'Breitling')
 assert.equal(parsed.price, 0)
-assert.equal(parsed.originalPrice, 2490)
+assert.equal(parsed.purchasePrice, 2490)
 assert.equal(parsed.imageUrls.length, 2)
 assert.ok(parsed.imageUrls[0].includes('ah33gszd.jpg'))
 assert.ok(parsed.description.includes('Stock Number: 50056'))
@@ -99,5 +99,6 @@ const mapped = mapLkxoxProduct({
   imageUrls: parsed.imageUrls,
 })
 assert.equal(mapped.price, 0)
+assert.equal(mapped.purchasePrice, 2490)
 
 console.log('All lkxox import tests passed.')

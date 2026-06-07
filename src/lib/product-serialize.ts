@@ -120,6 +120,10 @@ export function serializeProductRow(
       row.original_price != null && row.original_price !== ''
         ? Number(row.original_price)
         : null,
+    purchase_price:
+      row.purchase_price != null && row.purchase_price !== ''
+        ? Number(row.purchase_price)
+        : null,
     rating: row.rating != null ? Number(row.rating) : null,
     review_count: row.review_count != null ? Number(row.review_count) : null,
     download_count: row.download_count != null ? Number(row.download_count) : null,

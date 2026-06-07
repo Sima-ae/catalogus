@@ -13,7 +13,7 @@ export type LkxoxProductData = {
   permalink: string
   description: string
   price: number
-  originalPrice: number | null
+  purchasePrice: number | null
   brandName: string | null
   imageUrls: string[]
 }

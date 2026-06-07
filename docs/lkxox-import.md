@@ -26,7 +26,7 @@ Import draft products from [lkxox.com](https://www.lkxox.com) paginated catalog 
    ```
 
 3. Discovery fetches all listing pages (~127 pages × 24 products) and creates job items.
-4. The worker imports each product: title, SKU (Stock Number), full spec description, **price = 0** (Price on request), all gallery images.
+4. The worker imports each product: title, SKU (Stock Number), full spec description, **price = 0** (Price on request), Zen Cart retail → **purchase price**, all gallery images.
 5. Images save under `public/images/imports/lkxox/lkxox-{id}/`.
 6. Commit and push images in batches:
 
@@ -48,7 +48,8 @@ Import draft products from [lkxox.com](https://www.lkxox.com) paginated catalog 
 | Brand row | `brand` (auto-created) |
 | Source fallback category | `category` |
 | All `#productMainImage` URLs | `image_url` + `gallery_images` |
-| — | `price` = 0, `original_price` = source retail (reference) |
+| — | `price` = 0 (Price on request) |
+| `#productPrices .normalprice` | `purchase_price` = source retail (internal reference) |
 
 ## Refresh / retry
 
