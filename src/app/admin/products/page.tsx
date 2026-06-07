@@ -101,6 +101,11 @@ function statusBadgeClass(status: string, isDark: boolean): string {
   return isDark ? 'bg-dark-800 text-gray-300' : 'bg-gray-100 text-gray-700'
 }
 
+function formatAdminPurchasePrice(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return formatPrice(value, { zeroLabel: '—' })
+}
+
 export default function AdminProductsPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
@@ -714,6 +719,7 @@ export default function AdminProductsPage() {
             <AdminTh>SKU</AdminTh>
             <AdminTh>Category</AdminTh>
             <AdminTh>Brand</AdminTh>
+            <AdminTh>{tr('productForm.purchasePrice')}</AdminTh>
             <AdminTh>Price</AdminTh>
             <AdminTh>Status</AdminTh>
             <AdminTh align="right">Actions</AdminTh>
@@ -781,6 +787,7 @@ export default function AdminProductsPage() {
                     '—'
                   )}
                 </AdminTd>
+                <AdminTd>{formatAdminPurchasePrice(p.purchase_price)}</AdminTd>
                 <AdminTd>{formatPrice(p.price)}</AdminTd>
                 <AdminTd>
                   <span

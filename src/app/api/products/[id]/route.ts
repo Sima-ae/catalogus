@@ -16,6 +16,7 @@ import {
   parseProductImageOrderBody,
 } from '@/lib/product-body'
 import { getDbErrorMessage } from '@/lib/db-errors'
+import { omitProductInternalPricing } from '@/lib/product-serialize'
 import {
   applySellerProductInput,
   type ProductOwnershipRow,
@@ -39,12 +40,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const product = await getProductById(params.id)
+    const access = await resolveCatalogAccess(request)
+    const includePurchasePrice = access.kind === 'admin'
+    const product = await getProductById(params.id, { includePurchasePrice })
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    const access = await resolveCatalogAccess(request)
     if (access.kind === 'seller') {
       const allowed = sellerOwnsProductOrForbidden(access, ownershipOf(product))
       if (!allowed.ok) {
@@ -57,7 +59,9 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(product)
+    return NextResponse.json(
+      includePurchasePrice ? product : omitProductInternalPricing(product)
+    )
   } catch (error) {
     return NextResponse.json(
       { error: getDbErrorMessage(error, 'Failed to load product') },
@@ -101,7 +105,9 @@ export async function PATCH(
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
-    return NextResponse.json(product)
+    return NextResponse.json(
+      auth.access.kind === 'admin' ? product : omitProductInternalPricing(product)
+    )
   } catch (error) {
     if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
       return NextResponse.json({ error: error.message }, { status: 400 })

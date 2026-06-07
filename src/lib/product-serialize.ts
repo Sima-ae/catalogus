@@ -39,6 +39,8 @@ export function parseProductJsonField(value: unknown): string[] | null {
 export type SerializeProductRowOptions = {
   /** Known brand SKU slugs (server-loaded); omit on client-safe code paths. */
   brandSkuPrefixes?: string[]
+  /** Internal cost — only for authenticated admin API responses. */
+  includePurchasePrice?: boolean
 }
 
 /** Prefer stored collab label (`A X B`) over single-brand FK join. */
@@ -64,6 +66,7 @@ export function serializeProductRow(
     resolved_brand_name: _bn,
     resolved_brand_id: _bi,
     resolved_brand_slug: _bs,
+    purchase_price: _purchasePriceRaw,
     ...rest
   } = row
 
@@ -94,6 +97,11 @@ export function serializeProductRow(
     ? cleanImportDescription(rawShort, name, brand || null)
     : rawShort || undefined
 
+  const purchasePrice =
+    row.purchase_price != null && row.purchase_price !== ''
+      ? Number(row.purchase_price)
+      : null
+
   return {
     ...rest,
     sku,
@@ -120,10 +128,7 @@ export function serializeProductRow(
       row.original_price != null && row.original_price !== ''
         ? Number(row.original_price)
         : null,
-    purchase_price:
-      row.purchase_price != null && row.purchase_price !== ''
-        ? Number(row.purchase_price)
-        : null,
+    ...(options?.includePurchasePrice ? { purchase_price: purchasePrice } : {}),
     rating: row.rating != null ? Number(row.rating) : null,
     review_count: row.review_count != null ? Number(row.review_count) : null,
     download_count: row.download_count != null ? Number(row.download_count) : null,
@@ -132,4 +137,12 @@ export function serializeProductRow(
     created_at: row.created_at != null ? String(row.created_at) : '',
     updated_at: row.updated_at != null ? String(row.updated_at) : '',
   }
+}
+
+/** Strip admin-only pricing from a product payload (shop / seller APIs). */
+export function omitProductInternalPricing<T extends { purchase_price?: unknown }>(
+  product: T
+): Omit<T, 'purchase_price'> {
+  const { purchase_price: _pp, ...rest } = product
+  return rest
 }

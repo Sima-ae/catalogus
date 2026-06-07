@@ -20,7 +20,7 @@ import {
   isQualifiedSiblingCategory,
   resolveShopCategoryFilter,
 } from '@/lib/shop-category-tree'
-import { serializeProductRow } from '@/lib/product-serialize'
+import { serializeProductRow, type SerializeProductRowOptions } from '@/lib/product-serialize'
 import { joinBrandNames, parseBrandCompound } from '@/lib/product-taxonomy'
 import {
   brandsTableExists,
@@ -295,10 +295,14 @@ function dedupeProductRows(rows: Record<string, unknown>[]): Record<string, unkn
   return result
 }
 
-async function serializeProductRows(rows: Record<string, unknown>[]) {
-  const brandSkuPrefixes = await getBrandSkuPrefixes()
+async function serializeProductRows(
+  rows: Record<string, unknown>[],
+  options?: SerializeProductRowOptions
+) {
+  const brandSkuPrefixes =
+    options?.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
   return dedupeProductRows(rows).map((row) =>
-    serializeProductRow(row, { brandSkuPrefixes })
+    serializeProductRow(row, { brandSkuPrefixes, ...options })
   )
 }
 
@@ -517,7 +521,10 @@ export async function listShopSubcategoriesWithProducts(
   }))
 }
 
-async function fetchProductRow(id: string) {
+async function fetchProductRow(
+  id: string,
+  options?: Pick<SerializeProductRowOptions, 'includePurchasePrice'>
+) {
   const select = await productSelectSql()
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE p.id = ? LIMIT 1`,
@@ -525,7 +532,10 @@ async function fetchProductRow(id: string) {
   )
   if (!rows[0]) return null
   const brandSkuPrefixes = await getBrandSkuPrefixes()
-  return serializeProductRow(rows[0], { brandSkuPrefixes })
+  return serializeProductRow(rows[0], {
+    brandSkuPrefixes,
+    includePurchasePrice: options?.includePurchasePrice,
+  })
 }
 
 export async function insertProduct(input: ProductInput) {
@@ -609,7 +619,7 @@ export async function insertProduct(input: ProductInput) {
     console.error('[tag-translations] sync after insert failed:', err)
   })
 
-  return fetchProductRow(id)
+  return fetchProductRow(id, { includePurchasePrice: true })
 }
 
 export async function updateProduct(id: string, input: Partial<ProductInput>) {
@@ -755,7 +765,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     }
   }
 
-  if (!fields.length) return fetchProductRow(id)
+  if (!fields.length) return fetchProductRow(id, { includePurchasePrice: true })
 
   if (input.sku !== undefined) {
     const sku = requireProductSku(input.sku, brandPrefixes)
@@ -818,7 +828,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     })
   }
 
-  return fetchProductRow(id)
+  return fetchProductRow(id, { includePurchasePrice: true })
 }
 
 export async function listProducts() {
@@ -1004,7 +1014,7 @@ export async function listProductsPaginatedAdmin(
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
 
   return {
-    items: (await serializeProductRows(rows)) as unknown as CatalogProductsPage['items'],
+    items: (await serializeProductRows(rows, { includePurchasePrice: true })) as unknown as CatalogProductsPage['items'],
     total,
     page: safePage,
     pageSize: safeLimit,
@@ -1135,8 +1145,11 @@ export async function listDraftImportProducts(limit = 100) {
   return await serializeProductRows(rows)
 }
 
-export async function getProductById(id: string) {
-  return fetchProductRow(id)
+export async function getProductById(
+  id: string,
+  options?: Pick<SerializeProductRowOptions, 'includePurchasePrice'>
+) {
+  return fetchProductRow(id, options)
 }
 
 export async function deleteProductById(id: string) {

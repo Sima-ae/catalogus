@@ -61,8 +61,9 @@ export function applySellerProductInput(
   seller: SellerActor
 ): ProductInput {
   const name = sellerDisplayName(seller)
+  const { purchase_price: _pp, ...rest } = input
   return {
-    ...input,
+    ...rest,
     author: name,
     author_icon: sellerAuthorIcon(seller),
     author_id: seller.userId,

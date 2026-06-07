@@ -19,6 +19,7 @@ import {
   resolveCatalogAccess,
 } from '@/lib/product-api-auth'
 import { parseAdminProductsQuery, parseCatalogProductsQuery } from '@/lib/catalog-products'
+import { omitProductInternalPricing } from '@/lib/product-serialize'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -98,7 +99,13 @@ export async function POST(request: NextRequest) {
     }
 
     const product = await insertProduct(input)
-    return NextResponse.json(product, { status: 201 })
+    if (!product) {
+      return NextResponse.json({ error: 'Failed to create product' }, { status: 503 })
+    }
+    return NextResponse.json(
+      auth.access.kind === 'admin' ? product : omitProductInternalPricing(product),
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
       return NextResponse.json({ error: error.message }, { status: 400 })

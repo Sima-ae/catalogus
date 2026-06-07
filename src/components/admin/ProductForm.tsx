@@ -482,14 +482,16 @@ export default function ProductForm({
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
-          <Field
-            label={tr('productForm.purchasePrice')}
-            name="purchase_price"
-            type="number"
-            step="0.01"
-            value={form.purchase_price}
-            onChange={onChange}
-          />
+          {!isSeller ? (
+            <Field
+              label={tr('productForm.purchasePrice')}
+              name="purchase_price"
+              type="number"
+              step="0.01"
+              value={form.purchase_price}
+              onChange={onChange}
+            />
+          ) : null}
           <Field
             label={tr('productForm.price')}
             name="price"
