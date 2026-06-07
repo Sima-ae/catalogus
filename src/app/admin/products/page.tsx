@@ -43,6 +43,7 @@ import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
 import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSegment } from '@/lib/product-taxonomy'
 import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
 
@@ -69,11 +70,11 @@ function formatAdminProductCategoryLabels(
 const PAGE_SIZES = [50, 100, 250, 500] as const
 type PageSize = (typeof PAGE_SIZES)[number]
 
-function statusLabel(status: string): string {
-  if (status === 'active') return 'Published'
-  if (status === 'draft') return 'Draft'
-  if (status === 'inactive') return 'Inactive'
-  if (status === 'trash') return 'Trash'
+function statusLabel(status: string, tr: (key: string) => string): string {
+  if (status === 'active') return tr('adminProducts.status.published')
+  if (status === 'draft') return tr('adminProducts.status.draft')
+  if (status === 'inactive') return tr('adminProducts.status.inactive')
+  if (status === 'trash') return tr('adminProducts.status.trash')
   return status
 }
 
@@ -104,6 +105,13 @@ function statusBadgeClass(status: string, isDark: boolean): string {
 function formatAdminPurchasePrice(value: number | null | undefined): string {
   if (value == null) return '—'
   return formatPrice(value, { zeroLabel: '—' })
+}
+
+function formatAdminSalePrice(
+  value: number | null | undefined,
+  tr: (key: string) => string
+): string {
+  return formatPrice(value, { zeroLabel: tr('product.priceOnRequest') })
 }
 
 export default function AdminProductsPage() {
@@ -303,7 +311,7 @@ export default function AdminProductsPage() {
   const runBulkStatus = async (status: 'active' | 'draft' | 'inactive', ids: string[]) => {
     if (!user || !ids.length) return
 
-    const label = statusLabel(status)
+    const label = statusLabel(status, tr)
     if (!confirm(`Set ${ids.length} product(s) to "${label}"?`)) return
 
     setBulkWorking(true)
@@ -583,7 +591,7 @@ export default function AdminProductsPage() {
           <strong className={t.heading}>{totalItems}</strong> matching ·{' '}
           <strong className={t.heading}>{stats.total}</strong> total in catalog
           {statusFilter !== 'all' && (
-            <> · status: {statusLabel(statusFilter)}</>
+            <> · status: {statusLabel(statusFilter, tr)}</>
           )}
           {categoryFilterLabel && (
             <> · category: {categoryFilterLabel}</>
@@ -711,18 +719,18 @@ export default function AdminProductsPage() {
                 type="checkbox"
                 checked={allOnPageSelected}
                 onChange={toggleAllOnPage}
-                aria-label="Select all on this page"
+                aria-label={tr('adminProducts.selectAll')}
                 className="rounded border-gray-400"
               />
             </AdminTh>
-            <AdminTh>Product</AdminTh>
-            <AdminTh>SKU</AdminTh>
-            <AdminTh>Category</AdminTh>
-            <AdminTh>Brand</AdminTh>
+            <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
+            <AdminTh>{tr('adminProducts.col.sku')}</AdminTh>
+            <AdminTh>{tr('adminProducts.col.category')}</AdminTh>
+            <AdminTh>{tr('adminProducts.col.brand')}</AdminTh>
             <AdminTh>{tr('productForm.purchasePrice')}</AdminTh>
-            <AdminTh>Price</AdminTh>
-            <AdminTh>Status</AdminTh>
-            <AdminTh align="right">Actions</AdminTh>
+            <AdminTh>{tr('adminProducts.col.price')}</AdminTh>
+            <AdminTh>{tr('adminProducts.col.status')}</AdminTh>
+            <AdminTh align="right">{tr('adminProducts.col.actions')}</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
             {pageItems.map((p) => (
@@ -732,7 +740,7 @@ export default function AdminProductsPage() {
                     type="checkbox"
                     checked={selected.has(p.id)}
                     onChange={() => toggleSelected(p.id)}
-                    aria-label={`Select ${p.name}`}
+                    aria-label={formatMessage(tr('adminProducts.selectProduct'), { name: p.name })}
                     className="rounded border-gray-400"
                   />
                 </AdminTd>
@@ -788,12 +796,12 @@ export default function AdminProductsPage() {
                   )}
                 </AdminTd>
                 <AdminTd>{formatAdminPurchasePrice(p.purchase_price)}</AdminTd>
-                <AdminTd>{formatPrice(p.price)}</AdminTd>
+                <AdminTd>{formatAdminSalePrice(p.price, tr)}</AdminTd>
                 <AdminTd>
                   <span
-                    className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border capitalize ${statusBadgeClass(p.status, t.isDark)}`}
+                    className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass(p.status, t.isDark)}`}
                   >
-                    {statusLabel(p.status || 'active')}
+                    {statusLabel(p.status || 'active', tr)}
                   </span>
                 </AdminTd>
                 <AdminTd align="right">
@@ -801,7 +809,7 @@ export default function AdminProductsPage() {
                     <Link
                       href={appPath(`/admin/products/${p.id}/edit`)}
                       className={`p-2 rounded-lg ${t.iconBtn}`}
-                      title="Edit"
+                      title={tr('adminProducts.edit')}
                     >
                       <PencilIcon className="w-5 h-5" />
                     </Link>
@@ -809,7 +817,7 @@ export default function AdminProductsPage() {
                       type="button"
                       onClick={() => handleDelete(p.id)}
                       className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400"
-                      title="Move to trash"
+                      title={tr('product.trash.buttonTitle')}
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
