@@ -47,7 +47,9 @@ export function getTopCategoryLabel(
 
   const key = categoryI18nKey(raw)
   const translated = t(key)
-  if (translated && translated !== key) return translated
+  if (translated && translated !== key) {
+    return humanizeAllCapsCategoryLabel(translated)
+  }
   return humanizeAllCapsCategoryLabel(raw)
 }
 
