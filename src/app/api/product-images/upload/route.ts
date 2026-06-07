@@ -1,57 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { catalogImageUploadCorsHeaders } from '@/lib/catalog-image-upload-cors'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { requireProductWrite } from '@/lib/product-api-auth'
 import { saveProductImageUpload } from '@/lib/product-image-upload'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-function jsonWithCors(
-  request: NextRequest,
-  body: Record<string, unknown>,
-  status: number
-) {
-  return NextResponse.json(body, {
-    status,
-    headers: catalogImageUploadCorsHeaders(request),
-  })
-}
-
-export async function OPTIONS(request: NextRequest) {
-  ensureEnvLoaded()
-  const cors = catalogImageUploadCorsHeaders(request)
-  if (!Object.keys(cors).length) {
-    return new NextResponse(null, { status: 204 })
-  }
-  return new NextResponse(null, { status: 204, headers: cors })
-}
-
 export async function POST(request: NextRequest) {
-  ensureEnvLoaded()
-
   const auth = await requireProductWrite(request)
   if (!auth.ok) {
-    return jsonWithCors(request, { error: auth.error }, auth.status)
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
   try {
     const formData = await request.formData()
     const file = formData.get('file')
     if (!file || !(file instanceof File)) {
-      return jsonWithCors(request, { error: 'file is required' }, 400)
+      return NextResponse.json({ error: 'file is required' }, { status: 400 })
     }
 
     const { url } = await saveProductImageUpload(file)
-    return jsonWithCors(request, { url }, 200)
+    return NextResponse.json({ url })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Upload failed'
     console.error('Product image upload:', error)
-    return jsonWithCors(
-      request,
+    return NextResponse.json(
       { error: getDbErrorMessage(error, message) },
-      message.includes('allowed') || message.includes('smaller') ? 400 : 503
+      { status: message.includes('allowed') || message.includes('smaller') ? 400 : 503 }
     )
   }
 }
