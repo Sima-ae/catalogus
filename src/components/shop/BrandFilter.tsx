@@ -3,10 +3,11 @@
 import FilterPillsScroll from '@/components/shop/FilterPillsScroll'
 import FilterPillsSkeleton from '@/components/shop/FilterPillsSkeleton'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
+import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import { shouldShowShopBrandFilter } from '@/lib/shop-brand-menu'
 
 interface BrandFilterProps {
   selectedCategory: string
-  selectedSubcategory?: string
   selectedBrand: string
   onBrandChange: (brand: string) => void
   centered?: boolean
@@ -14,14 +15,30 @@ interface BrandFilterProps {
 
 export default function BrandFilter({
   selectedCategory,
-  selectedSubcategory = 'All',
   selectedBrand,
   onBrandChange,
   centered = false,
 }: BrandFilterProps) {
-  const { brands, loading } = useShopBrandList(selectedCategory, selectedSubcategory)
+  const {
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  } = useShopSubcategory(selectedCategory)
 
-  if (selectedCategory === 'All') return null
+  const showBrandRow = shouldShowShopBrandFilter({
+    selectedCategory,
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  })
+
+  const { brands, loading } = useShopBrandList(
+    selectedCategory,
+    selectedSubcategory,
+    showBrandRow
+  )
+
+  if (!showBrandRow) return null
 
   const brandOptions = brands.filter((name) => name !== 'All')
 

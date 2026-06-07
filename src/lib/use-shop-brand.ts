@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
+import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import { shouldShowShopBrandFilter } from '@/lib/shop-brand-menu'
 import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
 export function useShopBrand() {
@@ -14,25 +16,43 @@ export function useShopBrand() {
     return raw || 'All'
   }, [searchParams])
 
-  const selectedSubcategory = useMemo(() => {
-    const raw = searchParams.get('subcategory')?.trim()
-    return raw || 'All'
-  }, [searchParams])
+  const {
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  } = useShopSubcategory(selectedCategory)
 
-  const brandMenuState = useShopBrandList(selectedCategory, selectedSubcategory)
+  const brandFilterActive = shouldShowShopBrandFilter({
+    selectedCategory,
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  })
+
+  const brandMenuState = useShopBrandList(
+    selectedCategory,
+    selectedSubcategory,
+    brandFilterActive
+  )
   const brandMenu = brandMenuState.brands
 
   const selectedBrand = useMemo(() => {
+    if (!brandFilterActive) return 'All'
     const raw = searchParams.get('brand')?.trim()
     if (!raw) return 'All'
     return brandMenu.includes(raw) ? raw : 'All'
-  }, [searchParams, brandMenu])
+  }, [searchParams, brandMenu, brandFilterActive])
 
   useEffect(() => {
     if (!isShopCatalogPath(pathname)) return
-    const raw = searchParams.get('brand')?.trim()
-    if (!raw || brandMenu.includes(raw)) return
-    if (brandMenu.length === 0) return
+    if (brandFilterActive) {
+      const raw = searchParams.get('brand')?.trim()
+      if (!raw || brandMenu.includes(raw)) return
+      if (brandMenu.length === 0) return
+    } else {
+      const raw = searchParams.get('brand')?.trim()
+      if (!raw) return
+    }
 
     const basePath = shopCatalogBasePath(pathname)
     const params = new URLSearchParams(searchParams.toString())
@@ -40,7 +60,7 @@ export function useShopBrand() {
     clearCatalogPageParam(params)
     const qs = params.toString()
     router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
-  }, [brandMenu, pathname, router, searchParams])
+  }, [brandFilterActive, brandMenu, pathname, router, searchParams])
 
   const setSelectedBrand = useCallback(
     (brand: string) => {

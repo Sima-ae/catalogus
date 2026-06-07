@@ -21,6 +21,7 @@ import { useShopSearch } from '@/lib/use-shop-search'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
+import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -66,7 +67,8 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
-  const { selectedSubcategory } = useShopSubcategory(selectedCategory)
+  const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
+    useShopSubcategory(selectedCategory)
   const { selectedBrand, setSelectedBrand } = useShopBrand()
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
   const [loading, setLoading] = useState(true)
@@ -103,12 +105,19 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
   const filterBrand = searchParams.get('brand')?.trim() || 'All'
   const filterTag = searchParams.get('tag')?.trim() || ''
+  const brandFilterCtx = {
+    selectedCategory,
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  }
+  const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const filterSignature = `${urlCategory}|${urlSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
   const reorderScope = catalogSortScope({
     mode: config.mode === 'new' ? 'new' : undefined,
     category: urlCategory !== 'All' ? urlCategory : undefined,
     subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
-    brand: filterBrand !== 'All' ? filterBrand : undefined,
+    brand: brandFilterActive ? filterBrand : undefined,
     tag: filterTag || undefined,
     search: debouncedSearch || undefined,
   })
@@ -209,7 +218,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
           limit: CATALOG_PAGE_SIZE,
           category: urlCategory !== 'All' ? urlCategory : undefined,
           subcategory: urlSubcategory !== 'All' ? urlSubcategory : undefined,
-          brand: filterBrand !== 'All' ? filterBrand : undefined,
+          brand: brandFilterActive ? filterBrand : undefined,
           tag: filterTag || undefined,
           search: debouncedSearch || undefined,
           mode: config.mode === 'new' ? 'new' : undefined,
@@ -304,7 +313,6 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
               />
               <BrandFilter
                 selectedCategory={selectedCategory}
-                selectedSubcategory={selectedSubcategory}
                 selectedBrand={selectedBrand}
                 onBrandChange={setSelectedBrand}
                 centered={config.centerCatalog}

@@ -66,18 +66,19 @@ export type ShopBrandListState = {
 /** Brand labels for shop filters — only brands with products in the selected category. */
 export function useShopBrandList(
   selectedCategory: string = 'All',
-  selectedSubcategory: string = 'All'
+  selectedSubcategory: string = 'All',
+  enabled: boolean = true
 ): ShopBrandListState {
   const cacheKey = brandCacheKey(selectedCategory, selectedSubcategory)
-  const cachedMenu = brandCache.get(cacheKey)
+  const cachedMenu = enabled ? brandCache.get(cacheKey) : undefined
 
   const [brands, setBrands] = useState<string[]>(() => cachedMenu ?? [])
   const [loading, setLoading] = useState(
-    () => selectedCategory !== 'All' && !cachedMenu
+    () => enabled && selectedCategory !== 'All' && !cachedMenu
   )
 
   useEffect(() => {
-    if (!selectedCategory || selectedCategory === 'All') {
+    if (!enabled || !selectedCategory || selectedCategory === 'All') {
       setBrands([])
       setLoading(false)
       return
@@ -109,7 +110,7 @@ export function useShopBrandList(
     return () => {
       cancelled = true
     }
-  }, [cacheKey, selectedCategory, selectedSubcategory])
+  }, [cacheKey, selectedCategory, selectedSubcategory, enabled])
 
   return useMemo(() => ({ brands, loading }), [brands, loading])
 }
