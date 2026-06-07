@@ -35,12 +35,12 @@ async function fetchShopBrandMenu(
   const request = fetch(url)
     .then((res) => (res.ok ? res.json() : []))
     .then((data: unknown) => {
-      if (!Array.isArray(data)) return ['All']
+      if (!Array.isArray(data)) return []
       const menu = buildShopBrandMenu(data as BrandRow[])
       brandCache.set(key, menu)
       return menu
     })
-    .catch(() => ['All'] as string[])
+    .catch(() => [] as string[])
     .finally(() => {
       brandInflight.delete(key)
     })
@@ -71,14 +71,14 @@ export function useShopBrandList(
   const cacheKey = brandCacheKey(selectedCategory, selectedSubcategory)
   const cachedMenu = brandCache.get(cacheKey)
 
-  const [brands, setBrands] = useState<string[]>(() => cachedMenu ?? ['All'])
+  const [brands, setBrands] = useState<string[]>(() => cachedMenu ?? [])
   const [loading, setLoading] = useState(
     () => selectedCategory !== 'All' && !cachedMenu
   )
 
   useEffect(() => {
     if (!selectedCategory || selectedCategory === 'All') {
-      setBrands(['All'])
+      setBrands([])
       setLoading(false)
       return
     }
@@ -101,7 +101,7 @@ export function useShopBrandList(
       })
       .catch(() => {
         if (!cancelled) {
-          setBrands(['All'])
+          setBrands([])
           setLoading(false)
         }
       })

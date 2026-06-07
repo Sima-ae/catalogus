@@ -23,11 +23,13 @@ export default function BrandFilter({
 
   if (selectedCategory === 'All') return null
 
+  const brandOptions = brands.filter((name) => name !== 'All')
+
   const wrapperClass = centered
     ? 'mt-2 flex w-full min-w-0 justify-center'
     : 'mt-4 w-full min-w-0'
 
-  if (loading && brands.length <= 1) {
+  if (loading && brandOptions.length === 0) {
     return (
       <div className={wrapperClass} aria-busy="true" aria-label="Loading brands">
         <FilterPillsSkeleton centered={centered} />
@@ -35,13 +37,13 @@ export default function BrandFilter({
     )
   }
 
-  if (brands.length <= 1) return null
+  if (brandOptions.length === 0) return null
 
   return (
     <div className={wrapperClass}>
       <FilterPillsScroll
-        items={brands}
-        selected={selectedBrand}
+        items={brandOptions}
+        selected={selectedBrand === 'All' ? '' : selectedBrand}
         onChange={onBrandChange}
         showArrows={brands.length > 5}
         ariaLabel="Brands"
