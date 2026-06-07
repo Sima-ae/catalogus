@@ -581,11 +581,8 @@ async function main() {
 
   console.log(`==> Image storage: ${describeCatalogImagesWriteTarget()}`)
   if (!isCatalogImagesVpsWrite()) {
-    console.warn(
-      'WARN: CATALOGUS_PUBLIC_HTML is not set — imported images save under public/images in this repo.'
-    )
-    console.warn(
-      '      For production, run import:worker on the VPS (images go to public_html/images, not git).'
+    console.log(
+      '      Images save under public/images/ — commit and push public/images/ to deploy.'
     )
   }
 

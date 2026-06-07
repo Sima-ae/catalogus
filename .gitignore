@@ -51,6 +51,4 @@ next-env.d.ts
 # OS
 Thumbs.db
 
-# Mirrored import images — live on VPS public_html/images, never in git
-public/images/imports/
-!public/images/imports/.gitkeep
+# Product images (imports + uploads) live in public/images and are deployed via git.

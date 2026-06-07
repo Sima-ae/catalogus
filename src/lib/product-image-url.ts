@@ -3,6 +3,7 @@
  * Store and serve catalog images as site-relative paths so dev (localhost) and
  * production (superclones.cloud) both load files from the same host.
  */
+import { appPath } from '@/lib/paths'
 function extractImagePath(raw: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) return null
@@ -63,6 +64,27 @@ export function normalizeProductImageUrl(url: string | null | undefined): string
   }
 
   return raw
+}
+
+/** Browser src for catalog /images/ paths (respects basePath). External URLs unchanged. */
+export function productImageSrc(url: string | null | undefined): string {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized) return ''
+  if (normalized.startsWith('/')) return appPath(normalized)
+  return normalized
+}
+
+/** Normalize image fields before persisting to the database. */
+export function normalizeProductImagesForStorage(input: {
+  image_url?: string | null
+  gallery_images?: string[] | null
+}): { image_url: string; gallery_images: string[] | null } {
+  const main = normalizeProductImageUrl(input.image_url)
+  const gallery = normalizeProductImageList(input.gallery_images)
+  return {
+    image_url: main,
+    gallery_images: gallery,
+  }
 }
 
 /** Absolute URL when needed (emails, OG tags). Relative /images/ paths use app origin. */

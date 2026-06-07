@@ -22,44 +22,40 @@ Photo-only links (`photo?fbid=…&set=pcb.…`) also work, but permalink URLs ar
    mysql supe_r_clones_cloud < db/facebook_import.sql
    ```
 
-2. On the **VPS** `.env` (required for production):
+2. **Facebook Graph token** (optional but recommended for full carousel):
 
    ```env
-   CATALOGUS_PUBLIC_HTML=/home/superclones.cloud/public_html
    FACEBOOK_GRAPH_ACCESS_TOKEN=your_page_or_user_token
    ```
 
-   `CATALOGUS_PUBLIC_HTML` makes the worker save images under `public_html/images/` on the server — **not** inside the git repo and **not** via deploy.
-
-   Run once after deploy:
-
-   ```bash
-   bash scripts/ensure-catalog-images-access.sh
-   ```
-
-3.    Graph token: use a **Page access token** for the supplier page, or a User token with `pages_read_engagement`.
+   Graph token: use a **Page access token** for the supplier page, or a User token with `pages_read_engagement`.
 
    Carousel posts often embed only a handful of photos in the HTML; the importer reads the album/post ids from the page and uses Graph to fetch **all** carousel photos (with pagination). Without the token you typically get only ~5–6 images.
+
+## Image storage
+
+Import images are saved under `public/images/imports/facebook/` in this repo. **Commit and push** `public/images/` so deploy copies them to the VPS (same as before VPS-only storage).
+
+Products store site-relative URLs (`/images/imports/facebook/…`). On the VPS, `scripts/link-public-images.sh` symlinks `public/images` → `public_html/images` for nginx.
 
 ## Admin workflow
 
 1. **Super admin** → Admin → Import → Add source → type **Facebook** (name only).
 2. On the source row, paste the **permalink URL**, then fill in price, category, brand(s). SKU is assigned automatically when you queue the import.
 3. Click **Import post** → copy worker command.
-4. **On the VPS** (SSH into the server — do not run the worker on your laptop for production):
+4. Run the import worker (local Mac with `db:tunnel`, or on the VPS):
 
    ```bash
-   cd /var/www/catalogus   # or your app path on the VPS
    npm run import:worker -- --job=<uuid> --refresh
    ```
 
-   The worker downloads Facebook images directly to:
+   Images are written to `public/images/imports/facebook/{id}/001.jpg`, etc. Then:
 
+   ```bash
+   git add public/images/imports/
+   git commit -m "Add Facebook import images"
+   git push
    ```
-   /home/superclones.cloud/public_html/images/imports/facebook/{id}/001.jpg
-   ```
-
-   Products store site-relative URLs (`/images/imports/facebook/…`) — the live site serves them from `public_html/images`. **No git push or deploy needed for images.**
 
 5. Admin → Import → **Review import queue** → edit if needed → Publish.
 
@@ -68,18 +64,15 @@ Photo-only links (`photo?fbid=…&set=pcb.…`) also work, but permalink URLs ar
 If thumbnails or the product lightbox show broken images after import or deploy:
 
 ```bash
-# On the VPS (where image files should live)
 npm run db:repair-import-images -- --dry-run
 npm run db:repair-import-images -- --remirror
 ```
 
-This normalizes DB paths to `/images/imports/…`, re-downloads missing Facebook/WooCommerce files when `source_url` / `wc-*` id is available, and updates products.
+Then commit any new files under `public/images/` and push.
 
-Ensure `CATALOGUS_PUBLIC_HTML` is set and `bash scripts/link-public-images.sh` has been run after deploy.
+### Local dev
 
-### Local dev (optional)
-
-With `db:tunnel`, you can queue jobs from local admin but still run the worker **on the VPS** for images. If you run the worker locally without `CATALOGUS_PUBLIC_HTML`, files go to `public/images/imports/` for testing only (gitignored).
+With `db:tunnel`, queue jobs from local admin and run the worker locally. Images land in `public/images/imports/` — commit and push when ready for production.
 
 ## Debug on VPS
 

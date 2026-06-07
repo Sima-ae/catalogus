@@ -15,6 +15,45 @@ export function catalogImagePublicPath(relativePathFromImagesRoot: string): stri
   return `/images/${catalogImageRelativePath(relativePathFromImagesRoot)}`
 }
 
+function catalogImagePathFromUrl(url: string | null | undefined): string | null {
+  const raw = String(url ?? '').trim()
+  if (!raw) return null
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const pathname = new URL(raw).pathname
+      if (pathname.startsWith('/images/')) return pathname
+      return null
+    } catch {
+      return null
+    }
+  }
+  const normalized = raw.replace(/\\/g, '/')
+  if (normalized.startsWith('/images/')) return normalized
+  if (normalized.startsWith('images/')) return `/${normalized}`
+  return null
+}
+
+export function catalogImageRelativeFromPublicUrl(url: string | null | undefined): string | null {
+  const pathPart = catalogImagePathFromUrl(url)
+  if (!pathPart) return null
+  return catalogImageRelativePath(pathPart.slice('/images/'.length))
+}
+
+export async function catalogImageFileExists(url: string | null | undefined): Promise<boolean> {
+  const relative = catalogImageRelativeFromPublicUrl(url)
+  if (!relative) return false
+  for (const root of getCatalogImagesRoots()) {
+    const filePath = path.join(root, relative)
+    try {
+      const stat = await fs.stat(filePath)
+      if (stat.isFile() && stat.size > 0) return true
+    } catch {
+      /* try next root */
+    }
+  }
+  return false
+}
+
 export async function writeCatalogImageFile(
   relativePathFromImagesRoot: string,
   buffer: Buffer
