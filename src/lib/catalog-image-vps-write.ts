@@ -121,7 +121,11 @@ export async function uploadCatalogImageViaProductionProxy(
   }
 
   const body = new FormData()
-  body.append('file', new Blob([buffer], { type: file.type }), file.name || 'upload.jpg')
+  body.append(
+    'file',
+    new Blob([new Uint8Array(buffer)], { type: file.type }),
+    file.name || 'upload.jpg'
+  )
 
   const res = await fetch(`${origin}/api/product-images/upload`, {
     method: 'POST',
