@@ -4,6 +4,7 @@ import { shouldWriteCatalogImagesViaSsh } from '@/lib/catalog-images-root'
 import { writeCatalogImageFile } from '@/lib/catalog-image-storage'
 import {
   type CatalogUploadAuthHeaders,
+  catalogImageUploadProxyOrigin,
   uploadCatalogImageViaProductionProxy,
   writeCatalogImageViaSsh,
 } from '@/lib/catalog-image-vps-write'
@@ -17,6 +18,27 @@ const ALLOWED_TYPES = new Map<string, string>([
 ])
 
 const MAX_BYTES = 8 * 1024 * 1024
+
+function hasUploadAuth(auth?: CatalogUploadAuthHeaders): boolean {
+  return Boolean(String(auth?.userId ?? '').trim() && String(auth?.userEmail ?? '').trim())
+}
+
+function preferSshUpload(): boolean {
+  return process.env.CATALOG_IMAGE_UPLOAD_VIA_SSH === 'true'
+}
+
+async function saveViaProductionProxy(
+  file: File,
+  buf: Buffer,
+  auth: CatalogUploadAuthHeaders
+): Promise<{ url: string }> {
+  return uploadCatalogImageViaProductionProxy(file, buf, auth)
+}
+
+async function saveViaSsh(relativeFile: string, buf: Buffer): Promise<{ url: string }> {
+  await writeCatalogImageViaSsh(relativeFile, buf)
+  return { url: normalizeProductImageUrl(`/images/${relativeFile}`) }
+}
 
 export async function saveProductImageUpload(
   file: File,
@@ -42,19 +64,35 @@ export async function saveProductImageUpload(
   const relativeFile = path.posix.join(subdir, filename)
 
   if (shouldWriteCatalogImagesViaSsh()) {
-    try {
-      await writeCatalogImageViaSsh(relativeFile, buf)
-      return { url: normalizeProductImageUrl(`/images/${relativeFile}`) }
-    } catch (sshErr) {
-      console.warn('SSH catalog upload failed, trying production proxy:', sshErr)
+    const canProxy = hasUploadAuth(auth) && Boolean(catalogImageUploadProxyOrigin())
+    const trySshFirst = preferSshUpload() && process.env.VPS_SSH_KEY?.trim()
+
+    if (canProxy && !trySshFirst) {
       try {
-        return await uploadCatalogImageViaProductionProxy(file, buf, auth ?? {})
+        return await saveViaProductionProxy(file, buf, auth!)
       } catch (proxyErr) {
-        console.error('Production upload proxy failed:', proxyErr)
-        throw new Error(
-          'Could not save image to VPS. Use a deploy SSH key (VPS_SSH_KEY) or ensure https://superclones.cloud is reachable.'
-        )
+        console.warn('Production upload proxy failed, trying SSH:', proxyErr)
+        if (process.env.VPS_SSH_KEY?.trim()) {
+          try {
+            return await saveViaSsh(relativeFile, buf)
+          } catch {
+            /* fall through */
+          }
+        }
+        throw proxyErr
       }
+    }
+
+    try {
+      return await saveViaSsh(relativeFile, buf)
+    } catch (sshErr) {
+      console.warn('SSH catalog upload failed:', sshErr)
+      if (canProxy) {
+        return await saveViaProductionProxy(file, buf, auth!)
+      }
+      throw new Error(
+        'Could not save image to VPS. Set NEXT_PUBLIC_APP_URL and log in as admin, or configure VPS_SSH_KEY.'
+      )
     }
   }
 

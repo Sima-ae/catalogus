@@ -19,6 +19,10 @@ function sshArgs(): string[] {
     '-o',
     'BatchMode=yes',
     '-o',
+    'ConnectTimeout=10',
+    '-o',
+    'ConnectionAttempts=1',
+    '-o',
     'StrictHostKeyChecking=accept-new',
     '-o',
     'IdentitiesOnly=yes',
@@ -135,6 +139,7 @@ export async function uploadCatalogImageViaProductionProxy(
       'X-Catalogus-Upload-Proxy': '1',
     },
     body,
+    signal: AbortSignal.timeout(120_000),
   })
 
   const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string }

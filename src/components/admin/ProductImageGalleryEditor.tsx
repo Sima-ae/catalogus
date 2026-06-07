@@ -224,6 +224,7 @@ export default function ProductImageGalleryEditor({
       method: 'POST',
       headers: authHeaders,
       body,
+      signal: AbortSignal.timeout(120_000),
     })
     const data = (await res.json()) as { url?: string; error?: string }
     if (!res.ok || !data.url) {
@@ -243,6 +244,7 @@ export default function ProductImageGalleryEditor({
     const uploaded: string[] = []
     try {
       for (let i = 0; i < files.length; i++) {
+        setUploadProgress({ done: i, total: files.length })
         const url = await uploadFile(files[i]!)
         uploaded.push(url)
         setUploadProgress({ done: i + 1, total: files.length })
