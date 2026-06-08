@@ -139,6 +139,7 @@ import { APP_COPYRIGHT } from '@/lib/brand'
 import { localizedAppPath, pathnameMatches } from '@/lib/i18n-routing'
 import BrandLogo from '@/components/brand/BrandLogo'
 import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
+import SidebarWelcomeTitle from '@/components/layout/SidebarWelcomeTitle'
 import SidebarCategories from '@/components/layout/SidebarCategories'
 import { useI18n } from '@/lib/i18n-context'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
@@ -298,8 +299,9 @@ export default function Sidebar({
           </button>
         </div>
 
-        <div>
+        <div className="space-y-2">
           <ShopCatalogBadge label={t('badge.catalog2026')} />
+          <SidebarWelcomeTitle />
         </div>
       </div>
 

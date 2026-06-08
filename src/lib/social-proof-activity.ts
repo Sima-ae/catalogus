@@ -1,6 +1,12 @@
+export type SocialProofProduct = {
+  label: string
+  imageUrl: string | null
+}
+
 export type StoredSocialProofNotification = {
   buyerName: string
   productName: string
+  productImageUrl?: string | null
   /** Fixed moment the fictional purchase happened — relative label ages automatically. */
   purchasedAt: string
 }
@@ -232,7 +238,7 @@ function allBuyerNameCount(): number {
   )
 }
 
-const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v6'
+const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v7'
 const PREVIOUS_DAYS_KEY = 'catalogus-social-proof-previous-days'
 const DEFAULT_COUNT = 12
 /** Remember a few recent days for soft de-dupe; older lines can return anytime. */
@@ -388,13 +394,17 @@ function shouldSkipLine(
 
 /** New random lines for today; unique within the day, repeats from past days only occasionally. */
 export function buildDailySocialProofNotifications(
-  productNames: string[],
+  productsInput: SocialProofProduct[],
   recentSignatures: RecentSignature[],
   count = DEFAULT_COUNT
 ): StoredSocialProofNotification[] {
-  const products = Array.from(
-    new Set(productNames.map((n) => n.trim()).filter(Boolean))
-  )
+  const byLabel = new Map<string, SocialProofProduct>()
+  for (const p of productsInput) {
+    const label = p.label.trim()
+    if (!label) continue
+    if (!byLabel.has(label.toLowerCase())) byLabel.set(label.toLowerCase(), p)
+  }
+  const products = Array.from(byLabel.values())
   if (products.length === 0 || count < 1) return []
 
   const shuffledProducts = shuffle(products)
@@ -409,8 +419,9 @@ export function buildDailySocialProofNotifications(
   while (notifications.length < count && attempts < maxAttempts) {
     attempts++
     const buyerName = randomBuyerName()
-    const productName = shuffledProducts[productIdx % shuffledProducts.length]!
+    const product = shuffledProducts[productIdx % shuffledProducts.length]!
     productIdx++
+    const productName = product.label
 
     const sig = messageSignature(buyerName, productName)
     if (shouldSkipLine(sig, usedToday, recentSignatures)) continue
@@ -419,6 +430,7 @@ export function buildDailySocialProofNotifications(
     notifications.push({
       buyerName,
       productName,
+      productImageUrl: product.imageUrl,
       purchasedAt: purchaseTimes[notifications.length]!,
     })
   }
@@ -492,8 +504,12 @@ function daysBetweenKeys(older: string, newer: string): number {
   return Math.max(1, Math.round(diff / (24 * 60 * 60_000)))
 }
 
-function validProductNameSet(productNames: string[]): Set<string> {
-  return new Set(productNames.map((n) => n.trim().toLowerCase()).filter(Boolean))
+function validProductNameSet(products: SocialProofProduct[]): Set<string> {
+  return new Set(products.map((p) => p.label.trim().toLowerCase()).filter(Boolean))
+}
+
+function notificationsHaveImages(notifications: StoredSocialProofNotification[]): boolean {
+  return notifications.every((n) => Boolean(n.productImageUrl?.trim()))
 }
 
 function cacheMatchesCatalog(
@@ -511,16 +527,17 @@ function cacheMatchesCatalog(
  * Names and lines can reappear after a few days — never a fixed loop.
  */
 export function loadOrCreateDailySocialProofFeed(
-  productNames: string[]
+  products: SocialProofProduct[]
 ): StoredSocialProofNotification[] {
   const today = getLocalDateKey()
   const cached = readDailyCache()
-  const validNames = validProductNameSet(productNames)
+  const validNames = validProductNameSet(products)
 
   if (
     cached?.date === today &&
     cached.notifications.length > 0 &&
-    cacheMatchesCatalog(cached.notifications, validNames)
+    cacheMatchesCatalog(cached.notifications, validNames) &&
+    notificationsHaveImages(cached.notifications)
   ) {
     return cached.notifications
   }
@@ -531,7 +548,7 @@ export function loadOrCreateDailySocialProofFeed(
 
   const recent = loadRecentSignatures(today)
   const notifications = buildDailySocialProofNotifications(
-    productNames,
+    products,
     recent,
     DEFAULT_COUNT
   )

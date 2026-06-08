@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth-local'
 import { appPath } from '@/lib/paths'
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
-import { ShopRegisterHeaderButtons } from '@/components/shop/ShopRegisterLinks'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
 type ShopHeroHeaderActionsProps = {
@@ -50,10 +49,6 @@ export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps 
         </Link>
       ) : null}
       <ShopCartHeaderButton badgeCount={cartBadgeCount} />
-      <ShopRegisterHeaderButtons
-        className="flex-nowrap shrink-0 gap-1.5 lg:gap-2"
-        buttonClassName="btn-primary text-xs lg:text-sm px-2.5 lg:px-3 py-2 inline-flex whitespace-nowrap shrink-0"
-      />
     </div>
   )
 }

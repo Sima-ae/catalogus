@@ -7,7 +7,10 @@ import { useAuth } from '@/lib/auth-local'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 import BrandLogo from '@/components/brand/BrandLogo'
+import SidebarWelcomeTitle from '@/components/layout/SidebarWelcomeTitle'
+import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
+import { useI18n } from '@/lib/i18n-context'
 import DashboardHeaderActions from '@/components/dashboard/DashboardHeaderActions'
 import { ArrowRightOnRectangleIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
@@ -23,6 +26,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
   const pathname = usePathname()
   const { signOut } = useAuth()
   const { theme } = useTheme()
+  const { t } = useI18n()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const isDark = theme === 'dark'
@@ -47,7 +51,12 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
           </button>
         </div>
       </div>
-      <p className={`text-sm mb-4 lg:hidden ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
+
+      <div className="mb-4 space-y-2">
+        <ShopCatalogBadge label={t('badge.catalog2026')} />
+        <SidebarWelcomeTitle />
+      </div>
+
       <nav className="space-y-2 flex-1">
         <Link
           href={appPath('/pricelist')}

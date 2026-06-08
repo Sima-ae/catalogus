@@ -373,7 +373,7 @@ export default function ProductPageClient() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <AppStickyHeader
-          title={t('shop.home.title')}
+          title=""
           showSocialProof
           searchPlaceholder={t('shop.home.searchPlaceholder')}
           searchValue={headerSearch}

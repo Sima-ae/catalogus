@@ -106,7 +106,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'loading.checking': 'Checking…',
 
     // Social proof bubble
-    'activity.justOrderedPrefix': '{buyer} just ordered ',
+    'activity.justOrderedPrefix': '{buyer} just ordered',
     'activity.time.justNow': 'just now',
     'activity.time.minuteAgo': '1 minute ago',
     'activity.time.minutesAgo': '{count} minutes ago',
@@ -322,7 +322,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'loading.checking': 'Controleren…',
 
     // Social proof bubble
-    'activity.justOrderedPrefix': '{buyer} heeft zojuist besteld: ',
+    'activity.justOrderedPrefix': '{buyer} heeft zojuist besteld',
     'activity.time.justNow': 'zojuist',
     'activity.time.minuteAgo': '1 minuut geleden',
     'activity.time.minutesAgo': '{count} minuten geleden',

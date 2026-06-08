@@ -6,6 +6,8 @@ import { useTheme } from '@/lib/theme'
 import { appPath, isAppPath } from '@/lib/paths'
 import { APP_COPYRIGHT } from '@/lib/brand'
 import BrandLogo from '@/components/brand/BrandLogo'
+import SidebarWelcomeTitle from '@/components/layout/SidebarWelcomeTitle'
+import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import { useI18n } from '@/lib/i18n-context'
 import {
   HomeIcon,
@@ -92,6 +94,11 @@ export default function AdminSidebar({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="mb-4 space-y-2">
+        <ShopCatalogBadge label={tr('badge.catalog2026')} />
+        <SidebarWelcomeTitle />
       </div>
 
       <nav className="space-y-2 flex-1">

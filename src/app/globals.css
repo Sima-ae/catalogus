@@ -457,9 +457,9 @@ body.app-protected [contenteditable='true'] {
     @apply m-4 sm:m-6 lg:m-8;
   }
 
-  /* Header activity — SVG speech outline (see ActivitySpeechBubble) */
-  .activity-speech-bubble-wrap {
-    @apply pb-1;
+  /* Header activity notification card — fixed height so the bar stays compact */
+  .activity-speech-bubble-wrap--compact {
+    @apply max-h-[2.75rem] sm:max-h-[3rem];
   }
 }
 

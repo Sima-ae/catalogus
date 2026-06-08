@@ -1,12 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
+import { CubeIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
+import { productImageSrc } from '@/lib/product-image-url'
 import ActivitySpeechBubble from '@/components/shop/ActivitySpeechBubble'
 import {
   loadOrCreateDailySocialProofFeed,
   minutesSince,
+  type SocialProofProduct,
   type StoredSocialProofNotification,
 } from '@/lib/social-proof-activity'
 import { useI18n } from '@/lib/i18n-context'
@@ -20,42 +24,85 @@ type Props = {
   onVisibilityChange?: (visible: boolean) => void
 }
 
-function ActivityLine({
-  notification,
-  minutesAgo,
-  isDark,
+function ActivityProductThumb({
+  imageUrl,
+  productName,
   compact,
-  prefix,
-  timeLabel,
+  isDark,
 }: {
-  notification: StoredSocialProofNotification
-  minutesAgo: number
-  isDark: boolean
+  imageUrl: string | null | undefined
+  productName: string
   compact?: boolean
-  prefix: string
-  timeLabel: string
+  isDark: boolean
 }) {
-  const muted = isDark ? 'text-gray-300' : 'text-gray-600'
-  const emphasis = isDark ? 'text-white' : 'text-gray-900'
-
-  const timeMuted = isDark ? 'text-gray-400' : 'text-gray-500'
+  const src = productImageSrc(imageUrl)
+  const sizeClass = compact ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-11 h-11 sm:w-12 sm:h-12'
 
   return (
     <div
-      className={`min-w-0 flex flex-col justify-center gap-0.5 ${
-        compact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
+      className={`relative shrink-0 ${sizeClass} overflow-hidden ${
+        isDark ? 'bg-dark-700' : 'bg-gray-100'
       }`}
     >
-      <p className={`min-w-0 leading-snug truncate ${muted}`}>
-        <span>{prefix}</span>
-        <span className={`font-semibold ${emphasis}`}>{notification.productName}</span>
-      </p>
-      <p
-        className={`min-w-0 leading-tight truncate ${
-          compact ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'
-        } ${timeMuted}`}
-      >
-        {timeLabel}
+      {src ? (
+        <Image
+          src={src}
+          alt=""
+          fill
+          sizes={compact ? '40px' : '48px'}
+          className="object-cover"
+          unoptimized={src.startsWith('http')}
+        />
+      ) : (
+        <div
+          className={`absolute inset-0 flex items-center justify-center ${
+            isDark ? 'text-gray-500' : 'text-gray-400'
+          }`}
+          aria-hidden
+        >
+          <CubeIcon className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+        </div>
+      )}
+      <span className="sr-only">{productName}</span>
+    </div>
+  )
+}
+
+function ActivityLine({
+  notification,
+  isDark,
+  compact,
+  orderLine,
+  timeLabel,
+}: {
+  notification: StoredSocialProofNotification
+  isDark: boolean
+  compact?: boolean
+  orderLine: string
+  timeLabel: string
+}) {
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500'
+  const emphasis = isDark ? 'text-primary-300' : 'text-primary-700'
+  const timeMuted = isDark ? 'text-gray-500' : 'text-gray-400'
+
+  return (
+    <div
+      className={`min-w-0 flex flex-col justify-center gap-0.5 flex-1 py-1 pr-2.5 sm:pr-3 ${
+        compact ? 'pl-2 text-[11px] sm:text-xs' : 'pl-2.5 text-sm sm:text-base'
+      }`}
+    >
+      <p className={`min-w-0 leading-tight truncate ${muted}`}>{orderLine}</p>
+      <p className="min-w-0 flex items-baseline gap-1.5 leading-tight">
+        <span className={`min-w-0 truncate font-semibold ${emphasis}`}>
+          {notification.productName}
+        </span>
+        <span
+          className={`shrink-0 whitespace-nowrap ${
+            compact ? 'text-[10px] sm:text-[11px]' : 'text-xs sm:text-sm'
+          } ${timeMuted}`}
+        >
+          {timeLabel}
+        </span>
       </p>
     </div>
   )
@@ -93,8 +140,15 @@ export default function RecentPurchaseActivity({
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled) return
-        const names = Array.isArray(data?.productNames) ? data.productNames : []
-        const feed = loadOrCreateDailySocialProofFeed(names)
+        const products: SocialProofProduct[] = Array.isArray(data?.products)
+          ? data.products
+              .map((p: { label?: string; imageUrl?: string | null }) => ({
+                label: String(p?.label ?? '').trim(),
+                imageUrl: p?.imageUrl ? String(p.imageUrl) : null,
+              }))
+              .filter((p: SocialProofProduct) => Boolean(p.label))
+          : []
+        const feed = loadOrCreateDailySocialProofFeed(products)
         setItems(feed)
       })
       .catch(() => {
@@ -122,24 +176,22 @@ export default function RecentPurchaseActivity({
   }, [items.length])
 
   useEffect(() => {
-    const id = window.setInterval(() => setTimeTick((t) => t + 1), TIME_TICK_MS)
+    const id = window.setInterval(() => setTimeTick((n) => n + 1), TIME_TICK_MS)
     return () => window.clearInterval(id)
   }, [])
 
   if (loading) {
     return (
       <ActivitySpeechBubble isDark={isDark} compact={isHeader}>
-        <div className="flex flex-col gap-1 animate-pulse" aria-hidden>
-          <p
-            className={`h-3.5 rounded ${isHeader ? 'w-36 sm:w-44' : 'w-48'} ${
-              isDark ? 'bg-dark-700' : 'bg-gray-200'
-            }`}
-          />
-          <p
-            className={`h-3 rounded ${isHeader ? 'w-20 sm:w-24' : 'w-28'} ${
-              isDark ? 'bg-dark-700/70' : 'bg-gray-100'
-            }`}
-          />
+        <div
+          className={`shrink-0 animate-pulse ${isHeader ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-11 h-11'} ${
+            isDark ? 'bg-dark-700' : 'bg-gray-200'
+          }`}
+          aria-hidden
+        />
+        <div className="flex flex-col gap-1 flex-1 py-2 pl-2 pr-3 animate-pulse" aria-hidden>
+          <p className={`h-2.5 rounded w-24 ${isDark ? 'bg-dark-700' : 'bg-gray-200'}`} />
+          <p className={`h-2.5 rounded w-full max-w-[9rem] ${isDark ? 'bg-dark-600' : 'bg-gray-100'}`} />
         </div>
       </ActivitySpeechBubble>
     )
@@ -150,17 +202,22 @@ export default function RecentPurchaseActivity({
   const current = items[index] ?? items[0]
   const minutesAgo = minutesSince(current.purchasedAt)
   const timeLabel = formatMinutesAgoI18n(minutesAgo, t)
-  const prefix = t('activity.justOrderedPrefix', { buyer: current.buyerName })
-  const fullTitle = `${prefix}${current.productName} — ${timeLabel}`
+  const orderLine = t('activity.justOrderedPrefix', { buyer: current.buyerName }).replace(/:?\s*$/, '')
+  const fullTitle = `${orderLine} — ${current.productName} — ${timeLabel}`
 
   return (
     <ActivitySpeechBubble isDark={isDark} compact={isHeader} title={fullTitle}>
+      <ActivityProductThumb
+        imageUrl={current.productImageUrl}
+        productName={current.productName}
+        compact={isHeader}
+        isDark={isDark}
+      />
       <ActivityLine
         notification={current}
-        minutesAgo={minutesAgo}
         isDark={isDark}
         compact={isHeader}
-        prefix={prefix}
+        orderLine={orderLine}
         timeLabel={timeLabel}
       />
     </ActivitySpeechBubble>

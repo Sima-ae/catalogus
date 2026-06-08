@@ -93,8 +93,7 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     asideRef,
   } = useShopSidebar()
 
-  const resolvedTitle =
-    config.mode === 'new' ? tr('shop.new.title') : tr('shop.home.title')
+  const resolvedTitle = config.mode === 'new' ? tr('shop.new.title') : ''
   const searchPlaceholder =
     config.mode === 'new' ? tr('shop.new.searchPlaceholder') : tr('shop.home.searchPlaceholder')
   const emptyVariant = config.emptyVariant ?? 'featured'

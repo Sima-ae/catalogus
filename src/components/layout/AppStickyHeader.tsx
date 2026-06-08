@@ -55,13 +55,15 @@ export default function AppStickyHeader({
   const defaultLeft = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
       {leading ? <div className="flex items-center shrink-0">{leading}</div> : null}
-      <h1
-        className={`text-lg sm:text-xl font-semibold tracking-tight shrink-0 ${
-          isDark ? 'text-white' : 'text-gray-900'
-        }`}
-      >
-        {title}
-      </h1>
+      {title.trim() ? (
+        <h1
+          className={`text-lg sm:text-xl font-semibold tracking-tight shrink-0 ${
+            isDark ? 'text-white' : 'text-gray-900'
+          }`}
+        >
+          {title}
+        </h1>
+      ) : null}
       {showSocialProof ? (
         <div className="min-w-0 flex-1 max-w-md">
           <RecentPurchaseActivity variant="header" />
@@ -78,29 +80,37 @@ export default function AppStickyHeader({
         className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-4 shadow-sm ${cardBg}`}
       >
         <div
-          className={`grid grid-cols-1 gap-4 min-w-0 items-center lg:gap-5 ${gridCols}`}
+          className={`flex flex-col gap-2.5 min-w-0 lg:grid lg:items-center lg:gap-5 ${gridCols}`}
         >
-          <div className="min-w-0">{leftContent ?? defaultLeft}</div>
+          <div className="min-w-0 w-full">{leftContent ?? defaultLeft}</div>
 
           {showSearch ? (
-            <div
-              className={`min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
-            >
-              <ShopHeroSearch
-                placeholder={searchPlaceholder}
-                value={searchValue}
-                onChange={onSearchChange}
-                onSubmit={onSearchSubmit}
-                className={searchClassName}
-              />
+            <div className="flex flex-row items-center gap-1.5 sm:gap-2 min-w-0 w-full lg:contents">
+              <div
+                className={`flex-1 min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
+              >
+                <ShopHeroSearch
+                  placeholder={searchPlaceholder}
+                  value={searchValue}
+                  onChange={onSearchChange}
+                  onSubmit={onSearchSubmit}
+                  className={searchClassName}
+                  compactOnMobile
+                />
+              </div>
+              <div
+                className={`shrink-0 min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
+              >
+                {actions}
+              </div>
             </div>
-          ) : null}
-
-          <div
-            className={`min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
-          >
-            {actions}
-          </div>
+          ) : (
+            <div
+              className={`min-w-0 w-full lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
+            >
+              {actions}
+            </div>
+          )}
         </div>
       </div>
     </header>
