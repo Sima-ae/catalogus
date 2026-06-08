@@ -1,5 +1,9 @@
 import { load } from 'cheerio'
-import type { WooStoreProduct, WooProductData } from '@/lib/woocommerce/types'
+import type {
+  WooStoreAttribute,
+  WooStoreProduct,
+  WooProductData,
+} from '@/lib/woocommerce/types'
 import {
   decodeWooHtmlEntities,
   wooExternalId,
@@ -13,15 +17,70 @@ export function stripWooHtml(html: string | null | undefined): string {
   return $.text().replace(/\s+/g, ' ').trim()
 }
 
+function attributeTermNames(attr: WooStoreAttribute): string {
+  return (attr.terms ?? [])
+    .map((term) => String(term.name ?? '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
+export function wooBrandFromAttributes(
+  attributes: WooStoreAttribute[] | null | undefined
+): string | null {
+  if (!attributes?.length) return null
+  const brandAttr = attributes.find((attr) => {
+    const name = String(attr.name ?? '').trim().toLowerCase()
+    const taxonomy = String(attr.taxonomy ?? '').trim().toLowerCase()
+    return name === 'brand' || taxonomy === 'pa_brand'
+  })
+  const value = brandAttr ? attributeTermNames(brandAttr) : ''
+  return value || null
+}
+
+export function wooDescriptionFromAttributes(
+  attributes: WooStoreAttribute[] | null | undefined
+): string {
+  if (!attributes?.length) return ''
+  const lines: string[] = []
+  for (const attr of attributes) {
+    const label = String(attr.name ?? '').trim()
+    const value = attributeTermNames(attr)
+    if (!label || !value) continue
+    lines.push(`${label}: ${value}`)
+  }
+  return lines.join('\n')
+}
+
+function wooCategoryNameFromProduct(product: WooStoreProduct): string | null {
+  const categories = product.categories ?? []
+  if (!categories.length) return null
+  if (categories.length === 1) {
+    return String(categories[0].name ?? '').trim() || null
+  }
+  const sorted = [...categories].sort((a, b) => {
+    const lenA = String(a.link ?? '').split('/').filter(Boolean).length
+    const lenB = String(b.link ?? '').split('/').filter(Boolean).length
+    return lenA - lenB
+  })
+  return String(sorted[0].name ?? '').trim() || null
+}
+
 export function mapWooStoreProduct(product: WooStoreProduct): WooProductData {
   const { price, originalPrice } = wooPriceToDecimal(product.prices)
-  const brandName = product.brands?.[0]?.name?.trim() || null
-  const categoryName = product.categories?.[0]?.name?.trim() || null
+  const attributes = product.attributes ?? []
+  const brandName =
+    product.brands?.[0]?.name?.trim() || wooBrandFromAttributes(attributes) || null
+  const categoryName = wooCategoryNameFromProduct(product)
   const imageUrls = (product.images ?? [])
     .map((img) => String(img.src ?? '').trim())
     .filter(Boolean)
 
   const sku = String(product.sku ?? '').trim() || wooExternalId(product.id)
+
+  const htmlDescription = stripWooHtml(product.description)
+  const htmlShort = stripWooHtml(product.short_description)
+  const description =
+    htmlDescription || htmlShort || wooDescriptionFromAttributes(attributes)
 
   return {
     productId: product.id,
@@ -29,8 +88,8 @@ export function mapWooStoreProduct(product: WooStoreProduct): WooProductData {
     name: decodeWooHtmlEntities(String(product.name ?? '').trim()),
     sku,
     permalink: String(product.permalink ?? '').trim(),
-    description: stripWooHtml(product.description),
-    shortDescription: stripWooHtml(product.short_description),
+    description,
+    shortDescription: htmlShort || htmlDescription,
     price,
     originalPrice,
     currency: String(product.prices?.currency_code ?? 'EUR').trim() || 'EUR',

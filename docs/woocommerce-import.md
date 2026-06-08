@@ -2,11 +2,12 @@
 
 ## Prerequisites
 
-1. Run DB migration on the VPS:
+1. Run DB migrations on the VPS:
    ```bash
    mysql supe_r_clones_cloud < db/woocommerce_import.sql
+   mysql supe_r_clones_cloud < db/woocommerce_purchase_price.sql
    ```
-   Or apply the WooCommerce section at the end of `db/upgrade.sql`.
+   Or apply the WooCommerce sections at the end of `db/upgrade.sql`.
 
 2. Deploy the app with the unified import worker.
 
@@ -25,6 +26,32 @@ Optional filtered source later:
 
 - **WC category slug:** `dames-horloges` or `heren-horloges`
 - Same fallback catalog category or a more specific subcategory
+
+## AR Factory (arfactorywatch.com)
+
+[AR Factory](https://www.arfactorywatch.com) is WooCommerce with a public Store API. Import supplier prices as internal **purchase price**; the shop shows **Price on request** (`price = 0`).
+
+1. Open **Admin → Import** → add source:
+   - **Name:** `AR Factory — Rolex`
+   - **Source type:** WooCommerce
+   - **Store URL:** `https://www.arfactorywatch.com`
+   - **WC category slug:** `rolex` *(~455 products; use other slugs for AP, Patek, etc.)*
+   - **Import supplier price as purchase price:** enabled
+   - **Catalog category (fallback):** e.g. `HORLOGES`
+   - **Catalog brand (optional):** `Rolex` — overridden per product from Woo attributes when present
+2. Click **Sync** and run the worker on the VPS.
+
+| Imported field | Source |
+|----------------|--------|
+| Title | Woo product name |
+| SKU | Woo SKU |
+| Images | Woo gallery (mirrored locally) |
+| Description | Woo description, or attribute specs when empty |
+| Brand | Woo brand or `Brand` attribute |
+| `purchase_price` | Lowest Woo price (e.g. $850 for Japanese tier) |
+| `price` | `0` (Price on request) |
+
+Existing StuntXL sources keep default **storefront** pricing (Woo price shown on the shop).
 
 ## Run import worker (VPS)
 
@@ -97,5 +124,5 @@ Commit new files under `public/images/` and push to deploy.
 ## Tests
 
 ```bash
-npx tsx scripts/test-woocommerce-map.ts
+npm run test:woocommerce-map
 ```

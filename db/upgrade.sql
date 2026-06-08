@@ -516,6 +516,11 @@ ALTER TABLE import_sources
 ALTER TABLE import_sources
   ADD COLUMN IF NOT EXISTS catalog_list_url TEXT NULL AFTER woocommerce_category_slug;
 
+-- WooCommerce purchase-price mode (see db/woocommerce_purchase_price.sql)
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS woocommerce_price_mode VARCHAR(32) NOT NULL DEFAULT 'storefront'
+  AFTER woocommerce_category_slug;
+
 -- Internal cost / purchase price (admin only — not shown on storefront)
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS purchase_price DECIMAL(12, 2) NULL AFTER original_price;

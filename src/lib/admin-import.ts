@@ -1,5 +1,6 @@
 import type { ImportSourceType } from '@/lib/import-db'
 import { normalizeImportSourceType } from '@/lib/import-db'
+import { normalizeWooCommercePriceMode } from '@/lib/woocommerce/types'
 
 export type ImportSourceInput = {
   name: string
@@ -7,6 +8,7 @@ export type ImportSourceInput = {
   yupoo_category_url: string
   woocommerce_store_url: string
   woocommerce_category_slug: string
+  woocommerce_price_mode: string
   catalog_list_url: string
   catalog_category_id: string
   catalog_brand_id: string
@@ -26,6 +28,9 @@ export function parseImportSourceBody(body: unknown): ImportSourceInput | null {
     yupoo_category_url: String(raw.yupoo_category_url ?? '').trim(),
     woocommerce_store_url: String(raw.woocommerce_store_url ?? '').trim(),
     woocommerce_category_slug: String(raw.woocommerce_category_slug ?? '').trim(),
+    woocommerce_price_mode: normalizeWooCommercePriceMode(
+      String(raw.woocommerce_price_mode ?? 'storefront')
+    ),
     catalog_list_url: String(raw.catalog_list_url ?? '').trim(),
     catalog_category_id: String(raw.catalog_category_id ?? '').trim(),
     catalog_brand_id: String(raw.catalog_brand_id ?? '').trim(),

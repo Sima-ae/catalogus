@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
         : null,
       woocommerce_store_url: input.woocommerce_store_url || null,
       woocommerce_category_slug: input.woocommerce_category_slug || null,
+      woocommerce_price_mode: input.woocommerce_price_mode || null,
       catalog_list_url: input.catalog_list_url || null,
       catalog_category_id: input.catalog_category_id,
       catalog_brand_id: input.catalog_brand_id || null,

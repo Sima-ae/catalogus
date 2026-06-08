@@ -11,6 +11,7 @@ export type ImportSourceFormValues = {
   yupoo_access_password: string
   woocommerce_store_url: string
   woocommerce_category_slug: string
+  woocommerce_price_mode: 'storefront' | 'purchase_price'
   catalog_list_url: string
   catalog_category_id: string
   catalog_brand_id: string
@@ -136,8 +137,29 @@ export default function ImportSourceForm({
                 className="input w-full"
                 value={values.woocommerce_category_slug}
                 onChange={(e) => set({ woocommerce_category_slug: e.target.value })}
-                placeholder="e.g. dames-horloges — leave empty for all products"
+                placeholder="e.g. rolex or dames-horloges — leave empty for all products"
               />
+            </label>
+            <label className="flex items-start gap-2 md:col-span-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={values.woocommerce_price_mode === 'purchase_price'}
+                onChange={(e) =>
+                  set({
+                    woocommerce_price_mode: e.target.checked ? 'purchase_price' : 'storefront',
+                  })
+                }
+              />
+              <span className="space-y-1">
+                <span className={`text-sm block ${t.muted}`}>
+                  Import supplier price as purchase price (shop shows Price on request)
+                </span>
+                <span className={`text-xs block ${t.muted}`}>
+                  Use for AR Factory and similar suppliers — catalog price stays 0, internal
+                  purchase price is filled from WooCommerce.
+                </span>
+              </span>
             </label>
           </>
         ) : (

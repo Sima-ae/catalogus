@@ -1,9 +1,29 @@
+export type WooStorePriceRange = {
+  min_amount?: string
+  max_amount?: string
+}
+
 export type WooStorePrices = {
   price: string
   regular_price: string
   sale_price: string
   currency_code: string
   currency_minor_unit: number
+  price_range?: WooStorePriceRange | null
+}
+
+export type WooStoreAttributeTerm = {
+  id: number
+  name: string
+  slug: string
+}
+
+export type WooStoreAttribute = {
+  id: number
+  name: string
+  taxonomy: string | null
+  has_variations?: boolean
+  terms: WooStoreAttributeTerm[]
 }
 
 export type WooStoreBrand = {
@@ -40,7 +60,18 @@ export type WooStoreProduct = {
   images: WooStoreImage[]
   categories: WooStoreCategory[]
   brands: WooStoreBrand[]
+  attributes?: WooStoreAttribute[]
   on_sale?: boolean
+}
+
+export type WooCommercePriceMode = 'storefront' | 'purchase_price'
+
+export function normalizeWooCommercePriceMode(
+  value: string | null | undefined
+): WooCommercePriceMode {
+  return String(value ?? '').trim().toLowerCase() === 'purchase_price'
+    ? 'purchase_price'
+    : 'storefront'
 }
 
 export type WooProductListItem = {
@@ -104,7 +135,8 @@ export function wooPriceToDecimal(prices: WooStorePrices | null | undefined): {
   const sale = parseMinor(prices.sale_price)
   const regular = parseMinor(prices.regular_price)
   const base = parseMinor(prices.price)
-  const price = sale ?? base ?? regular ?? 0
+  const rangeMin = parseMinor(prices.price_range?.min_amount)
+  const price = sale ?? base ?? regular ?? rangeMin ?? 0
   const originalPrice =
     regular != null && sale != null && regular > sale ? regular : regular != null && price > 0 && regular > price ? regular : null
 

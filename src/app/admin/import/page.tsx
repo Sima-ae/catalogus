@@ -52,6 +52,7 @@ const emptyForm: ImportSourceFormValues = {
   yupoo_access_password: '',
   woocommerce_store_url: '',
   woocommerce_category_slug: '',
+  woocommerce_price_mode: 'storefront',
   catalog_list_url: '',
   catalog_category_id: '',
   catalog_brand_id: '',
@@ -74,6 +75,10 @@ function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
     yupoo_access_password: '',
     woocommerce_store_url: source.woocommerce_store_url || '',
     woocommerce_category_slug: source.woocommerce_category_slug || '',
+    woocommerce_price_mode:
+      String(source.woocommerce_price_mode ?? '').toLowerCase() === 'purchase_price'
+        ? 'purchase_price'
+        : 'storefront',
     catalog_list_url: source.catalog_list_url || '',
     catalog_category_id: source.catalog_category_id || '',
     catalog_brand_id: source.catalog_brand_id || '',
@@ -87,6 +92,7 @@ function formToApiBody(values: ImportSourceFormValues): Record<string, string> {
     yupoo_category_url: values.yupoo_category_url,
     woocommerce_store_url: values.woocommerce_store_url,
     woocommerce_category_slug: values.woocommerce_category_slug,
+    woocommerce_price_mode: values.woocommerce_price_mode,
     catalog_list_url: values.catalog_list_url,
     catalog_category_id: values.catalog_category_id,
     catalog_brand_id: values.catalog_brand_id,
@@ -646,6 +652,13 @@ export default function AdminImportPage() {
                     {source.source_type === 'woocommerce' && source.woocommerce_category_slug ? (
                       <div className={`text-xs mt-0.5 ${t.muted}`}>
                         WC category: {source.woocommerce_category_slug}
+                      </div>
+                    ) : null}
+                    {source.source_type === 'woocommerce' &&
+                    String(source.woocommerce_price_mode ?? '').toLowerCase() ===
+                      'purchase_price' ? (
+                      <div className="text-xs mt-0.5 inline-flex rounded px-1.5 py-0.5 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+                        Purchase price mode
                       </div>
                     ) : null}
                     {source.source_type !== 'woocommerce' &&

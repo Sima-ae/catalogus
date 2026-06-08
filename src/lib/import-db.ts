@@ -14,7 +14,12 @@ import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
 import { mapWooStoreProduct } from '@/lib/woocommerce/map-product'
 import { resolveImportCatalogMapping } from '@/lib/woocommerce/resolve-catalog'
-import type { WooProductData, WooStoreProduct } from '@/lib/woocommerce/types'
+import type {
+  WooCommercePriceMode,
+  WooProductData,
+  WooStoreProduct,
+} from '@/lib/woocommerce/types'
+import { normalizeWooCommercePriceMode } from '@/lib/woocommerce/types'
 import {
   listWooStoreProducts,
   wooProductsToJobItems,
@@ -118,7 +123,8 @@ export async function buildProductInputFromWooCommerceImport(
     categoryName: string
     categoryId: string | null
     brandName: string | null
-  }
+  },
+  priceMode: WooCommercePriceMode = 'storefront'
 ): Promise<ProductInput> {
   const uniqueImages = cleanProductGalleryUrls(woo.imageUrls)
   const mainImage = uniqueImages[0] || ''
@@ -137,12 +143,15 @@ export async function buildProductInputFromWooCommerceImport(
       catalog.brandName
     ).slice(0, 280) || undefined
 
+  const usePurchasePrice = priceMode === 'purchase_price'
+
   return {
     name,
     description,
     short_description,
-    price: woo.price,
-    original_price: woo.originalPrice,
+    price: usePurchasePrice ? 0 : woo.price,
+    original_price: usePurchasePrice ? null : woo.originalPrice,
+    ...(usePurchasePrice && woo.price > 0 ? { purchase_price: woo.price } : {}),
     image_url: mainImage,
     gallery_images: gallery.length ? gallery : null,
     category: catalog.categoryName,
@@ -171,11 +180,15 @@ export async function buildProductInputFromWooStoreProduct(
     catalogBrandId: source.catalog_brand_id,
     catalogBrandName: source.brand_name ?? null,
   })
-  return buildProductInputFromWooCommerceImport(wooWithLocalImages, {
-    categoryName: catalog.categoryName,
-    categoryId: catalog.categoryId,
-    brandName: catalog.brandName,
-  })
+  return buildProductInputFromWooCommerceImport(
+    wooWithLocalImages,
+    {
+      categoryName: catalog.categoryName,
+      categoryId: catalog.categoryId,
+      brandName: catalog.brandName,
+    },
+    normalizeWooCommercePriceMode(source.woocommerce_price_mode)
+  )
 }
 
 export function parseFacebookJobItemManual(rawJson: string | null | undefined): FacebookManualImportFields | null {
@@ -320,6 +333,7 @@ export type ImportSourceRow = {
   yupoo_access_password?: string | null
   woocommerce_store_url?: string | null
   woocommerce_category_slug?: string | null
+  woocommerce_price_mode?: string | null
   catalog_list_url?: string | null
   catalog_category_id: string | null
   catalog_brand_id: string | null
@@ -452,6 +466,7 @@ export async function createImportSource(input: {
   yupoo_access_password?: string | null
   woocommerce_store_url?: string | null
   woocommerce_category_slug?: string | null
+  woocommerce_price_mode?: string | null
   catalog_list_url?: string | null
   catalog_category_id?: string | null
   catalog_brand_id?: string | null
@@ -462,9 +477,9 @@ export async function createImportSource(input: {
   await queryDb(
     `INSERT INTO import_sources (
        id, name, source_type, yupoo_category_url, yupoo_access_password,
-       woocommerce_store_url, woocommerce_category_slug, catalog_list_url,
-       catalog_category_id, catalog_brand_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       woocommerce_store_url, woocommerce_category_slug, woocommerce_price_mode,
+       catalog_list_url, catalog_category_id, catalog_brand_id
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name.trim(),
@@ -473,6 +488,7 @@ export async function createImportSource(input: {
       pwd,
       normalizeWooStoreUrlForSource(input.woocommerce_store_url),
       input.woocommerce_category_slug?.trim() || null,
+      normalizeWooCommercePriceMode(input.woocommerce_price_mode),
       normalizeLkxoxListUrlForSource(input.catalog_list_url),
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
@@ -491,6 +507,7 @@ export async function updateImportSource(
     clear_yupoo_access_password?: boolean
     woocommerce_store_url?: string | null
     woocommerce_category_slug?: string | null
+    woocommerce_price_mode?: string | null
     catalog_list_url?: string | null
     catalog_category_id?: string | null
     catalog_brand_id?: string | null
@@ -508,6 +525,7 @@ export async function updateImportSource(
     ...(pwd !== undefined ? ['yupoo_access_password = ?'] : []),
     'woocommerce_store_url = ?',
     'woocommerce_category_slug = ?',
+    'woocommerce_price_mode = ?',
     'catalog_list_url = ?',
     'catalog_category_id = ?',
     'catalog_brand_id = ?',
@@ -519,6 +537,7 @@ export async function updateImportSource(
     ...(pwd !== undefined ? [pwd] : []),
     normalizeWooStoreUrlForSource(input.woocommerce_store_url),
     input.woocommerce_category_slug?.trim() || null,
+    normalizeWooCommercePriceMode(input.woocommerce_price_mode),
     normalizeLkxoxListUrlForSource(input.catalog_list_url),
     input.catalog_category_id || null,
     input.catalog_brand_id || null,

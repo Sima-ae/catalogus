@@ -11,7 +11,14 @@ import {
   type WooStorePrices,
   type WooStoreProduct,
 } from '../src/lib/woocommerce/types'
-import { mapWooStoreProduct, stripWooHtml } from '../src/lib/woocommerce/map-product'
+import {
+  mapWooStoreProduct,
+  stripWooHtml,
+  wooBrandFromAttributes,
+  wooDescriptionFromAttributes,
+} from '../src/lib/woocommerce/map-product'
+import { buildProductInputFromWooCommerceImport } from '../src/lib/import-db'
+import { normalizeWooCommercePriceMode } from '../src/lib/woocommerce/types'
 
 const prices: WooStorePrices = {
   price: '95000',
@@ -51,6 +58,91 @@ assert.equal(mapped.brandName, 'ROLEX')
 assert.equal(mapped.categoryName, 'Dames horloges')
 assert.equal(mapped.sku, 'wc-3693')
 assert.deepEqual(mapped.imageUrls, ['https://stuntxl.com/wp-content/uploads/a.jpg'])
+
+const arFactoryPrices: WooStorePrices = {
+  price: '85000',
+  regular_price: '90000',
+  sale_price: '85000',
+  currency_code: 'USD',
+  currency_minor_unit: 2,
+  price_range: { min_amount: '85000', max_amount: '165000' },
+}
+assert.deepEqual(wooPriceToDecimal(arFactoryPrices), { price: 850, originalPrice: 900 })
+
+const arFactoryAttributes = [
+  {
+    id: 3,
+    name: 'Brand',
+    taxonomy: 'pa_brand',
+    has_variations: false,
+    terms: [{ id: 122, name: 'Rolex', slug: 'rolex' }],
+  },
+  {
+    id: 0,
+    name: 'Model',
+    taxonomy: null,
+    has_variations: false,
+    terms: [{ id: 0, name: 'Day-Date', slug: 'Day-Date' }],
+  },
+  {
+    id: 5,
+    name: 'Mechanism',
+    taxonomy: 'pa_mechanism',
+    has_variations: true,
+    terms: [
+      { id: 76, name: 'Japanese', slug: 'japanese' },
+      { id: 77, name: 'Swiss', slug: 'swiss' },
+    ],
+  },
+]
+assert.equal(wooBrandFromAttributes(arFactoryAttributes), 'Rolex')
+assert.match(wooDescriptionFromAttributes(arFactoryAttributes), /Brand: Rolex/)
+assert.match(wooDescriptionFromAttributes(arFactoryAttributes), /Mechanism: Japanese, Swiss/)
+
+const arFactorySample: WooStoreProduct = {
+  id: 157948,
+  name: 'Rolex Day-Date 228238-0007 Replica',
+  slug: 'rolex-day-date-228238-0007-replica',
+  sku: '228235-1-1',
+  permalink: 'https://www.arfactorywatch.com/watch/rolex-day-date-228238-0007-replica/',
+  short_description: '',
+  description: '',
+  prices: arFactoryPrices,
+  images: [
+    {
+      id: 157949,
+      src: 'https://www.arfactorywatch.com/wp-content/uploads/2025/09/rolex-day-date.jpg.webp',
+    },
+  ],
+  categories: [
+    {
+      id: 127,
+      name: 'Day Date',
+      slug: 'day-date',
+      link: 'https://www.arfactorywatch.com/replica/rolex/day-date/',
+    },
+    {
+      id: 120,
+      name: 'Rolex',
+      slug: 'rolex',
+      link: 'https://www.arfactorywatch.com/replica/rolex/',
+    },
+  ],
+  brands: [],
+  attributes: arFactoryAttributes,
+}
+
+const arMapped = mapWooStoreProduct(arFactorySample)
+assert.equal(arMapped.externalId, 'wc-157948')
+assert.equal(arMapped.brandName, 'Rolex')
+assert.equal(arMapped.categoryName, 'Rolex')
+assert.equal(arMapped.sku, '228235-1-1')
+assert.equal(arMapped.price, 850)
+assert.match(arMapped.description, /Brand: Rolex/)
+
+assert.equal(normalizeWooCommercePriceMode('purchase_price'), 'purchase_price')
+assert.equal(normalizeWooCommercePriceMode('storefront'), 'storefront')
+assert.equal(normalizeWooCommercePriceMode(null), 'storefront')
 
 import { parseWooProductSlugFromUrl, normalizeWooCommerceStoreUrl } from '../src/lib/woocommerce/client'
 assert.equal(
@@ -99,4 +191,31 @@ assert.equal(
 assert.equal(isWooImportMirrorPath('/images/imports/woocommerce/wc-3693/001.jpg'), true)
 assert.equal(isWooImportMirrorPath('https://stuntxl.com/wp-content/uploads/a.jpg'), false)
 
-console.log('woocommerce-map: all assertions passed')
+async function runPurchasePriceTests() {
+  const storefrontInput = await buildProductInputFromWooCommerceImport(
+    arMapped,
+    { categoryName: 'HORLOGES', categoryId: 'cat-1', brandName: 'Rolex' },
+    'storefront'
+  )
+  assert.equal(storefrontInput.price, 850)
+  assert.equal(storefrontInput.original_price, 900)
+  assert.equal(storefrontInput.purchase_price, undefined)
+
+  const purchaseInput = await buildProductInputFromWooCommerceImport(
+    arMapped,
+    { categoryName: 'HORLOGES', categoryId: 'cat-1', brandName: 'Rolex' },
+    'purchase_price'
+  )
+  assert.equal(purchaseInput.price, 0)
+  assert.equal(purchaseInput.original_price, null)
+  assert.equal(purchaseInput.purchase_price, 850)
+}
+
+runPurchasePriceTests()
+  .then(() => {
+    console.log('woocommerce-map: all assertions passed')
+  })
+  .catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
