@@ -38,16 +38,26 @@ function ActivityLine({
   const muted = isDark ? 'text-gray-300' : 'text-gray-600'
   const emphasis = isDark ? 'text-white' : 'text-gray-900'
 
+  const timeMuted = isDark ? 'text-gray-400' : 'text-gray-500'
+
   return (
-    <p
-      className={`min-w-0 leading-snug ${
-        compact ? 'text-xs sm:text-sm truncate' : 'text-sm sm:text-base'
-      } ${muted}`}
+    <div
+      className={`min-w-0 flex flex-col justify-center gap-0.5 ${
+        compact ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
+      }`}
     >
-      <span>{prefix}</span>
-      <span className={`font-semibold ${emphasis}`}>{notification.productName}</span>
-      <span> — {timeLabel}</span>
-    </p>
+      <p className={`min-w-0 leading-snug truncate ${muted}`}>
+        <span>{prefix}</span>
+        <span className={`font-semibold ${emphasis}`}>{notification.productName}</span>
+      </p>
+      <p
+        className={`min-w-0 leading-tight truncate ${
+          compact ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'
+        } ${timeMuted}`}
+      >
+        {timeLabel}
+      </p>
+    </div>
   )
 }
 
@@ -119,14 +129,18 @@ export default function RecentPurchaseActivity({
   if (loading) {
     return (
       <ActivitySpeechBubble isDark={isDark} compact={isHeader}>
-        <p
-          className={`animate-pulse ${isHeader ? 'text-xs sm:text-sm' : 'text-sm'} ${
-            isDark ? 'text-gray-500' : 'text-gray-400'
-          }`}
-          aria-hidden
-        >
-          …
-        </p>
+        <div className="flex flex-col gap-1 animate-pulse" aria-hidden>
+          <p
+            className={`h-3.5 rounded ${isHeader ? 'w-36 sm:w-44' : 'w-48'} ${
+              isDark ? 'bg-dark-700' : 'bg-gray-200'
+            }`}
+          />
+          <p
+            className={`h-3 rounded ${isHeader ? 'w-20 sm:w-24' : 'w-28'} ${
+              isDark ? 'bg-dark-700/70' : 'bg-gray-100'
+            }`}
+          />
+        </div>
       </ActivitySpeechBubble>
     )
   }
