@@ -6,6 +6,18 @@ import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import type { PricelistRow, PricelistStockStatus } from '@/lib/pricelist-db'
+
+export type PricelistBulkItem = {
+  productId: string
+  sellerId?: string
+}
+
+export type PricelistBulkResult = {
+  updated: number
+  skipped: number
+  failed: number
+  errors: string[]
+}
 import {
   PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
@@ -210,6 +222,36 @@ export function usePricelist(initialOwner?: string) {
     await loadItems()
   }
 
+  const bulkUpdate = async (
+    action: 'stockStatus' | 'price',
+    items: PricelistBulkItem[],
+    payload: { stockStatus?: PricelistStockStatus; unitPrice?: number }
+  ): Promise<PricelistBulkResult> => {
+    const res = await fetch(appPath('/api/pricelist/prices/bulk'), {
+      method: 'POST',
+      headers: {
+        ...(user ? catalogAuthHeaders(user) : {}),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        ownerId: ownerQuery,
+        action,
+        items,
+        ...payload,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Bulk update failed')
+    await loadItems()
+    return {
+      updated: Number(data.updated ?? 0),
+      skipped: Number(data.skipped ?? 0),
+      failed: Number(data.failed ?? 0),
+      errors: Array.isArray(data.errors) ? data.errors : [],
+    }
+  }
+
   const removeItem = async (productId: string) => {
     if (!user) return
     const q =
@@ -253,6 +295,7 @@ export function usePricelist(initialOwner?: string) {
     requestPriceEdit,
     approvePriceEdit,
     removeItem,
+    bulkUpdate,
     canEditPrices,
     canManageItems,
     currentOwnerLabel,

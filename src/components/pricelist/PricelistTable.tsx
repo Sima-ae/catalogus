@@ -15,6 +15,7 @@ import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { PricelistColumnFilter } from '@/components/pricelist/PricelistListFilters'
+import { isPricelistRowBulkEditable } from '@/lib/pricelist-filters'
 
 type Props = {
   items: PricelistRow[]
@@ -44,6 +45,12 @@ type Props = {
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
   onOpenGallery?: (row: PricelistRow) => void
+  enableBulkSelect?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (productId: string) => void
+  onToggleSelectAllPage?: () => void
+  allOnPageSelected?: boolean
+  someOnPageSelected?: boolean
 }
 
 function rowStockStatus(row: PricelistRow): PricelistStockStatus | null {
@@ -91,6 +98,12 @@ export default function PricelistTable({
   onRemove,
   onStarChange,
   onOpenGallery,
+  enableBulkSelect = false,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAllPage,
+  allOnPageSelected = false,
+  someOnPageSelected = false,
 }: Props) {
   const { t } = useI18n()
   const showCategoryFilter =
@@ -104,6 +117,7 @@ export default function PricelistTable({
     <div className={`w-full overflow-x-auto rounded-xl border ${border}`}>
       <table className="w-full min-w-[1080px] text-sm table-fixed">
         <colgroup>
+          {enableBulkSelect ? <col className="w-10" /> : null}
           <col className="w-[5.5rem]" />
           <col className="w-[9%]" />
           <col className="w-[22%]" />
@@ -115,6 +129,20 @@ export default function PricelistTable({
         </colgroup>
         <thead className={head}>
           <tr>
+            {enableBulkSelect ? (
+              <th className="px-2 py-2 w-10 align-middle">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 dark:border-dark-600"
+                  checked={allOnPageSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected
+                  }}
+                  onChange={() => onToggleSelectAllPage?.()}
+                  aria-label={t('pricelist.bulk.selectAllPage')}
+                />
+              </th>
+            ) : null}
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
               {t('pricelist.col.image')}
             </th>
@@ -189,6 +217,9 @@ export default function PricelistTable({
               onRemove={onRemove}
               onStarChange={onStarChange}
               onOpenGallery={onOpenGallery}
+              enableBulkSelect={enableBulkSelect}
+              selected={selectedIds?.has(row.product_id) ?? false}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </tbody>
@@ -217,6 +248,9 @@ function PricelistTableRow({
   onRemove,
   onStarChange,
   onOpenGallery,
+  enableBulkSelect = false,
+  selected = false,
+  onToggleSelect,
 }: {
   row: PricelistRow
   canEditPrices: boolean
@@ -241,6 +275,9 @@ function PricelistTableRow({
   onRemove: (productId: string) => Promise<void>
   onStarChange?: () => void
   onOpenGallery?: (row: PricelistRow) => void
+  enableBulkSelect?: boolean
+  selected?: boolean
+  onToggleSelect?: (productId: string) => void
 }) {
   const { t } = useI18n()
   const { symbol: currencySymbol } = useShopCurrency()
@@ -255,6 +292,7 @@ function PricelistTableRow({
   const [savedFlash, setSavedFlash] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const bulkEditable = isPricelistRowBulkEditable(row, { isSeller })
   const showPriceInput = canEditPrices && row.can_edit_price !== false && !isSeller
   const showSellerPriceInput = isSeller && canEditPrices && row.can_edit_price !== false
   const showLockedSellerPrice =
@@ -429,6 +467,19 @@ function PricelistTableRow({
 
   return (
     <tr className={`border-t ${border} ${isDark ? 'hover:bg-dark-800/50' : 'hover:bg-gray-50'}`}>
+      {enableBulkSelect ? (
+        <td className="px-2 py-1.5 align-middle w-10">
+          {bulkEditable ? (
+            <input
+              type="checkbox"
+              className="rounded border-gray-300 dark:border-dark-600"
+              checked={selected}
+              onChange={() => onToggleSelect?.(row.product_id)}
+              aria-label={row.name}
+            />
+          ) : null}
+        </td>
+      ) : null}
       <td className="px-3 py-1 align-middle">
         <PricelistProductThumb
           imageUrl={row.image_url}

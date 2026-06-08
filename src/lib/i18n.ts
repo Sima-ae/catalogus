@@ -44,6 +44,7 @@ import { getProductFormMessages } from '@/lib/i18n-product-form'
 import { getAdminMessages } from '@/lib/i18n-admin'
 import { getAdminUsersMessages } from '@/lib/i18n-admin-users'
 import { getPricelistOutOfStockMessages } from '@/lib/i18n-pricelist-out-of-stock'
+import { getPricelistBulkMessages } from '@/lib/i18n-pricelist-bulk'
 import { getShopSoldOutMessages } from '@/lib/i18n-shop-sold-out'
 import { getShopPreOrderMessages } from '@/lib/i18n-shop-pre-order'
 import { getActivityOrderMessages } from '@/lib/i18n-activity-order'
@@ -549,6 +550,7 @@ export function getMessages(locale: Locale): Messages {
     ...getAdminMessages(locale),
     ...getAdminUsersMessages(locale),
     ...getPricelistOutOfStockMessages(locale),
+    ...getPricelistBulkMessages(locale),
     ...getShopSoldOutMessages(locale),
     ...getShopPreOrderMessages(locale),
     ...getActivityOrderMessages(locale),

@@ -26,6 +26,16 @@ export function collectPricelistFilterOptions(items: PricelistRow[]): {
 }
 
 /** Row still needs a price filled in (matches empty price field in the table). */
+/** Row can be included in pricelist bulk selection / updates. */
+export function isPricelistRowBulkEditable(
+  row: PricelistRow,
+  opts?: { isSeller?: boolean }
+): boolean {
+  if (row.can_edit_price === false) return false
+  if (opts?.isSeller && row.price_locked) return false
+  return true
+}
+
 export function pricelistRowNeedsPrice(
   row: PricelistRow,
   opts?: { guestShareLink?: boolean }
