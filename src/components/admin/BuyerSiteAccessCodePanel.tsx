@@ -11,6 +11,12 @@ type Assignment = {
   assignedAt: string | null
 }
 
+type PoolStats = {
+  total: number
+  assigned: number
+  available: number
+}
+
 type Props = {
   userId?: string
   role: 'buyer' | 'seller' | 'admin'
@@ -36,6 +42,9 @@ export default function BuyerSiteAccessCodePanel({
   const [input, setInput] = useState(draftCode)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [pickingRandom, setPickingRandom] = useState(false)
+  const [inputLocked, setInputLocked] = useState(false)
+  const [poolStats, setPoolStats] = useState<PoolStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -65,18 +74,61 @@ export default function BuyerSiteAccessCodePanel({
       .finally(() => setLoading(false))
   }, [userId, isBuyer, isAdmin, actor])
 
-  useEffect(() => {
-    loadAssignment()
-  }, [loadAssignment])
+  const loadPoolStats = useCallback(() => {
+    if (!isAdmin) return
+    fetch(appPath('/api/admin/site-access/codes'), {
+      headers: adminAuthHeaders(actor),
+      cache: 'no-store',
+    })
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) return
+        if (data?.stats) setPoolStats(data.stats as PoolStats)
+      })
+      .catch(() => {})
+  }, [isAdmin, actor])
 
   useEffect(() => {
-    if (isCreate) setInput(draftCode)
+    loadAssignment()
+    loadPoolStats()
+  }, [loadAssignment, loadPoolStats])
+
+  useEffect(() => {
+    if (isCreate) {
+      setInput(draftCode)
+      if (!draftCode) setInputLocked(false)
+    }
   }, [draftCode, isCreate])
 
   const handleInputChange = (value: string) => {
+    if (inputLocked) return
     setInput(value)
     if (isCreate) onDraftCodeChange?.(value)
     setSaved(false)
+  }
+
+  const handlePickRandom = async () => {
+    setPickingRandom(true)
+    setError(null)
+    setSaved(false)
+    try {
+      const res = await fetch(appPath('/api/admin/site-access/codes/random'), {
+        method: 'POST',
+        headers: adminAuthHeaders(actor),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to pick a random code')
+      const code = String(data.code ?? '')
+      if (!code) throw new Error('No code returned')
+      setInput(code)
+      setInputLocked(true)
+      if (isCreate) onDraftCodeChange?.(code)
+      if (data.stats) setPoolStats(data.stats as PoolStats)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to pick a random code')
+    } finally {
+      setPickingRandom(false)
+    }
   }
 
   const handleAssign = async () => {
@@ -100,8 +152,10 @@ export default function BuyerSiteAccessCodePanel({
       if (!res.ok) throw new Error(data.error || 'Failed to assign code')
       setAssignment({ code: data.code, assignedAt: data.assignedAt ?? null })
       setInput(data.code)
+      setInputLocked(false)
       setEditing(false)
       setSaved(true)
+      loadPoolStats()
       onAssigned?.(data.code)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to assign code')
@@ -130,8 +184,10 @@ export default function BuyerSiteAccessCodePanel({
       if (!res.ok) throw new Error(data.error || 'Failed to update code')
       setAssignment({ code: data.code, assignedAt: data.assignedAt ?? null })
       setInput(data.code)
+      setInputLocked(false)
       setEditing(false)
       setSaved(true)
+      loadPoolStats()
       onAssigned?.(data.code)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update code')
@@ -156,7 +212,9 @@ export default function BuyerSiteAccessCodePanel({
       if (!res.ok) throw new Error(data.error || 'Failed to remove code')
       setAssignment(null)
       setInput('')
+      setInputLocked(false)
       setEditing(false)
+      loadPoolStats()
       onAssigned?.('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove code')
@@ -168,8 +226,12 @@ export default function BuyerSiteAccessCodePanel({
   if (!isAdmin || !isBuyer) return null
 
   const locked = Boolean(assignment) && !editing
-  const canAssign = !readOnly && !locked && !isCreate
+  const canAssign = !readOnly && !isCreate && !assignment
   const canEditDraft = isCreate && !readOnly
+  const canPickRandom =
+    !readOnly && !assignment && !editing && (canAssign || canEditDraft)
+  const inputReadOnly =
+    readOnly || (inputLocked && !editing) || (Boolean(assignment) && !editing)
   const showSuperAdminActions = isSuperAdmin && !readOnly && Boolean(assignment) && !isCreate
 
   return (
@@ -180,6 +242,11 @@ export default function BuyerSiteAccessCodePanel({
           One code from your pool per buyer. Codes work at the site gate without login — assignment
           is for your records only.
         </p>
+        {poolStats && poolStats.total > 0 && (
+          <p className={`form-hint mt-1 ${t.muted}`}>
+            {poolStats.available} of {poolStats.total} codes still free in the pool.
+          </p>
+        )}
       </div>
 
       {loading ? (
@@ -221,19 +288,38 @@ export default function BuyerSiteAccessCodePanel({
                 value={input}
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="0000"
-                disabled={readOnly || saving || (!canAssign && !canEditDraft && !editing)}
-                readOnly={readOnly}
+                disabled={saving || pickingRandom || (!canAssign && !canEditDraft && !editing)}
+                readOnly={inputReadOnly}
               />
-              {isCreate && (
+              {inputLocked && !locked && (
                 <p className="form-hint">
-                  Optional now — you can assign after saving the user, or enter here to assign on
-                  create.
+                  Code locked — use Assign code to confirm, or pick another random code.
+                </p>
+              )}
+              {isCreate && !inputLocked && (
+                <p className="form-hint">
+                  Optional now — you can assign after saving the user, enter manually, or pick a
+                  random free code.
                 </p>
               )}
             </label>
           )}
 
           <div className="flex flex-wrap gap-2 pt-1">
+            {canPickRandom && (
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={saving || pickingRandom || (poolStats?.available === 0)}
+                onClick={() => void handlePickRandom()}
+              >
+                {pickingRandom
+                  ? 'Picking…'
+                  : inputLocked
+                    ? 'Pick another code'
+                    : 'Pick random code'}
+              </button>
+            )}
             {canAssign && (
               <button
                 type="button"

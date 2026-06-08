@@ -76,10 +76,13 @@ async function loadSiteAccessConfigUncached(): Promise<SiteAccessConfig> {
   }
 }
 
-/** Site password and personal buyer codes are separate; either unlocks the gate. */
+/** Site password and personal pool codes are separate; either unlocks the gate. */
 export async function verifySiteAccessCredential(input: string): Promise<boolean> {
-  if (await verifySiteAccessPassword(input)) return true
-  return verifySiteAccessCode(input)
+  const trimmed = input.trim()
+  if (!trimmed) return false
+  // Check pool codes first so 4-digit buyer codes work in the same field without bcrypt delay.
+  if (await verifySiteAccessCode(trimmed)) return true
+  return verifySiteAccessPassword(trimmed)
 }
 
 export async function verifySiteAccessPassword(
@@ -87,7 +90,11 @@ export async function verifySiteAccessPassword(
 ): Promise<boolean> {
   const config = await getSiteAccessConfig()
   if (!config.passwordHash) return false
-  return bcrypt.compare(password, config.passwordHash)
+  try {
+    return await bcrypt.compare(password, config.passwordHash)
+  } catch {
+    return false
+  }
 }
 
 export async function hashSiteAccessPassword(plain: string): Promise<string> {

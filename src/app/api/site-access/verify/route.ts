@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!password) {
-      return NextResponse.json({ error: 'Password is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Password or access code is required' },
+        { status: 400 }
+      )
     }
 
     const config = await getSiteAccessConfig()
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     const valid = await verifySiteAccessCredential(password)
     if (!valid) {
-      return NextResponse.json({ error: 'Incorrect password' }, { status: 401 })
+      return NextResponse.json({ error: 'Incorrect password or access code' }, { status: 401 })
     }
 
     const secretDiag = siteAccessSecretDiagnostics()

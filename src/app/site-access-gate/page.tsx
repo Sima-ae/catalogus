@@ -38,7 +38,7 @@ function GateForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ password, remember }),
+        body: JSON.stringify({ password, code: password, remember }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -83,13 +83,13 @@ function GateForm() {
           ) : null}
 
           <div>
-            <label htmlFor="site-access-password" className="sr-only">
+            <label htmlFor="site-access-credential" className="sr-only">
               {t('siteAccess.passwordLabel')}
             </label>
             <input
-              id="site-access-password"
-              type="password"
-              autoComplete="current-password"
+              id="site-access-credential"
+              type="text"
+              autoComplete="one-time-code"
               autoFocus
               required
               value={password}

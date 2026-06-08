@@ -71,6 +71,25 @@ export async function listAvailableSiteAccessCodes(limit = 500): Promise<string[
   return rows.map((r) => r.code)
 }
 
+/** One unassigned pool code for admin random assign (never returns the full list). */
+export async function pickRandomAvailableSiteAccessCode(): Promise<string | null> {
+  try {
+    const rows = await queryDb<{ code: string }[]>(
+      `SELECT code FROM site_access_codes
+       WHERE user_id IS NULL
+       ORDER BY RAND()
+       LIMIT 1`
+    )
+    return rows[0]?.code ?? null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes("doesn't exist") || message.includes('site_access_codes')) {
+      return null
+    }
+    throw error
+  }
+}
+
 export type SiteAccessCodeAssignment = {
   code: string
   assignedAt: string | null
