@@ -25,6 +25,7 @@
     "db:reapply-descriptions": "tsx scripts/reapply-description-cleanup.ts",
     "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts",
     "db:seed-site-access-codes": "tsx scripts/seed-site-access-codes.ts",
+    "db:sync-purchase-prices": "tsx scripts/sync-purchase-prices-from-pricelist.ts",
     "db:sync-category-translations": "tsx scripts/sync-category-translations.ts",
     "db:fix-product-categories": "tsx scripts/fix-ambiguous-product-categories.ts",
     "db:ensure-kids-shoes": "tsx scripts/ensure-kids-shoes-subcategory.ts",

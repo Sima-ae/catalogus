@@ -388,6 +388,59 @@ export async function deleteSellerProductPrice(
   return (result?.affectedRows ?? 0) > 0
 }
 
+/**
+ * Most recent numeric seller price for a product (ignores out-of-stock rows where unit_price is 0).
+ * Used to sync admin purchase_price without clearing when a seller marks uitverkocht.
+ */
+export async function resolveLatestNumericPricelistUnitPrice(
+  productId: string
+): Promise<number | null> {
+  const rows = await queryDb<{ unit_price: string }[]>(
+    `SELECT unit_price
+     FROM seller_product_prices
+     WHERE product_id = ? AND unit_price > 0
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [productId]
+  )
+  if (!rows[0]) return null
+  const price = Number(rows[0].unit_price)
+  return Number.isFinite(price) && price > 0 ? price : null
+}
+
+/**
+ * Keep products.purchase_price in sync with platform pricelist seller prices
+ * (admin products table “Purchase price” / Inkoopprijs column).
+ * Never clears purchase_price — out-of-stock / temporarily out-of-stock leaves it unchanged
+ * until a seller saves a new numeric price.
+ */
+export async function syncProductPurchasePriceFromPlatformPricelist(
+  productId: string
+): Promise<void> {
+  const onList = await isProductOnPricelist(PLATFORM_PRICELIST_OWNER_ID, productId)
+  if (!onList) return
+
+  const purchasePrice = await resolveLatestNumericPricelistUnitPrice(productId)
+  if (purchasePrice == null) return
+
+  await queryDb(`UPDATE products SET purchase_price = ? WHERE id = ?`, [
+    purchasePrice,
+    productId,
+  ])
+}
+
+/** Backfill purchase_price for every product on the platform pricelist. */
+export async function syncAllPlatformPricelistPurchasePrices(): Promise<{ updated: number }> {
+  const rows = await queryDb<{ product_id: string }[]>(
+    `SELECT DISTINCT product_id FROM pricelist_items WHERE owner_user_id = ?`,
+    [PLATFORM_PRICELIST_OWNER_ID]
+  )
+  for (const row of rows) {
+    await syncProductPurchasePriceFromPlatformPricelist(row.product_id)
+  }
+  return { updated: rows.length }
+}
+
 export async function listPricelistRows(
   listOwnerId: string,
   viewer: {

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
+import { isPlatformPricelistOwner } from '@/lib/pricelist-constants'
 import {
   parseUnitPrice,
   setSellerProductStockStatus,
+  syncProductPurchasePriceFromPlatformPricelist,
   upsertSellerProductPrice,
   deleteSellerProductPrice,
 } from '@/lib/pricelist-db'
@@ -111,6 +113,10 @@ export async function PUT(request: NextRequest) {
     if (isAdminActor && targetSellerId !== access.actor!.userId) {
       await clearPendingEditRequestsForPrice(targetSellerId, productId)
     }
+    // Sync purchase_price only when a numeric price is saved — not on uitverkocht / temporary OOS.
+    if (isPlatformPricelistOwner(access.ownerId) && !stockStatus) {
+      await syncProductPurchasePriceFromPlatformPricelist(productId)
+    }
     const res = NextResponse.json({
       ok: true,
       stockStatus,
@@ -163,6 +169,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Price not found' }, { status: 404 })
     }
     await clearPendingEditRequestsForPrice(targetSellerId, productId)
+    if (isPlatformPricelistOwner(access.ownerId)) {
+      await syncProductPurchasePriceFromPlatformPricelist(productId)
+    }
     return NextResponse.json({ ok: true, productId, sellerId: targetSellerId })
   } catch (error) {
     console.error('Pricelist prices DELETE:', error)
