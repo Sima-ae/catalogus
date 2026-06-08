@@ -91,14 +91,15 @@ export default function AdminBrandsPage() {
   }
 
   return (
-    <AdminPageShell titleKey="admin.nav.brands">
-      <div className="flex justify-end mb-4">
+    <AdminPageShell
+      titleKey="admin.nav.brands"
+      actions={
         <Link href={appPath('/admin/brands/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
           Add brand
         </Link>
-      </div>
-
+      }
+    >
       {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
       {loading ? (

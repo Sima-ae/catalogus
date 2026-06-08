@@ -286,15 +286,10 @@ export default function AdminTrashPage() {
   }, [currentPage, safePage])
 
   return (
-    <AdminPageShell titleKey="admin.nav.trash">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <p className={`text-sm max-w-xl ${t.muted}`}>
-          Products moved to trash are hidden from the shop. Restore them to publish again
-          {isSuperAdmin
-            ? ', or delete permanently — empty trash removes everything at once.'
-            : '. Only a super admin can permanently delete or empty trash.'}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
+    <AdminPageShell
+      titleKey="admin.nav.trash"
+      actions={
+        <>
           <Link href={appPath('/admin/products')} className="btn-secondary text-sm">
             All products
           </Link>
@@ -308,8 +303,15 @@ export default function AdminTrashPage() {
               Empty trash
             </button>
           ) : null}
-        </div>
-      </div>
+        </>
+      }
+    >
+      <p className={`text-sm max-w-3xl mb-6 ${t.muted}`}>
+        Products moved to trash are hidden from the shop. Restore them to publish again
+        {isSuperAdmin
+          ? ', or delete permanently — empty trash removes everything at once.'
+          : '. Only a super admin can permanently delete or empty trash.'}
+      </p>
 
       {error && <p className="text-red-400 mb-4">{error}</p>}
       {successMessage && (

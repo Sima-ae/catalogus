@@ -95,14 +95,15 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <AdminPageShell titleKey="admin.nav.categories">
-      <div className="flex justify-end mb-4">
+    <AdminPageShell
+      titleKey="admin.nav.categories"
+      actions={
         <Link href={appPath('/admin/categories/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
           Add category
         </Link>
-      </div>
-
+      }
+    >
       {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
       {loading ? (

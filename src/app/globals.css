@@ -459,7 +459,7 @@ body.app-protected [contenteditable='true'] {
 
   /* Header activity notification card — fixed height so the bar stays compact */
   .activity-speech-bubble-wrap--compact {
-    @apply max-h-[2.75rem] sm:max-h-[3rem] w-full sm:min-w-[18rem] md:min-w-[22rem] lg:min-w-[28rem] xl:min-w-[32rem];
+    @apply max-h-[2.75rem] sm:max-h-[3rem] w-full sm:min-w-[16rem] md:min-w-[20rem] lg:min-w-[24rem] xl:min-w-[28rem] 2xl:min-w-[32rem];
   }
 
   /* Sold-out ribbon — always white on black band (overrides app-readable text rules) */

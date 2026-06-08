@@ -450,24 +450,27 @@ export default function AdminProductsPage() {
     pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))
 
   return (
-    <AdminPageShell titleKey="admin.nav.products">
-      <div className="flex flex-wrap items-center justify-end gap-3 mb-6">
-        {stats.draft > 0 && (
-          <button
-            type="button"
-            className="btn-secondary text-sm"
-            disabled={bulkWorking || loading}
-            onClick={publishAllDrafts}
-          >
-            {formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
-          </button>
-        )}
-        <Link href={appPath('/admin/products/new')} className="btn-primary flex items-center gap-2">
-          <PlusIcon className="w-5 h-5" />
-          {tr('admin.products.addProduct')}
-        </Link>
-      </div>
-
+    <AdminPageShell
+      titleKey="admin.nav.products"
+      actions={
+        <>
+          {stats.draft > 0 && (
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              disabled={bulkWorking || loading}
+              onClick={publishAllDrafts}
+            >
+              {formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
+            </button>
+          )}
+          <Link href={appPath('/admin/products/new')} className="btn-primary flex items-center gap-2">
+            <PlusIcon className="w-5 h-5" />
+            {tr('admin.products.addProduct')}
+          </Link>
+        </>
+      }
+    >
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         <StatCard
           title={tr('admin.products.statTotal')}

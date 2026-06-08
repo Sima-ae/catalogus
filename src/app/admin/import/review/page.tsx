@@ -133,23 +133,26 @@ export default function AdminImportReviewPage() {
   }
 
   return (
-    <AdminPageShell titleKey="admin.page.importReview">
-      <div className="flex flex-wrap gap-3 mb-6">
-        <Link href={appPath('/admin/import')} className="btn-secondary">
-          Import sources
-        </Link>
-        {selected.size > 0 && (
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={bulkPublishing}
-            onClick={publishSelected}
-          >
-            {bulkPublishing ? 'Publishing...' : `Publish selected (${selected.size})`}
-          </button>
-        )}
-      </div>
-
+    <AdminPageShell
+      titleKey="admin.page.importReview"
+      actions={
+        <>
+          <Link href={appPath('/admin/import')} className="btn-secondary">
+            Import sources
+          </Link>
+          {selected.size > 0 ? (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={bulkPublishing}
+              onClick={publishSelected}
+            >
+              {bulkPublishing ? 'Publishing...' : `Publish selected (${selected.size})`}
+            </button>
+          ) : null}
+        </>
+      }
+    >
       {error && <p className="text-red-400 mb-4">{error}</p>}
 
       {loading ? (

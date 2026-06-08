@@ -236,7 +236,7 @@ export default function AdminDashboard() {
   const recentOrders = useMemo(() => sortNewest(orders).slice(0, RECENT_ORDERS), [orders])
 
   return (
-    <AdminPageShell titleKey="admin.nav.dashboard">
+    <AdminPageShell>
       {error ? <p className="text-red-500 dark:text-red-400 text-sm mb-4">{error}</p> : null}
 
       {loading ? (

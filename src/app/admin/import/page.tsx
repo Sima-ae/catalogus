@@ -467,13 +467,14 @@ export default function AdminImportPage() {
   }
 
   return (
-    <AdminPageShell titleKey="admin.nav.import">
-      <div className="flex flex-wrap gap-3 mb-6">
+    <AdminPageShell
+      titleKey="admin.nav.import"
+      actions={
         <Link href={appPath('/admin/import/review')} className="btn-secondary">
           Review import queue
         </Link>
-      </div>
-
+      }
+    >
       {!isSuperAdmin && !authLoading ? (
         <p className={`text-sm mb-4 ${t.muted}`}>
           Only super admin can add, edit, or delete import sources. You can start sync jobs below.
