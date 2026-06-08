@@ -3,7 +3,11 @@ import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { ACTIVITY_POOL_CACHE_CONTROL, jsonCached } from '@/lib/http-cache'
 import { getCachedValue } from '@/lib/server-ttl-cache'
-import { productImageSrc } from '@/lib/product-image-url'
+import {
+  isPlaceholderImageUrl,
+  productImageSrc,
+  toDisplayProductImageUrl,
+} from '@/lib/product-image-url'
 import type { SocialProofProduct } from '@/lib/social-proof-activity'
 
 export const dynamic = 'force-dynamic'
@@ -44,6 +48,7 @@ type ProductRow = {
   sku: string | null
   image_url: string | null
   category: string | null
+  source_url: string | null
 }
 
 function rowToProduct(row: ProductRow, seenLabels: Set<string>): SocialProofProduct | null {
@@ -53,9 +58,13 @@ function rowToProduct(row: ProductRow, seenLabels: Set<string>): SocialProofProd
   if (seenLabels.has(labelKey)) return null
   seenLabels.add(labelKey)
 
+  const displayUrl = toDisplayProductImageUrl(row.image_url, row.source_url)
+  if (!displayUrl || isPlaceholderImageUrl(displayUrl)) return null
+  const imageUrl = productImageSrc(displayUrl)
+  if (!imageUrl) return null
+
   const category = row.category?.trim() || 'Other'
-  const imageUrl = productImageSrc(row.image_url)
-  return { label, imageUrl: imageUrl || null, category }
+  return { label, imageUrl, category }
 }
 
 async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
@@ -74,7 +83,7 @@ async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
   await Promise.all(
     categories.map(async (category) => {
       const rows = await queryDb<ProductRow[]>(
-        `SELECT name, sku, image_url, category FROM products
+        `SELECT name, sku, image_url, category, source_url FROM products
          WHERE ${PRODUCT_BASE_WHERE}
            AND TRIM(category) = ?
          ORDER BY RAND()
@@ -109,7 +118,7 @@ export async function GET() {
   try {
     const products = await getCachedValue(
       SOCIAL_PROOF_CACHE_NS,
-      'pool-v4',
+      'pool-v5',
       SOCIAL_PROOF_CACHE_TTL_MS,
       loadSocialProofProducts
     )

@@ -48,6 +48,7 @@ const defaultForm = {
   status: 'active',
   featured: false,
   sold_out: false,
+  pre_order: false,
   version: APP_DEFAULT_PRODUCT_VERSION,
   license_type: '',
   demo_url: '',
@@ -491,6 +492,16 @@ export default function ProductForm({
                 />
                 {tr('productForm.soldOut')}
               </label>
+              <label className="flex items-center gap-2 form-check-label cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="pre_order"
+                  checked={form.pre_order}
+                  onChange={onChange}
+                  className="rounded"
+                />
+                {tr('productForm.preOrder')}
+              </label>
             </div>
           ) : null}
         </div>
@@ -679,6 +690,7 @@ function mapProductToForm(p: Partial<Product>) {
     status: p.status || 'active',
     featured: !!p.featured,
     sold_out: !!p.sold_out,
+    pre_order: !!p.pre_order,
     version: resolveProductVersion(p.version),
     license_type: p.license_type || '',
     demo_url: p.demo_url || '',

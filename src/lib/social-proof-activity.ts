@@ -239,7 +239,7 @@ function allBuyerNameCount(): number {
   )
 }
 
-const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v8'
+const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v9'
 const PREVIOUS_DAYS_KEY = 'catalogus-social-proof-previous-days'
 const DEFAULT_COUNT = 12
 /** Remember a few recent days for soft de-dupe; older lines can return anytime. */
@@ -402,7 +402,7 @@ export function buildDailySocialProofNotifications(
     if (!label) continue
     if (!byLabel.has(label.toLowerCase())) byLabel.set(label.toLowerCase(), p)
   }
-  const products = Array.from(byLabel.values())
+  const products = Array.from(byLabel.values()).filter((p) => Boolean(p.imageUrl?.trim()))
   if (products.length === 0 || count < 1) return []
 
   const mixedProducts = interleaveProductsByCategory(products)

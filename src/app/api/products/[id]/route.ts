@@ -16,6 +16,7 @@ import {
   parseProductImageOrderBody,
 } from '@/lib/product-body'
 import { getDbErrorMessage } from '@/lib/db-errors'
+import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
 import { omitProductInternalPricing } from '@/lib/product-serialize'
 import {
   applySellerProductInput,
@@ -59,9 +60,12 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(
-      includePurchasePrice ? product : omitProductInternalPricing(product)
-    )
+    let payload = includePurchasePrice ? product : omitProductInternalPricing(product)
+    if (access.kind === 'public') {
+      ;[payload] = await applyStorefrontSoldOutFromPlatformPricelist([payload])
+    }
+
+    return NextResponse.json(payload)
   } catch (error) {
     return NextResponse.json(
       { error: getDbErrorMessage(error, 'Failed to load product') },

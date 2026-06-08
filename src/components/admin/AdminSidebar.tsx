@@ -27,7 +27,7 @@ import {
 
 const navigation = [
   { nameKey: 'admin.nav.dashboard', href: '/admin', icon: HomeIcon },
-  { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon },
+  { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon, newTab: true },
   { nameKey: 'admin.nav.products', href: '/admin/products', icon: CubeIcon },
   { nameKey: 'admin.nav.trash', href: '/admin/trash', icon: TrashIcon },
   { nameKey: 'admin.nav.orders', href: '/admin/orders', icon: ShoppingCartIcon },
@@ -109,6 +109,9 @@ export default function AdminSidebar({
               key={item.nameKey}
               href={appPath(item.href)}
               onClick={onMobileClose}
+              {...('newTab' in item && item.newTab
+                ? { target: '_blank', rel: 'noopener noreferrer' }
+                : {})}
               className={`flex items-center px-3 py-2 rounded-lg transition-colors text-sm sm:text-base ${
                 isActive ? 'nav-active' : navIdle
               }`}

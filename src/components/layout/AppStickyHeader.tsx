@@ -49,7 +49,7 @@ export default function AppStickyHeader({
   const gridCols =
     headerGridClassName ??
     (showSearch
-      ? 'md:grid-cols-[minmax(0,1.55fr)_minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.62fr)_minmax(0,1.08fr)_minmax(0,0.98fr)]'
+      ? 'md:grid-cols-[minmax(0,2fr)_minmax(0,0.78fr)_minmax(0,0.88fr)] lg:grid-cols-[minmax(0,2.15fr)_minmax(0,0.72fr)_minmax(0,0.82fr)]'
       : 'lg:grid-cols-[minmax(0,1fr)_auto]')
 
   const defaultLeft = (
@@ -65,7 +65,7 @@ export default function AppStickyHeader({
         </h1>
       ) : null}
       {showSocialProof ? (
-        <div className="min-w-0 w-full flex-1 sm:max-w-none md:max-w-none lg:max-w-[28rem] xl:max-w-[32rem]">
+        <div className="min-w-0 w-full flex-1 basis-0 sm:max-w-none md:max-w-none lg:max-w-[34rem] xl:max-w-[38rem]">
           <RecentPurchaseActivity variant="header" />
         </div>
       ) : null}

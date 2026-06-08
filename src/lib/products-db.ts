@@ -20,6 +20,7 @@ import {
   isQualifiedSiblingCategory,
   resolveShopCategoryFilter,
 } from '@/lib/shop-category-tree'
+import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
 import { serializeProductRow, type SerializeProductRowOptions } from '@/lib/product-serialize'
 import { joinBrandNames, parseBrandCompound } from '@/lib/product-taxonomy'
 import {
@@ -76,6 +77,7 @@ export type ProductInput = {
   status?: string
   featured?: boolean
   sold_out?: boolean
+  pre_order?: boolean
   available_sizes?: string | null
   available_colors?: string | null
   source_url?: string | null
@@ -596,6 +598,7 @@ export async function insertProduct(input: ProductInput) {
     status: input.status || 'active',
     featured: input.featured ? 1 : 0,
     sold_out: input.sold_out ? 1 : 0,
+    pre_order: input.pre_order ? 1 : 0,
     ...(schema.available_sizes && input.available_sizes !== undefined
       ? { available_sizes: input.available_sizes || null }
       : {}),
@@ -698,6 +701,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     status: input.status,
     featured: input.featured != null ? (input.featured ? 1 : 0) : undefined,
     sold_out: input.sold_out != null ? (input.sold_out ? 1 : 0) : undefined,
+    pre_order: input.pre_order != null ? (input.pre_order ? 1 : 0) : undefined,
     available_sizes:
       schema.available_sizes && input.available_sizes !== undefined
         ? input.available_sizes || null
@@ -907,9 +911,12 @@ export async function listActiveProductsPaginated(
 
   const total = Number(countRows[0]?.total ?? 0)
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
+  const items = await applyStorefrontSoldOutFromPlatformPricelist(
+    await serializeProductRows(rows)
+  )
 
   return {
-    items: (await serializeProductRows(rows)) as unknown as CatalogProductsPage['items'],
+    items: items as unknown as CatalogProductsPage['items'],
     total,
     page: query.page,
     pageSize: limit,

@@ -38,8 +38,8 @@ export default function AdminPageShell({
           searchPlaceholder={tr('admin.searchPlaceholder')}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
-          searchClassName="max-w-[12.5rem] sm:max-w-[13.5rem] lg:max-w-[14rem] xl:max-w-[15rem] mx-auto"
-          headerGridClassName="lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1.25fr)]"
+          searchClassName="max-w-[10.5rem] sm:max-w-[11rem] md:max-w-[11.5rem] lg:max-w-[12rem] xl:max-w-[12.5rem] mx-auto"
+          headerGridClassName="md:grid-cols-[minmax(0,2.25fr)_minmax(0,0.62fr)_minmax(0,0.95fr)] lg:grid-cols-[minmax(0,2.4fr)_minmax(0,0.58fr)_minmax(0,0.88fr)]"
           leading={<AdminMobileMenuButton onClick={() => setMobileOpen(true)} />}
           actions={<AdminHeaderActions />}
         />

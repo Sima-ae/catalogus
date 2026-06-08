@@ -389,6 +389,49 @@ export async function deleteSellerProductPrice(
 }
 
 /**
+ * Products on the platform pricelist whose latest seller price is uitverkocht /
+ * tijdelijk uitverkocht — used for storefront sold-out ribbon overlay.
+ */
+export async function loadPlatformPricelistSoldOutProductIds(
+  productIds: string[]
+): Promise<Set<string>> {
+  const unique = Array.from(new Set(productIds.map((id) => id.trim()).filter(Boolean)))
+  if (!unique.length) return new Set()
+
+  const placeholders = unique.map(() => '?').join(', ')
+  const onListRows = await queryDb<{ product_id: string }[]>(
+    `SELECT product_id FROM pricelist_items
+     WHERE owner_user_id = ? AND product_id IN (${placeholders})`,
+    [PLATFORM_PRICELIST_OWNER_ID, ...unique]
+  )
+  const onListIds = onListRows.map((r) => r.product_id)
+  if (!onListIds.length) return new Set()
+
+  const latest = await loadLatestProductPricesMap(onListIds)
+  const soldOut = new Set<string>()
+  for (const id of onListIds) {
+    const row = latest.get(id)
+    if (row?.stock_status === 'out' || row?.stock_status === 'temporary') {
+      soldOut.add(id)
+    }
+  }
+  return soldOut
+}
+
+/** Merge admin sold_out flag with platform pricelist stock status for shop display. */
+export async function applyStorefrontSoldOutFromPlatformPricelist<
+  T extends { id: string; sold_out?: boolean },
+>(products: T[]): Promise<T[]> {
+  if (!products.length) return products
+  const flags = await loadPlatformPricelistSoldOutProductIds(products.map((p) => p.id))
+  if (!flags.size) return products
+  return products.map((p) => ({
+    ...p,
+    sold_out: Boolean(p.sold_out) || flags.has(p.id),
+  }))
+}
+
+/**
  * Most recent numeric seller price for a product (ignores out-of-stock rows where unit_price is 0).
  * Used to sync admin purchase_price without clearing when a seller marks uitverkocht.
  */

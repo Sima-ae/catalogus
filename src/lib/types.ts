@@ -38,6 +38,7 @@ export interface Product {
   status: 'active' | 'inactive' | 'draft' | 'trash'
   featured?: boolean
   sold_out?: boolean
+  pre_order?: boolean
   created_at: string
   updated_at: string
 }

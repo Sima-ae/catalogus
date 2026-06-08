@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import { CubeIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
@@ -35,8 +34,14 @@ function ActivityProductThumb({
   compact?: boolean
   isDark: boolean
 }) {
+  const [failed, setFailed] = useState(false)
   const src = productImageSrc(imageUrl)
+
+  useEffect(() => {
+    setFailed(false)
+  }, [src])
   const sizeClass = compact ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-11 h-11 sm:w-12 sm:h-12'
+  const showImage = Boolean(src) && !failed
 
   return (
     <div
@@ -44,14 +49,15 @@ function ActivityProductThumb({
         isDark ? 'bg-dark-700' : 'bg-gray-100'
       }`}
     >
-      {src ? (
-        <Image
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={src}
           alt=""
-          fill
-          sizes={compact ? '40px' : '48px'}
-          className="object-cover"
-          unoptimized={src.startsWith('http')}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
         />
       ) : (
         <div

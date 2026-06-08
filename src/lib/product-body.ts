@@ -119,6 +119,7 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
     status: String(body.status || 'active'),
     featured: body.featured === true || body.featured === 'true' || body.featured === 1,
     sold_out: body.sold_out === true || body.sold_out === 'true' || body.sold_out === 1,
+    pre_order: body.pre_order === true || body.pre_order === 'true' || body.pre_order === 1,
     version: body.version ? String(body.version) : null,
     license_type: body.license_type ? String(body.license_type) : null,
     demo_url: body.demo_url ? String(body.demo_url) : null,

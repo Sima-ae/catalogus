@@ -45,6 +45,7 @@ import { getAdminMessages } from '@/lib/i18n-admin'
 import { getAdminUsersMessages } from '@/lib/i18n-admin-users'
 import { getPricelistOutOfStockMessages } from '@/lib/i18n-pricelist-out-of-stock'
 import { getShopSoldOutMessages } from '@/lib/i18n-shop-sold-out'
+import { getShopPreOrderMessages } from '@/lib/i18n-shop-pre-order'
 import { getActivityOrderMessages } from '@/lib/i18n-activity-order'
 
 export {
@@ -549,6 +550,7 @@ export function getMessages(locale: Locale): Messages {
     ...getAdminUsersMessages(locale),
     ...getPricelistOutOfStockMessages(locale),
     ...getShopSoldOutMessages(locale),
+    ...getShopPreOrderMessages(locale),
     ...getActivityOrderMessages(locale),
   }
 }

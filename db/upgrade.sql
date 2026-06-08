@@ -528,3 +528,6 @@ ALTER TABLE products
 -- Sold-out ribbon on shop product cards and product page gallery
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS sold_out TINYINT(1) NOT NULL DEFAULT 0 AFTER featured;
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS pre_order TINYINT(1) NOT NULL DEFAULT 0 AFTER sold_out;
