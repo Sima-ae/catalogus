@@ -71,13 +71,29 @@ export async function listAvailableSiteAccessCodes(limit = 500): Promise<string[
   return rows.map((r) => r.code)
 }
 
+export type SiteAccessCodeAssignment = {
+  code: string
+  assignedAt: string | null
+}
+
 export async function getSiteAccessCodeForUser(userId: string): Promise<string | null> {
+  const assignment = await getSiteAccessCodeAssignment(userId)
+  return assignment?.code ?? null
+}
+
+export async function getSiteAccessCodeAssignment(
+  userId: string
+): Promise<SiteAccessCodeAssignment | null> {
   try {
-    const rows = await queryDb<{ code: string }[]>(
-      'SELECT code FROM site_access_codes WHERE user_id = ? LIMIT 1',
+    const rows = await queryDb<{ code: string; assigned_at: string | null }[]>(
+      'SELECT code, assigned_at FROM site_access_codes WHERE user_id = ? LIMIT 1',
       [userId]
     )
-    return rows[0]?.code ?? null
+    if (!rows[0]) return null
+    return {
+      code: rows[0].code,
+      assignedAt: rows[0].assigned_at != null ? String(rows[0].assigned_at) : null,
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
     if (message.includes("doesn't exist") || message.includes('site_access_codes')) {
@@ -134,4 +150,61 @@ export async function assignSiteAccessCodeToUser(input: {
     if (!rows[0]) throw new Error('CODE_NOT_FOUND')
     throw new Error('CODE_ALREADY_ASSIGNED')
   }
+}
+
+export async function unassignSiteAccessCodeFromUser(userId: string): Promise<void> {
+  const existing = await getSiteAccessCodeAssignment(userId)
+  if (!existing) throw new Error('USER_HAS_NO_CODE')
+
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE site_access_codes
+     SET user_id = NULL, assigned_at = NULL
+     WHERE user_id = ?`,
+    [userId]
+  )
+  const affected =
+    typeof result === 'object' && result !== null && 'affectedRows' in result
+      ? Number((result as { affectedRows: number }).affectedRows)
+      : 0
+  if (affected === 0) throw new Error('USER_HAS_NO_CODE')
+}
+
+export async function reassignSiteAccessCodeToUser(input: {
+  userId: string
+  code: string
+}): Promise<void> {
+  const normalized = normalizeSiteAccessCode(input.code)
+  if (!normalized) throw new Error('INVALID_SITE_ACCESS_CODE')
+
+  const current = await getSiteAccessCodeAssignment(input.userId)
+  if (!current) throw new Error('USER_HAS_NO_CODE')
+  if (current.code === normalized) return
+
+  const targetRows = await queryDb<{ user_id: string | null }[]>(
+    'SELECT user_id FROM site_access_codes WHERE code = ? LIMIT 1',
+    [normalized]
+  )
+  if (!targetRows[0]) throw new Error('CODE_NOT_FOUND')
+  if (targetRows[0].user_id && targetRows[0].user_id !== input.userId) {
+    throw new Error('CODE_ALREADY_ASSIGNED')
+  }
+
+  await queryDb(
+    `UPDATE site_access_codes
+     SET user_id = NULL, assigned_at = NULL
+     WHERE user_id = ?`,
+    [input.userId]
+  )
+
+  const assignResult = await queryDb<{ affectedRows?: number }>(
+    `UPDATE site_access_codes
+     SET user_id = ?, assigned_at = CURRENT_TIMESTAMP
+     WHERE code = ? AND user_id IS NULL`,
+    [input.userId, normalized]
+  )
+  const affected =
+    typeof assignResult === 'object' && assignResult !== null && 'affectedRows' in assignResult
+      ? Number((assignResult as { affectedRows: number }).affectedRows)
+      : 0
+  if (affected === 0) throw new Error('CODE_ALREADY_ASSIGNED')
 }

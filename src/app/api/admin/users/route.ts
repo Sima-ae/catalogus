@@ -99,13 +99,6 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (input.role === 'buyer' && !input.site_access_code) {
-    return NextResponse.json(
-      { error: 'An admin must assign a personal site access code when creating a buyer' },
-      { status: 400 }
-    )
-  }
-
   try {
     const user = await createUser({
       email: input.email,
