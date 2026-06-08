@@ -104,7 +104,7 @@ export default function PricelistPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
-  const [showMissingPricesOnly, setShowMissingPricesOnly] = useState(false)
+  const [showMissingPricesOnly, setShowMissingPricesOnly] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [lightbox, setLightbox] = useState<{
     name: string
@@ -169,9 +169,7 @@ export default function PricelistPageClient() {
     [exportScopeItems]
   )
 
-  const hasActiveFilters = Boolean(
-    categoryFilter || brandFilter || showMissingPricesOnly
-  )
+  const hasActiveFilters = Boolean(categoryFilter || brandFilter || !showMissingPricesOnly)
 
   /** Share-link guests (after pricelist password) can filter missing prices too. */
   const showMissingPricesButton = canEditPrices && viewMode === 'table'
@@ -201,7 +199,7 @@ export default function PricelistPageClient() {
   }, [ownerId, searchQuery, categoryFilter, brandFilter, showMissingPricesOnly])
 
   useEffect(() => {
-    setShowMissingPricesOnly(false)
+    setShowMissingPricesOnly(true)
   }, [ownerId])
 
   useEffect(() => {
