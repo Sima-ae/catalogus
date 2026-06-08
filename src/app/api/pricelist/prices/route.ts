@@ -97,6 +97,7 @@ export async function PUT(request: NextRequest) {
         stockStatus,
         currency,
         updatedBy,
+        syncProductSoldOut: isPlatformPricelistOwner(access.ownerId),
       })
     } else {
       await upsertSellerProductPrice({

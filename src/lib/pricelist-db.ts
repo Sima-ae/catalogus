@@ -77,7 +77,46 @@ export async function addPricelistItem(input: {
   )
 }
 
+/** Copy platform pricelist uitverkocht state onto products.sold_out (admin + shop). */
+export async function persistProductSoldOutFromPricelistQuote(
+  productId: string
+): Promise<boolean> {
+  const latest = await loadLatestProductPricesMap([productId])
+  const row = latest.get(productId)
+  const status = row?.stock_status ?? null
+  if (status !== 'out' && status !== 'temporary') return false
+  await queryDb(`UPDATE products SET sold_out = 1 WHERE id = ?`, [productId])
+  return true
+}
+
+/**
+ * Before a row leaves the platform pricelist: keep admin purchase_price (never cleared here)
+ * and persist uitverkocht / tijdelijk uitverkocht as products.sold_out.
+ */
+async function preserveProductFieldsBeforePricelistRemoval(
+  ownerUserId: string,
+  productId: string
+): Promise<void> {
+  if (!isPlatformPricelistOwner(ownerUserId)) return
+
+  const purchasePrice = await resolveLatestNumericPricelistUnitPrice(productId)
+  if (purchasePrice != null) {
+    await queryDb(
+      `UPDATE products
+       SET purchase_price = CASE
+         WHEN purchase_price IS NULL OR purchase_price = 0 THEN ?
+         ELSE purchase_price
+       END
+       WHERE id = ?`,
+      [purchasePrice, productId]
+    )
+  }
+
+  await persistProductSoldOutFromPricelistQuote(productId)
+}
+
 export async function removePricelistItem(ownerUserId: string, productId: string): Promise<void> {
+  await preserveProductFieldsBeforePricelistRemoval(ownerUserId, productId)
   await queryDb(
     `DELETE FROM pricelist_items WHERE owner_user_id = ? AND product_id = ?`,
     [ownerUserId, productId]
@@ -353,6 +392,8 @@ export async function setSellerProductStockStatus(input: {
   stockStatus: PricelistStockStatus
   currency: string
   updatedBy: string
+  /** When true, copy uitverkocht onto products.sold_out for admin dashboard. */
+  syncProductSoldOut?: boolean
 }): Promise<void> {
   if (!isPricelistStockStatus(input.stockStatus)) {
     throw new Error('Invalid stock status')
@@ -375,6 +416,9 @@ export async function setSellerProductStockStatus(input: {
       input.stockStatus,
     ]
   )
+  if (input.syncProductSoldOut) {
+    await queryDb(`UPDATE products SET sold_out = 1 WHERE id = ?`, [input.productId])
+  }
 }
 
 export async function deleteSellerProductPrice(
