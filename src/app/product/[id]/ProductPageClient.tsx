@@ -16,7 +16,12 @@ import { useLocalizedPath } from '@/lib/use-localized-path'
 import { getCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { useShopCurrency } from '@/lib/shop-currency-context'
-import { formatPrice, formatPriceAmount, isZeroPrice } from '@/lib/format-price'
+import {
+  formatPrice,
+  formatPriceAmount,
+  hasPublicOriginalPrice,
+  isZeroPrice,
+} from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { productImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
@@ -733,34 +738,35 @@ export default function ProductPageClient() {
                 ? 'bg-dark-800 border-dark-700' 
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
-              <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mb-4">
-                <span
-                  className={`text-xl font-medium tabular-nums ${
-                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                  }`}
-                  aria-hidden
-                >
-                  {currencySymbol}
-                </span>
-                {isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
-                  <span className="text-3xl font-bold text-primary-500">
-                    {t('product.priceOnRequest')}
-                  </span>
-                ) : (
-                  <span className="text-3xl font-bold text-primary-500">
-                    {formatPriceAmount(selectedLicenseOption?.price)}
-                  </span>
-                )}
-                {product.original_price &&
-                  !isZeroPrice(product.original_price) &&
-                  product.original_price > product.price &&
-                  !isZeroPrice(product.price) && (
-                  <span className={`text-xl line-through ${
-                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
+              <div className="mb-4 space-y-1">
+                {hasPublicOriginalPrice(product.original_price, product.price) ? (
+                  <div
+                    className={`text-xl line-through tabular-nums ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}
+                  >
                     {formatPriceAmount(product.original_price)}
-                </span>
-                )}
+                  </div>
+                ) : null}
+                <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1">
+                  <span
+                    className={`text-xl font-medium tabular-nums ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}
+                    aria-hidden
+                  >
+                    {currencySymbol}
+                  </span>
+                  {isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
+                    <span className="text-3xl font-bold text-primary-500">
+                      {t('product.priceOnRequest')}
+                    </span>
+                  ) : (
+                    <span className="text-3xl font-bold text-primary-500">
+                      {formatPriceAmount(selectedLicenseOption?.price)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {!catalogMode && (

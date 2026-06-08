@@ -282,7 +282,7 @@ export async function buildProductInputFromLkxoxImport(
     description,
     short_description,
     price: 0,
-    original_price: null,
+    original_price: lkxox.originalPrice,
     purchase_price: lkxox.purchasePrice,
     image_url: mainImage,
     gallery_images: gallery.length ? gallery : null,

@@ -16,6 +16,25 @@ export function getActiveShopCurrencyCode(): ShopCurrencyCode {
   return activeShopCurrencyCode
 }
 
+/** Show strikethrough MSRP when original is above the public price (including price on request). */
+export function hasPublicOriginalPrice(
+  originalPrice: number | string | null | undefined,
+  price: number | string | null | undefined
+): boolean {
+  if (isZeroPrice(originalPrice)) return false
+  const original =
+    typeof originalPrice === 'number'
+      ? originalPrice
+      : parseFloat(String(originalPrice).replace(/\s/g, '').replace(',', '.'))
+  if (!Number.isFinite(original) || original <= 0) return false
+  if (isZeroPrice(price)) return true
+  const current =
+    typeof price === 'number'
+      ? price
+      : parseFloat(String(price).replace(/\s/g, '').replace(',', '.'))
+  return Number.isFinite(current) && original > current
+}
+
 /** True when price is 0, empty, or not a positive number. */
 export function isZeroPrice(value: number | string | null | undefined): boolean {
   if (value == null || value === '') return true

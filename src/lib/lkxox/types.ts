@@ -13,7 +13,10 @@ export type LkxoxProductData = {
   permalink: string
   description: string
   price: number
+  /** Zen Cart sale price (.productSpecialPrice) or regular when no sale. */
   purchasePrice: number | null
+  /** Zen Cart regular/list price (.normalprice) when on sale. */
+  originalPrice: number | null
   brandName: string | null
   imageUrls: string[]
 }

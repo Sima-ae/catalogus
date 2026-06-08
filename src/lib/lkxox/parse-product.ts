@@ -102,7 +102,8 @@ export function parseLkxoxProductPage(html: string, pageUrl: string): LkxoxProdu
     throw new Error('No product images found on page')
   }
 
-  const retailText = $('#productPrices .normalprice').first().text()
+  const regularText = $('#productPrices .normalprice').first().text()
+  const saleText = $('#productPrices .productSpecialPrice').first().text()
   const permalink = pageUrl.split('?')[0]
 
   return mapLkxoxProduct({
@@ -113,7 +114,8 @@ export function parseLkxoxProductPage(html: string, pageUrl: string): LkxoxProdu
     permalink,
     description,
     brandName,
-    retailText,
+    regularText,
+    saleText,
     imageUrls,
   })
 }

@@ -49,7 +49,9 @@ Import draft products from [lkxox.com](https://www.lkxox.com) paginated catalog 
 | Source fallback category | `category` |
 | All `#productMainImage` URLs | `image_url` + `gallery_images` |
 | — | `price` = 0 (Price on request) |
-| `#productPrices .normalprice` | `purchase_price` = source retail (internal reference) |
+| `#productPrices .productSpecialPrice` | `purchase_price` = sale price (admin only) |
+| `#productPrices .normalprice` (when on sale) | `original_price` = list/MSRP (shown on shop above Price on request) |
+| `#productPrices .normalprice` (no sale) | `purchase_price` = regular price; no `original_price` |
 
 ## Refresh / retry
 

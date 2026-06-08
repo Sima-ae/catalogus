@@ -9,7 +9,7 @@ import { catalogListingKey, isShopCatalogPath, parseCatalogPageParam } from '@/l
 import { useLocalizedPath } from '@/lib/use-localized-path'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
-import { formatPrice, isZeroPrice } from '@/lib/format-price'
+import { formatPrice, hasPublicOriginalPrice } from '@/lib/format-price'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
 import { shouldUnoptimizeProductImage, productImageSrc } from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
@@ -149,26 +149,17 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
 
         {showCardDetails ? (
         <div className="flex items-center justify-between pt-1">
-          <div className="flex items-center space-x-2 min-w-0">
-            {product.original_price &&
-            !isZeroPrice(product.original_price) &&
-            product.original_price > product.price &&
-            !isZeroPrice(product.price) ? (
-              <>
-                <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                  {formatPrice(product.price)}
-                </span>
-                <span className={`line-through text-xs truncate transition-colors ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                }`}>
-                  {formatPrice(product.original_price)}
-                </span>
-              </>
-            ) : (
-              <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                {formatPrice(product.price)}
+          <div className="flex flex-col min-w-0 gap-0.5">
+            {hasPublicOriginalPrice(product.original_price, product.price) ? (
+              <span className={`line-through text-xs truncate transition-colors ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                {formatPrice(product.original_price)}
               </span>
-            )}
+            ) : null}
+            <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
+              {formatPrice(product.price)}
+            </span>
           </div>
           
           {!catalogMode && (
