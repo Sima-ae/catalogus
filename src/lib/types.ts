@@ -37,6 +37,7 @@ export interface Product {
   download_count?: number
   status: 'active' | 'inactive' | 'draft' | 'trash'
   featured?: boolean
+  sold_out?: boolean
   created_at: string
   updated_at: string
 }

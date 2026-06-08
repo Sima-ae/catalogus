@@ -73,17 +73,14 @@ function ActivityLine({
   isDark,
   compact,
   orderLine,
-  timeLabel,
 }: {
   notification: StoredSocialProofNotification
   isDark: boolean
   compact?: boolean
   orderLine: string
-  timeLabel: string
 }) {
   const muted = isDark ? 'text-gray-400' : 'text-gray-500'
   const emphasis = isDark ? 'text-primary-300' : 'text-primary-700'
-  const timeMuted = isDark ? 'text-gray-500' : 'text-gray-400'
 
   return (
     <div
@@ -92,17 +89,8 @@ function ActivityLine({
       }`}
     >
       <p className={`min-w-0 leading-tight truncate ${muted}`}>{orderLine}</p>
-      <p className="min-w-0 flex items-baseline gap-1.5 leading-tight">
-        <span className={`min-w-0 truncate font-semibold ${emphasis}`}>
-          {notification.productName}
-        </span>
-        <span
-          className={`shrink-0 whitespace-nowrap ${
-            compact ? 'text-[10px] sm:text-[11px]' : 'text-xs sm:text-sm'
-          } ${timeMuted}`}
-        >
-          {timeLabel}
-        </span>
+      <p className={`min-w-0 leading-tight truncate font-semibold ${emphasis}`}>
+        {notification.productName}
       </p>
     </div>
   )
@@ -118,6 +106,20 @@ function formatMinutesAgoI18n(minutes: number, t: ReturnType<typeof useI18n>['t'
   const days = Math.floor(hours / 24)
   if (days === 1) return t('activity.time.dayAgo')
   return t('activity.time.daysAgo', { count: days })
+}
+
+function formatOrderLine(
+  buyer: string,
+  minutes: number,
+  t: ReturnType<typeof useI18n>['t']
+): string {
+  if (minutes < 1) {
+    return t('activity.orderedJustNow', { buyer })
+  }
+  return t('activity.orderedWithTime', {
+    buyer,
+    time: formatMinutesAgoI18n(minutes, t),
+  })
 }
 
 /** Rotating fictional purchase lines — random buyers, catalog products, daily persistence. */
@@ -201,9 +203,8 @@ export default function RecentPurchaseActivity({
 
   const current = items[index] ?? items[0]
   const minutesAgo = minutesSince(current.purchasedAt)
-  const timeLabel = formatMinutesAgoI18n(minutesAgo, t)
-  const orderLine = t('activity.justOrderedPrefix', { buyer: current.buyerName }).replace(/:?\s*$/, '')
-  const fullTitle = `${orderLine} — ${current.productName} — ${timeLabel}`
+  const orderLine = formatOrderLine(current.buyerName, minutesAgo, t)
+  const fullTitle = `${orderLine} ${current.productName}`
 
   return (
     <ActivitySpeechBubble isDark={isDark} compact={isHeader} title={fullTitle}>
@@ -218,7 +219,6 @@ export default function RecentPurchaseActivity({
         isDark={isDark}
         compact={isHeader}
         orderLine={orderLine}
-        timeLabel={timeLabel}
       />
     </ActivitySpeechBubble>
   )

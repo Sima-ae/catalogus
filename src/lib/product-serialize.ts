@@ -133,6 +133,7 @@ export function serializeProductRow(
     review_count: row.review_count != null ? Number(row.review_count) : null,
     download_count: row.download_count != null ? Number(row.download_count) : null,
     featured: row.featured === 1 || row.featured === true,
+    sold_out: row.sold_out === 1 || row.sold_out === true,
     status: String(row.status || 'active'),
     created_at: row.created_at != null ? String(row.created_at) : '',
     updated_at: row.updated_at != null ? String(row.updated_at) : '',

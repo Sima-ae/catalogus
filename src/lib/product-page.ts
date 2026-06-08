@@ -42,6 +42,7 @@ export type ProductPageView = {
   requirements: string[]
   image_url: string
   gallery: string[]
+  sold_out: boolean
   availableSizes: string[]
   availableColors: string[]
   demo_url: string
@@ -129,6 +130,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     requirements,
     image_url: main,
     gallery: fullGallery,
+    sold_out: raw.sold_out === 1 || raw.sold_out === true,
     availableSizes: parsePipeField(raw.available_sizes) ?? [],
     availableColors: parsePipeField(raw.available_colors) ?? [],
     demo_url: String(raw.demo_url || '').trim() || appPath('/contact'),

@@ -47,6 +47,7 @@ const defaultForm = {
   sku: '',
   status: 'active',
   featured: false,
+  sold_out: false,
   version: APP_DEFAULT_PRODUCT_VERSION,
   license_type: '',
   demo_url: '',
@@ -468,18 +469,30 @@ export default function ProductForm({
               <option value="inactive">{tr('productForm.statusInactive')}</option>
             </select>
           </div>
-          {!isSeller && (
-            <label className="flex items-center gap-2 pt-8 form-check-label cursor-pointer">
-              <input
-                type="checkbox"
-                name="featured"
-                checked={form.featured}
-                onChange={onChange}
-                className="rounded"
-              />
-              {tr('productForm.featured')}
-            </label>
-          )}
+          {!isSeller ? (
+            <div className="flex flex-col gap-2 pt-8">
+              <label className="flex items-center gap-2 form-check-label cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="featured"
+                  checked={form.featured}
+                  onChange={onChange}
+                  className="rounded"
+                />
+                {tr('productForm.featured')}
+              </label>
+              <label className="flex items-center gap-2 form-check-label cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="sold_out"
+                  checked={form.sold_out}
+                  onChange={onChange}
+                  className="rounded"
+                />
+                {tr('productForm.soldOut')}
+              </label>
+            </div>
+          ) : null}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
           {!isSeller ? (
@@ -665,6 +678,7 @@ function mapProductToForm(p: Partial<Product>) {
     sku: p.sku || '',
     status: p.status || 'active',
     featured: !!p.featured,
+    sold_out: !!p.sold_out,
     version: resolveProductVersion(p.version),
     license_type: p.license_type || '',
     demo_url: p.demo_url || '',

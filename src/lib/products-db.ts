@@ -75,6 +75,7 @@ export type ProductInput = {
   download_count?: number | null
   status?: string
   featured?: boolean
+  sold_out?: boolean
   available_sizes?: string | null
   available_colors?: string | null
   source_url?: string | null
@@ -594,6 +595,7 @@ export async function insertProduct(input: ProductInput) {
     download_count: input.download_count ?? null,
     status: input.status || 'active',
     featured: input.featured ? 1 : 0,
+    sold_out: input.sold_out ? 1 : 0,
     ...(schema.available_sizes && input.available_sizes !== undefined
       ? { available_sizes: input.available_sizes || null }
       : {}),
@@ -695,6 +697,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     download_count: input.download_count,
     status: input.status,
     featured: input.featured != null ? (input.featured ? 1 : 0) : undefined,
+    sold_out: input.sold_out != null ? (input.sold_out ? 1 : 0) : undefined,
     available_sizes:
       schema.available_sizes && input.available_sizes !== undefined
         ? input.available_sizes || null

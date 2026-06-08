@@ -25,6 +25,7 @@ import {
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { productImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
+import ProductSoldOutRibbon from '@/components/shop/ProductSoldOutRibbon'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
@@ -485,6 +486,7 @@ export default function ProductPageClient() {
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                   />
                   <ProductImageWatermark variant="gallery" />
+                  {product.sold_out ? <ProductSoldOutRibbon /> : null}
                 </button>
               ) : (
                 <div

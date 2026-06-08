@@ -16,6 +16,7 @@ import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
+import ProductSoldOutRibbon from '@/components/shop/ProductSoldOutRibbon'
 import { useState } from 'react'
 
 interface ProductCardProps {
@@ -108,6 +109,7 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
               />
             </div>
           </div>
+          {product.sold_out ? <ProductSoldOutRibbon /> : null}
           <div className="pointer-events-none absolute inset-0 z-[1] bg-black bg-opacity-0 transition-all duration-300 group-hover:bg-opacity-20" />
           <div className="absolute top-2 left-2 z-10">
             <ProductCardDeleteButton
