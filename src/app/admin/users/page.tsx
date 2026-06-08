@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { EyeIcon, PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
@@ -20,10 +20,24 @@ import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { useAppTheme } from '@/lib/theme-classes'
 import { appPath } from '@/lib/paths'
-import { isSuperAdminUser, type UserListRow } from '@/lib/user-roles'
+import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
+import {
+  isSuperAdminUser,
+  resolveRoleDisplayKey,
+  type RoleDisplayKey,
+  type UserListRow,
+} from '@/lib/user-roles'
+
+const ROLE_FILTER_KEYS: RoleDisplayKey[] = ['buyer', 'seller', 'admin', 'super_admin']
+
+function userHasActiveCode(user: UserListRow): boolean {
+  return Boolean(user.site_access_code?.trim())
+}
 
 export default function AdminUsersPage() {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user, isAdmin, isSuperAdmin } = useAuth()
   const [users, setUsers] = useState<UserListRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,6 +47,30 @@ export default function AdminUsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [ratingError, setRatingError] = useState('')
   const [showAddUser, setShowAddUser] = useState(false)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<'all' | RoleDisplayKey>('all')
+  const [badgeFilter, setBadgeFilter] = useState<'all' | 'none' | '1' | '2' | '3' | '4' | '5'>('all')
+
+  const roleLabel = (key: RoleDisplayKey) => tr(`admin.users.role.${key}`)
+
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return users.filter((u) => {
+      if (q) {
+        const haystack = `${u.email} ${u.name ?? ''}`.toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      if (roleFilter !== 'all' && resolveRoleDisplayKey(u) !== roleFilter) return false
+      if (badgeFilter === 'none') {
+        if (u.badge_rating != null) return false
+      } else if (badgeFilter !== 'all') {
+        if (u.badge_rating !== Number(badgeFilter)) return false
+      }
+      return true
+    })
+  }, [users, search, roleFilter, badgeFilter])
+
+  const hasActiveFilters = search.trim() !== '' || roleFilter !== 'all' || badgeFilter !== 'all'
 
   const loadUsers = useCallback(() => {
     if (!user) return
@@ -40,12 +78,12 @@ export default function AdminUsersPage() {
     fetch(appPath('/api/admin/users'), { headers: adminAuthHeaders(user), cache: 'no-store' })
       .then(async (r) => {
         const d = await r.json()
-        if (!r.ok) throw new Error(d.error || 'Failed to load users')
+        if (!r.ok) throw new Error(d.error || tr('admin.users.noUsers'))
         setUsers(Array.isArray(d) ? d : [])
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user, tr])
 
   useEffect(() => {
     if (!isAdmin) return
@@ -55,7 +93,7 @@ export default function AdminUsersPage() {
   const saveRating = async (targetUser: UserListRow, rating: number | null) => {
     if (!isSuperAdmin || !user?.email) return
     if (!adminPassword.trim()) {
-      setRatingError('Enter your super admin password below to assign badges.')
+      setRatingError(tr('admin.users.ratingPasswordRequired'))
       return
     }
     setRatingError('')
@@ -71,12 +109,12 @@ export default function AdminUsersPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to update rating')
+      if (!res.ok) throw new Error(data.error || tr('admin.users.ratingUpdateFailed'))
       setUsers((prev) =>
         prev.map((u) => (u.id === targetUser.id ? { ...u, badge_rating: data.badge_rating } : u))
       )
     } catch (e) {
-      setRatingError(e instanceof Error ? e.message : 'Update failed')
+      setRatingError(e instanceof Error ? e.message : tr('admin.users.ratingUpdateFailed'))
     } finally {
       setSavingId(null)
     }
@@ -85,14 +123,14 @@ export default function AdminUsersPage() {
   const handleDelete = async (target: UserListRow) => {
     if (!isSuperAdmin) return
     if (target.id === user?.id) {
-      alert('You cannot delete your own account')
+      alert(tr('admin.users.cannotDeleteSelf'))
       return
     }
     if (isSuperAdminUser(target)) {
-      alert('Super admin account cannot be deleted')
+      alert(tr('admin.users.cannotDeleteSuperAdmin'))
       return
     }
-    if (!confirm(`Delete user ${target.email}? This cannot be undone.`)) return
+    if (!confirm(formatMessage(tr('admin.users.confirmDelete'), { email: target.email }))) return
 
     setDeletingId(target.id)
     try {
@@ -101,10 +139,10 @@ export default function AdminUsersPage() {
         headers: adminAuthHeaders(user),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      if (!res.ok) throw new Error(data.error || tr('admin.users.deleteFailed'))
       setUsers((prev) => prev.filter((u) => u.id !== target.id))
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Delete failed')
+      alert(e instanceof Error ? e.message : tr('admin.users.deleteFailed'))
     } finally {
       setDeletingId(null)
     }
@@ -122,7 +160,7 @@ export default function AdminUsersPage() {
             onClick={() => setShowAddUser(true)}
           >
             <PlusIcon className="w-5 h-5" />
-            Add user
+            {tr('admin.users.addUser')}
           </button>
         </div>
       )}
@@ -142,53 +180,161 @@ export default function AdminUsersPage() {
       {isSuperAdmin && (
         <div className="card p-4 mb-6 border border-amber-500/30 bg-amber-500/5">
           <p className="text-amber-700 dark:text-amber-200 text-sm font-medium mb-2">
-            Super Admin — assign star badges
+            {tr('admin.users.superAdminBadgesTitle')}
           </p>
-          <p className={`${t.muted} text-sm mb-3`}>
-            Only you can rate buyers and sellers (1–5 stars, Google-style). All users can see these badges on
-            dashboards.
-          </p>
+          <p className={`${t.muted} text-sm mb-3`}>{tr('admin.users.superAdminBadgesHint')}</p>
           <label className={`block text-sm ${t.muted} mb-1`}>
-            Your password (required to save ratings)
+            {tr('admin.users.superAdminPasswordLabel')}
           </label>
           <input
             type="password"
             value={adminPassword}
             onChange={(e) => setAdminPassword(e.target.value)}
             className={`w-full max-w-md px-3 py-2 rounded-lg border ${t.input}`}
-            placeholder="Super admin password"
+            placeholder={tr('admin.users.superAdminPasswordPlaceholder')}
             autoComplete="current-password"
           />
           {ratingError && <p className="text-red-500 dark:text-red-400 text-sm mt-2">{ratingError}</p>}
         </div>
       )}
 
-      {loading && <p className={t.muted}>Loading...</p>}
+      {loading && <p className={t.muted}>{tr('admin.users.loading')}</p>}
       {error && <p className="text-red-500 dark:text-red-400">{error}</p>}
       {!loading && !error && users.length === 0 && (
-        <AdminEmptyState title="No users found" description="Users appear when registered in the database." />
+        <AdminEmptyState
+          title={tr('admin.users.noUsers')}
+          description={tr('admin.users.noUsersHint')}
+        />
       )}
       {!loading && !error && users.length > 0 && (
+        <div className="card mb-4 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <label className="flex-1 space-y-1">
+              <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.users.search')}</span>
+              <input
+                type="search"
+                className="input w-full"
+                placeholder={tr('admin.users.searchPlaceholder')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <label className="sm:w-44 space-y-1">
+              <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.users.filterRole')}</span>
+              <select
+                className="input w-full"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value as 'all' | RoleDisplayKey)}
+              >
+                <option value="all">{tr('admin.users.allRoles')}</option>
+                {ROLE_FILTER_KEYS.map((key) => (
+                  <option key={key} value={key}>
+                    {roleLabel(key)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="sm:w-40 space-y-1">
+              <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.users.filterBadge')}</span>
+              <select
+                className="input w-full"
+                value={badgeFilter}
+                onChange={(e) =>
+                  setBadgeFilter(e.target.value as 'all' | 'none' | '1' | '2' | '3' | '4' | '5')
+                }
+              >
+                <option value="all">{tr('admin.users.allBadges')}</option>
+                <option value="none">{tr('admin.users.badgeNone')}</option>
+                {(['5', '4', '3', '2', '1'] as const).map((n) => (
+                  <option key={n} value={n}>
+                    {formatMessage(tr('admin.users.starsCount'), { count: n })}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn-secondary sm:mb-0.5"
+                onClick={() => {
+                  setSearch('')
+                  setRoleFilter('all')
+                  setBadgeFilter('all')
+                }}
+              >
+                {tr('admin.users.clearFilters')}
+              </button>
+            )}
+          </div>
+          <p className={`text-sm ${t.muted}`}>
+            {formatMessage(tr('admin.users.matchingSummary'), {
+              matching: filteredUsers.length,
+              total: users.length,
+            })}
+            {roleFilter !== 'all' && (
+              <> · {tr('admin.users.filterRolePrefix')}: {roleLabel(roleFilter)}</>
+            )}
+            {badgeFilter === 'none' && (
+              <> · {tr('admin.users.filterBadgePrefix')}: {tr('admin.users.badgeNone')}</>
+            )}
+            {badgeFilter !== 'all' && badgeFilter !== 'none' && (
+              <>
+                {' '}
+                · {tr('admin.users.filterBadgePrefix')}:{' '}
+                {formatMessage(tr('admin.users.starsCount'), { count: badgeFilter })}
+              </>
+            )}
+            {search.trim() && (
+              <>
+                {' '}
+                · {tr('admin.users.filterSearchPrefix')}: “{search.trim()}”
+              </>
+            )}
+          </p>
+        </div>
+      )}
+      {!loading && !error && users.length > 0 && filteredUsers.length === 0 && (
+        <AdminEmptyState
+          title={tr('admin.users.noMatches')}
+          description={tr('admin.users.noMatchesHint')}
+        />
+      )}
+      {!loading && !error && filteredUsers.length > 0 && (
         <AdminTable>
           <AdminTableHead>
-            <AdminTh>Email</AdminTh>
-            <AdminTh>Name</AdminTh>
-            <AdminTh>Role</AdminTh>
-            <AdminTh>Badge</AdminTh>
-            <AdminTh align="right">Actions</AdminTh>
+            <AdminTh>{tr('admin.users.col.status')}</AdminTh>
+            <AdminTh>{tr('admin.users.col.name')}</AdminTh>
+            <AdminTh>{tr('admin.users.col.email')}</AdminTh>
+            <AdminTh>{tr('admin.users.col.role')}</AdminTh>
+            <AdminTh>{tr('admin.users.col.badge')}</AdminTh>
+            <AdminTh align="right">{tr('admin.users.col.actions')}</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
-            {users.map((u) => {
+            {filteredUsers.map((u) => {
               const canRate =
                 isSuperAdmin &&
                 u.role !== 'admin' &&
                 !u.is_super_admin &&
                 u.id !== user?.id
+              const codeActive = userHasActiveCode(u)
 
               return (
                 <AdminTr key={u.id}>
-                  <AdminTd>{u.email}</AdminTd>
+                  <AdminTd>
+                    <span
+                      className={
+                        codeActive
+                          ? 'text-green-600 dark:text-green-400 font-medium'
+                          : 'text-red-500 dark:text-red-400 font-medium'
+                      }
+                    >
+                      {codeActive
+                        ? tr('admin.users.status.active')
+                        : tr('admin.users.status.inactive')}
+                    </span>
+                  </AdminTd>
                   <AdminTd>{u.name || '—'}</AdminTd>
+                  <AdminTd>{u.email}</AdminTd>
                   <AdminTd>
                     <RoleBadge role={u.role} email={u.email} is_super_admin={u.is_super_admin} />
                   </AdminTd>
@@ -197,10 +343,15 @@ export default function AdminUsersPage() {
                       <UserStarRatingEditor
                         value={u.badge_rating ?? null}
                         disabled={savingId === u.id}
+                        clearLabel={tr('admin.users.clearRating')}
                         onChange={(rating) => saveRating(u, rating)}
                       />
                     ) : (
-                      <UserStarRating rating={u.badge_rating} size="sm" />
+                      <UserStarRating
+                        rating={u.badge_rating}
+                        size="sm"
+                        emptyLabel={tr('admin.users.noRating')}
+                      />
                     )}
                   </AdminTd>
                   <AdminTd align="right">
@@ -210,7 +361,7 @@ export default function AdminUsersPage() {
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${t.body} ${t.rowHover}`}
                       >
                         <EyeIcon className="w-4 h-4" />
-                        View
+                        {tr('admin.users.view')}
                       </Link>
                       {canEditUser(u) && (
                         <Link
@@ -218,7 +369,7 @@ export default function AdminUsersPage() {
                           className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${t.body} ${t.rowHover}`}
                         >
                           <PencilIcon className="w-4 h-4" />
-                          Edit
+                          {tr('admin.users.edit')}
                         </Link>
                       )}
                       {isSuperAdmin && u.id !== user?.id && !isSuperAdminUser(u) && (
@@ -231,7 +382,7 @@ export default function AdminUsersPage() {
                           } disabled:opacity-50`}
                         >
                           <TrashIcon className="w-4 h-4" />
-                          {deletingId === u.id ? '…' : 'Delete'}
+                          {deletingId === u.id ? '…' : tr('admin.users.delete')}
                         </button>
                       )}
                     </div>

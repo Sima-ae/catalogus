@@ -208,6 +208,7 @@ export async function reassignSiteAccessCodeToUser(input: {
     throw new Error('CODE_ALREADY_ASSIGNED')
   }
 
+  // Release the buyer's current code back to the free pool before assigning the new one.
   await queryDb(
     `UPDATE site_access_codes
      SET user_id = NULL, assigned_at = NULL

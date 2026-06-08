@@ -71,10 +71,16 @@ type UserStarRatingEditorProps = {
   value: number | null
   onChange: (rating: number | null) => void
   disabled?: boolean
+  clearLabel?: string
 }
 
 /** Interactive stars — super admin only. */
-export function UserStarRatingEditor({ value, onChange, disabled }: UserStarRatingEditorProps) {
+export function UserStarRatingEditor({
+  value,
+  onChange,
+  disabled,
+  clearLabel = 'Clear',
+}: UserStarRatingEditorProps) {
   const current = value !== null && value >= 1 && value <= 5 ? value : 0
 
   return (
@@ -103,7 +109,7 @@ export function UserStarRatingEditor({ value, onChange, disabled }: UserStarRati
           onClick={() => onChange(null)}
           className="ml-2 text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40"
         >
-          Clear
+          {clearLabel}
         </button>
       )}
     </div>
