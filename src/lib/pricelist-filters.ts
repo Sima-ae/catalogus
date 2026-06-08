@@ -4,6 +4,8 @@ import {
   CATEGORY_PATH_SEPARATOR,
   parseCategoryCompound,
 } from '@/lib/product-taxonomy'
+import { productMatchesShopCategoryFilter } from '@/lib/product-category-match'
+import type { ShopCategoryFilterResult } from '@/lib/shop-category-tree'
 
 const EMPTY_MARKER = '—'
 
@@ -123,6 +125,8 @@ export function filterPricelistRows(
     searchQuery?: string
     categoryFilter?: string
     subcategoryFilter?: string
+    /** Resolved shop category filter — preferred over bare name matching. */
+    shopCategoryFilter?: ShopCategoryFilterResult | null
     brandFilter?: string
     missingPricesOnly?: boolean
     guestShareLink?: boolean
@@ -133,9 +137,21 @@ export function filterPricelistRows(
   const subcategory = opts.subcategoryFilter?.trim()
   const brand = opts.brandFilter?.trim()
   if (category && category !== 'All') {
-    list = list.filter((row) =>
-      pricelistRowMatchesCategoryFilter(row, category, subcategory)
-    )
+    if (opts.shopCategoryFilter !== undefined) {
+      if (opts.shopCategoryFilter === null) {
+        list = list.filter((row) =>
+          pricelistRowMatchesCategoryFilter(row, category, subcategory)
+        )
+      } else {
+        list = list.filter((row) =>
+          productMatchesShopCategoryFilter(row, opts.shopCategoryFilter ?? undefined)
+        )
+      }
+    } else {
+      list = list.filter((row) =>
+        pricelistRowMatchesCategoryFilter(row, category, subcategory)
+      )
+    }
   }
   if (brand && brand !== 'All') {
     list = list.filter((row) => brandCompoundIncludesSegment(row.brand ?? '', brand))

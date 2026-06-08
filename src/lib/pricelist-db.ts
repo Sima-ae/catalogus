@@ -22,6 +22,7 @@ export type PricelistRow = {
   name: string
   sku: string
   category: string
+  category_id: string | null
   brand: string
   image_url: string
   /** Main + gallery images for lightbox (display URLs). */
@@ -588,6 +589,7 @@ export async function listPricelistRows(
       name: string
       sku: string
       category: string | null
+      category_id: string | null
       brand: string | null
       image_url: string
       gallery_images: unknown
@@ -595,7 +597,7 @@ export async function listPricelistRows(
       created_at: string
     }[]
   >(
-    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.brand,
+    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.category_id, p.brand,
             p.image_url, p.gallery_images, p.source_url, pi.created_at
      FROM pricelist_items pi
      INNER JOIN products p ON p.id = pi.product_id
@@ -794,6 +796,7 @@ export async function listPricelistRows(
       name: item.name,
       sku: item.sku,
       category: item.category?.trim() || '—',
+      category_id: item.category_id?.trim() || null,
       brand: item.brand?.trim() || '—',
       image_url: main,
       gallery_urls,

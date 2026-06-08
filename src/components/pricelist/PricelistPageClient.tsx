@@ -40,6 +40,8 @@ import PricelistExportButton from '@/components/pricelist/PricelistExportButton'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopBrand } from '@/lib/use-shop-brand'
+import { useShopCategories } from '@/lib/use-shop-categories'
+import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
 
 export default function PricelistPageClient() {
@@ -106,6 +108,7 @@ export default function PricelistPageClient() {
   const showOwnerSelect = owners.length > 1
   const [searchQuery, setSearchQuery] = useState('')
   const { selectedCategory } = useShopCategory()
+  const categoryRows = useShopCategories()
   const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
     useShopSubcategory(selectedCategory)
   const { selectedBrand } = useShopBrand()
@@ -144,12 +147,24 @@ export default function PricelistPageClient() {
 
   const guestShareLink = isGuest && Boolean(searchParams.get('owner'))
 
+  const shopCategoryFilter = useMemo(() => {
+    if (selectedCategory === 'All') return undefined
+    if (!categoryRows.length) return null
+    return (
+      resolveShopCategoryFilter(categoryRows, {
+        category: selectedCategory,
+        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      }) ?? { categoryIds: [], legacyNames: [], strictIdOnly: true }
+    )
+  }, [categoryRows, selectedCategory, selectedSubcategory])
+
   const filterParams = useMemo(
     () => ({
       searchQuery,
       categoryFilter: selectedCategory !== 'All' ? selectedCategory : undefined,
       subcategoryFilter:
         selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      shopCategoryFilter,
       brandFilter: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
       missingPricesOnly: showMissingPricesOnly,
       guestShareLink,
@@ -161,6 +176,7 @@ export default function PricelistPageClient() {
       searchQuery,
       selectedCategory,
       selectedSubcategory,
+      shopCategoryFilter,
       showMissingPricesOnly,
     ]
   )
@@ -171,6 +187,7 @@ export default function PricelistPageClient() {
       categoryFilter: selectedCategory !== 'All' ? selectedCategory : undefined,
       subcategoryFilter:
         selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      shopCategoryFilter,
       brandFilter: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
       guestShareLink,
     }),
@@ -181,7 +198,16 @@ export default function PricelistPageClient() {
       searchQuery,
       selectedCategory,
       selectedSubcategory,
+      shopCategoryFilter,
     ]
+  )
+
+  const scopedItems = useMemo(
+    () =>
+      filterPricelistRows(items, {
+        ...exportFilterParams,
+      }),
+    [items, exportFilterParams]
   )
 
   const missingPriceCount = useMemo(
@@ -506,19 +532,34 @@ export default function PricelistPageClient() {
           <p className={muted}>{t('pricelist.empty.none')}</p>
           <p className={`text-sm mt-2 ${muted}`}>{t('pricelist.empty.starHint')}</p>
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : scopedItems.length === 0 ? (
         <div
           className={`text-center py-16 rounded-xl border ${
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
           }`}
         >
           <p className={muted}>
-            {showMissingPricesOnly
-              ? t('pricelist.empty.missingPrices')
-              : hasActiveFilters && !searchQuery.trim()
-                ? t('pricelist.empty.filters')
-                : t('pricelist.empty.search')}
+            {hasActiveFilters && !searchQuery.trim()
+              ? t('pricelist.empty.filters')
+              : t('pricelist.empty.search')}
           </p>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div
+          className={`text-center py-16 rounded-xl border ${
+            isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
+          }`}
+        >
+          <p className={muted}>{t('pricelist.empty.missingPrices')}</p>
+          {showMissingPricesButton ? (
+            <button
+              type="button"
+              className="btn-secondary mt-4 text-sm"
+              onClick={() => setShowMissingPricesOnly(false)}
+            >
+              {t('pricelist.filter.showAllProducts')}
+            </button>
+          ) : null}
         </div>
       ) : viewMode === 'table' ? (
         <>
