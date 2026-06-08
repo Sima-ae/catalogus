@@ -6,10 +6,10 @@ import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
 import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
 import {
+  catalogFilterBasePath,
   clearCatalogPageParam,
   clearShopSearchParam,
-  isShopCatalogPath,
-  shopCatalogBasePath,
+  isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 
 export type ShopSubcategoryRow = {
@@ -86,9 +86,9 @@ export function useShopSubcategory(selectedCategory: string) {
 
   const setSelectedSubcategory = useCallback(
     (subcategory: string) => {
-      const basePath = shopCatalogBasePath(pathname)
+      const basePath = catalogFilterBasePath(pathname)
       const params = new URLSearchParams(
-        isShopCatalogPath(pathname) ? searchParams.toString() : ''
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
       clearShopSearchParam(params)
@@ -112,9 +112,9 @@ export function useShopSubcategory(selectedCategory: string) {
       (name) => name.toLowerCase() === raw.toLowerCase()
     )
     if (!valid) {
-      const basePath = shopCatalogBasePath(pathname)
+      const basePath = catalogFilterBasePath(pathname)
       const params = new URLSearchParams(
-        isShopCatalogPath(pathname) ? searchParams.toString() : ''
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       params.delete('subcategory')
       const qs = params.toString()

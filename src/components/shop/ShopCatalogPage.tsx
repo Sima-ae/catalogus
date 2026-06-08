@@ -11,6 +11,7 @@ import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing, {
   CATALOG_PAGE_SIZE,
 } from '@/components/shop/ShopCatalogListing'
+import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
 import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
@@ -78,7 +79,9 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   const [reloadToken, setReloadToken] = useState(0)
   const [reorderSaving, setReorderSaving] = useState(false)
   const hasLoadedOnce = useRef(false)
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
+  const [categoryProductCount, setCategoryProductCount] = useState<number | null>(null)
+  const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
   const prevFilterRef = useRef<string | null>(null)
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -262,6 +265,82 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     reloadToken,
   ])
 
+  useEffect(() => {
+    if (!isAdmin || !user) {
+      setCategoryProductCount(null)
+      setBrandProductCount(null)
+      return
+    }
+
+    let cancelled = false
+    const showCategory = selectedCategory !== 'All'
+    const showBrand = brandFilterActive && filterBrand !== 'All'
+
+    async function fetchCount(params: {
+      category?: string
+      subcategory?: string
+      brand?: string
+    }): Promise<number> {
+      const url = buildCatalogProductsUrl(appPath('/api/products'), {
+        page: 1,
+        limit: 1,
+        ...params,
+        mode: config.mode === 'new' ? 'new' : undefined,
+      })
+      const res = await fetch(url, { method: 'GET' })
+      if (!res.ok) return 0
+      const data: unknown = await res.json()
+      if (!isCatalogProductsPage(data)) return 0
+      return data.total
+    }
+
+    async function loadCounts() {
+      const tasks: Promise<void>[] = []
+
+      if (showCategory) {
+        tasks.push(
+          fetchCount({
+            category: selectedCategory,
+            subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+          }).then((n) => {
+            if (!cancelled) setCategoryProductCount(n)
+          })
+        )
+      } else if (!cancelled) {
+        setCategoryProductCount(null)
+      }
+
+      if (showBrand) {
+        tasks.push(
+          fetchCount({
+            category: selectedCategory !== 'All' ? selectedCategory : undefined,
+            subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+            brand: filterBrand,
+          }).then((n) => {
+            if (!cancelled) setBrandProductCount(n)
+          })
+        )
+      } else if (!cancelled) {
+        setBrandProductCount(null)
+      }
+
+      await Promise.all(tasks)
+    }
+
+    void loadCounts()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    brandFilterActive,
+    config.mode,
+    filterBrand,
+    isAdmin,
+    selectedCategory,
+    selectedSubcategory,
+    user,
+  ])
+
   const isDark = theme === 'dark'
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
   const shellBg = isDark ? 'bg-dark-950' : 'bg-gray-50'
@@ -315,6 +394,19 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
                 centered={config.centerCatalog}
               />
             </div>
+
+            {isAdmin && user ? (
+              <ShopPricelistBulkAddBar
+                user={user}
+                isDark={isDark}
+                selectedCategory={selectedCategory}
+                selectedSubcategory={selectedSubcategory}
+                selectedBrand={filterBrand}
+                brandFilterActive={brandFilterActive}
+                categoryProductCount={categoryProductCount}
+                brandProductCount={brandProductCount}
+              />
+            ) : null}
 
             {loading ? (
               <div className="text-center py-12">

@@ -924,6 +924,54 @@ export async function listActiveProductsPaginated(
   }
 }
 
+/** All active product ids matching shop catalog filters (no pagination). */
+export async function listActiveProductIdsForCatalogQuery(
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>
+): Promise<string[]> {
+  const [select, categories, hasBrandsTable] = await Promise.all([
+    productSelectSql(),
+    loadActiveCategories(),
+    brandsTableExists(),
+  ])
+  const categoryFilter = resolveShopCategoryFilter(categories, {
+    category: query.category,
+    subcategory: query.subcategory,
+  })
+
+  if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
+    return []
+  }
+
+  const { whereSql, params } = buildActiveCatalogFilters(
+    {
+      ...query,
+      page: 1,
+      limit: 1,
+      categoryIds: categoryFilter?.categoryIds,
+      legacyCategoryNames: categoryFilter?.legacyNames,
+      strictCategoryIdOnly: categoryFilter?.strictIdOnly,
+      categoryStorageLabel: categoryFilter?.categoryStorageLabel,
+      excludeCategoryIds: categoryFilter?.excludeCategoryIds,
+    },
+    { includeBrandJoin: hasBrandsTable }
+  )
+  const fromIndex = select.search(/\bFROM\b/i)
+  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT DISTINCT p.id ${fromClause} ${whereSql}`,
+    params
+  )
+  return rows.map((r) => String(r.id))
+}
+
+export async function countActiveProductsForCatalogQuery(
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>
+): Promise<number> {
+  const ids = await listActiveProductIdsForCatalogQuery(query)
+  return ids.length
+}
+
 /** Paginated all products (admin dashboard snippets). */
 export async function listProductsPaginated(
   page: number,

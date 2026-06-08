@@ -4,17 +4,40 @@ import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 
 export const SHOP_CATALOG_PATHS = ['/', '/new'] as const
 
-export function isShopCatalogPath(pathname: string | null): boolean {
+/** Paths that support category / subcategory / brand query filters (shop + pricelist). */
+export const CATALOG_FILTER_PATHS = ['/', '/new', '/pricelist'] as const
+
+function matchesCatalogPath(
+  pathname: string | null,
+  paths: readonly string[]
+): boolean {
   if (!pathname) return false
   const { pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
-  return SHOP_CATALOG_PATHS.some(
+  return paths.some(
     (p) => pathnameWithoutLocale === p || isAppPath(pathnameWithoutLocale, p)
   )
+}
+
+export function isShopCatalogPath(pathname: string | null): boolean {
+  return matchesCatalogPath(pathname, SHOP_CATALOG_PATHS)
+}
+
+export function isCatalogFilterPath(pathname: string | null): boolean {
+  return matchesCatalogPath(pathname, CATALOG_FILTER_PATHS)
 }
 
 /** Catalog list URL preserving the locale segment (e.g. /nl/ or /en/new). */
 export function shopCatalogBasePath(pathname: string | null): string {
   if (pathname && isShopCatalogPath(pathname)) {
+    return pathname.split('?')[0]
+  }
+  const { locale } = parseLocaleFromPathname(pathname ?? '/')
+  return localizedPath('/', locale ?? DEFAULT_LOCALE)
+}
+
+/** Base path for pages with category/brand filter query params (shop or pricelist). */
+export function catalogFilterBasePath(pathname: string | null): string {
+  if (pathname && isCatalogFilterPath(pathname)) {
     return pathname.split('?')[0]
   }
   const { locale } = parseLocaleFromPathname(pathname ?? '/')

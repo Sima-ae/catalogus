@@ -1,7 +1,48 @@
 import type { PricelistRow } from '@/lib/pricelist-db'
-import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
+import {
+  brandCompoundIncludesSegment,
+  CATEGORY_PATH_SEPARATOR,
+  parseCategoryCompound,
+} from '@/lib/product-taxonomy'
 
 const EMPTY_MARKER = '—'
+
+function normalizeFilterKey(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function categoryPartsFromRow(raw: string): Set<string> {
+  const parts = new Set<string>()
+  for (const segment of parseCategoryCompound(raw)) {
+    const trimmed = segment.trim()
+    if (!trimmed) continue
+    parts.add(normalizeFilterKey(trimmed))
+    if (trimmed.includes(CATEGORY_PATH_SEPARATOR)) {
+      for (const piece of trimmed.split(CATEGORY_PATH_SEPARATOR)) {
+        const p = piece.trim()
+        if (p) parts.add(normalizeFilterKey(p))
+      }
+    }
+  }
+  return parts
+}
+
+export function pricelistRowMatchesCategoryFilter(
+  row: PricelistRow,
+  category?: string,
+  subcategory?: string
+): boolean {
+  if (!category || category === 'All') return true
+  const raw = row.category?.trim()
+  if (!raw || raw === EMPTY_MARKER) return false
+
+  const parts = categoryPartsFromRow(raw)
+  if (subcategory && subcategory !== 'All') {
+    return parts.has(normalizeFilterKey(subcategory))
+  }
+
+  return parts.has(normalizeFilterKey(category))
+}
 
 function isFilterableValue(value: string | null | undefined): value is string {
   const v = value?.trim()
@@ -81,6 +122,7 @@ export function filterPricelistRows(
   opts: {
     searchQuery?: string
     categoryFilter?: string
+    subcategoryFilter?: string
     brandFilter?: string
     missingPricesOnly?: boolean
     guestShareLink?: boolean
@@ -88,11 +130,14 @@ export function filterPricelistRows(
 ): PricelistRow[] {
   let list = items
   const category = opts.categoryFilter?.trim()
+  const subcategory = opts.subcategoryFilter?.trim()
   const brand = opts.brandFilter?.trim()
-  if (category) {
-    list = list.filter((row) => row.category?.trim() === category)
+  if (category && category !== 'All') {
+    list = list.filter((row) =>
+      pricelistRowMatchesCategoryFilter(row, category, subcategory)
+    )
   }
-  if (brand) {
+  if (brand && brand !== 'All') {
     list = list.filter((row) => brandCompoundIncludesSegment(row.brand ?? '', brand))
   }
   if (opts.missingPricesOnly) {

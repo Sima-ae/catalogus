@@ -9,10 +9,10 @@ import {
   shouldShowShopBrandFilter,
 } from '@/lib/shop-brand-menu'
 import {
+  catalogFilterBasePath,
   clearCatalogPageParam,
   clearShopSearchParam,
-  isShopCatalogPath,
-  shopCatalogBasePath,
+  isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 
 export function useShopBrand() {
@@ -56,7 +56,7 @@ export function useShopBrand() {
   }, [searchParams, brandMenu, brandFilterActive, loadingBrands])
 
   useEffect(() => {
-    if (!isShopCatalogPath(pathname)) return
+    if (!isCatalogFilterPath(pathname)) return
     const raw = searchParams.get('brand')?.trim()
     if (!raw) return
 
@@ -67,7 +67,7 @@ export function useShopBrand() {
       if (loadingBrands || brandMenu.length === 0) return
     }
 
-    const basePath = shopCatalogBasePath(pathname)
+    const basePath = catalogFilterBasePath(pathname)
     const params = new URLSearchParams(searchParams.toString())
     params.delete('brand')
     clearCatalogPageParam(params)
@@ -85,9 +85,9 @@ export function useShopBrand() {
 
   const setSelectedBrand = useCallback(
     (brand: string) => {
-      const basePath = shopCatalogBasePath(pathname)
+      const basePath = catalogFilterBasePath(pathname)
       const params = new URLSearchParams(
-        isShopCatalogPath(pathname) ? searchParams.toString() : ''
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
       clearShopSearchParam(params)

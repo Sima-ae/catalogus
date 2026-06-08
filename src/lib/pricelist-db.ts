@@ -77,6 +77,51 @@ export async function addPricelistItem(input: {
   )
 }
 
+const PRICELIST_BULK_INSERT_BATCH = 80
+
+/** Add many products to a pricelist; skips duplicates and inactive products. */
+export async function bulkAddPricelistItems(input: {
+  ownerUserId: string
+  productIds: string[]
+  addedByUserId: string
+}): Promise<{ inserted: number; skipped: number; total: number }> {
+  const unique = Array.from(new Set(input.productIds.map((id) => id.trim()).filter(Boolean)))
+  if (!unique.length) return { inserted: 0, skipped: 0, total: 0 }
+
+  let inserted = 0
+  let activeEligible = 0
+  for (let i = 0; i < unique.length; i += PRICELIST_BULK_INSERT_BATCH) {
+    const batch = unique.slice(i, i + PRICELIST_BULK_INSERT_BATCH)
+    const placeholders = batch.map(() => '?').join(', ')
+    const activeRows = await queryDb<{ id: string }[]>(
+      `SELECT id FROM products WHERE status = 'active' AND id IN (${placeholders})`,
+      batch
+    )
+    if (!activeRows.length) continue
+    activeEligible += activeRows.length
+
+    const tuples: unknown[] = []
+    const valueSql: string[] = []
+    for (const row of activeRows) {
+      valueSql.push('(?, ?, ?, ?)')
+      tuples.push(randomUUID(), input.ownerUserId, row.id, input.addedByUserId)
+    }
+
+    const result = await queryDb<{ affectedRows?: number }>(
+      `INSERT IGNORE INTO pricelist_items (id, owner_user_id, product_id, added_by_user_id)
+       VALUES ${valueSql.join(', ')}`,
+      tuples
+    )
+    inserted += result?.affectedRows ?? 0
+  }
+
+  return {
+    inserted,
+    skipped: Math.max(0, activeEligible - inserted),
+    total: unique.length,
+  }
+}
+
 /** Copy platform pricelist uitverkocht state onto products.sold_out (admin + shop). */
 export async function persistProductSoldOutFromPricelistQuote(
   productId: string

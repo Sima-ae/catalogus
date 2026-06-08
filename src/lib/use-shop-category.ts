@@ -9,10 +9,10 @@ import {
   isShopTopLevelCategory,
 } from '@/lib/shop-category-tree'
 import {
+  catalogFilterBasePath,
   clearCatalogPageParam,
   clearShopSearchParam,
-  isShopCatalogPath,
-  shopCatalogBasePath,
+  isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 import { prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 
@@ -44,9 +44,9 @@ export function useShopCategory() {
     const parent = findParentCategoryName(categoryRows, raw)
     if (!parent) return
 
-    const basePath = shopCatalogBasePath(pathname)
+    const basePath = catalogFilterBasePath(pathname)
     const params = new URLSearchParams(
-      isShopCatalogPath(pathname) ? searchParams.toString() : ''
+      isCatalogFilterPath(pathname) ? searchParams.toString() : ''
     )
     params.set('category', parent)
     params.set('subcategory', raw)
@@ -64,9 +64,9 @@ export function useShopCategory() {
   const setSelectedCategory = useCallback(
     (category: string) => {
       if (category !== 'All') prefetchShopBrandMenu(category, 'All')
-      const basePath = shopCatalogBasePath(pathname)
+      const basePath = catalogFilterBasePath(pathname)
       const params = new URLSearchParams(
-        isShopCatalogPath(pathname) ? searchParams.toString() : ''
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
       clearShopSearchParam(params)
