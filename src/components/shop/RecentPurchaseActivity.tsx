@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { CubeIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
@@ -9,6 +10,7 @@ import ActivitySpeechBubble from '@/components/shop/ActivitySpeechBubble'
 import {
   loadOrCreateDailySocialProofFeed,
   minutesSince,
+  socialProofDisplayMinutes,
   type SocialProofProduct,
   type StoredSocialProofNotification,
 } from '@/lib/social-proof-activity'
@@ -26,11 +28,13 @@ type Props = {
 function ActivityProductThumb({
   imageUrl,
   productName,
+  productId,
   compact,
   isDark,
 }: {
   imageUrl: string | null | undefined
   productName: string
+  productId: string
   compact?: boolean
   isDark: boolean
 }) {
@@ -42,13 +46,10 @@ function ActivityProductThumb({
   }, [src])
   const sizeClass = compact ? 'w-9 h-9 sm:w-10 sm:h-10' : 'w-11 h-11 sm:w-12 sm:h-12'
   const showImage = Boolean(src) && !failed
+  const href = appPath(`/product/${productId}`)
 
-  return (
-    <div
-      className={`relative shrink-0 ${sizeClass} overflow-hidden ${
-        isDark ? 'bg-dark-700' : 'bg-gray-100'
-      }`}
-    >
+  const inner = (
+    <>
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -70,7 +71,19 @@ function ActivityProductThumb({
         </div>
       )}
       <span className="sr-only">{productName}</span>
-    </div>
+    </>
+  )
+
+  return (
+    <Link
+      href={href}
+      className={`relative shrink-0 ${sizeClass} overflow-hidden block transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+        isDark ? 'bg-dark-700' : 'bg-gray-100'
+      }`}
+      aria-label={productName}
+    >
+      {inner}
+    </Link>
   )
 }
 
@@ -96,7 +109,12 @@ function ActivityLine({
     >
       <p className={`min-w-0 leading-tight truncate ${muted}`}>{orderLine}</p>
       <p className={`min-w-0 leading-tight truncate font-semibold ${emphasis}`}>
-        {notification.productName}
+        <Link
+          href={appPath(`/product/${notification.productId}`)}
+          className="hover:underline focus:outline-none focus-visible:underline"
+        >
+          {notification.productName}
+        </Link>
       </p>
     </div>
   )
@@ -150,12 +168,20 @@ export default function RecentPurchaseActivity({
         if (cancelled) return
         const products: SocialProofProduct[] = Array.isArray(data?.products)
           ? data.products
-              .map((p: { label?: string; imageUrl?: string | null; category?: string }) => ({
-                label: String(p?.label ?? '').trim(),
-                imageUrl: p?.imageUrl ? String(p.imageUrl) : null,
-                category: p?.category ? String(p.category).trim() : undefined,
-              }))
-              .filter((p: SocialProofProduct) => Boolean(p.label))
+              .map(
+                (p: {
+                  label?: string
+                  imageUrl?: string | null
+                  category?: string
+                  productId?: string
+                }) => ({
+                  label: String(p?.label ?? '').trim(),
+                  imageUrl: p?.imageUrl ? String(p.imageUrl) : null,
+                  category: p?.category ? String(p.category).trim() : undefined,
+                  productId: String(p?.productId ?? '').trim(),
+                })
+              )
+              .filter((p: SocialProofProduct) => Boolean(p.label && p.productId))
           : []
         const feed = loadOrCreateDailySocialProofFeed(products)
         setItems(feed)
@@ -209,7 +235,7 @@ export default function RecentPurchaseActivity({
   if (items.length === 0) return null
 
   const current = items[index] ?? items[0]
-  const minutesAgo = minutesSince(current.purchasedAt)
+  const minutesAgo = socialProofDisplayMinutes(minutesSince(current.purchasedAt))
   const orderLine = formatOrderLine(current.buyerName, minutesAgo, t)
   const fullTitle = `${orderLine} ${current.productName}`
 
@@ -218,6 +244,7 @@ export default function RecentPurchaseActivity({
       <ActivityProductThumb
         imageUrl={current.productImageUrl}
         productName={current.productName}
+        productId={current.productId}
         compact={isHeader}
         isDark={isDark}
       />

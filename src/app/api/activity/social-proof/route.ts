@@ -44,6 +44,7 @@ const PRODUCT_BASE_WHERE = `
 const PER_CATEGORY_LIMIT = 10
 
 type ProductRow = {
+  id: string
   name: string
   sku: string | null
   image_url: string | null
@@ -64,7 +65,9 @@ function rowToProduct(row: ProductRow, seenLabels: Set<string>): SocialProofProd
   if (!imageUrl) return null
 
   const category = row.category?.trim() || 'Other'
-  return { label, imageUrl, category }
+  const productId = String(row.id ?? '').trim()
+  if (!productId) return null
+  return { label, imageUrl, category, productId }
 }
 
 async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
@@ -83,7 +86,7 @@ async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
   await Promise.all(
     categories.map(async (category) => {
       const rows = await queryDb<ProductRow[]>(
-        `SELECT name, sku, image_url, category, source_url FROM products
+        `SELECT id, name, sku, image_url, category, source_url FROM products
          WHERE ${PRODUCT_BASE_WHERE}
            AND TRIM(category) = ?
          ORDER BY RAND()
@@ -118,7 +121,7 @@ export async function GET() {
   try {
     const products = await getCachedValue(
       SOCIAL_PROOF_CACHE_NS,
-      'pool-v5',
+      'pool-v6',
       SOCIAL_PROOF_CACHE_TTL_MS,
       loadSocialProofProducts
     )

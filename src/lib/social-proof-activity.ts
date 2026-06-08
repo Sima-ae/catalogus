@@ -2,11 +2,13 @@ export type SocialProofProduct = {
   label: string
   imageUrl: string | null
   category?: string
+  productId: string
 }
 
 export type StoredSocialProofNotification = {
   buyerName: string
   productName: string
+  productId: string
   productImageUrl?: string | null
   /** Fixed moment the fictional purchase happened — relative label ages automatically. */
   purchasedAt: string
@@ -239,7 +241,7 @@ function allBuyerNameCount(): number {
   )
 }
 
-const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v9'
+const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v10'
 const PREVIOUS_DAYS_KEY = 'catalogus-social-proof-previous-days'
 const DEFAULT_COUNT = 12
 /** Remember a few recent days for soft de-dupe; older lines can return anytime. */
@@ -272,6 +274,40 @@ export function minutesSince(isoOrDate: string | Date): number {
   return Math.floor(ms / 60_000)
 }
 
+const CET_TIMEZONE = 'Europe/Amsterdam'
+/** 00:00–07:00 CET/CEST — avoid minute/hour “just ordered” labels while most buyers sleep. */
+const QUIET_HOURS_START = 0
+const QUIET_HOURS_END = 7
+/** During quiet hours, never show orders newer than this (display + generation). */
+const QUIET_HOURS_MIN_MINUTES = 8 * 60
+
+export function getCetHour(date: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CET_TIMEZONE,
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(date)
+  const hour = parts.find((p) => p.type === 'hour')?.value
+  return parseInt(hour ?? '0', 10)
+}
+
+export function isCetNightSocialProofQuietHours(date = new Date()): boolean {
+  const hour = getCetHour(date)
+  return hour >= QUIET_HOURS_START && hour < QUIET_HOURS_END
+}
+
+/** Minutes ago shown in the bubble — clamps recent times during CET quiet hours. */
+export function socialProofDisplayMinutes(
+  minutesAgo: number,
+  now = new Date()
+): number {
+  if (!isCetNightSocialProofQuietHours(now)) return minutesAgo
+  if (minutesAgo < QUIET_HOURS_MIN_MINUTES) {
+    return QUIET_HOURS_MIN_MINUTES
+  }
+  return minutesAgo
+}
+
 export function formatMinutesAgo(minutes: number): string {
   if (minutes < 1) return 'just now'
   if (minutes === 1) return '1 minute ago'
@@ -302,7 +338,7 @@ const MAX_PURCHASE_DAYS_AGO = 6
  * Random fictional purchase age — from “just now” up to 6 days ago.
  * Mixes minutes, hours, and whole-day offsets (e.g. 2 or 4 days ago).
  */
-function pickPurchaseTimeAgoMs(): number {
+function pickPurchaseTimeAgoMsRaw(): number {
   const roll = Math.random()
   if (roll < 0.14) {
     return Math.random() * 4 * MS_MINUTE
@@ -317,6 +353,15 @@ function pickPurchaseTimeAgoMs(): number {
   const dayStartAgo = days * MS_DAY
   const jitterWithinDay = Math.random() * MS_DAY * 0.85
   return dayStartAgo - jitterWithinDay + Math.random() * MS_HOUR
+}
+
+function pickPurchaseTimeAgoMs(now = Date.now()): number {
+  let ms = pickPurchaseTimeAgoMsRaw()
+  const minNightMs = QUIET_HOURS_MIN_MINUTES * MS_MINUTE
+  if (isCetNightSocialProofQuietHours(new Date(now)) && ms < minNightMs) {
+    ms = minNightMs + Math.random() * 6 * MS_HOUR
+  }
+  return ms
 }
 
 function assignPurchaseTimes(count: number, now = Date.now()): string[] {
@@ -430,6 +475,7 @@ export function buildDailySocialProofNotifications(
     notifications.push({
       buyerName,
       productName,
+      productId: product.productId,
       productImageUrl: product.imageUrl,
       purchasedAt: purchaseTimes[notifications.length]!,
     })
@@ -512,6 +558,10 @@ function notificationsHaveImages(notifications: StoredSocialProofNotification[])
   return notifications.every((n) => Boolean(n.productImageUrl?.trim()))
 }
 
+function notificationsHaveProductIds(notifications: StoredSocialProofNotification[]): boolean {
+  return notifications.every((n) => Boolean(n.productId?.trim()))
+}
+
 function cacheMatchesCatalog(
   notifications: StoredSocialProofNotification[],
   validNames: Set<string>
@@ -537,7 +587,8 @@ export function loadOrCreateDailySocialProofFeed(
     cached?.date === today &&
     cached.notifications.length > 0 &&
     cacheMatchesCatalog(cached.notifications, validNames) &&
-    notificationsHaveImages(cached.notifications)
+    notificationsHaveImages(cached.notifications) &&
+    notificationsHaveProductIds(cached.notifications)
   ) {
     return cached.notifications
   }
