@@ -144,9 +144,10 @@ export default function RecentPurchaseActivity({
         if (cancelled) return
         const products: SocialProofProduct[] = Array.isArray(data?.products)
           ? data.products
-              .map((p: { label?: string; imageUrl?: string | null }) => ({
+              .map((p: { label?: string; imageUrl?: string | null; category?: string }) => ({
                 label: String(p?.label ?? '').trim(),
                 imageUrl: p?.imageUrl ? String(p.imageUrl) : null,
+                category: p?.category ? String(p.category).trim() : undefined,
               }))
               .filter((p: SocialProofProduct) => Boolean(p.label))
           : []

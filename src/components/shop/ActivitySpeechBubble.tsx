@@ -20,7 +20,7 @@ export default function ActivitySpeechBubble({
   return (
     <div
       className={`activity-speech-bubble-wrap relative inline-flex max-w-full min-w-0 rounded-xl border shadow-sm overflow-hidden ${
-        compact ? 'activity-speech-bubble-wrap--compact' : ''
+        compact ? 'activity-speech-bubble-wrap--compact w-full' : ''
       } ${
         isDark
           ? 'bg-dark-800/95 border-dark-600 shadow-black/20'

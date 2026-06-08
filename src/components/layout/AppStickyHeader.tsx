@@ -49,7 +49,7 @@ export default function AppStickyHeader({
   const gridCols =
     headerGridClassName ??
     (showSearch
-      ? 'lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1.28fr)_minmax(0,1.12fr)]'
+      ? 'md:grid-cols-[minmax(0,1.55fr)_minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.62fr)_minmax(0,1.08fr)_minmax(0,0.98fr)]'
       : 'lg:grid-cols-[minmax(0,1fr)_auto]')
 
   const defaultLeft = (
@@ -65,7 +65,7 @@ export default function AppStickyHeader({
         </h1>
       ) : null}
       {showSocialProof ? (
-        <div className="min-w-0 flex-1 max-w-md">
+        <div className="min-w-0 w-full flex-1 sm:max-w-none md:max-w-none lg:max-w-[28rem] xl:max-w-[32rem]">
           <RecentPurchaseActivity variant="header" />
         </div>
       ) : null}
@@ -80,14 +80,14 @@ export default function AppStickyHeader({
         className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-4 shadow-sm ${cardBg}`}
       >
         <div
-          className={`flex flex-col gap-2.5 min-w-0 lg:grid lg:items-center lg:gap-5 ${gridCols}`}
+          className={`flex flex-col gap-2.5 min-w-0 md:grid md:items-center md:gap-4 lg:gap-5 ${gridCols}`}
         >
           <div className="min-w-0 w-full">{leftContent ?? defaultLeft}</div>
 
           {showSearch ? (
-            <div className="flex flex-row items-center gap-1.5 sm:gap-2 min-w-0 w-full lg:contents">
+            <div className="flex flex-row items-center gap-1.5 sm:gap-2 min-w-0 w-full md:contents">
               <div
-                className={`flex-1 min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
+                className={`flex-1 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
               >
                 <ShopHeroSearch
                   placeholder={searchPlaceholder}
@@ -99,7 +99,7 @@ export default function AppStickyHeader({
                 />
               </div>
               <div
-                className={`shrink-0 min-w-0 lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
+                className={`shrink-0 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
               >
                 {actions}
               </div>

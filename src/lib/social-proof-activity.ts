@@ -1,6 +1,7 @@
 export type SocialProofProduct = {
   label: string
   imageUrl: string | null
+  category?: string
 }
 
 export type StoredSocialProofNotification = {
@@ -238,7 +239,7 @@ function allBuyerNameCount(): number {
   )
 }
 
-const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v7'
+const DAILY_CACHE_KEY = 'catalogus-social-proof-daily-v8'
 const PREVIOUS_DAYS_KEY = 'catalogus-social-proof-previous-days'
 const DEFAULT_COUNT = 12
 /** Remember a few recent days for soft de-dupe; older lines can return anytime. */
@@ -283,12 +284,6 @@ export function formatMinutesAgo(minutes: number): string {
   return `${days} days ago`
 }
 
-function startOfLocalDayMs(date: Date | number = Date.now()): number {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items]
   for (let i = arr.length - 1; i > 0; i--) {
@@ -300,73 +295,76 @@ function shuffle<T>(items: T[]): T[] {
 
 const MS_MINUTE = 60_000
 const MS_HOUR = 60 * MS_MINUTE
-
-/** Gaps between fictional purchases — mostly 45min–3h, sometimes several hours apart. */
-function pickPurchaseGapMs(minGap: number, maxGap: number): number {
-  const roll = Math.random()
-  let gap: number
-  if (roll < 0.28) {
-    gap = (40 + Math.random() * 35) * MS_MINUTE
-  } else if (roll < 0.72) {
-    gap = (75 + Math.random() * 105) * MS_MINUTE
-  } else {
-    gap = (2.5 + Math.random() * 4.5) * MS_HOUR
-  }
-  return Math.min(Math.max(gap, minGap), maxGap)
-}
-
-/** Newest purchase in the daily set — sometimes “just now”, usually a bit older. */
-function pickNewestPurchaseTime(now: number): number {
-  const roll = Math.random()
-  if (roll < 0.22) {
-    return now - Math.random() * 90_000
-  }
-  if (roll < 0.48) {
-    return now - (2 + Math.random() * 16) * MS_MINUTE
-  }
-  return now - (12 + Math.random() * 38) * MS_MINUTE
-}
+const MS_DAY = 24 * MS_HOUR
+const MAX_PURCHASE_DAYS_AGO = 6
 
 /**
- * Spread purchases across the day with realistic spacing (not clustered in minutes).
- * The freshest line can be “just now”; older lines are minutes to hours ago.
+ * Random fictional purchase age — from “just now” up to 6 days ago.
+ * Mixes minutes, hours, and whole-day offsets (e.g. 2 or 4 days ago).
  */
+function pickPurchaseTimeAgoMs(): number {
+  const roll = Math.random()
+  if (roll < 0.14) {
+    return Math.random() * 4 * MS_MINUTE
+  }
+  if (roll < 0.34) {
+    return (4 + Math.random() * 52) * MS_MINUTE
+  }
+  if (roll < 0.54) {
+    return (1 + Math.random() * 14) * MS_HOUR
+  }
+  const days = 1 + Math.floor(Math.random() * MAX_PURCHASE_DAYS_AGO)
+  const dayStartAgo = days * MS_DAY
+  const jitterWithinDay = Math.random() * MS_DAY * 0.85
+  return dayStartAgo - jitterWithinDay + Math.random() * MS_HOUR
+}
+
 function assignPurchaseTimes(count: number, now = Date.now()): string[] {
-  const dayStart = startOfLocalDayMs(now)
-  const earliest = dayStart + 25 * MS_MINUTE
-  const newest = pickNewestPurchaseTime(now)
+  const times = Array.from({ length: count }, () =>
+    new Date(now - pickPurchaseTimeAgoMs()).toISOString()
+  )
+  return times.sort(
+    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+  )
+}
 
-  if (newest <= earliest || count < 1) {
-    const span = Math.max(now - earliest, 20 * MS_MINUTE)
-    const step = span / count
-    const first = pickNewestPurchaseTime(now)
-    return Array.from({ length: count }, (_, i) =>
-      new Date(
-        i === 0 ? first : first - i * step - Math.random() * step * 0.25
-      ).toISOString()
-    )
+function productCategoryKey(product: SocialProofProduct): string {
+  const category = product.category?.trim()
+  return category ? category.toLowerCase() : 'other'
+}
+
+/** Round-robin across categories so the feed mixes shoes, bags, watches, etc. */
+function interleaveProductsByCategory(products: SocialProofProduct[]): SocialProofProduct[] {
+  const buckets = new Map<string, SocialProofProduct[]>()
+  for (const product of products) {
+    const key = productCategoryKey(product)
+    const list = buckets.get(key) ?? []
+    list.push(product)
+    buckets.set(key, list)
   }
 
-  const window = newest - earliest
-  const minGap = Math.max(35 * MS_MINUTE, window / (count * 2.2))
-  const maxGap = Math.max(minGap * 1.5, Math.min(6 * MS_HOUR, window / Math.max(count - 1, 1)))
+  const categoryOrder = shuffle(Array.from(buckets.keys()))
+  for (const key of categoryOrder) {
+    buckets.set(key, shuffle(buckets.get(key)!))
+  }
 
-  const times: number[] = [newest]
-  let cursor = newest
+  const out: SocialProofProduct[] = []
+  let round = 0
+  const maxRounds = Math.max(...Array.from(buckets.values()).map((b) => b.length), 0)
 
-  for (let i = 1; i < count; i++) {
-    const remaining = count - i
-    const room = cursor - earliest
-    const gapCap = Math.max(minGap, room / remaining - minGap * 0.25)
-    const gap = pickPurchaseGapMs(minGap, Math.min(maxGap, gapCap))
-    cursor -= gap
-    if (cursor < earliest) {
-      cursor = earliest + (room / (remaining + 1)) * (0.35 + Math.random() * 0.55)
+  while (round < maxRounds) {
+    for (const key of categoryOrder) {
+      const bucket = buckets.get(key)!
+      if (round < bucket.length) out.push(bucket[round]!)
     }
-    times.push(cursor)
+    round++
   }
 
-  return times.map((t) => new Date(t).toISOString())
+  return out.length > 0 ? out : shuffle(products)
+}
+
+function pickRandomProduct(pool: SocialProofProduct[]): SocialProofProduct {
+  return pool[Math.floor(Math.random() * pool.length)]!
 }
 
 type RecentSignature = { sig: string; daysAgo: number }
@@ -407,20 +405,22 @@ export function buildDailySocialProofNotifications(
   const products = Array.from(byLabel.values())
   if (products.length === 0 || count < 1) return []
 
-  const shuffledProducts = shuffle(products)
+  const mixedProducts = interleaveProductsByCategory(products)
   const usedToday = new Set<string>()
   const notifications: StoredSocialProofNotification[] = []
   const purchaseTimes = assignPurchaseTimes(count)
 
-  let productIdx = 0
+  let mixedIdx = 0
   let attempts = 0
   const maxAttempts = count * products.length * allBuyerNameCount() * 3
 
   while (notifications.length < count && attempts < maxAttempts) {
     attempts++
     const buyerName = randomBuyerName()
-    const product = shuffledProducts[productIdx % shuffledProducts.length]!
-    productIdx++
+    const product =
+      Math.random() < 0.42
+        ? pickRandomProduct(mixedProducts)
+        : mixedProducts[mixedIdx++ % mixedProducts.length]!
     const productName = product.label
 
     const sig = messageSignature(buyerName, productName)
