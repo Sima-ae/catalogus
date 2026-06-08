@@ -8,7 +8,12 @@ import {
   findParentCategoryName,
   isShopTopLevelCategory,
 } from '@/lib/shop-category-tree'
-import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
+import {
+  clearCatalogPageParam,
+  clearShopSearchParam,
+  isShopCatalogPath,
+  shopCatalogBasePath,
+} from '@/lib/shop-catalog-url'
 import { prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 
 export function useShopCategory() {
@@ -64,6 +69,7 @@ export function useShopCategory() {
         isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
+      clearShopSearchParam(params)
       if (category === 'All') {
         params.delete('category')
         params.delete('subcategory')

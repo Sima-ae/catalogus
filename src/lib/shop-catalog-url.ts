@@ -36,6 +36,11 @@ export function clearCatalogPageParam(params: URLSearchParams): void {
   params.delete('page')
 }
 
+/** Drop catalog text search when the user picks a category, subcategory, or brand. */
+export function clearShopSearchParam(params: URLSearchParams): void {
+  params.delete('search')
+}
+
 /** Stable key for scroll-restore (path + query, no hash). */
 export function catalogListingKey(pathname: string, searchParams: URLSearchParams): string {
   const qs = searchParams.toString()

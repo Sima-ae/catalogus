@@ -8,7 +8,12 @@ import {
   findShopBrandInMenu,
   shouldShowShopBrandFilter,
 } from '@/lib/shop-brand-menu'
-import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
+import {
+  clearCatalogPageParam,
+  clearShopSearchParam,
+  isShopCatalogPath,
+  shopCatalogBasePath,
+} from '@/lib/shop-catalog-url'
 
 export function useShopBrand() {
   const router = useRouter()
@@ -85,6 +90,7 @@ export function useShopBrand() {
         isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
+      clearShopSearchParam(params)
       if (brand === 'All') {
         params.delete('brand')
       } else {

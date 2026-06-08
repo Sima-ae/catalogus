@@ -5,7 +5,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
 import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
-import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
+import {
+  clearCatalogPageParam,
+  clearShopSearchParam,
+  isShopCatalogPath,
+  shopCatalogBasePath,
+} from '@/lib/shop-catalog-url'
 
 export type ShopSubcategoryRow = {
   id: string
@@ -86,6 +91,7 @@ export function useShopSubcategory(selectedCategory: string) {
         isShopCatalogPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
+      clearShopSearchParam(params)
       if (subcategory === 'All') {
         params.delete('subcategory')
       } else {
