@@ -32,7 +32,6 @@ export type PricelistRow = {
   category: string
   category_id: string | null
   brand: string
-  shipping_cost: number | null
   image_url: string
   /** Main + gallery images for lightbox (display URLs). */
   gallery_urls: string[]
@@ -55,6 +54,12 @@ export type PricelistRow = {
   }>
   /** User id whose price is shown in the editable field (for super-admin clear). */
   price_seller_id?: string
+  /** Product import default (products.shipping_cost). */
+  product_shipping_cost?: number | null
+  seller_shipping_cost?: number | null
+  display_shipping_cost?: number | null
+  can_edit_shipping?: boolean
+  shipping_seller_id?: string
 }
 
 export async function isProductOnPricelist(
@@ -183,6 +188,7 @@ type SellerPriceRow = {
   currency: string
   locked: boolean
   stock_status: PricelistStockStatus | null
+  shipping_cost: number | null
 }
 
 function mapSellerPriceRow(row: {
@@ -191,13 +197,21 @@ function mapSellerPriceRow(row: {
   locked: number | boolean
   out_of_stock: number | boolean
   stock_status: string | null
+  shipping_cost?: string | number | null
 }): SellerPriceRow {
   const resolved = resolvePricelistPriceDisplay(row)
+  const shippingRaw = row.shipping_cost
+  const shippingCost =
+    shippingRaw != null && shippingRaw !== ''
+      ? Number(shippingRaw)
+      : null
   return {
     unit_price: resolved.unit_price ?? 0,
     currency: resolved.currency ?? row.currency,
     locked: row.locked === 1 || row.locked === true,
     stock_status: resolved.stock_status,
+    shipping_cost:
+      shippingCost != null && Number.isFinite(shippingCost) ? shippingCost : null,
   }
 }
 
@@ -215,7 +229,7 @@ export async function getSellerProductPrice(
     }[]
   >(
     `SELECT unit_price, currency, COALESCE(locked, 0) AS locked, COALESCE(out_of_stock, 0) AS out_of_stock,
-            stock_status
+            stock_status, shipping_cost
      FROM seller_product_prices
      WHERE seller_id = ? AND product_id = ? LIMIT 1`,
     [sellerId, productId]
@@ -244,7 +258,7 @@ async function loadSellerProductPricesMap(
     }[]
   >(
     `SELECT product_id, unit_price, currency, COALESCE(locked, 0) AS locked,
-            COALESCE(out_of_stock, 0) AS out_of_stock, stock_status
+            COALESCE(out_of_stock, 0) AS out_of_stock, stock_status, shipping_cost
      FROM seller_product_prices
      WHERE seller_id = ? AND product_id IN (${placeholders})`,
     [sellerId, ...productIds]
@@ -314,6 +328,7 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
       currency: string
       seller_id: string
       stock_status: PricelistStockStatus | null
+      shipping_cost: number | null
     }
   >
 > {
@@ -324,6 +339,7 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
       currency: string
       seller_id: string
       stock_status: PricelistStockStatus | null
+      shipping_cost: number | null
     }
   >()
   if (!productIds.length) return map
@@ -337,12 +353,13 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
       seller_id: string
       out_of_stock: number | boolean
       stock_status: string | null
+      shipping_cost: string | null
     }[]
   >(
     `SELECT ranked.product_id, ranked.unit_price, ranked.currency, ranked.seller_id,
-            ranked.out_of_stock, ranked.stock_status
+            ranked.out_of_stock, ranked.stock_status, ranked.shipping_cost
      FROM (
-       SELECT product_id, unit_price, currency, seller_id,
+       SELECT product_id, unit_price, currency, seller_id, shipping_cost,
               COALESCE(out_of_stock, 0) AS out_of_stock, stock_status, updated_at,
               ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
        FROM seller_product_prices
@@ -354,11 +371,16 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
 
   for (const row of rows) {
     const resolved = resolvePricelistPriceDisplay(row)
+    const shippingRaw = row.shipping_cost
+    const shippingCost =
+      shippingRaw != null && shippingRaw !== '' ? Number(shippingRaw) : null
     map.set(row.product_id, {
       unit_price: resolved.unit_price ?? 0,
       currency: resolved.currency ?? row.currency,
       seller_id: row.seller_id,
       stock_status: resolved.stock_status,
+      shipping_cost:
+        shippingCost != null && Number.isFinite(shippingCost) ? shippingCost : null,
     })
   }
   return map
@@ -474,6 +496,46 @@ export async function setSellerProductStockStatus(input: {
   if (input.syncProductSoldOut) {
     await queryDb(`UPDATE products SET sold_out = 1 WHERE id = ?`, [input.productId])
   }
+}
+
+export async function upsertSellerProductShippingCost(input: {
+  sellerId: string
+  productId: string
+  shippingCost: number
+  currency: string
+  updatedBy: string
+}): Promise<void> {
+  await queryDb(
+    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, shipping_cost, updated_by)
+     VALUES (?, ?, 0, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       shipping_cost = VALUES(shipping_cost),
+       updated_by = VALUES(updated_by),
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      input.sellerId,
+      input.productId,
+      input.currency,
+      input.shippingCost,
+      input.updatedBy,
+    ]
+  )
+}
+
+export async function clearSellerProductShippingCost(
+  sellerId: string,
+  productId: string
+): Promise<boolean> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE seller_product_prices SET shipping_cost = NULL
+     WHERE seller_id = ? AND product_id = ? AND shipping_cost IS NOT NULL`,
+    [sellerId, productId]
+  )
+  const affected =
+    typeof result === 'object' && result != null && 'affectedRows' in result
+      ? Number(result.affectedRows)
+      : 0
+  return affected > 0
 }
 
 export async function deleteSellerProductPrice(
@@ -693,6 +755,7 @@ async function hydratePricelistRows(
               currency: string
               seller_id: string
               stock_status: PricelistStockStatus | null
+              shipping_cost: number | null
             }
           >()
         ),
@@ -717,6 +780,15 @@ async function hydratePricelistRows(
     let canEditPrice: boolean | undefined
     let priceSellerId: string | undefined
 
+    const productShippingCost =
+      item.shipping_cost != null && item.shipping_cost !== ''
+        ? Number(item.shipping_cost)
+        : null
+    let sellerShipping: number | null = null
+    let displayShipping: number | null = null
+    let canEditShipping: boolean | undefined
+    let shippingSellerId: string | undefined
+
     const rowPriceTarget = {
       sellerUnit,
       sellerCurrency,
@@ -739,13 +811,28 @@ async function hydratePricelistRows(
           rowPriceTarget,
           'both'
         )
-        priceLocked = true
-        canEditPrice = false
+        const hasSavedPrice =
+          (rowPriceTarget.sellerUnit != null && rowPriceTarget.sellerUnit > 0) ||
+          rowPriceTarget.sellerStockStatus != null
+        if (hasSavedPrice) {
+          priceLocked = true
+          canEditPrice = false
+        } else {
+          canEditPrice = true
+        }
       } else {
         canEditPrice = true
       }
       if (sellerPendingEdits.get(item.product_id)) {
         editRequestPending = true
+      }
+      shippingSellerId = viewer.userId
+      const spShip = sellerPrices.get(item.product_id)
+      if (spShip?.shipping_cost != null) {
+        sellerShipping = spShip.shipping_cost
+        canEditShipping = false
+      } else {
+        canEditShipping = true
       }
     } else if (viewer.role === 'buyer' && listOwnerId === viewer.userId) {
       const dp = buyerDisplayPrices.get(item.product_id)
@@ -756,9 +843,13 @@ async function hydratePricelistRows(
           'display'
         )
       }
+      if (productShippingCost != null) {
+        displayShipping = productShippingCost
+      }
     } else if (viewer.role === 'guest') {
       if (viewer.userId) {
         priceSellerId = viewer.userId
+        shippingSellerId = viewer.userId
         const sp = sellerPrices.get(item.product_id)
         if (sp) {
           applyResolvedPriceToRowFields(
@@ -770,6 +861,9 @@ async function hydratePricelistRows(
             rowPriceTarget,
             'seller'
           )
+          if (sp.shipping_cost != null) {
+            sellerShipping = sp.shipping_cost
+          }
         }
       }
 
@@ -781,8 +875,12 @@ async function hydratePricelistRows(
             rowPriceTarget,
             'display'
           )
+          if (latest.shipping_cost != null) {
+            displayShipping = latest.shipping_cost
+          }
         }
         canEditPrice = true
+        canEditShipping = true
       } else {
         const dp = buyerDisplayPrices.get(item.product_id)
         if (dp) {
@@ -793,9 +891,11 @@ async function hydratePricelistRows(
           )
         }
         canEditPrice = true
+        canEditShipping = true
       }
     } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
       canEditPrice = true
+      canEditShipping = true
       const own = adminOwnPrices.get(item.product_id)
       if (own) {
         applyResolvedPriceToRowFields(
@@ -808,6 +908,10 @@ async function hydratePricelistRows(
           'seller'
         )
         priceSellerId = viewer.userId
+        if (own.shipping_cost != null) {
+          sellerShipping = own.shipping_cost
+          shippingSellerId = viewer.userId
+        }
       }
       const latest = latestPrices.get(item.product_id)
       if (latest) {
@@ -818,6 +922,12 @@ async function hydratePricelistRows(
         )
         if (!priceSellerId) {
           priceSellerId = latest.seller_id
+        }
+        if (latest.shipping_cost != null) {
+          displayShipping = latest.shipping_cost
+          if (!shippingSellerId) {
+            shippingSellerId = latest.seller_id
+          }
         }
       }
     }
@@ -847,10 +957,11 @@ async function hydratePricelistRows(
       category: item.category?.trim() || '—',
       category_id: item.category_id?.trim() || null,
       brand: item.brand?.trim() || '—',
-      shipping_cost:
-        item.shipping_cost != null && item.shipping_cost !== ''
-          ? Number(item.shipping_cost)
-          : null,
+      product_shipping_cost: productShippingCost,
+      seller_shipping_cost: sellerShipping,
+      display_shipping_cost: displayShipping,
+      can_edit_shipping: canEditShipping,
+      shipping_seller_id: shippingSellerId,
       image_url: main,
       gallery_urls,
       created_at: item.created_at,

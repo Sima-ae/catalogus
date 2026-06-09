@@ -235,6 +235,50 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
     await loadItems()
   }
 
+  const saveShipping = async (
+    productId: string,
+    shippingCost: number,
+    shippingSellerId?: string
+  ) => {
+    const res = await fetch(appPath('/api/pricelist/shipping'), {
+      method: 'PUT',
+      headers: {
+        ...(user ? catalogAuthHeaders(user) : {}),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        productId,
+        ownerId: ownerQuery,
+        shippingCost,
+        ...(shippingSellerId ? { sellerId: shippingSellerId } : {}),
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to save shipping cost')
+    await loadItems()
+  }
+
+  const clearShipping = async (productId: string, shippingSellerId?: string) => {
+    if (!user) return
+    const res = await fetch(appPath('/api/pricelist/shipping'), {
+      method: 'DELETE',
+      headers: {
+        ...adminAuthHeaders(user),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        productId,
+        ownerId: ownerQuery,
+        sellerId: shippingSellerId,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to clear shipping cost')
+    await loadItems()
+  }
+
   const clearPrice = async (productId: string, priceSellerId?: string) => {
     if (!user) return
     const res = await fetch(appPath('/api/pricelist/prices'), {
@@ -364,8 +408,10 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
     viewMode,
     setViewMode,
     savePrice,
+    saveShipping,
     setStockStatus,
     clearPrice,
+    clearShipping,
     requestPriceEdit,
     approvePriceEdit,
     removeItem,

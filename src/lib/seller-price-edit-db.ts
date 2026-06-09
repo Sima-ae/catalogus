@@ -154,3 +154,31 @@ export async function clearPendingEditRequestsForPrice(
     [sellerId, productId]
   )
 }
+
+export async function getSellerShippingLockState(
+  sellerId: string,
+  productId: string
+): Promise<{ hasShipping: boolean }> {
+  const rows = await queryDb<{ shipping_cost: string | null }[]>(
+    `SELECT shipping_cost FROM seller_product_prices
+     WHERE seller_id = ? AND product_id = ? LIMIT 1`,
+    [sellerId, productId]
+  )
+  const row = rows[0]
+  if (row?.shipping_cost == null || row.shipping_cost === '') {
+    return { hasShipping: false }
+  }
+  return { hasShipping: true }
+}
+
+export async function assertSellerMayUpdateShipping(
+  sellerId: string,
+  productId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const state = await getSellerShippingLockState(sellerId, productId)
+  if (!state.hasShipping) return { ok: true }
+  return {
+    ok: false,
+    error: 'Shipping cost is locked. Contact an admin to change it.',
+  }
+}

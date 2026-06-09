@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { TrashIcon } from '@heroicons/react/24/outline'
+import PricelistAmountControls from '@/components/pricelist/PricelistAmountControls'
 import PricelistPriceControls from '@/components/pricelist/PricelistPriceControls'
 import {
   pricelistStockStatusLabel,
@@ -27,12 +28,18 @@ type Props = {
   canApprovePriceEdits?: boolean
   canClearPrice?: boolean
   onSavePrice: (productId: string, price: number, priceSellerId?: string) => Promise<void>
+  onSaveShipping: (
+    productId: string,
+    shippingCost: number,
+    shippingSellerId?: string
+  ) => Promise<void>
   onSetStockStatus?: (
     productId: string,
     stockStatus: PricelistStockStatus,
     priceSellerId?: string
   ) => Promise<void>
   onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
+  onClearShipping?: (productId: string, shippingSellerId?: string) => Promise<void>
   onRequestPriceEdit?: (productId: string) => Promise<void>
   onApprovePriceEdit?: (requestId: string) => Promise<void>
   onRemove: (productId: string) => Promise<void>
@@ -67,6 +74,22 @@ function parsePriceInput(value: string): number | null {
   return Math.round(n * 100) / 100
 }
 
+function editableShippingSeed(row: PricelistRow): string {
+  const raw = row.seller_shipping_cost ?? row.display_shipping_cost
+  if (raw == null || !Number.isFinite(Number(raw))) return ''
+  return String(raw)
+}
+
+function readOnlyShippingDisplay(row: PricelistRow): string {
+  const raw =
+    row.display_shipping_cost ?? row.seller_shipping_cost ?? row.product_shipping_cost
+  if (raw == null) return '—'
+  return formatPrice(raw, {
+    currencyCode: row.display_currency || row.seller_currency || 'EUR',
+    zeroLabel: '—',
+  })
+}
+
 export default function PricelistTable({
   items,
   canEditPrices,
@@ -78,8 +101,10 @@ export default function PricelistTable({
   canApprovePriceEdits = false,
   canClearPrice = false,
   onSavePrice,
+  onSaveShipping,
   onSetStockStatus,
   onClearPrice,
+  onClearShipping,
   onRequestPriceEdit,
   onApprovePriceEdit,
   onRemove,
@@ -103,12 +128,12 @@ export default function PricelistTable({
         <colgroup>
           {enableBulkSelect ? <col className="w-10" /> : null}
           <col className="w-[5.5rem]" />
-          <col className="w-[9%]" />
-          <col className="w-[22%]" />
-          <col className="w-[11%]" />
-          <col className="w-[12%]" />
-          <col className="w-[8%]" />
-          <col className={canManageItems || showStar ? 'w-[30%]' : 'w-[32%]'} />
+          <col className="w-[26%]" />
+          <col className="w-[7%]" />
+          <col className="w-[10%]" />
+          <col className="w-[10%]" />
+          <col className="w-[11rem]" />
+          <col className={canManageItems || showStar ? 'w-[28%]' : 'w-[30%]'} />
           {showStar ? <col className="w-10" /> : null}
           {canManageItems ? <col className="w-10" /> : null}
         </colgroup>
@@ -160,7 +185,7 @@ export default function PricelistTable({
         <tbody>
           {items.map((row) => (
             <PricelistTableRow
-              key={`${row.item_id}-${row.seller_unit_price ?? 'x'}-${row.edit_request_pending ? 'p' : ''}`}
+              key={`${row.item_id}-${row.seller_unit_price ?? 'x'}-${row.seller_shipping_cost ?? 's'}-${row.edit_request_pending ? 'p' : ''}`}
               row={row}
               canEditPrices={canEditPrices}
               canManageItems={canManageItems}
@@ -173,8 +198,10 @@ export default function PricelistTable({
               muted={muted}
               border={border}
               onSavePrice={onSavePrice}
+              onSaveShipping={onSaveShipping}
               onSetStockStatus={onSetStockStatus}
               onClearPrice={onClearPrice}
+              onClearShipping={onClearShipping}
               onRequestPriceEdit={onRequestPriceEdit}
               onApprovePriceEdit={onApprovePriceEdit}
               onRemove={onRemove}
@@ -204,8 +231,10 @@ function PricelistTableRow({
   muted,
   border,
   onSavePrice,
+  onSaveShipping,
   onSetStockStatus,
   onClearPrice,
+  onClearShipping,
   onRequestPriceEdit,
   onApprovePriceEdit,
   onRemove,
@@ -227,12 +256,18 @@ function PricelistTableRow({
   muted: string
   border: string
   onSavePrice: (productId: string, price: number, priceSellerId?: string) => Promise<void>
+  onSaveShipping: (
+    productId: string,
+    shippingCost: number,
+    shippingSellerId?: string
+  ) => Promise<void>
   onSetStockStatus?: (
     productId: string,
     stockStatus: PricelistStockStatus,
     priceSellerId?: string
   ) => Promise<void>
   onClearPrice?: (productId: string, priceSellerId?: string) => Promise<void>
+  onClearShipping?: (productId: string, shippingSellerId?: string) => Promise<void>
   onRequestPriceEdit?: (productId: string) => Promise<void>
   onApprovePriceEdit?: (requestId: string) => Promise<void>
   onRemove: (productId: string) => Promise<void>
@@ -246,18 +281,28 @@ function PricelistTableRow({
   const { symbol: currencySymbol } = useShopCurrency()
   const savedValueRef = useRef(editablePriceSeed(row))
   const [value, setValue] = useState(() => editablePriceSeed(row))
+  const savedShippingRef = useRef(editableShippingSeed(row))
+  const [shippingValue, setShippingValue] = useState(() => editableShippingSeed(row))
   const [stockStatus, setStockStatus] = useState<PricelistStockStatus | null>(() =>
     rowStockStatus(row)
   )
   const [saving, setSaving] = useState(false)
+  const [shippingSaving, setShippingSaving] = useState(false)
   const [requesting, setRequesting] = useState(false)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [shippingSavedFlash, setShippingSavedFlash] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [shippingError, setShippingError] = useState<string | null>(null)
 
   const bulkEditable = isPricelistRowBulkEditable(row, { isSeller })
   const showPriceInput = canEditPrices && row.can_edit_price !== false && !isSeller
   const showSellerPriceInput = isSeller && canEditPrices && row.can_edit_price !== false
+  const showShippingInput = canEditPrices && row.can_edit_shipping !== false && !isSeller
+  const showSellerShippingInput =
+    isSeller && canEditPrices && row.can_edit_shipping !== false
+  const showLockedSellerShipping =
+    isSeller && canEditPrices && row.seller_shipping_cost != null && !showSellerShippingInput
   const showLockedSellerPrice =
     isSeller && canEditPrices && row.seller_unit_price != null && !showSellerPriceInput
   const sellerPriceDisplay =
@@ -278,6 +323,18 @@ function PricelistTableRow({
     row.seller_stock_status,
     row.display_stock_status,
     row.can_edit_price,
+  ])
+
+  useEffect(() => {
+    const next = editableShippingSeed(row)
+    savedShippingRef.current = next
+    setShippingValue(next)
+    setShippingError(null)
+  }, [
+    row.product_id,
+    row.seller_shipping_cost,
+    row.display_shipping_cost,
+    row.can_edit_shipping,
   ])
 
   const displayPrice = row.display_stock_status
@@ -368,6 +425,66 @@ function PricelistTableRow({
     }
   }, [canClearPrice, onClearPrice, onSavePrice, stockStatus, row.price_seller_id, row.product_id, value, t])
 
+  const handleSaveShipping = useCallback(async () => {
+    const parsed = parsePriceInput(shippingValue)
+    if (parsed === null) {
+      if (!shippingValue.trim()) {
+        const hadSaved = savedShippingRef.current.trim() !== ''
+        if (hadSaved && canClearPrice && onClearShipping) {
+          setShippingSaving(true)
+          setShippingError(null)
+          try {
+            await onClearShipping(row.product_id, row.shipping_seller_id)
+            savedShippingRef.current = ''
+            setShippingValue('')
+            setShippingSavedFlash(true)
+            window.setTimeout(() => setShippingSavedFlash(false), 1500)
+          } catch (e) {
+            setShippingValue(savedShippingRef.current)
+            setShippingError(
+              e instanceof Error ? e.message : t('pricelist.error.clearFailed')
+            )
+          } finally {
+            setShippingSaving(false)
+          }
+        } else if (hadSaved) {
+          setShippingValue(savedShippingRef.current)
+          if (!canClearPrice) {
+            setShippingError(t('pricelist.error.onlySuperAdminClear'))
+            window.setTimeout(() => setShippingError(null), 3000)
+          }
+        }
+        return
+      }
+      setShippingError(t('pricelist.error.invalidPrice'))
+      return
+    }
+    const savedParsed = parsePriceInput(savedShippingRef.current)
+    if (savedParsed !== null && parsed === savedParsed) return
+    setShippingSaving(true)
+    setShippingError(null)
+    try {
+      await onSaveShipping(row.product_id, parsed, row.shipping_seller_id)
+      const savedText = String(parsed)
+      savedShippingRef.current = savedText
+      setShippingValue(savedText)
+      setShippingSavedFlash(true)
+      window.setTimeout(() => setShippingSavedFlash(false), 1500)
+    } catch (e) {
+      setShippingError(e instanceof Error ? e.message : t('pricelist.error.saveFailed'))
+    } finally {
+      setShippingSaving(false)
+    }
+  }, [
+    canClearPrice,
+    onClearShipping,
+    onSaveShipping,
+    row.product_id,
+    row.shipping_seller_id,
+    shippingValue,
+    t,
+  ])
+
   const handleRequestEdit = useCallback(async () => {
     if (!onRequestPriceEdit) return
     setRequesting(true)
@@ -408,6 +525,39 @@ function PricelistTableRow({
     savedFlash ||
     (savedParsed !== null && currentParsed !== null && currentParsed === savedParsed)
 
+  const checkButtonClass = checkSaved
+    ? 'shrink-0 inline-flex items-center justify-center rounded-md p-1 border border-green-500 bg-green-500/15 text-green-600 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400 transition-colors disabled:opacity-40'
+    : `shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
+        isDark
+          ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
+          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+      }`
+
+  const shippingCurrentParsed = parsePriceInput(shippingValue.trim())
+  const shippingSavedParsed = parsePriceInput(savedShippingRef.current.trim())
+  const shippingInputFilled = shippingCurrentParsed !== null
+  const shippingCheckSaved =
+    shippingSavedFlash ||
+    (shippingSavedParsed !== null &&
+      shippingCurrentParsed !== null &&
+      shippingCurrentParsed === shippingSavedParsed)
+
+  const shippingInputClass = shippingInputFilled
+    ? `w-full min-w-[4.5rem] pl-7 pr-2 py-1 rounded border text-sm tabular-nums font-semibold ${
+        isDark
+          ? 'bg-dark-900 border-green-500/60 text-green-400'
+          : 'bg-white border-green-500 text-green-700'
+      }`
+    : inputClass
+
+  const shippingCurrencyClass = shippingInputFilled
+    ? 'pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs font-medium text-green-600 dark:text-green-400'
+    : `pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`
+
+  const shippingCheckButtonClass = shippingCheckSaved
+    ? 'shrink-0 inline-flex items-center justify-center rounded-md p-1 border border-green-500 bg-green-500/15 text-green-600 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400 transition-colors disabled:opacity-40'
+    : checkButtonClass
+
   const priceInputClass = inputFilled
     ? `w-full min-w-[4.5rem] pl-7 pr-2 py-1 rounded border text-sm tabular-nums font-semibold ${
         isDark
@@ -419,14 +569,6 @@ function PricelistTableRow({
   const priceCurrencyClass = inputFilled
     ? 'pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs font-medium text-green-600 dark:text-green-400'
     : `pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs ${muted}`
-
-  const checkButtonClass = checkSaved
-    ? 'shrink-0 inline-flex items-center justify-center rounded-md p-1 border border-green-500 bg-green-500/15 text-green-600 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400 transition-colors disabled:opacity-40'
-    : `shrink-0 inline-flex items-center justify-center rounded-md p-1 border transition-colors disabled:opacity-40 ${
-        isDark
-          ? 'border-dark-600 bg-dark-800 text-gray-300 hover:bg-dark-700'
-          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-      }`
 
   return (
     <tr className={`border-t ${border} ${isDark ? 'hover:bg-dark-800/50' : 'hover:bg-gray-50'}`}>
@@ -491,23 +633,36 @@ function PricelistTableRow({
       >
         {row.brand}
       </td>
-      <td
-        className={`px-3 py-1.5 text-xs align-middle leading-snug tabular-nums ${muted}`}
-        title={
-          row.shipping_cost != null
-            ? formatPrice(row.shipping_cost, {
-                currencyCode: row.display_currency || row.seller_currency || 'EUR',
-                zeroLabel: '—',
-              })
-            : undefined
-        }
-      >
-        {row.shipping_cost != null
-          ? formatPrice(row.shipping_cost, {
-              currencyCode: row.display_currency || row.seller_currency || 'EUR',
-              zeroLabel: '—',
-            })
-          : '—'}
+      <td className="px-3 py-1.5 align-middle min-w-[11rem]">
+        {showSellerShippingInput || showShippingInput ? (
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <PricelistAmountControls
+              value={shippingValue}
+              onChange={(next) => {
+                setShippingValue(next)
+                setShippingError(null)
+              }}
+              saving={shippingSaving}
+              onSave={handleSaveShipping}
+              checkButtonClass={shippingCheckButtonClass}
+              inputClass={shippingInputClass}
+              currencyClass={shippingCurrencyClass}
+              currencySymbol={currencySymbol}
+              placeholder={t('pricelist.pricePlaceholder')}
+              saveLabel={t('pricelist.saveShipping')}
+              saveForLabel={t('pricelist.saveShippingFor', { name: row.name })}
+            />
+            {shippingError ? (
+              <span className="text-xs text-red-500">{shippingError}</span>
+            ) : null}
+          </div>
+        ) : showLockedSellerShipping ? (
+          <span className={isDark ? 'text-white tabular-nums' : 'text-gray-900 tabular-nums'}>
+            {readOnlyShippingDisplay(row)}
+          </span>
+        ) : (
+          <span className={`text-xs tabular-nums ${muted}`}>{readOnlyShippingDisplay(row)}</span>
+        )}
       </td>
       <td className="px-3 py-1.5 align-middle min-w-[18rem]">
         {showSellerPriceInput ? (
