@@ -18,6 +18,8 @@ export type PricelistClientFilterInput = {
   subcategory?: string
   brand?: string
   missingPricesOnly?: boolean
+  filledPricesOnly?: boolean
+  outOfStockOnly?: boolean
 }
 
 /** Resolve list filters from URL params or bulk-update JSON (same rules as the pricelist UI). */
@@ -45,7 +47,12 @@ export async function buildPricelistFiltersFromClient(
     search,
     brand,
     categoryFilter,
-    missingPricesOnly: input.missingPricesOnly !== false,
+    missingPricesOnly:
+      input.filledPricesOnly === true || input.outOfStockOnly === true
+        ? false
+        : input.missingPricesOnly !== false,
+    filledPricesOnly: input.filledPricesOnly === true,
+    outOfStockOnly: input.outOfStockOnly === true,
   }
 }
 
@@ -66,8 +73,15 @@ export async function parsePricelistItemsQuery(
 
   const category = searchParams.get('category')?.trim()
   const subcategory = searchParams.get('subcategory')?.trim()
+  const filledPricesOnly = searchParams.get('filledPrices') === 'true'
+  const outOfStockOnly = searchParams.get('outOfStock') === 'true'
   const missingParam = searchParams.get('missingPrices')
-  const missingPricesOnly = missingParam === null ? true : missingParam !== 'false'
+  const missingPricesOnly =
+    filledPricesOnly || outOfStockOnly
+      ? false
+      : missingParam === null
+        ? true
+        : missingParam !== 'false'
 
   const filters = await buildPricelistFiltersFromClient({
     search: searchParams.get('search') ?? undefined,
@@ -75,6 +89,8 @@ export async function parsePricelistItemsQuery(
     subcategory,
     brand: searchParams.get('brand') ?? undefined,
     missingPricesOnly: exportAll ? false : missingPricesOnly,
+    filledPricesOnly: exportAll ? false : filledPricesOnly,
+    outOfStockOnly: exportAll ? false : outOfStockOnly,
   })
 
   return {

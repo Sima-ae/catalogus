@@ -23,6 +23,8 @@ export type PricelistBulkFilterScope = {
   subcategory?: string
   brand?: string
   missingPricesOnly?: boolean
+  filledPricesOnly?: boolean
+  outOfStockOnly?: boolean
 }
 
 export type PricelistBulkResult = {
@@ -55,6 +57,8 @@ export type PricelistListQuery = {
   subcategory?: string
   brand?: string
   missingPricesOnly?: boolean
+  filledPricesOnly?: boolean
+  outOfStockOnly?: boolean
 }
 
 export function ownerQueryParam(ownerId: string, owners: PricelistOwnerOption[]): string {
@@ -73,6 +77,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
   const [totalPages, setTotalPages] = useState(1)
   const [missingPriceCount, setMissingPriceCount] = useState(0)
   const [exportFilledCount, setExportFilledCount] = useState(0)
+  const [outOfStockCount, setOutOfStockCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -131,6 +136,8 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
         subcategory: listQuery?.subcategory,
         brand: listQuery?.brand,
         missingPricesOnly: listQuery?.missingPricesOnly,
+        filledPricesOnly: listQuery?.filledPricesOnly,
+        outOfStockOnly: listQuery?.outOfStockOnly,
       })
       const res = await fetch(appPath(`/api/pricelist/items?${qs}`), {
         headers: user ? catalogAuthHeaders(user) : {},
@@ -145,6 +152,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       setTotalPages(Math.max(1, Number(data.totalPages ?? 1)))
       setMissingPriceCount(Number(data.missingPriceCount ?? 0))
       setExportFilledCount(Number(data.exportFilledCount ?? 0))
+      setOutOfStockCount(Number(data.outOfStockCount ?? 0))
       setAccessMode(data.mode === 'guest' ? 'guest' : 'full')
       hasLoadedOnce.current = true
     } catch (e) {
@@ -155,6 +163,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       setTotalPages(1)
       setMissingPriceCount(0)
       setExportFilledCount(0)
+      setOutOfStockCount(0)
     } finally {
       setLoading(false)
       setPageLoading(false)
@@ -176,6 +185,8 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
         subcategory: scope === 'filtered' ? listQuery?.subcategory : undefined,
         brand: scope === 'filtered' ? listQuery?.brand : undefined,
         missingPricesOnly: scope === 'allMissing' ? true : listQuery?.missingPricesOnly,
+        filledPricesOnly: scope === 'filtered' ? listQuery?.filledPricesOnly : undefined,
+        outOfStockOnly: scope === 'filtered' ? listQuery?.outOfStockOnly : undefined,
       })
       const res = await fetch(appPath(`/api/pricelist/items?${qs}`), {
         headers: user ? catalogAuthHeaders(user) : {},
@@ -452,6 +463,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
     totalPages,
     missingPriceCount,
     exportFilledCount,
+    outOfStockCount,
     loading,
     pageLoading,
     error,

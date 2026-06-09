@@ -12,6 +12,8 @@ export type PricelistListFilterInput = {
   categoryFilter?: ShopCategoryFilterResult
   brand?: string
   missingPricesOnly?: boolean
+  filledPricesOnly?: boolean
+  outOfStockOnly?: boolean
 }
 
 export type PricelistListViewer = {
@@ -55,6 +57,23 @@ function platformFilledPriceSql(): string {
     AND COALESCE(latest_platform_price.stock_status, '') = ''
     AND latest_platform_price.out_of_stock = 0
   )`
+}
+
+function platformOutOfStockSql(): string {
+  return `(
+    latest_platform_price.stock_status IN ('out', 'temporary')
+    OR (
+      COALESCE(latest_platform_price.stock_status, '') = ''
+      AND latest_platform_price.out_of_stock <> 0
+      AND (latest_platform_price.unit_price IS NULL OR latest_platform_price.unit_price <= 0)
+    )
+  )`
+}
+
+function ensurePlatformPriceJoin(joins: { value: string }): void {
+  if (!joins.value.includes('latest_platform_price')) {
+    joins.value = `${joins.value}${LATEST_PLATFORM_PRICE_JOIN}`
+  }
 }
 
 function sellerMissingPriceSql(sellerId: string): { sql: string; params: unknown[] } {
@@ -131,6 +150,37 @@ function appendBrandFilter(where: string[], params: unknown[], brand?: string): 
   params.push(...brandFilter.params)
 }
 
+function sellerFilledPriceSql(sellerId: string): { sql: string; params: unknown[] } {
+  return {
+    sql: `EXISTS (
+      SELECT 1 FROM seller_product_prices spp
+      WHERE spp.seller_id = ? AND spp.product_id = p.id
+        AND spp.unit_price IS NOT NULL AND spp.unit_price > 0
+        AND COALESCE(spp.stock_status, '') = ''
+        AND COALESCE(spp.out_of_stock, 0) = 0
+    )`,
+    params: [sellerId],
+  }
+}
+
+function sellerOutOfStockSql(sellerId: string): { sql: string; params: unknown[] } {
+  return {
+    sql: `EXISTS (
+      SELECT 1 FROM seller_product_prices spp
+      WHERE spp.seller_id = ? AND spp.product_id = p.id
+        AND (
+          spp.stock_status IN ('out', 'temporary')
+          OR (
+            COALESCE(spp.stock_status, '') = ''
+            AND COALESCE(spp.out_of_stock, 0) <> 0
+            AND (spp.unit_price IS NULL OR spp.unit_price <= 0)
+          )
+        )
+    )`,
+    params: [sellerId],
+  }
+}
+
 function appendMissingPriceFilter(
   where: string[],
   params: unknown[],
@@ -150,10 +200,56 @@ function appendMissingPriceFilter(
   }
 
   if ((viewer.role === 'admin' || viewer.role === 'guest') && isPlatform) {
-    if (!joins.value.includes('latest_platform_price')) {
-      joins.value = `${joins.value}${LATEST_PLATFORM_PRICE_JOIN}`
-    }
+    ensurePlatformPriceJoin(joins)
     where.push(platformMissingPriceSql())
+  }
+}
+
+function appendFilledPriceFilter(
+  where: string[],
+  params: unknown[],
+  joins: { value: string },
+  listOwnerId: string,
+  viewer: PricelistListViewer,
+  filledPricesOnly?: boolean
+): void {
+  if (!filledPricesOnly) return
+
+  const isPlatform = isPlatformPricelistOwner(listOwnerId)
+  if (viewer.role === 'seller') {
+    const sf = sellerFilledPriceSql(viewer.userId)
+    where.push(sf.sql)
+    params.push(...sf.params)
+    return
+  }
+
+  if ((viewer.role === 'admin' || viewer.role === 'guest') && isPlatform) {
+    ensurePlatformPriceJoin(joins)
+    where.push(platformFilledPriceSql())
+  }
+}
+
+function appendOutOfStockFilter(
+  where: string[],
+  params: unknown[],
+  joins: { value: string },
+  listOwnerId: string,
+  viewer: PricelistListViewer,
+  outOfStockOnly?: boolean
+): void {
+  if (!outOfStockOnly) return
+
+  const isPlatform = isPlatformPricelistOwner(listOwnerId)
+  if (viewer.role === 'seller') {
+    const so = sellerOutOfStockSql(viewer.userId)
+    where.push(so.sql)
+    params.push(...so.params)
+    return
+  }
+
+  if ((viewer.role === 'admin' || viewer.role === 'guest') && isPlatform) {
+    ensurePlatformPriceJoin(joins)
+    where.push(platformOutOfStockSql())
   }
 }
 
@@ -170,6 +266,8 @@ export function buildPricelistListSql(
   appendBrandFilter(where, params, filters.brand)
   appendSearchFilter(where, params, filters.search)
   appendMissingPriceFilter(where, params, joins, listOwnerId, viewer, filters.missingPricesOnly)
+  appendFilledPriceFilter(where, params, joins, listOwnerId, viewer, filters.filledPricesOnly)
+  appendOutOfStockFilter(where, params, joins, listOwnerId, viewer, filters.outOfStockOnly)
 
   return {
     joins: joins.value,
@@ -181,7 +279,10 @@ export function buildPricelistListSql(
 export function buildPricelistFilledPriceCountSql(
   listOwnerId: string,
   viewer: PricelistListViewer,
-  filters: Omit<PricelistListFilterInput, 'missingPricesOnly'>
+  filters: Omit<
+    PricelistListFilterInput,
+    'missingPricesOnly' | 'filledPricesOnly' | 'outOfStockOnly'
+  >
 ): PricelistSqlFragment | null {
   if (!isPlatformPricelistOwner(listOwnerId)) return null
   if (viewer.role !== 'admin' && viewer.role !== 'guest') return null
@@ -196,6 +297,27 @@ export function buildPricelistFilledPriceCountSql(
 
   return {
     joins: LATEST_PLATFORM_PRICE_JOIN,
+    whereSql: `WHERE ${where.join(' AND ')}`,
+    params,
+  }
+}
+
+export function buildPricelistOutOfStockCountSql(
+  listOwnerId: string,
+  viewer: PricelistListViewer
+): PricelistSqlFragment | null {
+  const where: string[] = ['pi.owner_user_id = ?']
+  const params: unknown[] = [listOwnerId]
+  const joins = { value: '' }
+
+  appendOutOfStockFilter(where, params, joins, listOwnerId, viewer, true)
+
+  if (!joins.value && viewer.role !== 'seller') {
+    return null
+  }
+
+  return {
+    joins: joins.value,
     whereSql: `WHERE ${where.join(' AND ')}`,
     params,
   }

@@ -33,13 +33,15 @@ import PricelistBulkActionsBar from '@/components/pricelist/PricelistBulkActions
 import PricelistBulkPriceModal from '@/components/pricelist/PricelistBulkPriceModal'
 import type { PricelistBulkFilterScope, PricelistBulkItem } from '@/lib/use-pricelist'
 import { formatMessage } from '@/lib/i18n'
-import PricelistMissingPricesButton from '@/components/pricelist/PricelistMissingPricesButton'
+import PricelistFilterToggleButton from '@/components/pricelist/PricelistFilterToggleButton'
 import PricelistExportButton from '@/components/pricelist/PricelistExportButton'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
 import type { PricelistListQuery } from '@/lib/use-pricelist'
+
+type PricelistQuickFilter = 'missing' | 'all' | 'filled' | 'outOfStock'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -63,7 +65,7 @@ export default function PricelistPageClient() {
     loadingSubcategories,
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
-  const [showMissingPricesOnly, setShowMissingPricesOnly] = useState(true)
+  const [quickFilter, setQuickFilter] = useState<PricelistQuickFilter>('missing')
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
@@ -78,7 +80,9 @@ export default function PricelistPageClient() {
       category: selectedCategory !== 'All' ? selectedCategory : undefined,
       subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
       brand: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
-      missingPricesOnly: showMissingPricesOnly,
+      missingPricesOnly: quickFilter === 'missing',
+      filledPricesOnly: quickFilter === 'filled',
+      outOfStockOnly: quickFilter === 'outOfStock',
     }
   }, [
     brandFilterActive,
@@ -87,7 +91,7 @@ export default function PricelistPageClient() {
     filterBrand,
     selectedCategory,
     selectedSubcategory,
-    showMissingPricesOnly,
+    quickFilter,
   ])
 
   const {
@@ -100,6 +104,7 @@ export default function PricelistPageClient() {
     totalPages,
     missingPriceCount,
     exportFilledCount,
+    outOfStockCount,
     loading,
     pageLoading,
     error,
@@ -185,7 +190,7 @@ export default function PricelistPageClient() {
     selectedCategory !== 'All' ||
       selectedSubcategory !== 'All' ||
       (brandFilterActive && filterBrand !== 'All') ||
-      !showMissingPricesOnly
+      quickFilter !== 'missing'
   )
 
   /** Share-link guests (after pricelist password) can filter missing prices too. */
@@ -213,7 +218,7 @@ export default function PricelistPageClient() {
     selectedSubcategory,
     filterBrand,
     brandFilterActive,
-    showMissingPricesOnly,
+    quickFilter,
   ])
 
   useEffect(() => {
@@ -226,11 +231,11 @@ export default function PricelistPageClient() {
     selectedSubcategory,
     filterBrand,
     brandFilterActive,
-    showMissingPricesOnly,
+    quickFilter,
   ])
 
   useEffect(() => {
-    setShowMissingPricesOnly(true)
+    setQuickFilter('missing')
   }, [ownerId])
 
   useEffect(() => {
@@ -268,6 +273,8 @@ export default function PricelistPageClient() {
       subcategory: listQuery.subcategory,
       brand: listQuery.brand,
       missingPricesOnly: listQuery.missingPricesOnly,
+      filledPricesOnly: listQuery.filledPricesOnly,
+      outOfStockOnly: listQuery.outOfStockOnly,
     }
   }, [allFilteredSelected, listQuery])
 
@@ -337,8 +344,8 @@ export default function PricelistPageClient() {
     try {
       const productIds = await fetchSelectionProductIds('allMissing')
       setSelectedIds(new Set(productIds))
-      if (!showMissingPricesOnly && productIds.length > 0) {
-        setShowMissingPricesOnly(true)
+      if (quickFilter !== 'missing' && productIds.length > 0) {
+        setQuickFilter('missing')
       }
     } catch (e) {
       setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
@@ -444,11 +451,32 @@ export default function PricelistPageClient() {
           />
         ) : null}
         {showMissingPricesButton ? (
-          <PricelistMissingPricesButton
-            active={showMissingPricesOnly}
-            count={missingPriceCount}
-            onToggle={() => setShowMissingPricesOnly((on) => !on)}
-          />
+          <>
+            <PricelistFilterToggleButton
+              active={quickFilter === 'missing'}
+              count={missingPriceCount}
+              onToggle={() =>
+                setQuickFilter((current) => (current === 'missing' ? 'all' : 'missing'))
+              }
+              inactiveLabelKey="pricelist.filter.showMissingPrices"
+            />
+            <PricelistFilterToggleButton
+              active={quickFilter === 'filled'}
+              count={exportFilledCount}
+              onToggle={() =>
+                setQuickFilter((current) => (current === 'filled' ? 'all' : 'filled'))
+              }
+              inactiveLabelKey="pricelist.filter.showWithPrices"
+            />
+            <PricelistFilterToggleButton
+              active={quickFilter === 'outOfStock'}
+              count={outOfStockCount}
+              onToggle={() =>
+                setQuickFilter((current) => (current === 'outOfStock' ? 'all' : 'outOfStock'))
+              }
+              inactiveLabelKey="pricelist.filter.showOutOfStock"
+            />
+          </>
         ) : null}
       </div>
     ) : null
@@ -553,7 +581,7 @@ export default function PricelistPageClient() {
           <p className={muted}>{t('pricelist.empty.none')}</p>
           <p className={`text-sm mt-2 ${muted}`}>{t('pricelist.empty.starHint')}</p>
         </div>
-      ) : total === 0 && showMissingPricesOnly && !hasActiveFilters ? (
+      ) : total === 0 && quickFilter === 'missing' && !hasActiveFilters ? (
         <div
           className={`text-center py-16 rounded-xl border ${
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
@@ -564,7 +592,7 @@ export default function PricelistPageClient() {
             <button
               type="button"
               className="btn-secondary mt-4 text-sm"
-              onClick={() => setShowMissingPricesOnly(false)}
+              onClick={() => setQuickFilter('all')}
             >
               {t('pricelist.filter.showAllProducts')}
             </button>
@@ -583,11 +611,11 @@ export default function PricelistPageClient() {
                 ? t('pricelist.empty.filters')
                 : t('pricelist.empty.missingPrices')}
           </p>
-          {showMissingPricesOnly && showMissingPricesButton ? (
+          {quickFilter === 'missing' && showMissingPricesButton ? (
             <button
               type="button"
               className="btn-secondary mt-4 text-sm"
-              onClick={() => setShowMissingPricesOnly(false)}
+              onClick={() => setQuickFilter('all')}
             >
               {t('pricelist.filter.showAllProducts')}
             </button>

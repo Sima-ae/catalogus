@@ -10,6 +10,8 @@ export function buildPricelistItemsQueryString(input: {
   subcategory?: string
   brand?: string
   missingPricesOnly?: boolean
+  filledPricesOnly?: boolean
+  outOfStockOnly?: boolean
   exportAll?: boolean
   idsOnly?: boolean
 }): string {
@@ -24,9 +26,11 @@ export function buildPricelistItemsQueryString(input: {
   }
   if (input.brand && input.brand !== 'All') params.set('brand', input.brand)
   if (input.missingPricesOnly === false) params.set('missingPrices', 'false')
+  if (input.missingPricesOnly === true) params.set('missingPrices', 'true')
+  if (input.filledPricesOnly) params.set('filledPrices', 'true')
+  if (input.outOfStockOnly) params.set('outOfStock', 'true')
   if (input.exportAll) params.set('export', '1')
   if (input.idsOnly) params.set('ids', '1')
-  if (input.missingPricesOnly === true) params.set('missingPrices', 'true')
   return params.toString()
 }
 

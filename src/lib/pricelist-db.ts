@@ -17,6 +17,7 @@ import {
   buildPricelistFilledPriceCountSql,
   buildPricelistListSql,
   buildPricelistMissingCountSql,
+  buildPricelistOutOfStockCountSql,
   type PricelistListFilterInput,
   type PricelistListViewer,
 } from '@/lib/pricelist-list-query'
@@ -756,6 +757,7 @@ export type PricelistPageResult = {
   totalPages: number
   missingPriceCount: number
   exportFilledCount: number
+  outOfStockCount: number
 }
 
 const PRICELIST_LIST_FROM = `
@@ -1123,10 +1125,11 @@ export async function listPricelistPage(
     brand: filters.brand,
   })
   const missingCountSql = buildPricelistMissingCountSql(listOwnerId, viewer)
+  const outOfStockCountSql = buildPricelistOutOfStockCountSql(listOwnerId, viewer)
 
   const baseSql = buildPricelistListSql(listOwnerId, viewer, {})
 
-  const [total, items, exportFilledCount, missingPriceCount, totalOnPricelist] =
+  const [total, items, exportFilledCount, missingPriceCount, outOfStockCount, totalOnPricelist] =
     await Promise.all([
       countPricelistProductItems(listSql),
       fetchPricelistProductItems(listOwnerId, listSql, { limit: pageSize, offset }),
@@ -1135,6 +1138,9 @@ export async function listPricelistPage(
         : Promise.resolve(0),
       missingCountSql
         ? countPricelistProductItems(missingCountSql)
+        : Promise.resolve(0),
+      outOfStockCountSql
+        ? countPricelistProductItems(outOfStockCountSql)
         : Promise.resolve(0),
       countPricelistProductItems(baseSql),
     ])
@@ -1151,19 +1157,25 @@ export async function listPricelistPage(
     totalPages,
     missingPriceCount,
     exportFilledCount,
+    outOfStockCount,
   }
 }
 
-/** Export scope — same filters as the list UI but without missing-only and capped. */
+/** Export scope — same filters as the list UI but without quick filters and capped. */
 export async function listPricelistRowsForExport(
   listOwnerId: string,
   viewer: PricelistListViewer,
-  filters: Omit<PricelistListFilterInput, 'missingPricesOnly'>,
+  filters: Omit<
+    PricelistListFilterInput,
+    'missingPricesOnly' | 'filledPricesOnly' | 'outOfStockOnly'
+  >,
   maxRows = 5000
 ): Promise<PricelistRow[]> {
   const sqlFragment = buildPricelistListSql(listOwnerId, viewer, {
     ...filters,
     missingPricesOnly: false,
+    filledPricesOnly: false,
+    outOfStockOnly: false,
   })
   const items = await fetchPricelistProductItems(listOwnerId, sqlFragment, {
     limit: maxRows,

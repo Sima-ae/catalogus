@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
       totalPages: page.totalPages,
       missingPriceCount: page.missingPriceCount,
       exportFilledCount: page.exportFilledCount,
+      outOfStockCount: page.outOfStockCount,
       mode: access.mode,
     })
     ensureGuestContributorCookie(request, res, access)
