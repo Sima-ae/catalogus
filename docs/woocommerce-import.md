@@ -37,6 +37,7 @@ Optional filtered source later:
    - **Store URL:** `https://www.arfactorywatch.com`
    - **WC category slug:** `rolex` *(~455 products; use other slugs for AP, Patek, etc.)*
    - **Import supplier price as purchase price:** enabled
+   - **Shipping cost (EUR):** e.g. `30` — set per import source (not always the same amount)
    - **Catalog category (fallback):** e.g. `HORLOGES`
    - **Catalog brand (optional):** `Rolex` — overridden per product from Woo attributes when present
 2. Click **Sync** and run the worker on the VPS.
@@ -50,6 +51,14 @@ Optional filtered source later:
 | Brand | Woo brand or `Brand` attribute |
 | `purchase_price` | Lowest Woo price (e.g. $850 for Japanese tier) |
 | `price` | `0` (Price on request) |
+| `shipping_cost` | Value from **Shipping cost (EUR)** on the import source |
+
+New imports and re-syncs copy the configured shipping cost onto each product. To backfill existing AR Factory products (one-time, uses €30 default):
+
+```bash
+npm run db:set-ar-factory-shipping -- --dry-run
+npm run db:set-ar-factory-shipping
+```
 
 Existing StuntXL sources keep default **storefront** pricing (Woo price shown on the shop).
 

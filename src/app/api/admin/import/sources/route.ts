@@ -7,6 +7,7 @@ import {
   listImportSources,
   toImportSourcePublic,
 } from '@/lib/import-db'
+import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
       woocommerce_store_url: input.woocommerce_store_url || null,
       woocommerce_category_slug: input.woocommerce_category_slug || null,
       woocommerce_price_mode: input.woocommerce_price_mode || null,
+      woocommerce_shipping_cost: parseWooImportShippingCost(input.woocommerce_shipping_cost),
       catalog_list_url: input.catalog_list_url || null,
       catalog_category_id: input.catalog_category_id,
       catalog_brand_id: input.catalog_brand_id || null,

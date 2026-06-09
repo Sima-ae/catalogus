@@ -3,6 +3,8 @@
 import { useAppTheme } from '@/lib/theme-classes'
 import type { CategoryPickerOption } from '@/lib/category-picker'
 import type { ImportSourceType } from '@/lib/import-db'
+import { isArFactoryWooStoreUrl } from '@/lib/woocommerce/ar-factory'
+import { AR_FACTORY_DEFAULT_SHIPPING_COST } from '@/lib/woocommerce/import-shipping'
 
 export type ImportSourceFormValues = {
   name: string
@@ -12,6 +14,7 @@ export type ImportSourceFormValues = {
   woocommerce_store_url: string
   woocommerce_category_slug: string
   woocommerce_price_mode: 'storefront' | 'purchase_price'
+  woocommerce_shipping_cost: string
   catalog_list_url: string
   catalog_category_id: string
   catalog_brand_id: string
@@ -160,6 +163,26 @@ export default function ImportSourceForm({
                   purchase price is filled from WooCommerce.
                 </span>
               </span>
+            </label>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>Shipping cost (EUR, optional)</span>
+              <input
+                className="input w-full max-w-xs"
+                type="number"
+                min="0"
+                step="0.01"
+                value={values.woocommerce_shipping_cost}
+                onChange={(e) => set({ woocommerce_shipping_cost: e.target.value })}
+                placeholder={
+                  isArFactoryWooStoreUrl(values.woocommerce_store_url)
+                    ? String(AR_FACTORY_DEFAULT_SHIPPING_COST)
+                    : 'e.g. 30'
+                }
+              />
+              <p className={`text-xs mt-1 ${t.muted}`}>
+                Applied to every product imported from this source. Leave empty to leave shipping
+                cost unset.
+              </p>
             </label>
           </>
         ) : (

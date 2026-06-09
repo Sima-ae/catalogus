@@ -27,6 +27,7 @@ import {
   normalizeWooCommerceStoreUrl,
 } from '@/lib/woocommerce/client'
 import { mirrorWooCommerceProductImages } from '@/lib/woocommerce/mirror-images'
+import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
 import { wooSlugExternalId } from '@/lib/woocommerce/types'
 import { mirrorFacebookPostImages } from '@/lib/facebook/mirror-images'
 import { mapFacebookPost } from '@/lib/facebook/map-product'
@@ -180,7 +181,7 @@ export async function buildProductInputFromWooStoreProduct(
     catalogBrandId: source.catalog_brand_id,
     catalogBrandName: source.brand_name ?? null,
   })
-  return buildProductInputFromWooCommerceImport(
+  const input = await buildProductInputFromWooCommerceImport(
     wooWithLocalImages,
     {
       categoryName: catalog.categoryName,
@@ -189,6 +190,11 @@ export async function buildProductInputFromWooStoreProduct(
     },
     normalizeWooCommercePriceMode(source.woocommerce_price_mode)
   )
+  const shippingCost = parseWooImportShippingCost(source.woocommerce_shipping_cost)
+  if (shippingCost != null) {
+    return { ...input, shipping_cost: shippingCost }
+  }
+  return input
 }
 
 export function parseFacebookJobItemManual(rawJson: string | null | undefined): FacebookManualImportFields | null {
@@ -334,6 +340,7 @@ export type ImportSourceRow = {
   woocommerce_store_url?: string | null
   woocommerce_category_slug?: string | null
   woocommerce_price_mode?: string | null
+  woocommerce_shipping_cost?: number | string | null
   catalog_list_url?: string | null
   catalog_category_id: string | null
   catalog_brand_id: string | null
@@ -467,6 +474,7 @@ export async function createImportSource(input: {
   woocommerce_store_url?: string | null
   woocommerce_category_slug?: string | null
   woocommerce_price_mode?: string | null
+  woocommerce_shipping_cost?: number | null
   catalog_list_url?: string | null
   catalog_category_id?: string | null
   catalog_brand_id?: string | null
@@ -478,8 +486,8 @@ export async function createImportSource(input: {
     `INSERT INTO import_sources (
        id, name, source_type, yupoo_category_url, yupoo_access_password,
        woocommerce_store_url, woocommerce_category_slug, woocommerce_price_mode,
-       catalog_list_url, catalog_category_id, catalog_brand_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       woocommerce_shipping_cost, catalog_list_url, catalog_category_id, catalog_brand_id
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.name.trim(),
@@ -489,6 +497,7 @@ export async function createImportSource(input: {
       normalizeWooStoreUrlForSource(input.woocommerce_store_url),
       input.woocommerce_category_slug?.trim() || null,
       normalizeWooCommercePriceMode(input.woocommerce_price_mode),
+      parseWooImportShippingCost(input.woocommerce_shipping_cost),
       normalizeLkxoxListUrlForSource(input.catalog_list_url),
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
@@ -508,6 +517,7 @@ export async function updateImportSource(
     woocommerce_store_url?: string | null
     woocommerce_category_slug?: string | null
     woocommerce_price_mode?: string | null
+    woocommerce_shipping_cost?: number | null
     catalog_list_url?: string | null
     catalog_category_id?: string | null
     catalog_brand_id?: string | null
@@ -526,6 +536,7 @@ export async function updateImportSource(
     'woocommerce_store_url = ?',
     'woocommerce_category_slug = ?',
     'woocommerce_price_mode = ?',
+    'woocommerce_shipping_cost = ?',
     'catalog_list_url = ?',
     'catalog_category_id = ?',
     'catalog_brand_id = ?',
@@ -538,6 +549,7 @@ export async function updateImportSource(
     normalizeWooStoreUrlForSource(input.woocommerce_store_url),
     input.woocommerce_category_slug?.trim() || null,
     normalizeWooCommercePriceMode(input.woocommerce_price_mode),
+    parseWooImportShippingCost(input.woocommerce_shipping_cost),
     normalizeLkxoxListUrlForSource(input.catalog_list_url),
     input.catalog_category_id || null,
     input.catalog_brand_id || null,

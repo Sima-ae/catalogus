@@ -53,6 +53,7 @@ const emptyForm: ImportSourceFormValues = {
   woocommerce_store_url: '',
   woocommerce_category_slug: '',
   woocommerce_price_mode: 'storefront',
+  woocommerce_shipping_cost: '',
   catalog_list_url: '',
   catalog_category_id: '',
   catalog_brand_id: '',
@@ -79,6 +80,10 @@ function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
       String(source.woocommerce_price_mode ?? '').toLowerCase() === 'purchase_price'
         ? 'purchase_price'
         : 'storefront',
+    woocommerce_shipping_cost:
+      source.woocommerce_shipping_cost != null && source.woocommerce_shipping_cost !== ''
+        ? String(source.woocommerce_shipping_cost)
+        : '',
     catalog_list_url: source.catalog_list_url || '',
     catalog_category_id: source.catalog_category_id || '',
     catalog_brand_id: source.catalog_brand_id || '',
@@ -93,6 +98,7 @@ function formToApiBody(values: ImportSourceFormValues): Record<string, string> {
     woocommerce_store_url: values.woocommerce_store_url,
     woocommerce_category_slug: values.woocommerce_category_slug,
     woocommerce_price_mode: values.woocommerce_price_mode,
+    woocommerce_shipping_cost: values.woocommerce_shipping_cost,
     catalog_list_url: values.catalog_list_url,
     catalog_category_id: values.catalog_category_id,
     catalog_brand_id: values.catalog_brand_id,
@@ -660,6 +666,13 @@ export default function AdminImportPage() {
                       'purchase_price' ? (
                       <div className="text-xs mt-0.5 inline-flex rounded px-1.5 py-0.5 bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
                         Purchase price mode
+                      </div>
+                    ) : null}
+                    {source.source_type === 'woocommerce' &&
+                    source.woocommerce_shipping_cost != null &&
+                    source.woocommerce_shipping_cost !== '' ? (
+                      <div className={`text-xs mt-0.5 ${t.muted}`}>
+                        Shipping: € {Number(source.woocommerce_shipping_cost).toFixed(2).replace('.', ',')}
                       </div>
                     ) : null}
                     {source.source_type !== 'woocommerce' &&

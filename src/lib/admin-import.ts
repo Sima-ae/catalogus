@@ -1,5 +1,6 @@
 import type { ImportSourceType } from '@/lib/import-db'
 import { normalizeImportSourceType } from '@/lib/import-db'
+import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
 import { normalizeWooCommercePriceMode } from '@/lib/woocommerce/types'
 
 export type ImportSourceInput = {
@@ -9,6 +10,7 @@ export type ImportSourceInput = {
   woocommerce_store_url: string
   woocommerce_category_slug: string
   woocommerce_price_mode: string
+  woocommerce_shipping_cost: string
   catalog_list_url: string
   catalog_category_id: string
   catalog_brand_id: string
@@ -31,6 +33,7 @@ export function parseImportSourceBody(body: unknown): ImportSourceInput | null {
     woocommerce_price_mode: normalizeWooCommercePriceMode(
       String(raw.woocommerce_price_mode ?? 'storefront')
     ),
+    woocommerce_shipping_cost: String(raw.woocommerce_shipping_cost ?? '').trim(),
     catalog_list_url: String(raw.catalog_list_url ?? '').trim(),
     catalog_category_id: String(raw.catalog_category_id ?? '').trim(),
     catalog_brand_id: String(raw.catalog_brand_id ?? '').trim(),
@@ -66,6 +69,12 @@ export function validateImportSourceInput(input: ImportSourceInput): string | nu
     }
     if (!isValidHttpUrl(input.woocommerce_store_url)) {
       return 'WooCommerce store URL must be a valid http(s) URL'
+    }
+    if (
+      input.woocommerce_shipping_cost &&
+      parseWooImportShippingCost(input.woocommerce_shipping_cost) === null
+    ) {
+      return 'Shipping cost must be a non-negative number (leave empty to skip)'
     }
     return null
   }

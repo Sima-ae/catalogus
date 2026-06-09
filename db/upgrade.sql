@@ -529,6 +529,11 @@ ALTER TABLE products
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS shipping_cost DECIMAL(12, 2) NULL AFTER purchase_price;
 
+-- WooCommerce per-source import shipping cost (see db/woocommerce_shipping_cost.sql)
+ALTER TABLE import_sources
+  ADD COLUMN IF NOT EXISTS woocommerce_shipping_cost DECIMAL(12, 2) NULL
+  AFTER woocommerce_price_mode;
+
 -- Sold-out ribbon on shop product cards and product page gallery
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS sold_out TINYINT(1) NOT NULL DEFAULT 0 AFTER featured;
