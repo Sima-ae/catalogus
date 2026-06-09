@@ -79,6 +79,26 @@ export function isPricelistRowBulkEditable(
   return true
 }
 
+export function isPricelistRowBulkEditableShipping(
+  row: PricelistRow,
+  opts?: { isSeller?: boolean }
+): boolean {
+  if (row.can_edit_shipping === false) return false
+  if (opts?.isSeller && row.seller_shipping_cost != null) return false
+  return true
+}
+
+/** Row can be bulk-selected when price and/or shipping is still editable. */
+export function isPricelistRowBulkSelectable(
+  row: PricelistRow,
+  opts?: { isSeller?: boolean }
+): boolean {
+  return (
+    isPricelistRowBulkEditable(row, opts) ||
+    isPricelistRowBulkEditableShipping(row, opts)
+  )
+}
+
 export function pricelistRowNeedsPrice(
   row: PricelistRow,
   opts?: { guestShareLink?: boolean }

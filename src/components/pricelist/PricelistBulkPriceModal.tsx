@@ -10,8 +10,9 @@ type Props = {
   open: boolean
   count: number
   busy?: boolean
+  variant?: 'price' | 'shipping'
   onClose: () => void
-  onApply: (unitPrice: number) => void | Promise<void>
+  onApply: (amount: number) => void | Promise<void>
 }
 
 function parsePriceInput(value: string): number | null {
@@ -26,6 +27,7 @@ export default function PricelistBulkPriceModal({
   open,
   count,
   busy = false,
+  variant = 'price',
   onClose,
   onApply,
 }: Props) {
@@ -53,6 +55,11 @@ export default function PricelistBulkPriceModal({
   }, [open, busy, onClose])
 
   if (!open) return null
+
+  const isShipping = variant === 'shipping'
+  const titleKey = isShipping ? 'pricelist.bulk.shippingModalTitle' : 'pricelist.bulk.modalTitle'
+  const hintKey = isShipping ? 'pricelist.bulk.shippingModalHint' : 'pricelist.bulk.modalHint'
+  const applyKey = isShipping ? 'pricelist.bulk.applyShipping' : 'pricelist.bulk.applyPrice'
 
   const handleSubmit = async () => {
     const parsed = parsePriceInput(value)
@@ -93,10 +100,10 @@ export default function PricelistBulkPriceModal({
               id="pricelist-bulk-price-title"
               className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}
             >
-              {t('pricelist.bulk.modalTitle')}
+              {t(titleKey)}
             </h2>
             <p className={`mt-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              {t('pricelist.bulk.modalHint')} ({count})
+              {t(hintKey)} ({count})
             </p>
           </div>
           <button
@@ -149,7 +156,7 @@ export default function PricelistBulkPriceModal({
             onClick={() => void handleSubmit()}
             disabled={busy}
           >
-            {busy ? t('pricelist.bulk.working') : t('pricelist.bulk.applyPrice')}
+            {busy ? t('pricelist.bulk.working') : t(applyKey)}
           </button>
         </div>
       </div>

@@ -15,7 +15,7 @@ import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
-import { isPricelistRowBulkEditable } from '@/lib/pricelist-filters'
+import { isPricelistRowBulkSelectable } from '@/lib/pricelist-filters'
 
 type Props = {
   items: PricelistRow[]
@@ -295,7 +295,7 @@ function PricelistTableRow({
   const [error, setError] = useState<string | null>(null)
   const [shippingError, setShippingError] = useState<string | null>(null)
 
-  const bulkEditable = isPricelistRowBulkEditable(row, { isSeller })
+  const bulkEditable = isPricelistRowBulkSelectable(row, { isSeller })
   const showPriceInput = canEditPrices && row.can_edit_price !== false && !isSeller
   const showSellerPriceInput = isSeller && canEditPrices && row.can_edit_price !== false
   const showShippingInput = canEditPrices && row.can_edit_shipping !== false && !isSeller

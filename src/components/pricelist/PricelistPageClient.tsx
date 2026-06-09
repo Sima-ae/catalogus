@@ -25,6 +25,8 @@ import { useI18n } from '@/lib/i18n-context'
 import { translatePricelistOwnerLabel } from '@/lib/i18n-pricelist'
 import {
   isPricelistRowBulkEditable,
+  isPricelistRowBulkEditableShipping,
+  isPricelistRowBulkSelectable,
   pricelistRowNeedsPrice,
 } from '@/lib/pricelist-filters'
 import PricelistCatalogFilters from '@/components/pricelist/PricelistCatalogFilters'
@@ -161,6 +163,7 @@ export default function PricelistPageClient() {
   const [bulkWorking, setBulkWorking] = useState(false)
   const [bulkMessage, setBulkMessage] = useState<string | null>(null)
   const [bulkPriceOpen, setBulkPriceOpen] = useState(false)
+  const [bulkShippingOpen, setBulkShippingOpen] = useState(false)
 
   const openGallery = useCallback((row: PricelistRow) => {
     const images = row.gallery_urls?.length ? row.gallery_urls : row.image_url ? [row.image_url] : []
@@ -241,7 +244,7 @@ export default function PricelistPageClient() {
   }, [currentPage, totalPages])
 
   const selectableOnPage = useMemo(
-    () => items.filter((row) => isPricelistRowBulkEditable(row, { isSeller })),
+    () => items.filter((row) => isPricelistRowBulkSelectable(row, { isSeller })),
     [items, isSeller]
   )
 
@@ -263,10 +266,16 @@ export default function PricelistPageClient() {
     selectableOnPage.length > 0 &&
     selectableOnPage.every((row) => selectedIds.has(row.product_id))
 
-  const toBulkItems = (rows: PricelistRow[]): PricelistBulkItem[] =>
+  const toBulkPriceItems = (rows: PricelistRow[]): PricelistBulkItem[] =>
     rows.map((row) => ({
       productId: row.product_id,
       ...(row.price_seller_id ? { sellerId: row.price_seller_id } : {}),
+    }))
+
+  const toBulkShippingItems = (rows: PricelistRow[]): PricelistBulkItem[] =>
+    rows.map((row) => ({
+      productId: row.product_id,
+      ...(row.shipping_seller_id ? { sellerId: row.shipping_seller_id } : {}),
     }))
 
   const toggleSelect = (productId: string) => {
@@ -306,7 +315,11 @@ export default function PricelistPageClient() {
     setBulkWorking(true)
     setBulkMessage(null)
     try {
-      const result = await bulkUpdate('stockStatus', toBulkItems(selectedRows), { stockStatus })
+      const result = await bulkUpdate(
+        'stockStatus',
+        toBulkPriceItems(selectedRows),
+        { stockStatus }
+      )
       setSelectedIds(new Set())
       if (result.skipped > 0) {
         setBulkMessage(
@@ -326,12 +339,41 @@ export default function PricelistPageClient() {
   }
 
   const runBulkPrice = async (unitPrice: number) => {
-    if (!selectedRows.length) return
+    const rows = selectedRows.filter((row) => isPricelistRowBulkEditable(row, { isSeller }))
+    if (!rows.length) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
-      const result = await bulkUpdate('price', toBulkItems(selectedRows), { unitPrice })
+      const result = await bulkUpdate('price', toBulkPriceItems(rows), { unitPrice })
       setBulkPriceOpen(false)
+      setSelectedIds(new Set())
+      if (result.skipped > 0) {
+        setBulkMessage(
+          formatMessage(t('pricelist.bulk.partial'), {
+            updated: result.updated,
+            skipped: result.skipped,
+          })
+        )
+      } else {
+        setBulkMessage(formatMessage(t('pricelist.bulk.done'), { count: result.updated }))
+      }
+    } catch (e) {
+      setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const runBulkShipping = async (shippingCost: number) => {
+    const rows = selectedRows.filter((row) =>
+      isPricelistRowBulkEditableShipping(row, { isSeller })
+    )
+    if (!rows.length) return
+    setBulkWorking(true)
+    setBulkMessage(null)
+    try {
+      const result = await bulkUpdate('shipping', toBulkShippingItems(rows), { shippingCost })
+      setBulkShippingOpen(false)
       setSelectedIds(new Set())
       if (result.skipped > 0) {
         setBulkMessage(
@@ -529,6 +571,7 @@ export default function PricelistPageClient() {
               onSetOutOfStock={() => void runBulkStockStatus('out')}
               onSetTemporarilyOutOfStock={() => void runBulkStockStatus('temporary')}
               onOpenSetPrice={() => setBulkPriceOpen(true)}
+              onOpenSetShipping={() => setBulkShippingOpen(true)}
             />
           ) : null}
           <div className={pageLoading ? 'opacity-60 pointer-events-none' : ''}>
@@ -575,10 +618,24 @@ export default function PricelistPageClient() {
 
       <PricelistBulkPriceModal
         open={bulkPriceOpen}
-        count={selectedIds.size}
+        count={
+          selectedRows.filter((row) => isPricelistRowBulkEditable(row, { isSeller })).length
+        }
         busy={bulkWorking}
         onClose={() => setBulkPriceOpen(false)}
         onApply={runBulkPrice}
+      />
+
+      <PricelistBulkPriceModal
+        open={bulkShippingOpen}
+        variant="shipping"
+        count={
+          selectedRows.filter((row) => isPricelistRowBulkEditableShipping(row, { isSeller }))
+            .length
+        }
+        busy={bulkWorking}
+        onClose={() => setBulkShippingOpen(false)}
+        onApply={runBulkShipping}
       />
 
       <PricelistProductLightbox

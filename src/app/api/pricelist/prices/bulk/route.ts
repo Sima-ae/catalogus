@@ -7,6 +7,7 @@ import {
   setSellerProductStockStatus,
   syncProductPurchasePriceFromPlatformPricelist,
   upsertSellerProductPrice,
+  upsertSellerProductShippingCost,
 } from '@/lib/pricelist-db'
 import { isPricelistStockStatus } from '@/lib/pricelist-stock-status'
 import {
@@ -16,6 +17,7 @@ import {
 } from '@/lib/pricelist-api'
 import {
   assertSellerMayUpdatePrice,
+  assertSellerMayUpdateShipping,
   lockSellerPriceAfterSave,
   clearPendingEditRequestsForPrice,
 } from '@/lib/seller-price-edit-db'
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
   const stockStatusRaw = String(raw.stockStatus ?? '').trim()
   const stockStatus = isPricelistStockStatus(stockStatusRaw) ? stockStatusRaw : null
   const unitPrice = parseUnitPrice(raw.unitPrice)
+  const shippingCost = parseUnitPrice(raw.shippingCost)
   const items = parseBulkItems(raw.items)
 
   if (!items.length) {
@@ -80,8 +83,15 @@ export async function POST(request: NextRequest) {
     if (unitPrice === null) {
       return NextResponse.json({ error: 'Valid unit price is required' }, { status: 400 })
     }
+  } else if (action === 'shipping') {
+    if (shippingCost === null) {
+      return NextResponse.json({ error: 'Valid shipping cost is required' }, { status: 400 })
+    }
   } else {
-    return NextResponse.json({ error: 'action must be stockStatus or price' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'action must be stockStatus, price, or shipping' },
+      { status: 400 }
+    )
   }
 
   const access = await requirePricelistAccess(request, ownerParam || null, { allowGuest: true })
@@ -115,7 +125,10 @@ export async function POST(request: NextRequest) {
         isAdminActor && item.sellerId ? item.sellerId : actorSellerId
 
       if (isSellerActor) {
-        const mayUpdate = await assertSellerMayUpdatePrice(targetSellerId, item.productId)
+        const mayUpdate =
+          action === 'shipping'
+            ? await assertSellerMayUpdateShipping(targetSellerId, item.productId)
+            : await assertSellerMayUpdatePrice(targetSellerId, item.productId)
         if (!mayUpdate.ok) {
           skipped += 1
           continue
@@ -143,9 +156,17 @@ export async function POST(request: NextRequest) {
           if (isPlatformPricelistOwner(access.ownerId)) {
             await syncProductPurchasePriceFromPlatformPricelist(item.productId)
           }
+        } else if (action === 'shipping' && shippingCost !== null) {
+          await upsertSellerProductShippingCost({
+            sellerId: targetSellerId,
+            productId: item.productId,
+            shippingCost,
+            currency,
+            updatedBy,
+          })
         }
 
-        if (isSellerActor) {
+        if (isSellerActor && action === 'price') {
           await lockSellerPriceAfterSave(targetSellerId, item.productId)
         }
         if (isAdminActor && item.sellerId && item.sellerId !== access.actor!.userId) {

@@ -9,6 +9,7 @@ export type PricelistBulkMessageKey =
   | 'pricelist.bulk.setOutOfStock'
   | 'pricelist.bulk.setTemporarilyOutOfStock'
   | 'pricelist.bulk.setPrice'
+  | 'pricelist.bulk.setShipping'
   | 'pricelist.bulk.working'
   | 'pricelist.bulk.done'
   | 'pricelist.bulk.partial'
@@ -16,6 +17,9 @@ export type PricelistBulkMessageKey =
   | 'pricelist.bulk.modalTitle'
   | 'pricelist.bulk.modalHint'
   | 'pricelist.bulk.applyPrice'
+  | 'pricelist.bulk.shippingModalTitle'
+  | 'pricelist.bulk.shippingModalHint'
+  | 'pricelist.bulk.applyShipping'
   | 'pricelist.bulk.cancel'
   | 'pricelist.bulk.colSelect'
 
@@ -30,6 +34,7 @@ const EN: BulkMessages = {
   'pricelist.bulk.setOutOfStock': 'Out of stock',
   'pricelist.bulk.setTemporarilyOutOfStock': 'Temporarily out of stock',
   'pricelist.bulk.setPrice': 'Set price…',
+  'pricelist.bulk.setShipping': 'Set shipping…',
   'pricelist.bulk.working': 'Updating…',
   'pricelist.bulk.done': 'Updated {count} product(s)',
   'pricelist.bulk.partial': 'Updated {updated}, skipped {skipped}',
@@ -37,6 +42,10 @@ const EN: BulkMessages = {
   'pricelist.bulk.modalTitle': 'Set price for selected products',
   'pricelist.bulk.modalHint': 'The same price will be applied to all selected editable rows.',
   'pricelist.bulk.applyPrice': 'Apply price',
+  'pricelist.bulk.shippingModalTitle': 'Set shipping cost for selected products',
+  'pricelist.bulk.shippingModalHint':
+    'The same shipping cost will be applied to all selected editable rows.',
+  'pricelist.bulk.applyShipping': 'Apply shipping',
   'pricelist.bulk.cancel': 'Cancel',
   'pricelist.bulk.colSelect': 'Select',
 }
@@ -51,6 +60,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<BulkMessages>>> = {
     'pricelist.bulk.setOutOfStock': 'Uitverkocht',
     'pricelist.bulk.setTemporarilyOutOfStock': 'Tijdelijk uitverkocht',
     'pricelist.bulk.setPrice': 'Prijs instellen…',
+    'pricelist.bulk.setShipping': 'Verzenden instellen…',
     'pricelist.bulk.working': 'Bijwerken…',
     'pricelist.bulk.done': '{count} product(en) bijgewerkt',
     'pricelist.bulk.partial': '{updated} bijgewerkt, {skipped} overgeslagen',
@@ -58,6 +68,10 @@ const BY_LOCALE: Partial<Record<Locale, Partial<BulkMessages>>> = {
     'pricelist.bulk.modalTitle': 'Prijs instellen voor geselecteerde producten',
     'pricelist.bulk.modalHint': 'Dezelfde prijs wordt toegepast op alle geselecteerde bewerkbare rijen.',
     'pricelist.bulk.applyPrice': 'Prijs toepassen',
+    'pricelist.bulk.shippingModalTitle': 'Verzendkosten instellen voor geselecteerde producten',
+    'pricelist.bulk.shippingModalHint':
+      'Dezelfde verzendkosten worden toegepast op alle geselecteerde bewerkbare rijen.',
+    'pricelist.bulk.applyShipping': 'Verzenden toepassen',
     'pricelist.bulk.cancel': 'Annuleren',
     'pricelist.bulk.colSelect': 'Selecteren',
   },

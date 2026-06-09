@@ -335,9 +335,13 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
   }
 
   const bulkUpdate = async (
-    action: 'stockStatus' | 'price',
+    action: 'stockStatus' | 'price' | 'shipping',
     bulkItems: PricelistBulkItem[],
-    payload: { stockStatus?: PricelistStockStatus; unitPrice?: number }
+    payload: {
+      stockStatus?: PricelistStockStatus
+      unitPrice?: number
+      shippingCost?: number
+    }
   ): Promise<PricelistBulkResult> => {
     const res = await fetch(appPath('/api/pricelist/prices/bulk'), {
       method: 'POST',

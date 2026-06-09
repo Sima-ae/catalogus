@@ -18,6 +18,7 @@ type Props = {
   onSetOutOfStock: () => void
   onSetTemporarilyOutOfStock: () => void
   onOpenSetPrice: () => void
+  onOpenSetShipping: () => void
 }
 
 export default function PricelistBulkActionsBar({
@@ -35,6 +36,7 @@ export default function PricelistBulkActionsBar({
   onSetOutOfStock,
   onSetTemporarilyOutOfStock,
   onOpenSetPrice,
+  onOpenSetShipping,
 }: Props) {
   const { t } = useI18n()
   const border = isDark ? 'border-dark-700 bg-dark-900/80' : 'border-gray-200 bg-white'
@@ -105,6 +107,14 @@ export default function PricelistBulkActionsBar({
             onClick={onOpenSetPrice}
           >
             {t('pricelist.bulk.setPrice')}
+          </button>
+          <button
+            type="button"
+            className="btn-primary text-sm"
+            disabled={busy}
+            onClick={onOpenSetShipping}
+          >
+            {t('pricelist.bulk.setShipping')}
           </button>
           <button
             type="button"
