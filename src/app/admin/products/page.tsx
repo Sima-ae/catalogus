@@ -39,7 +39,7 @@ import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/cat
 import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/AdminBulkEditModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import CatalogPagination from '@/components/shop/CatalogPagination'
-import { getTopCategoryLabel } from '@/lib/i18n-categories'
+import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
 import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSegment } from '@/lib/product-taxonomy'
 import { useI18n } from '@/lib/i18n-context'
@@ -191,8 +191,9 @@ export default function AdminProductsPage() {
 
   const categoryFilterLabel = useMemo(() => {
     if (categoryFilter === 'all') return null
-    return categories.find((c) => c.id === categoryFilter)?.listLabel ?? categoryFilter
-  }, [categoryFilter, categories])
+    const match = categories.find((c) => c.id === categoryFilter)
+    return match ? getCategoryPickerLabel(match, tr) : categoryFilter
+  }, [categoryFilter, categories, tr])
 
   const loadProducts = useCallback(() => {
     if (!user) return
@@ -554,7 +555,7 @@ export default function AdminProductsPage() {
               <option value="all">{tr('admin.products.allCategories')}</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.label}
+                  {getCategoryPickerLabel(c, tr)}
                 </option>
               ))}
             </select>

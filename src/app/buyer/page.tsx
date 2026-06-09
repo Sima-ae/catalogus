@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import DashboardShell from '@/components/dashboard/DashboardShell'
 import UserBadgeCard from '@/components/users/UserBadgeCard'
@@ -11,20 +11,27 @@ import { isCatalogProductsPage } from '@/lib/catalog-products'
 import { formatPrice } from '@/lib/format-price'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
 
-const baseNav = [
-  { name: 'Dashboard', href: '/buyer' },
-  { name: 'Browse shop', href: '/' },
-  { name: 'My cart', href: '/cart' },
-]
+const baseNavKeys = [
+  { key: 'buyer.nav.dashboard', href: '/buyer' },
+  { key: 'buyer.nav.browseShop', href: '/' },
+  { key: 'buyer.nav.myCart', href: '/cart' },
+] as const
 
 export default function BuyerDashboard() {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { catalogMode } = useCatalogMode()
   const { user } = useAuth()
-  const nav = catalogMode
-    ? baseNav.filter((item) => item.href !== '/cart')
-    : baseNav
+  const nav = useMemo(
+    () =>
+      (catalogMode ? baseNavKeys.filter((item) => item.href !== '/cart') : baseNavKeys).map(
+        (item) => ({ name: tr(item.key), href: item.href })
+      ),
+    [catalogMode, tr]
+  )
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -40,8 +47,10 @@ export default function BuyerDashboard() {
   }, [])
 
   return (
-    <DashboardShell title="Buyer Dashboard" nav={nav}>
-      <h2 className={`text-2xl font-bold mb-6 ${t.heading}`}>Welcome, {user?.name}</h2>
+    <DashboardShell title={tr('buyer.dashboard.title')} nav={nav}>
+      <h2 className={`text-2xl font-bold mb-6 ${t.heading}`}>
+        {formatMessage(tr('buyer.dashboard.welcome'), { name: user?.name ?? '' })}
+      </h2>
       <UserBadgeCard user={user} />
 
       <div
@@ -50,8 +59,8 @@ export default function BuyerDashboard() {
         }`}
       >
         <Link href={appPath('/')} className="card p-6 hover:border-primary-500 transition-colors block">
-          <h3 className={`font-semibold ${t.heading}`}>Shop</h3>
-          <p className={`text-sm mt-1 ${t.muted}`}>View all products</p>
+          <h3 className={`font-semibold ${t.heading}`}>{tr('buyer.dashboard.shop')}</h3>
+          <p className={`text-sm mt-1 ${t.muted}`}>{tr('buyer.dashboard.shopDesc')}</p>
         </Link>
         {!catalogMode && (
           <>
@@ -59,25 +68,27 @@ export default function BuyerDashboard() {
               href={appPath('/cart')}
               className="card p-6 hover:border-primary-500 transition-colors block"
             >
-              <h3 className={`font-semibold ${t.heading}`}>Cart</h3>
-              <p className={`text-sm mt-1 ${t.muted}`}>Review items before checkout</p>
+              <h3 className={`font-semibold ${t.heading}`}>{tr('buyer.dashboard.cart')}</h3>
+              <p className={`text-sm mt-1 ${t.muted}`}>{tr('buyer.dashboard.cartDesc')}</p>
             </Link>
             <Link
               href={appPath('/checkout')}
               className="card p-6 hover:border-primary-500 transition-colors block"
             >
-              <h3 className={`font-semibold ${t.heading}`}>Checkout</h3>
-              <p className={`text-sm mt-1 ${t.muted}`}>Complete your purchase</p>
+              <h3 className={`font-semibold ${t.heading}`}>{tr('buyer.dashboard.checkout')}</h3>
+              <p className={`text-sm mt-1 ${t.muted}`}>{tr('buyer.dashboard.checkoutDesc')}</p>
             </Link>
           </>
         )}
       </div>
 
-      <h3 className={`text-lg font-semibold mb-4 ${t.heading}`}>Featured products</h3>
+      <h3 className={`text-lg font-semibold mb-4 ${t.heading}`}>
+        {tr('buyer.dashboard.featuredProducts')}
+      </h3>
       {loading ? (
-        <p className={t.muted}>Loading...</p>
+        <p className={t.muted}>{tr('loading.generic')}</p>
       ) : products.length === 0 ? (
-        <p className={t.muted}>No products available yet.</p>
+        <p className={t.muted}>{tr('buyer.dashboard.noProducts')}</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {products.map((p) => (

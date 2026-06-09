@@ -3,6 +3,8 @@
 import type { CategoryPickerOption } from '@/lib/category-picker'
 import { useAppTheme } from '@/lib/theme-classes'
 import SearchableCheckboxScroller from '@/components/admin/SearchableCheckboxScroller'
+import { useI18n } from '@/lib/i18n-context'
+import { getCategoryPickerLabel, translateCategoryCompound } from '@/lib/i18n-categories'
 
 type Props = {
   options: CategoryPickerOption[]
@@ -27,11 +29,12 @@ export default function CategoryCheckboxList({
   disabled = false,
 }: Props) {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
 
   if (readOnly) {
     const names = options
       .filter((c) => selectedIds.includes(c.id))
-      .map((c) => c.listLabel)
+      .map((c) => translateCategoryCompound(c.listLabel, tr))
     return (
       <p className={t.body}>
         {names.length ? names.join(', ') : 'All categories (none selected)'}
@@ -41,7 +44,7 @@ export default function CategoryCheckboxList({
 
   const items = options.map((c) => ({
     id: c.id,
-    label: c.isSubcategory ? c.listLabel : c.name,
+    label: getCategoryPickerLabel(c, tr).replace(/^\s*↳\s*/, ''),
   }))
 
   return (
@@ -91,14 +94,7 @@ export default function CategoryCheckboxList({
                     : `font-semibold ${t.heading}`
                 }`}
               >
-                {c.isSubcategory ? (
-                  <>
-                    <span className={`text-xs font-normal mr-1.5 ${t.muted}`}>↳</span>
-                    {c.listLabel}
-                  </>
-                ) : (
-                  c.listLabel
-                )}
+                {getCategoryPickerLabel(c, tr).replace(/^\s+/, '')}
               </span>
               {c.isSubcategory && c.parent_name ? (
                 <span className={`block text-xs mt-0.5 ${t.muted}`}>

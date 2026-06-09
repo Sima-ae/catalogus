@@ -45,7 +45,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
             type="button"
             className={`lg:hidden p-2 rounded-lg ${isDark ? 'hover:bg-dark-700' : 'hover:bg-gray-100'}`}
             onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
+            aria-label={t('dashboard.shell.closeMenu')}
           >
             <XMarkIcon className={`w-5 h-5 ${isDark ? 'text-white' : 'text-gray-900'}`} />
           </button>
@@ -65,7 +65,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
             pathname === appPath('/pricelist') ? 'nav-active' : navIdle
           }`}
         >
-          Pricelist
+          {t('dashboard.shell.pricelist')}
         </Link>
         {nav.map((item) => (
           <Link
@@ -86,7 +86,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
           onClick={() => setMobileOpen(false)}
           className={`block text-sm transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
         >
-          Visit shop
+          {t('dashboard.shell.visitShop')}
         </Link>
         <button
           type="button"
@@ -96,7 +96,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
           }`}
         >
           <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-          Sign out
+          {t('dashboard.shell.signOut')}
         </button>
       </div>
     </div>
@@ -112,7 +112,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          aria-label="Close overlay"
+          aria-label={t('dashboard.shell.closeOverlay')}
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -135,7 +135,7 @@ export default function DashboardShell({ title, nav, children }: DashboardShellP
               type="button"
               onClick={() => setMobileOpen(true)}
               className={`p-2 rounded-lg lg:hidden ${isDark ? 'hover:bg-dark-700 text-white' : 'hover:bg-gray-100 text-gray-900'}`}
-              aria-label="Open menu"
+              aria-label={t('dashboard.shell.openMenu')}
             >
               <Bars3Icon className="w-6 h-6" />
             </button>

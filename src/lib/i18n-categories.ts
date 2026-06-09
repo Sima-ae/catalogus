@@ -53,6 +53,37 @@ export function getTopCategoryLabel(
   return humanizeAllCapsCategoryLabel(raw)
 }
 
+/** Translate compound labels (e.g. `KIDS › SHOES`). */
+export function translateCategoryCompound(label: string, t: Translator): string {
+  const raw = String(label ?? '').trim()
+  if (!raw) return raw
+  if (raw.includes('›')) {
+    return raw
+      .split('›')
+      .map((segment) => getTopCategoryLabel(segment.trim(), t))
+      .join(' › ')
+  }
+  return getTopCategoryLabel(raw, t)
+}
+
+/** Localized label for admin category picker options (includes ↳ indent for subcategories). */
+export function getCategoryPickerLabel(
+  option: {
+    name: string
+    listLabel: string
+    isSubcategory: boolean
+    depth: number
+  },
+  t: Translator
+): string {
+  if (!option.isSubcategory) {
+    return getTopCategoryLabel(option.name, t)
+  }
+  const translated = translateCategoryCompound(option.listLabel, t)
+  const indent = `${'  '.repeat(option.depth)}↳ `
+  return `${indent}${translated}`
+}
+
 /** Sort shop category ids: "All" first, then A–Z by translated label for the active locale. */
 export function sortShopCategoriesByLabel(
   categories: string[],

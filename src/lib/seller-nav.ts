@@ -1,5 +1,5 @@
-export const sellerNav = [
-  { name: 'Dashboard', href: '/seller' },
-  { name: 'My products', href: '/seller/products' },
-  { name: 'Shop', href: '/' },
-]
+export const sellerNavKeys = [
+  { key: 'seller.nav.dashboard', href: '/seller' },
+  { key: 'seller.nav.myProducts', href: '/seller/products' },
+  { key: 'seller.nav.shop', href: '/' },
+] as const

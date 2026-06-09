@@ -179,6 +179,7 @@ const EN: AdminMessages = {
 
 const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   nl: {
+  'admin.nav.dashboard': "Dashboard",
   'admin.nav.pricelist': "Prijslijst",
   'admin.nav.products': "Producten",
   'admin.nav.trash': "Prullenbak",

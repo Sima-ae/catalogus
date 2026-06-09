@@ -7,6 +7,8 @@ import type { CategoryPickerOption } from '@/lib/category-picker'
 import { joinBrandNames, joinCategoryStorageLabels, unionCategoryIdsFromProducts, categoryIdsFromCompound } from '@/lib/product-taxonomy'
 import type { Product } from '@/lib/types'
 import SearchableCheckboxScroller from '@/components/admin/SearchableCheckboxScroller'
+import { useI18n } from '@/lib/i18n-context'
+import { getCategoryPickerLabel } from '@/lib/i18n-categories'
 
 function countProductsWithCategoryId(
   products: Product[],
@@ -114,6 +116,7 @@ export default function AdminBulkEditModal({
   onApply,
 }: Props) {
   const { theme } = useTheme()
+  const { t: tr } = useI18n()
   const isDark = theme === 'dark'
   const panelRef = useRef<HTMLDivElement>(null)
   const count = selectedProducts.length
@@ -322,7 +325,7 @@ export default function AdminBulkEditModal({
               <SearchableCheckboxScroller
                 items={categories.map((c) => ({
                   id: c.id,
-                  label: c.isSubcategory ? c.listLabel : c.name,
+                  label: getCategoryPickerLabel(c, tr).replace(/^\s*↳\s*/, ''),
                 }))}
                 searchPlaceholder="Search categories…"
                 noMatchesMessage="No matches"
@@ -353,7 +356,7 @@ export default function AdminBulkEditModal({
                         className={checkboxClass}
                       />
                       <span className={`text-sm flex-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                        {c.isSubcategory ? c.listLabel : c.label}
+                        {getCategoryPickerLabel(c, tr).replace(/^\s+/, '')}
                       </span>
                       {isActiveCurrent ? (
                         <span className={`text-xs ${muted}`}>current</span>

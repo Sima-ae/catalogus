@@ -1,6 +1,8 @@
 'use client'
 
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
+import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
 import type { CategoryPickerOption } from '@/lib/category-picker'
 import type { ImportSourceType } from '@/lib/import-db'
 import { isArFactoryWooStoreUrl } from '@/lib/woocommerce/ar-factory'
@@ -47,6 +49,7 @@ export default function ImportSourceForm({
   hasPassword = false,
 }: Props) {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const isWoo = values.source_type === 'woocommerce'
   const isFacebook = values.source_type === 'facebook'
   const isLkxox = values.source_type === 'lkxox'
@@ -231,13 +234,14 @@ export default function ImportSourceForm({
                 <option value="">Select category</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.label}
+                    {getCategoryPickerLabel(c, tr)}
                   </option>
                 ))}
               </select>
               {selectedCategory?.isSubcategory && selectedCategory.parent_name ? (
                 <p className={`text-xs mt-1 ${t.muted}`}>
-                  Subcategory of {selectedCategory.parent_name}
+                  {getTopCategoryLabel(selectedCategory.parent_name, tr)} ›{' '}
+                  {getTopCategoryLabel(selectedCategory.name, tr)}
                 </p>
               ) : isWoo ? (
                 <p className={`text-xs mt-1 ${t.muted}`}>

@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react'
 import TaxonomyCheckboxList from '@/components/admin/TaxonomyCheckboxList'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
+import { getCategoryPickerLabel } from '@/lib/i18n-categories'
 import type { CategoryPickerOption } from '@/lib/category-picker'
 import { joinBrandNames } from '@/lib/product-taxonomy'
 import { appPath } from '@/lib/paths'
@@ -50,6 +52,7 @@ export default function FacebookPostImportPanel({
   onSyncInfo,
 }: Props) {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const [postUrl, setPostUrl] = useState('')
   const [price, setPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -210,7 +213,7 @@ export default function FacebookPostImportPanel({
           <option value="">Select category</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.label}
+              {getCategoryPickerLabel(c, tr)}
             </option>
           ))}
         </select>

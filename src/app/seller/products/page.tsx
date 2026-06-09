@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { PencilIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
@@ -18,15 +18,30 @@ import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { formatPrice } from '@/lib/format-price'
 import { appPath } from '@/lib/paths'
 import { isCatalogProductsPage } from '@/lib/catalog-products'
-import { sellerNav } from '@/lib/seller-nav'
+import { sellerNavKeys } from '@/lib/seller-nav'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
 import type { Product } from '@/lib/types'
 
 const PAGE_SIZE = 50
 
+function productStatusKey(status: string | undefined): string {
+  const n = String(status || 'active').toLowerCase()
+  if (n === 'draft') return 'adminProducts.status.draft'
+  if (n === 'inactive') return 'adminProducts.status.inactive'
+  if (n === 'trash') return 'adminProducts.status.trash'
+  return 'adminProducts.status.published'
+}
+
 export default function SellerProductsPage() {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user } = useAuth()
+  const nav = useMemo(
+    () => sellerNavKeys.map((item) => ({ name: tr(item.key), href: item.href })),
+    [tr]
+  )
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -37,14 +52,13 @@ export default function SellerProductsPage() {
     if (!user) return
     setLoading(true)
     setError(null)
-    fetch(
-      appPath(`/api/products?page=${currentPage}&limit=${PAGE_SIZE}`),
-      { headers: catalogAuthHeaders(user) }
-    )
+    fetch(appPath(`/api/products?page=${currentPage}&limit=${PAGE_SIZE}`), {
+      headers: catalogAuthHeaders(user),
+    })
       .then(async (r) => {
         const data = await r.json()
         if (!r.ok) {
-          throw new Error(typeof data.error === 'string' ? data.error : 'Failed to load products')
+          throw new Error(typeof data.error === 'string' ? data.error : tr('seller.products.loadFailed'))
         }
         if (isCatalogProductsPage(data)) {
           setProducts(data.items)
@@ -57,10 +71,10 @@ export default function SellerProductsPage() {
       .catch((err) => {
         setProducts([])
         setTotalItems(0)
-        setError(err instanceof Error ? err.message : 'Failed to load products')
+        setError(err instanceof Error ? err.message : tr('seller.products.loadFailed'))
       })
       .finally(() => setLoading(false))
-  }, [user, currentPage])
+  }, [user, currentPage, tr])
 
   useEffect(() => {
     loadProducts()
@@ -70,7 +84,7 @@ export default function SellerProductsPage() {
   const safePage = Math.min(Math.max(1, currentPage), totalPages)
 
   const handleDelete = async (id: string) => {
-    if (!user || !confirm('Delete this product?')) return
+    if (!user || !confirm(tr('seller.products.confirmDelete'))) return
     const res = await fetch(appPath(`/api/products/${id}`), {
       method: 'DELETE',
       headers: catalogAuthHeaders(user),
@@ -78,16 +92,16 @@ export default function SellerProductsPage() {
     if (res.ok) loadProducts()
     else {
       const data = await res.json().catch(() => ({}))
-      alert(typeof data.error === 'string' ? data.error : 'Could not delete product')
+      alert(typeof data.error === 'string' ? data.error : tr('seller.products.deleteFailed'))
     }
   }
 
   return (
-    <DashboardShell title="My products" nav={sellerNav}>
+    <DashboardShell title={tr('seller.products.title')} nav={nav}>
       <div className="flex flex-wrap items-center justify-end gap-4 mb-6">
         <Link href={appPath('/seller/products/new')} className="btn-primary flex items-center gap-2">
           <PlusIcon className="w-5 h-5" />
-          Add product
+          {tr('seller.dashboard.addProduct')}
         </Link>
       </div>
 
@@ -98,36 +112,39 @@ export default function SellerProductsPage() {
       )}
 
       {loading ? (
-        <p className={t.muted}>Loading...</p>
+        <p className={t.muted}>{tr('loading.generic')}</p>
       ) : totalItems === 0 ? (
         <div className={`card text-center py-12 ${t.muted}`}>
-          <p className="mb-4">No products yet.</p>
+          <p className="mb-4">{tr('seller.products.noProducts')}</p>
           <Link
             href={appPath('/seller/products/new')}
             className="btn-primary inline-flex items-center gap-2"
           >
             <PlusIcon className="w-5 h-5" />
-            Add your first product
+            {tr('seller.dashboard.addFirstProduct')}
           </Link>
         </div>
       ) : (
         <>
           <p className={`text-sm mb-3 ${t.muted}`}>
-            {totalItems} product{totalItems === 1 ? '' : 's'}
+            {formatMessage(tr('seller.products.count'), { count: totalItems })}
             {totalPages > 1 && (
               <>
                 {' '}
-                · page {safePage} of {totalPages}
+                · {formatMessage(tr('pagination.pagePart'), {
+                  page: safePage,
+                  totalPages,
+                }).trim()}
               </>
             )}
           </p>
           <AdminTable>
             <AdminTableHead>
-              <AdminTh>Product</AdminTh>
-              <AdminTh>Category</AdminTh>
-              <AdminTh>Price</AdminTh>
-              <AdminTh>Status</AdminTh>
-              <AdminTh align="right">Actions</AdminTh>
+              <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
+              <AdminTh>{tr('adminProducts.col.category')}</AdminTh>
+              <AdminTh>{tr('adminProducts.col.price')}</AdminTh>
+              <AdminTh>{tr('adminProducts.col.status')}</AdminTh>
+              <AdminTh align="right">{tr('adminProducts.col.actions')}</AdminTh>
             </AdminTableHead>
             <AdminTableBody>
               {products.map((p) => (
@@ -147,13 +164,13 @@ export default function SellerProductsPage() {
                   </AdminTd>
                   <AdminTd>{p.category || '—'}</AdminTd>
                   <AdminTd>{formatPrice(p.price)}</AdminTd>
-                  <AdminTd className="capitalize">{p.status || 'active'}</AdminTd>
+                  <AdminTd>{tr(productStatusKey(p.status))}</AdminTd>
                   <AdminTd align="right">
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={appPath(`/seller/products/${p.id}/edit`)}
                         className={`p-2 rounded-lg ${t.iconBtn}`}
-                        title="Edit"
+                        title={tr('adminProducts.edit')}
                       >
                         <PencilIcon className="w-5 h-5" />
                       </Link>
@@ -161,7 +178,7 @@ export default function SellerProductsPage() {
                         type="button"
                         onClick={() => handleDelete(p.id)}
                         className="p-2 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400"
-                        title="Delete"
+                        title={tr('adminProducts.delete')}
                       >
                         <TrashIcon className="w-5 h-5" />
                       </button>
@@ -179,7 +196,7 @@ export default function SellerProductsPage() {
                 disabled={safePage <= 1}
                 onClick={() => setCurrentPage(safePage - 1)}
               >
-                Previous
+                {tr('pagination.previous')}
               </button>
               <button
                 type="button"
@@ -187,7 +204,7 @@ export default function SellerProductsPage() {
                 disabled={safePage >= totalPages}
                 onClick={() => setCurrentPage(safePage + 1)}
               >
-                Next
+                {tr('pagination.next')}
               </button>
             </div>
           )}

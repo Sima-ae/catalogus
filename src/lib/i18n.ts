@@ -49,6 +49,9 @@ import { getPricelistShippingSaveMessages } from '@/lib/i18n-pricelist-shipping-
 import { getShopSoldOutMessages } from '@/lib/i18n-shop-sold-out'
 import { getShopPreOrderMessages } from '@/lib/i18n-shop-pre-order'
 import { getActivityOrderMessages } from '@/lib/i18n-activity-order'
+import { getDashboardMessages } from '@/lib/i18n-dashboard'
+import { getContactMessages } from '@/lib/i18n-contact'
+import { getCategoryExtraMessages } from '@/lib/i18n-category-extra'
 
 export {
   SUPPORTED_LOCALES,
@@ -580,6 +583,9 @@ export function getMessages(locale: Locale): Messages {
     ...getShopSoldOutMessages(locale),
     ...getShopPreOrderMessages(locale),
     ...getActivityOrderMessages(locale),
+    ...getDashboardMessages(locale),
+    ...getContactMessages(locale),
+    ...getCategoryExtraMessages(locale),
   }
 }
 

@@ -34,6 +34,7 @@ import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog
 import { useAppTheme } from '@/lib/theme-classes'
 import type { Product } from '@/lib/types'
 import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
 
 type Order = {
   id: string
@@ -69,7 +70,27 @@ function formatWhen(iso: string | undefined): string {
   })
 }
 
-function StatusBadge({ status }: { status: Product['status'] | string }) {
+function orderStatusKey(status: string): string {
+  const n = status.toLowerCase()
+  if (n === 'pending') return 'admin.orderStatus.pending'
+  if (n === 'processing') return 'admin.orderStatus.processing'
+  if (n === 'completed') return 'admin.orderStatus.completed'
+  if (n === 'paid') return 'admin.orderStatus.paid'
+  if (n === 'cancelled') return 'admin.orderStatus.cancelled'
+  if (n === 'active') return 'adminProducts.status.published'
+  if (n === 'draft') return 'adminProducts.status.draft'
+  if (n === 'inactive') return 'adminProducts.status.inactive'
+  if (n === 'trash') return 'adminProducts.status.trash'
+  return 'admin.orderStatus.pending'
+}
+
+function StatusBadge({
+  status,
+  label,
+}: {
+  status: Product['status'] | string
+  label: string
+}) {
   const normalized = String(status || '').toLowerCase()
   const styles =
     normalized === 'active'
@@ -86,8 +107,6 @@ function StatusBadge({ status }: { status: Product['status'] | string }) {
                 ? 'bg-red-500/15 text-red-600 dark:text-red-400'
                 : 'bg-gray-500/15 text-gray-600 dark:text-gray-400'
 
-  const label = normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '—'
-
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${styles}`}>
       {label}
@@ -96,12 +115,12 @@ function StatusBadge({ status }: { status: Product['status'] | string }) {
 }
 
 const quickLinks = [
-  { href: '/admin/products', label: 'Products', icon: CubeIcon },
-  { href: '/admin/import', label: 'Yupoo import', icon: ArrowDownTrayIcon },
-  { href: '/admin/import/review', label: 'Import review', icon: ClipboardDocumentListIcon },
-  { href: '/admin/orders', label: 'Orders', icon: ShoppingCartIcon },
-  { href: '/admin/categories', label: 'Categories', icon: TagIcon },
-  { href: '/admin/users', label: 'Users', icon: UsersIcon },
+  { href: '/admin/products', labelKey: 'admin.nav.products', icon: CubeIcon },
+  { href: '/admin/import', labelKey: 'admin.page.yupooImport', icon: ArrowDownTrayIcon },
+  { href: '/admin/import/review', labelKey: 'admin.page.importReview', icon: ClipboardDocumentListIcon },
+  { href: '/admin/orders', labelKey: 'admin.nav.orders', icon: ShoppingCartIcon },
+  { href: '/admin/categories', labelKey: 'admin.nav.categories', icon: TagIcon },
+  { href: '/admin/users', labelKey: 'admin.nav.users', icon: UsersIcon },
 ] as const
 
 export default function AdminDashboard() {
@@ -202,11 +221,11 @@ export default function AdminDashboard() {
       setOrderCount(orderTotal)
       setOrderRevenue(revenueTotal)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard')
+      setError(e instanceof Error ? e.message : tr('admin.dashboard.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, tr])
 
   useEffect(() => {
     if (user) loadDashboard()
@@ -250,36 +269,45 @@ export default function AdminDashboard() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
             <StatCard
-              title="Catalog"
+              title={tr('admin.dashboard.statCatalog')}
               value={stats.catalogTotal}
-              change={`${stats.active} live · ${stats.draft} draft · ${stats.inactive} inactive${stats.trash ? ` · ${stats.trash} trash` : ''}`}
+              change={formatMessage(tr('admin.dashboard.catalogSummary'), {
+                active: stats.active,
+                draft: stats.draft,
+                inactive: stats.inactive,
+                trash: stats.trash
+                  ? formatMessage(tr('admin.dashboard.trashSuffix'), { trash: stats.trash })
+                  : '',
+              })}
               icon={<CubeIcon className="w-6 h-6 text-white" />}
               accentColor="bg-pink-500"
             />
             <StatCard
-              title="Orders"
+              title={tr('admin.dashboard.statOrders')}
               value={orderCount}
               change={
                 stats.pendingOrders > 0
-                  ? `${stats.pendingOrders} pending (recent)`
+                  ? formatMessage(tr('admin.dashboard.ordersPending'), {
+                      count: stats.pendingOrders,
+                    })
                   : orderCount
-                    ? 'All caught up'
-                    : 'No orders yet'
+                    ? tr('admin.dashboard.ordersCaughtUp')
+                    : tr('admin.dashboard.noOrdersYet')
               }
               icon={<ShoppingCartIcon className="w-6 h-6 text-white" />}
               accentColor="bg-purple-500"
             />
             <StatCard
-              title="Revenue"
+              title={tr('admin.dashboard.statRevenue')}
               value={`${currency} ${stats.revenue.toFixed(2)}`}
-              change="From all orders"
+              change={tr('admin.dashboard.fromAllOrders')}
               icon={<BanknotesIcon className="w-6 h-6 text-white" />}
               accentColor="bg-green-500"
             />
             <StatCard
-              title="Users"
+              title={tr('admin.dashboard.statUsers')}
               value={userCount}
-              change="Registered accounts"
+              change={tr('admin.dashboard.registeredAccounts')}
               icon={<UsersIcon className="w-6 h-6 text-white" />}
               accentColor="bg-blue-500"
             />
@@ -287,17 +315,17 @@ export default function AdminDashboard() {
 
           <section className="mb-8">
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${t.muted}`}>
-              Quick actions
+              {tr('admin.quickActions')}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {quickLinks.map(({ href, label, icon: Icon }) => (
+              {quickLinks.map(({ href, labelKey, icon: Icon }) => (
                 <Link
                   key={href}
                   href={appPath(href)}
                   className={`card flex flex-col items-center justify-center gap-2 py-4 text-center text-sm font-medium transition-colors hover:ring-1 hover:ring-primary-500/40 ${t.tableCell}`}
                 >
                   <Icon className="w-6 h-6 text-primary-500" aria-hidden />
-                  {label}
+                  {tr(labelKey)}
                 </Link>
               ))}
             </div>
@@ -307,40 +335,44 @@ export default function AdminDashboard() {
             <section className="xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                  <h2 className={`text-lg font-semibold ${t.heading}`}>Latest products</h2>
+                  <h2 className={`text-lg font-semibold ${t.heading}`}>
+                    {tr('admin.dashboard.latestProducts')}
+                  </h2>
                   <p className={`text-sm ${t.muted}`}>
-                    Most recently added or updated — showing {latestProducts.length} of{' '}
-                    {stats.catalogTotal}
+                    {formatMessage(tr('admin.dashboard.latestProductsHint'), {
+                      shown: latestProducts.length,
+                      total: stats.catalogTotal,
+                    })}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link href={appPath('/admin/products')} className="btn-secondary text-sm">
-                    View all
+                    {tr('admin.dashboard.viewAll')}
                   </Link>
                   <Link
                     href={appPath('/admin/products/new')}
                     className="btn-primary text-sm inline-flex items-center gap-1.5"
                   >
                     <PlusIcon className="w-4 h-4" />
-                    Add product
+                    {tr('admin.products.addProduct')}
                   </Link>
                 </div>
               </div>
 
               {latestProducts.length === 0 ? (
                 <div className={`card text-center py-10 ${t.muted}`}>
-                  <p className="mb-3">No products in the catalog yet.</p>
+                  <p className="mb-3">{tr('admin.dashboard.noProductsYet')}</p>
                   <Link href={appPath('/admin/products/new')} className="btn-primary text-sm">
-                    Add your first product
+                    {tr('admin.products.addFirstProduct')}
                   </Link>
                 </div>
               ) : (
                 <AdminTable>
                   <AdminTableHead>
-                    <AdminTh>Product</AdminTh>
-                    <AdminTh>Category</AdminTh>
-                    <AdminTh>Status</AdminTh>
-                    <AdminTh>Added</AdminTh>
+                    <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
+                    <AdminTh>{tr('adminProducts.col.category')}</AdminTh>
+                    <AdminTh>{tr('adminProducts.col.status')}</AdminTh>
+                    <AdminTh>{tr('admin.dashboard.colAdded')}</AdminTh>
                     <AdminTh align="right"> </AdminTh>
                   </AdminTableHead>
                   <AdminTableBody>
@@ -374,7 +406,10 @@ export default function AdminDashboard() {
                         </AdminTd>
                         <AdminTd className="whitespace-nowrap">{product.category || '—'}</AdminTd>
                         <AdminTd>
-                          <StatusBadge status={product.status} />
+                          <StatusBadge
+                            status={product.status}
+                            label={tr(orderStatusKey(product.status || 'active'))}
+                          />
                         </AdminTd>
                         <AdminTd className={`text-xs whitespace-nowrap ${t.muted}`}>
                           {formatWhen(product.created_at)}
@@ -383,10 +418,10 @@ export default function AdminDashboard() {
                           <Link
                             href={appPath(`/admin/products/${product.id}/edit`)}
                             className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm ${t.iconBtn}`}
-                            title="Edit product"
+                            title={tr('admin.dashboard.editProduct')}
                           >
                             <PencilIcon className="w-4 h-4" />
-                            Edit
+                            {tr('adminProducts.edit')}
                           </Link>
                         </AdminTd>
                       </AdminTr>
@@ -399,17 +434,23 @@ export default function AdminDashboard() {
             <section>
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                  <h2 className={`text-lg font-semibold ${t.heading}`}>Recent orders</h2>
-                  <p className={`text-sm ${t.muted}`}>Last {RECENT_ORDERS} orders</p>
+                  <h2 className={`text-lg font-semibold ${t.heading}`}>
+                    {tr('admin.dashboard.recentOrders')}
+                  </h2>
+                  <p className={`text-sm ${t.muted}`}>
+                    {formatMessage(tr('admin.dashboard.recentOrdersHint'), {
+                      count: RECENT_ORDERS,
+                    })}
+                  </p>
                 </div>
                 <Link href={appPath('/admin/orders')} className="btn-secondary text-sm">
-                  View all
+                  {tr('admin.dashboard.viewAll')}
                 </Link>
               </div>
 
               {recentOrders.length === 0 ? (
                 <div className={`card text-center py-10 text-sm ${t.muted}`}>
-                  No orders yet. They will appear here after customers checkout.
+                  {tr('admin.dashboard.noOrdersHint')}
                 </div>
               ) : (
                 <div className="card divide-y divide-gray-200 dark:divide-dark-800">
@@ -418,11 +459,14 @@ export default function AdminDashboard() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className={`font-medium truncate ${t.heading}`}>
-                            {order.customer_name || 'Customer'}
+                            {order.customer_name || tr('admin.dashboard.customer')}
                           </p>
                           <p className={`text-xs truncate ${t.muted}`}>{order.customer_email}</p>
                         </div>
-                        <StatusBadge status={order.status} />
+                        <StatusBadge
+                          status={order.status}
+                          label={tr(orderStatusKey(order.status))}
+                        />
                       </div>
                       <div className={`mt-2 flex items-center justify-between text-sm ${t.muted}`}>
                         <span>{formatWhen(order.created_at)}</span>

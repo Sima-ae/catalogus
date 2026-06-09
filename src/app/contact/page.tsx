@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState, FormEvent, type ComponentType } from 'react'
+import { useEffect, useState, FormEvent, useMemo, type ComponentType } from 'react'
 import ShopPageShell from '@/components/shop/ShopPageShell'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 import { APP_NAME, APP_COPYRIGHT } from '@/lib/brand'
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from '@/lib/site-settings'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
+import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
 import {
   EnvelopeIcon,
   ClockIcon,
@@ -14,33 +16,24 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 
-const FAQ = [
-  {
-    q: 'How and when do I receive a product after purchase?',
-    a: 'After you have placed your order we will send you a payment link. After you have made the payment you will receive your product(s) within the mentioned standard delivery time.',
-  },
-  {
-    q: 'Can I get a refund?',
-    a: 'Products are generally non-refundable once purchased. Contact our sales support team with your order number if something is wrong with your purchase.',
-  },
-  {
-    q: 'How do I become a seller?',
-    a: 'Use “Become a Seller” in the sidebar to register. Once approved, you can list your products for sale.',
-  },
-  {
-    q: 'What payment methods do you accept?',
-    a: 'We support online checkout for common european payment methods and we also accept BitCoin.',
-  },
-]
+const FAQ_KEYS = [
+  { q: 'contact.faq.q1', a: 'contact.faq.a1' },
+  { q: 'contact.faq.q2', a: 'contact.faq.a2' },
+  { q: 'contact.faq.q3', a: 'contact.faq.a3' },
+  { q: 'contact.faq.q4', a: 'contact.faq.a4' },
+] as const
 
 export default function ContactPage() {
   const { theme } = useTheme()
+  const { t } = useI18n()
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
+
+  const siteName = settings.site_name || APP_NAME
 
   useEffect(() => {
     fetch(appPath('/api/settings/public'))
@@ -63,20 +56,24 @@ export default function ContactPage() {
 
   const supportEmail = settings.support_email?.trim()
 
+  const faqItems = useMemo(
+    () => FAQ_KEYS.map((item) => ({ q: t(item.q), a: t(item.a) })),
+    [t]
+  )
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (supportEmail) {
-      const body = encodeURIComponent(
-        `From: ${name} <${email}>\n\n${message}`
-      )
-      const mailto = `mailto:${supportEmail}?subject=${encodeURIComponent(subject || `Contact — ${APP_NAME}`)}&body=${body}`
+      const body = encodeURIComponent(`From: ${name} <${email}>\n\n${message}`)
+      const mailtoSubject = formatMessage(t('contact.mailto.subject'), { siteName })
+      const mailto = `mailto:${supportEmail}?subject=${encodeURIComponent(subject || mailtoSubject)}&body=${body}`
       window.location.href = mailto
     }
     setSubmitted(true)
   }
 
   return (
-    <ShopPageShell title="Contact">
+    <ShopPageShell title={t('nav.contact')}>
       <section
         className={`rounded-2xl border p-6 sm:p-8 mb-8 ${
           isDark
@@ -84,19 +81,29 @@ export default function ContactPage() {
             : 'bg-gradient-to-br from-gray-100 via-white to-gray-50 border-gray-200'
         }`}
       >
-        <h2 className={`text-2xl sm:text-3xl font-bold mb-2 ${heading}`}>Get in touch</h2>
+        <h2 className={`text-2xl sm:text-3xl font-bold mb-2 ${heading}`}>{t('contact.hero.title')}</h2>
         <p className={`max-w-2xl ${muted}`}>
-          Reach the {settings.site_name || APP_NAME} team for support, partnerships, or account help.
+          {formatMessage(t('contact.hero.subtitle'), { siteName })}
         </p>
         <div className="grid sm:grid-cols-3 gap-4 mt-6">
           <InfoCard
             icon={EnvelopeIcon}
-            title="E-mail"
+            title={t('contact.info.email')}
             value={supportEmail || '—'}
             isDark={isDark}
           />
-          <InfoCard icon={ClockIcon} title="Daily Opening Hours" value="08:00 – 20:00 CET" isDark={isDark} />
-          <InfoCard icon={ShieldCheckIcon} title="Secure" value="Encrypted orders and payments" isDark={isDark} />
+          <InfoCard
+            icon={ClockIcon}
+            title={t('contact.info.hours')}
+            value={t('contact.info.hoursValue')}
+            isDark={isDark}
+          />
+          <InfoCard
+            icon={ShieldCheckIcon}
+            title={t('contact.info.secure')}
+            value={t('contact.info.secureValue')}
+            isDark={isDark}
+          />
         </div>
       </section>
 
@@ -107,22 +114,22 @@ export default function ContactPage() {
         >
           <h3 className={`text-lg font-semibold mb-6 flex items-center gap-2 shrink-0 ${heading}`}>
             <ChatBubbleLeftRightIcon className="w-5 h-5" />
-            Send a message
+            {t('contact.form.title')}
           </h3>
           {submitted && !supportEmail && (
             <p className="mb-4 text-amber-600 dark:text-amber-400 text-sm shrink-0">
-              Your message was noted. Support email is not configured yet — an administrator can add it under Admin → Settings.
+              {t('contact.form.noEmailNote')}
             </p>
           )}
           {submitted && supportEmail && (
             <p className="mb-4 text-green-600 dark:text-green-400 text-sm shrink-0">
-              Your email client should open with your message ready to send.
+              {t('contact.form.openEmailNote')}
             </p>
           )}
           <div className="flex-1 flex flex-col space-y-4 min-h-0">
             <div className="grid sm:grid-cols-2 gap-4">
               <label className="block">
-                <span className={`text-sm font-medium ${muted}`}>Name</span>
+                <span className={`text-sm font-medium ${muted}`}>{t('contact.form.name')}</span>
                 <input
                   required
                   value={name}
@@ -131,7 +138,7 @@ export default function ContactPage() {
                 />
               </label>
               <label className="block">
-                <span className={`text-sm font-medium ${muted}`}>Email</span>
+                <span className={`text-sm font-medium ${muted}`}>{t('contact.form.email')}</span>
                 <input
                   type="email"
                   required
@@ -142,16 +149,16 @@ export default function ContactPage() {
               </label>
             </div>
             <label className="block">
-              <span className={`text-sm font-medium ${muted}`}>Subject</span>
+              <span className={`text-sm font-medium ${muted}`}>{t('contact.form.subject')}</span>
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Order help, seller inquiry, …"
+                placeholder={t('contact.form.subjectPlaceholder')}
                 className={`mt-1 w-full px-3 py-2 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:outline-none ${inputClass}`}
               />
             </label>
             <label className="flex flex-1 flex-col min-h-[8rem]">
-              <span className={`text-sm font-medium shrink-0 ${muted}`}>Message</span>
+              <span className={`text-sm font-medium shrink-0 ${muted}`}>{t('contact.form.message')}</span>
               <textarea
                 required
                 value={message}
@@ -160,15 +167,15 @@ export default function ContactPage() {
               />
             </label>
             <button type="submit" className="btn-primary w-full sm:w-auto px-8 py-2.5 shrink-0 mt-auto">
-              {supportEmail ? 'Open in email' : 'Submit'}
+              {supportEmail ? t('contact.form.submitEmail') : t('contact.form.submit')}
             </button>
           </div>
         </form>
 
         <section className={`rounded-xl border p-6 sm:p-8 h-full flex flex-col ${card}`}>
-          <h3 className={`text-lg font-semibold mb-6 shrink-0 ${heading}`}>Frequently asked questions</h3>
+          <h3 className={`text-lg font-semibold mb-6 shrink-0 ${heading}`}>{t('contact.faq.title')}</h3>
           <div className="flex-1 flex flex-col gap-4 min-h-0">
-            {FAQ.map((item) => (
+            {faqItems.map((item) => (
               <article
                 key={item.q}
                 className={`rounded-lg border p-4 ${
