@@ -112,6 +112,29 @@ function formatAdminShippingCost(value: number | null | undefined): string {
   return formatPrice(value, { zeroLabel: '€ 0,00' })
 }
 
+function AdminShippingCostCell({
+  value,
+  isDark,
+}: {
+  value: number | null | undefined
+  isDark: boolean
+}) {
+  if (value == null) {
+    return <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>—</span>
+  }
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded border text-sm tabular-nums font-semibold ${
+        isDark
+          ? 'bg-dark-900 border-green-500/60 text-green-400'
+          : 'bg-white border-green-500 text-green-700'
+      }`}
+    >
+      {formatAdminShippingCost(value)}
+    </span>
+  )
+}
+
 function formatAdminSalePrice(
   value: number | null | undefined,
   tr: (key: string) => string
@@ -808,7 +831,9 @@ export default function AdminProductsPage() {
                   )}
                 </AdminTd>
                 <AdminTd>{formatAdminPurchasePrice(p.purchase_price)}</AdminTd>
-                <AdminTd>{formatAdminShippingCost(p.shipping_cost)}</AdminTd>
+                <AdminTd>
+                  <AdminShippingCostCell value={p.shipping_cost} isDark={t.isDark} />
+                </AdminTd>
                 <AdminTd>{formatAdminSalePrice(p.price, tr)}</AdminTd>
                 <AdminTd>
                   <span

@@ -380,7 +380,7 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
       seller_id: row.seller_id,
       stock_status: resolved.stock_status,
       shipping_cost:
-        shippingCost != null && Number.isFinite(shippingCost) && shippingCost > 0
+        shippingCost != null && Number.isFinite(shippingCost) && shippingCost >= 0
           ? shippingCost
           : null,
     })
@@ -635,27 +635,27 @@ export async function syncProductPurchasePriceFromPlatformPricelist(
   ])
 }
 
-/** Most recent positive seller shipping cost for a product (by updated_at). */
+/** Most recent seller shipping cost for a product (by updated_at), including €0 = free shipping. */
 export async function resolveLatestNumericPricelistShippingCost(
   productId: string
 ): Promise<number | null> {
   const rows = await queryDb<{ shipping_cost: string }[]>(
     `SELECT shipping_cost
      FROM seller_product_prices
-     WHERE product_id = ? AND shipping_cost IS NOT NULL AND shipping_cost > 0
+     WHERE product_id = ? AND shipping_cost IS NOT NULL
      ORDER BY updated_at DESC
      LIMIT 1`,
     [productId]
   )
-  if (!rows[0]?.shipping_cost) return null
+  if (rows[0]?.shipping_cost == null || rows[0]?.shipping_cost === '') return null
   const cost = Number(rows[0].shipping_cost)
-  return Number.isFinite(cost) && cost > 0 ? cost : null
+  return Number.isFinite(cost) && cost >= 0 ? cost : null
 }
 
 /**
  * Keep products.shipping_cost in sync with platform pricelist seller shipping
  * (admin products table “Shipping costs” / Verzendkosten column).
- * Never clears shipping_cost — only updates when a seller saves a positive value on the pricelist.
+ * Never clears shipping_cost — only updates when a seller saves a value (including €0 = free shipping).
  */
 export async function syncProductShippingCostFromPlatformPricelist(
   productId: string
@@ -675,7 +675,7 @@ export async function syncProductShippingCostFromPlatformPricelist(
 /** Backfill shipping_cost for every product on the platform pricelist (single SQL batch). */
 export async function syncAllPlatformPricelistShippingCosts(): Promise<{
   onPricelist: number
-  withPositiveShipping: number
+  withSavedShipping: number
   updated: number
 }> {
   const onListRows = await queryDb<{ product_id: string }[]>(
@@ -684,15 +684,15 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
   )
   const onPricelist = onListRows.length
 
-  const positiveRows = await queryDb<{ cnt: number }[]>(
+  const savedRows = await queryDb<{ cnt: number }[]>(
     `SELECT COUNT(DISTINCT spp.product_id) AS cnt
      FROM seller_product_prices spp
      INNER JOIN pricelist_items pi
        ON pi.product_id = spp.product_id AND pi.owner_user_id = ?
-     WHERE spp.shipping_cost IS NOT NULL AND spp.shipping_cost > 0`,
+     WHERE spp.shipping_cost IS NOT NULL`,
     [PLATFORM_PRICELIST_OWNER_ID]
   )
-  const withPositiveShipping = Number(positiveRows[0]?.cnt ?? 0)
+  const withSavedShipping = Number(savedRows[0]?.cnt ?? 0)
 
   const result = await queryDb<{ affectedRows?: number }>(
     `UPDATE products p
@@ -702,7 +702,7 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
          SELECT product_id, shipping_cost,
            ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
          FROM seller_product_prices
-         WHERE shipping_cost IS NOT NULL AND shipping_cost > 0
+         WHERE shipping_cost IS NOT NULL
        ) ranked
        WHERE rn = 1
      ) sp ON sp.product_id = p.id
@@ -716,7 +716,7 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
       ? Number(result.affectedRows ?? 0)
       : 0
 
-  return { onPricelist, withPositiveShipping, updated }
+  return { onPricelist, withSavedShipping, updated }
 }
 
 /** Backfill purchase_price for every product on the platform pricelist. */
@@ -1056,16 +1056,6 @@ async function hydratePricelistRows(
       ? [main, ...(galleryRest ?? [])]
       : [...(galleryRest ?? [])]
 
-    const positiveShipping = (value: number | null | undefined): number | null =>
-      value != null && Number.isFinite(Number(value)) && Number(value) > 0
-        ? Number(value)
-        : null
-    const resolvedDisplayShipping =
-      positiveShipping(displayShipping) ??
-      positiveShipping(sellerShipping) ??
-      positiveShipping(productShippingCost)
-    const resolvedSellerShipping = positiveShipping(sellerShipping)
-
     rows.push({
       item_id: item.item_id,
       product_id: item.product_id,
@@ -1075,8 +1065,8 @@ async function hydratePricelistRows(
       category_id: item.category_id?.trim() || null,
       brand: item.brand?.trim() || '—',
       product_shipping_cost: productShippingCost,
-      seller_shipping_cost: resolvedSellerShipping,
-      display_shipping_cost: resolvedDisplayShipping,
+      seller_shipping_cost: sellerShipping,
+      display_shipping_cost: displayShipping,
       can_edit_shipping: canEditShipping,
       shipping_seller_id: shippingSellerId,
       image_url: main,

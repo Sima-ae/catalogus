@@ -32,21 +32,21 @@ const EN = {
   'contact.faq.q1': 'How and when do I receive a product after purchase?',
   'contact.faq.a1':
     'After you have placed your order we will send you a payment link. After you have made the payment you will receive your product(s) within the mentioned standard delivery time.',
-  'contact.faq.q2': 'Can I get a refund?',
-  'contact.faq.a2':
-    'Products are generally non-refundable once purchased. Contact our sales support team with your order number if something is wrong with your purchase.',
-  'contact.faq.q3': 'How do I become a seller?',
+  'contact.faq.q2': 'Can I exchange or return a product?',
+  'contact.faq.a2': 'No, that is not possible.',
+  'contact.faq.q3': 'Can I get a refund?',
   'contact.faq.a3':
-    'Use “Become a Seller” in the sidebar to register. Once approved, you can list your products for sale.',
+    'Products are generally non-refundable once purchased. Contact our sales support team with your order number if something is wrong with your purchase.',
   'contact.faq.q4': 'What payment methods do you accept?',
   'contact.faq.a4':
     'We support online checkout for common european payment methods and we also accept BitCoin.',
-  'contact.faq.q5': 'Can I exchange or return a product?',
-  'contact.faq.a5': 'No, that is not possible.',
+  'contact.faq.q5': 'How do I become a seller?',
+  'contact.faq.a5':
+    'Use “Become a Seller” in the sidebar to register. Once approved, you can list your products for sale.',
   'contact.mailto.subject': 'Contact — {siteName}',
 }
 
-/** FAQ #5 — exchange/return policy (all locales). */
+/** FAQ #2 — exchange/return policy (all locales). */
 const EXCHANGE_FAQ = {
   en: { q: 'Can I exchange or return a product?', a: 'No, that is not possible.' },
   nl: { q: 'Kan ik een product ruilen of retourneren?', a: 'Nee, dat is niet mogelijk.' },
@@ -115,17 +115,17 @@ const PACKS = {
     'contact.faq.q1': 'Hoe en wanneer ontvang ik een product na aankoop?',
     'contact.faq.a1':
       'Na je bestelling sturen we je een betaallink. Na betaling ontvang je jouw product(en) binnen de genoemde standaard levertijd.',
-    'contact.faq.q2': 'Kan ik een terugbetaling krijgen?',
-    'contact.faq.a2':
-      'Producten zijn over het algemeen niet restitueerbaar na aankoop. Neem contact op met ons verkoopteam met je bestelnummer als er iets mis is.',
-    'contact.faq.q3': 'Hoe word ik verkoper?',
+    'contact.faq.q2': EXCHANGE_FAQ.nl.q,
+    'contact.faq.a2': EXCHANGE_FAQ.nl.a,
+    'contact.faq.q3': 'Kan ik een terugbetaling krijgen?',
     'contact.faq.a3':
-      'Gebruik “Verkopen?” in het zijmenu om je te registreren. Na goedkeuring kun je producten te koop aanbieden.',
+      'Producten zijn over het algemeen niet restitueerbaar na aankoop. Neem contact op met ons verkoopteam met je bestelnummer als er iets mis is.',
     'contact.faq.q4': 'Welke betaalmethoden accepteren jullie?',
     'contact.faq.a4':
       'We ondersteunen online afrekenen met gangbare Europese betaalmethoden en accepteren ook BitCoin.',
-    'contact.faq.q5': EXCHANGE_FAQ.nl.q,
-    'contact.faq.a5': EXCHANGE_FAQ.nl.a,
+    'contact.faq.q5': 'Hoe word ik verkoper?',
+    'contact.faq.a5':
+      'Gebruik “Verkopen?” in het zijmenu om je te registreren. Na goedkeuring kun je producten te koop aanbieden.',
     'contact.mailto.subject': 'Contact — {siteName}',
   },
   de: {
@@ -145,9 +145,11 @@ const PACKS = {
     'contact.form.submit': 'Absenden',
     'contact.faq.title': 'Häufig gestellte Fragen',
     'contact.faq.q1': 'Wie und wann erhalte ich ein Produkt nach dem Kauf?',
-    'contact.faq.q2': 'Kann ich eine Rückerstattung erhalten?',
-    'contact.faq.q3': 'Wie werde ich Verkäufer?',
+    'contact.faq.q2': EXCHANGE_FAQ.de.q,
+    'contact.faq.a2': EXCHANGE_FAQ.de.a,
+    'contact.faq.q3': 'Kann ich eine Rückerstattung erhalten?',
     'contact.faq.q4': 'Welche Zahlungsmethoden akzeptieren Sie?',
+    'contact.faq.q5': 'Wie werde ich Verkäufer?',
     'contact.mailto.subject': 'Kontakt — {siteName}',
   },
   fr: {
@@ -227,8 +229,8 @@ function resolvePack(locale) {
   if (base) {
     return {
       ...base,
-      'contact.faq.q5': exchange.q,
-      'contact.faq.a5': exchange.a,
+      'contact.faq.q2': exchange.q,
+      'contact.faq.a2': exchange.a,
     }
   }
   const fb = LOCALE_FALLBACK[locale]
@@ -237,14 +239,14 @@ function resolvePack(locale) {
     const exchangeFb = EXCHANGE_FAQ[locale] ?? EXCHANGE_FAQ[fb] ?? EXCHANGE_FAQ.en
     return {
       ...merged,
-      'contact.faq.q5': exchangeFb.q,
-      'contact.faq.a5': exchangeFb.a,
+      'contact.faq.q2': exchangeFb.q,
+      'contact.faq.a2': exchangeFb.a,
     }
   }
   return {
     ...EN,
-    'contact.faq.q5': exchange.q,
-    'contact.faq.a5': exchange.a,
+    'contact.faq.q2': exchange.q,
+    'contact.faq.a2': exchange.a,
   }
 }
 

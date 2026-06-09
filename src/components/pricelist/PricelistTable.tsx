@@ -74,35 +74,19 @@ function parsePriceInput(value: string): number | null {
   return Math.round(n * 100) / 100
 }
 
-function positiveShippingValue(...values: Array<number | null | undefined>): number | null {
-  for (const raw of values) {
-    if (raw == null || !Number.isFinite(Number(raw))) continue
-    const n = Number(raw)
-    if (n > 0) return n
-  }
-  return null
-}
-
 function editableShippingSeed(row: PricelistRow): string {
-  const positive = positiveShippingValue(
-    row.seller_shipping_cost,
-    row.display_shipping_cost,
-    row.product_shipping_cost
-  )
-  if (positive != null) return String(positive)
-  return ''
+  const raw = row.seller_shipping_cost ?? row.display_shipping_cost
+  if (raw == null || !Number.isFinite(Number(raw))) return ''
+  return String(raw)
 }
 
 function readOnlyShippingDisplay(row: PricelistRow): string {
-  const positive = positiveShippingValue(
-    row.display_shipping_cost,
-    row.seller_shipping_cost,
-    row.product_shipping_cost
-  )
-  if (positive == null) return '—'
-  return formatPrice(positive, {
+  const raw =
+    row.display_shipping_cost ?? row.seller_shipping_cost ?? row.product_shipping_cost
+  if (raw == null) return '—'
+  return formatPrice(raw, {
     currencyCode: row.display_currency || row.seller_currency || 'EUR',
-    zeroLabel: '—',
+    zeroLabel: '€ 0,00',
   })
 }
 

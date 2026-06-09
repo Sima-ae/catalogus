@@ -9,14 +9,14 @@ import { syncAllPlatformPricelistShippingCosts } from '../src/lib/pricelist-db'
 
 async function main() {
   ensureEnvLoaded()
-  const { onPricelist, withPositiveShipping, updated } =
+  const { onPricelist, withSavedShipping, updated } =
     await syncAllPlatformPricelistShippingCosts()
   console.log(
-    `Platform pricelist: ${onPricelist} product(s); ${withPositiveShipping} with shipping > 0 in seller prices; updated ${updated} product row(s).`
+    `Platform pricelist: ${onPricelist} product(s); ${withSavedShipping} with saved shipping in seller prices; updated ${updated} product row(s).`
   )
-  if (withPositiveShipping === 0) {
+  if (withSavedShipping === 0) {
     console.log(
-      'No positive shipping costs found in seller_product_prices — enter shipping on /pricelist first (values of €0 are not synced).'
+      'No shipping costs found in seller_product_prices — enter shipping on /pricelist first.'
     )
   }
 }
