@@ -1,5 +1,6 @@
 -- Run once on an existing database (after an older schema import).
--- Fresh installs: use supe_r_clones_cloud_init.sql + supe_r_clones_cloud_users.sql only.
+-- Fresh installs: use db/catalogus_full_schema.sql (recommended) or the legacy
+-- supe_r_clones_cloud_init.sql + supe_r_clones_cloud_users.sql pair.
 
 USE supe_r_clones_cloud;
 
