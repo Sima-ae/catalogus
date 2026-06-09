@@ -107,6 +107,11 @@ function formatAdminPurchasePrice(value: number | null | undefined): string {
   return formatPrice(value, { zeroLabel: '—' })
 }
 
+function formatAdminShippingCost(value: number | null | undefined): string {
+  if (value == null) return '—'
+  return formatPrice(value, { zeroLabel: '€ 0,00' })
+}
+
 function formatAdminSalePrice(
   value: number | null | undefined,
   tr: (key: string) => string
@@ -803,7 +808,7 @@ export default function AdminProductsPage() {
                   )}
                 </AdminTd>
                 <AdminTd>{formatAdminPurchasePrice(p.purchase_price)}</AdminTd>
-                <AdminTd>{formatAdminPurchasePrice(p.shipping_cost)}</AdminTd>
+                <AdminTd>{formatAdminShippingCost(p.shipping_cost)}</AdminTd>
                 <AdminTd>{formatAdminSalePrice(p.price, tr)}</AdminTd>
                 <AdminTd>
                   <span
