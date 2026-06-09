@@ -67,6 +67,7 @@ export function serializeProductRow(
     resolved_brand_id: _bi,
     resolved_brand_slug: _bs,
     purchase_price: _purchasePriceRaw,
+    shipping_cost: _shippingCostRaw,
     ...rest
   } = row
 
@@ -101,6 +102,10 @@ export function serializeProductRow(
     row.purchase_price != null && row.purchase_price !== ''
       ? Number(row.purchase_price)
       : null
+  const shippingCost =
+    row.shipping_cost != null && row.shipping_cost !== ''
+      ? Number(row.shipping_cost)
+      : null
 
   return {
     ...rest,
@@ -128,7 +133,9 @@ export function serializeProductRow(
       row.original_price != null && row.original_price !== ''
         ? Number(row.original_price)
         : null,
-    ...(options?.includePurchasePrice ? { purchase_price: purchasePrice } : {}),
+    ...(options?.includePurchasePrice
+      ? { purchase_price: purchasePrice, shipping_cost: shippingCost }
+      : {}),
     rating: row.rating != null ? Number(row.rating) : null,
     review_count: row.review_count != null ? Number(row.review_count) : null,
     download_count: row.download_count != null ? Number(row.download_count) : null,
@@ -142,9 +149,9 @@ export function serializeProductRow(
 }
 
 /** Strip admin-only pricing from a product payload (shop / seller APIs). */
-export function omitProductInternalPricing<T extends { purchase_price?: unknown }>(
-  product: T
-): Omit<T, 'purchase_price'> {
-  const { purchase_price: _pp, ...rest } = product
+export function omitProductInternalPricing<
+  T extends { purchase_price?: unknown; shipping_cost?: unknown },
+>(product: T): Omit<T, 'purchase_price' | 'shipping_cost'> {
+  const { purchase_price: _pp, shipping_cost: _sc, ...rest } = product
   return rest
 }

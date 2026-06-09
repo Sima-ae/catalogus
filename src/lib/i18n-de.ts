@@ -152,6 +152,7 @@ export const MESSAGES_DE: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategorie',
   'pricelist.col.brand': 'Marke',
+  'pricelist.col.shippingCost': 'Versandkosten',
   'pricelist.col.price': 'Preis',
   'pricelist.col.starAria': 'Preisliste',
   'pricelist.remove': 'Entfernen',

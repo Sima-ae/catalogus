@@ -152,6 +152,7 @@ export const MESSAGES_GR: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Κατηγορία',
   'pricelist.col.brand': 'Μάρκα',
+  'pricelist.col.shippingCost': 'Έξοδα αποστολής',
   'pricelist.col.price': 'Τιμή',
   'pricelist.col.starAria': 'Τιμοκατάλογος',
   'pricelist.remove': 'Αφαίρεση',

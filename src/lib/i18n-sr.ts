@@ -130,6 +130,7 @@ export const MESSAGES_SR: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Категорија',
   'pricelist.col.brand': 'Бренд',
+  'pricelist.col.shippingCost': 'Troškovi dostave',
   'pricelist.col.price': 'Цена',
   'pricelist.col.starAria': 'Ценовник',
   'pricelist.remove': 'Уклони',

@@ -130,6 +130,7 @@ export const MESSAGES_KA: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'კატეგორია',
   'pricelist.col.brand': 'ბრენდი',
+  'pricelist.col.shippingCost': 'მიწოდების ხარჯები',
   'pricelist.col.price': 'ფასი',
   'pricelist.col.starAria': 'ფასების სია',
   'pricelist.remove': 'წაშლა',

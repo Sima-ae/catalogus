@@ -130,6 +130,7 @@ export const MESSAGES_HY: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Կատեգորիա',
   'pricelist.col.brand': 'Բրենդ',
+  'pricelist.col.shippingCost': 'Առաքման ծախսեր',
   'pricelist.col.price': 'Գին',
   'pricelist.col.starAria': 'Գնացուցակ',
   'pricelist.remove': 'Հեռացնել',

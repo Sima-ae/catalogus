@@ -130,6 +130,7 @@ export const MESSAGES_SV: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategori',
   'pricelist.col.brand': 'Varumärke',
+  'pricelist.col.shippingCost': 'Fraktkostnader',
   'pricelist.col.price': 'Pris',
   'pricelist.col.starAria': 'Prislista',
   'pricelist.remove': 'Ta bort',

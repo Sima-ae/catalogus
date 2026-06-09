@@ -733,6 +733,7 @@ export default function AdminProductsPage() {
             <AdminTh>{tr('adminProducts.col.category')}</AdminTh>
             <AdminTh>{tr('adminProducts.col.brand')}</AdminTh>
             <AdminTh>{tr('productForm.purchasePrice')}</AdminTh>
+            <AdminTh>{tr('productForm.shippingCost')}</AdminTh>
             <AdminTh>{tr('adminProducts.col.price')}</AdminTh>
             <AdminTh>{tr('adminProducts.col.status')}</AdminTh>
             <AdminTh align="right">{tr('adminProducts.col.actions')}</AdminTh>
@@ -801,6 +802,7 @@ export default function AdminProductsPage() {
                   )}
                 </AdminTd>
                 <AdminTd>{formatAdminPurchasePrice(p.purchase_price)}</AdminTd>
+                <AdminTd>{formatAdminPurchasePrice(p.shipping_cost)}</AdminTd>
                 <AdminTd>{formatAdminSalePrice(p.price, tr)}</AdminTd>
                 <AdminTd>
                   <span

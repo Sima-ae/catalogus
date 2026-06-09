@@ -130,6 +130,7 @@ export const MESSAGES_JA: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'カテゴリー',
   'pricelist.col.brand': 'ブランド',
+  'pricelist.col.shippingCost': '送料',
   'pricelist.col.price': '価格',
   'pricelist.col.starAria': '価格表',
   'pricelist.remove': '削除',

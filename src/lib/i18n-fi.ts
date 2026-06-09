@@ -130,6 +130,7 @@ export const MESSAGES_FI: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategoria',
   'pricelist.col.brand': 'Brändi',
+  'pricelist.col.shippingCost': 'Toimituskulut',
   'pricelist.col.price': 'Hinta',
   'pricelist.col.starAria': 'Hinnasto',
   'pricelist.remove': 'Poista',

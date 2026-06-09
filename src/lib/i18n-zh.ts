@@ -129,6 +129,7 @@ export const MESSAGES_ZH: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': '分类',
   'pricelist.col.brand': '品牌',
+  'pricelist.col.shippingCost': '运费',
   'pricelist.col.price': '价格',
   'pricelist.col.starAria': '价格表',
   'pricelist.remove': '移除',

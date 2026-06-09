@@ -152,6 +152,7 @@ export const MESSAGES_CZ: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategorie',
   'pricelist.col.brand': 'Značka',
+  'pricelist.col.shippingCost': 'Náklady na dopravu',
   'pricelist.col.price': 'Cena',
   'pricelist.col.starAria': 'Ceník',
   'pricelist.remove': 'Odebrat',

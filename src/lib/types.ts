@@ -6,6 +6,7 @@ export interface Product {
   price: number
   original_price?: number
   purchase_price?: number
+  shipping_cost?: number | null
   image_url: string
   gallery_images?: string[]
   available_sizes?: string[]

@@ -129,6 +129,7 @@ export const MESSAGES_AZ: Record<string, string> = {
   'pricelist.col.sku': "SKU",
   'pricelist.col.category': "Kategori",
   'pricelist.col.brand': "Marka",
+  'pricelist.col.shippingCost': 'Çatdırılma xərcləri',
   'pricelist.col.price': "Fiyat",
   'pricelist.col.starAria': "Fiyat listesi",
   'pricelist.remove': "Kaldır",

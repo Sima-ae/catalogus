@@ -152,6 +152,7 @@ export const MESSAGES_BG: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Категория',
   'pricelist.col.brand': 'Марка',
+  'pricelist.col.shippingCost': 'Разходи за доставка',
   'pricelist.col.price': 'Цена',
   'pricelist.col.starAria': 'Ценова листа',
   'pricelist.remove': 'Премахни',

@@ -106,8 +106,9 @@ export default function PricelistTable({
           <col className="w-[9%]" />
           <col className="w-[22%]" />
           <col className="w-[11%]" />
-          <col className="w-[14%]" />
-          <col className={canManageItems || showStar ? 'w-[34%]' : 'w-[36%]'} />
+          <col className="w-[12%]" />
+          <col className="w-[8%]" />
+          <col className={canManageItems || showStar ? 'w-[30%]' : 'w-[32%]'} />
           {showStar ? <col className="w-10" /> : null}
           {canManageItems ? <col className="w-10" /> : null}
         </colgroup>
@@ -141,6 +142,9 @@ export default function PricelistTable({
             </th>
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
               {t('pricelist.col.brand')}
+            </th>
+            <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+              {t('pricelist.col.shippingCost')}
             </th>
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
               {t('pricelist.col.price')}
@@ -486,6 +490,24 @@ function PricelistTableRow({
         title={row.brand}
       >
         {row.brand}
+      </td>
+      <td
+        className={`px-3 py-1.5 text-xs align-middle leading-snug tabular-nums ${muted}`}
+        title={
+          row.shipping_cost != null
+            ? formatPrice(row.shipping_cost, {
+                currencyCode: row.display_currency || row.seller_currency || 'EUR',
+                zeroLabel: '—',
+              })
+            : undefined
+        }
+      >
+        {row.shipping_cost != null
+          ? formatPrice(row.shipping_cost, {
+              currencyCode: row.display_currency || row.seller_currency || 'EUR',
+              zeroLabel: '—',
+            })
+          : '—'}
       </td>
       <td className="px-3 py-1.5 align-middle min-w-[18rem]">
         {showSellerPriceInput ? (

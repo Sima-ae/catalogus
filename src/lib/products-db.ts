@@ -51,6 +51,7 @@ export type ProductInput = {
   price: number
   original_price?: number | null
   purchase_price?: number | null
+  shipping_cost?: number | null
   image_url: string
   gallery_images?: string[] | null
   category: string
@@ -572,6 +573,7 @@ export async function insertProduct(input: ProductInput) {
     price: input.price,
     original_price: input.original_price ?? null,
     purchase_price: input.purchase_price ?? null,
+    shipping_cost: input.shipping_cost ?? null,
     image_url: images.image_url,
     gallery_images: jsonCol(images.gallery_images),
     category: category.name,
@@ -665,6 +667,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     price: input.price,
     original_price: input.original_price,
     purchase_price: input.purchase_price,
+    shipping_cost: input.shipping_cost,
     image_url:
       input.image_url !== undefined ? normalizeProductImageUrl(input.image_url) : undefined,
     gallery_images:

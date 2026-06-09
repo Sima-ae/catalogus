@@ -152,6 +152,7 @@ export const MESSAGES_HU: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategória',
   'pricelist.col.brand': 'Márka',
+  'pricelist.col.shippingCost': 'Szállítási költségek',
   'pricelist.col.price': 'Ár',
   'pricelist.col.starAria': 'Árlista',
   'pricelist.remove': 'Eltávolítás',

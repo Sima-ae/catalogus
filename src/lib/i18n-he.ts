@@ -130,6 +130,7 @@ export const MESSAGES_HE: Record<string, string> = {
   'pricelist.col.sku': 'מק״ט',
   'pricelist.col.category': 'קטגוריה',
   'pricelist.col.brand': 'מותג',
+  'pricelist.col.shippingCost': 'עלויות משלוח',
   'pricelist.col.price': 'מחיר',
   'pricelist.col.starAria': 'מחירון',
   'pricelist.remove': 'הסר',

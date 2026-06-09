@@ -130,6 +130,7 @@ export const MESSAGES_LT: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategorija',
   'pricelist.col.brand': 'Prekės ženklas',
+  'pricelist.col.shippingCost': 'Pristatymo išlaidos',
   'pricelist.col.price': 'Kaina',
   'pricelist.col.starAria': 'Kainynas',
   'pricelist.remove': 'Pašalinti',

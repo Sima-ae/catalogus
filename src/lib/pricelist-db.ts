@@ -32,6 +32,7 @@ export type PricelistRow = {
   category: string
   category_id: string | null
   brand: string
+  shipping_cost: number | null
   image_url: string
   /** Main + gallery images for lightbox (display URLs). */
   gallery_urls: string[]
@@ -590,6 +591,7 @@ type PricelistProductItemRow = {
   category: string | null
   category_id: string | null
   brand: string | null
+  shipping_cost: number | string | null
   image_url: string
   gallery_images: unknown
   source_url: string | null
@@ -613,7 +615,7 @@ FROM pricelist_items pi
 INNER JOIN products p ON p.id = pi.product_id`
 
 const PRICELIST_ITEM_SELECT = `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.category_id, p.brand,
-            p.image_url, p.gallery_images, p.source_url, pi.created_at`
+            p.shipping_cost, p.image_url, p.gallery_images, p.source_url, pi.created_at`
 
 async function fetchPricelistProductItems(
   listOwnerId: string,
@@ -845,6 +847,10 @@ async function hydratePricelistRows(
       category: item.category?.trim() || '—',
       category_id: item.category_id?.trim() || null,
       brand: item.brand?.trim() || '—',
+      shipping_cost:
+        item.shipping_cost != null && item.shipping_cost !== ''
+          ? Number(item.shipping_cost)
+          : null,
       image_url: main,
       gallery_urls,
       created_at: item.created_at,

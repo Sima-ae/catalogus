@@ -37,6 +37,7 @@ const defaultForm = {
   short_description: '',
   price: '',
   purchase_price: '',
+  shipping_cost: '',
   original_price: '',
   image_url: '',
   category: '',
@@ -505,7 +506,7 @@ export default function ProductForm({
             </div>
           ) : null}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
           {!isSeller ? (
             <Field
               label={tr('productForm.purchasePrice')}
@@ -513,6 +514,16 @@ export default function ProductForm({
               type="number"
               step="0.01"
               value={form.purchase_price}
+              onChange={onChange}
+            />
+          ) : null}
+          {!isSeller ? (
+            <Field
+              label={tr('productForm.shippingCost')}
+              name="shipping_cost"
+              type="number"
+              step="0.01"
+              value={form.shipping_cost}
               onChange={onChange}
             />
           ) : null}
@@ -679,6 +690,7 @@ function mapProductToForm(p: Partial<Product>) {
     short_description: p.short_description || '',
     price: p.price != null ? String(p.price) : '',
     purchase_price: p.purchase_price != null ? String(p.purchase_price) : '',
+    shipping_cost: p.shipping_cost != null ? String(p.shipping_cost) : '',
     original_price: p.original_price != null ? String(p.original_price) : '',
     image_url: p.image_url || '',
     category: p.category || '',

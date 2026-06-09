@@ -129,6 +129,7 @@ export const MESSAGES_PS: Record<string, string> = {
   'pricelist.col.sku': "SKU",
   'pricelist.col.category': "الفئة",
   'pricelist.col.brand': "العلامة",
+  'pricelist.col.shippingCost': 'د لېږد لګښتونه',
   'pricelist.col.price': "السعر",
   'pricelist.col.starAria': "قائمة الأسعار",
   'pricelist.remove': "إزالة",

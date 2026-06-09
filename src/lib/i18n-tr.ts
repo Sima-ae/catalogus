@@ -152,6 +152,7 @@ export const MESSAGES_TR: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategori',
   'pricelist.col.brand': 'Marka',
+  'pricelist.col.shippingCost': 'Kargo maliyetleri',
   'pricelist.col.price': 'Fiyat',
   'pricelist.col.starAria': 'Fiyat listesi',
   'pricelist.remove': 'Kaldır',

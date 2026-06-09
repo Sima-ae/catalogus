@@ -130,6 +130,7 @@ export const MESSAGES_SQ: Record<string, string> = {
   'pricelist.col.sku': 'SKU',
   'pricelist.col.category': 'Kategoria',
   'pricelist.col.brand': 'Marka',
+  'pricelist.col.shippingCost': 'Kostot e transportit',
   'pricelist.col.price': 'Çmimi',
   'pricelist.col.starAria': 'Lista e çmimeve',
   'pricelist.remove': 'Hiq',

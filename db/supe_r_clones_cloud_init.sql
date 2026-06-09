@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(12,2) NOT NULL,
   original_price DECIMAL(12,2) NULL,
   purchase_price DECIMAL(12,2) NULL,
+  shipping_cost DECIMAL(12,2) NULL,
   image_url TEXT NOT NULL,
   gallery_images LONGTEXT NULL,
   category VARCHAR(255) NOT NULL,

@@ -525,6 +525,10 @@ ALTER TABLE import_sources
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS purchase_price DECIMAL(12, 2) NULL AFTER original_price;
 
+-- Shipping costs (admin / pricelist — not shown on storefront)
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS shipping_cost DECIMAL(12, 2) NULL AFTER purchase_price;
+
 -- Sold-out ribbon on shop product cards and product page gallery
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS sold_out TINYINT(1) NOT NULL DEFAULT 0 AFTER featured;
