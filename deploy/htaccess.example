@@ -12,6 +12,12 @@
 #
 # Requires LiteSpeed proxy [P]. See deploy/LITESPEED.md
 
+# Block search indexing for static files served from public_html (e.g. /images/…)
+# Proxied HTML/API still get X-Robots-Tag from Next.js middleware + next.config.js.
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

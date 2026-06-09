@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { NO_INDEX_RESPONSE_HEADERS } from '@/lib/no-index'
 import { DEFAULT_FETCH_UA } from '@/lib/yupoo/client'
 
 export const dynamic = 'force-dynamic'
@@ -56,7 +57,8 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        'Cache-Control': 'private, max-age=86400, stale-while-revalidate=604800',
+        ...NO_INDEX_RESPONSE_HEADERS,
       },
     })
   } catch {

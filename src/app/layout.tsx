@@ -50,6 +50,16 @@ export default async function RootLayout({
 
   return (
     <html lang={locale}>
+      <head>
+        <meta
+          name="robots"
+          content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate"
+        />
+        <meta
+          name="googlebot"
+          content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate, max-image-preview:none, max-snippet:-1"
+        />
+      </head>
       <body className={`${inter.className} app-protected transition-colors duration-200`}>
         <AuthProvider>
           <ContentProtection />

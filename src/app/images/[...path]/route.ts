@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 import { NextResponse } from 'next/server'
 import { getCatalogImagesRoots } from '@/lib/catalog-images-root'
+import { NO_INDEX_RESPONSE_HEADERS } from '@/lib/no-index'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 
 export const runtime = 'nodejs'
@@ -57,7 +58,8 @@ export async function GET(
         status: 200,
         headers: {
           'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=604800, immutable',
+          'Cache-Control': 'private, max-age=604800, immutable',
+          ...NO_INDEX_RESPONSE_HEADERS,
         },
       })
     } catch {
