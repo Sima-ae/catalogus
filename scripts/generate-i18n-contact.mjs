@@ -41,7 +41,52 @@ const EN = {
   'contact.faq.q4': 'What payment methods do you accept?',
   'contact.faq.a4':
     'We support online checkout for common european payment methods and we also accept BitCoin.',
+  'contact.faq.q5': 'Can I exchange or return a product?',
+  'contact.faq.a5': 'No, that is not possible.',
   'contact.mailto.subject': 'Contact — {siteName}',
+}
+
+/** FAQ #5 — exchange/return policy (all locales). */
+const EXCHANGE_FAQ = {
+  en: { q: 'Can I exchange or return a product?', a: 'No, that is not possible.' },
+  nl: { q: 'Kan ik een product ruilen of retourneren?', a: 'Nee, dat is niet mogelijk.' },
+  fr: { q: 'Puis-je échanger ou retourner un produit ?', a: 'Non, ce n’est pas possible.' },
+  de: { q: 'Kann ich ein Produkt umtauschen oder zurückgeben?', a: 'Nein, das ist nicht möglich.' },
+  es: { q: '¿Puedo cambiar o devolver un producto?', a: 'No, no es posible.' },
+  pt: { q: 'Posso trocar ou devolver um produto?', a: 'Não, isso não é possível.' },
+  it: { q: 'Posso cambiare o restituire un prodotto?', a: 'No, non è possibile.' },
+  gr: { q: 'Μπορώ να ανταλλάξω ή να επιστρέψω ένα προϊόν;', a: 'Όχι, αυτό δεν είναι δυνατό.' },
+  pl: { q: 'Czy mogę wymienić lub zwrócić produkt?', a: 'Nie, nie jest to możliwe.' },
+  cz: { q: 'Mohu vyměnit nebo vrátit produkt?', a: 'Ne, není to možné.' },
+  sk: { q: 'Môžem vymeniť alebo vrátiť produkt?', a: 'Nie, nie je to možné.' },
+  hu: { q: 'Cserélhetek vagy visszaküldhetek egy terméket?', a: 'Nem, ez nem lehetséges.' },
+  ro: { q: 'Pot schimba sau returna un produs?', a: 'Nu, acest lucru nu este posibil.' },
+  bg: { q: 'Мога ли да заменя или върна продукт?', a: 'Не, това не е възможно.' },
+  hr: { q: 'Mogu li zamijeniti ili vratiti proizvod?', a: 'Ne, to nije moguće.' },
+  sr: { q: 'Da li mogu da zamenim ili vratim proizvod?', a: 'Ne, to nije moguće.' },
+  ba: { q: 'Mogu li zamijeniti ili vratiti proizvod?', a: 'Ne, to nije moguće.' },
+  me: { q: 'Mogu li zamijeniti ili vratiti proizvod?', a: 'Ne, to nije moguće.' },
+  sq: { q: 'A mund të ndërroj ose të kthej një produkt?', a: 'Jo, kjo nuk është e mundur.' },
+  mk: { q: 'Дали можам да заменам или да вратам производ?', a: 'Не, тоа не е можно.' },
+  lt: { q: 'Ar galiu keisti arba grąžinti prekę?', a: 'Ne, tai negalima.' },
+  da: { q: 'Kan jeg bytte eller returnere et produkt?', a: 'Nej, det er ikke muligt.' },
+  sv: { q: 'Kan jag byta eller returnera en produkt?', a: 'Nej, det är inte möjligt.' },
+  nb: { q: 'Kan jeg bytte eller returnere et produkt?', a: 'Nei, det er ikke mulig.' },
+  fi: { q: 'Voinko vaihtaa tai palauttaa tuotteen?', a: 'Ei, se ei ole mahdollista.' },
+  uk: { q: 'Чи можу я обміняти або повернути товар?', a: 'Ні, це неможливо.' },
+  ru: { q: 'Могу ли я обменять или вернуть товар?', a: 'Нет, это невозможно.' },
+  tr: { q: 'Bir ürünü değiştirebilir veya iade edebilir miyim?', a: 'Hayır, bu mümkün değildir.' },
+  he: { q: 'האם ניתן להחליף או להחזיר מוצר?', a: 'לא, זה אינו אפשרי.' },
+  eg: { q: 'هل يمكنني استبدال منتج أو إرجاعه؟', a: 'لا، ذلك غير ممكن.' },
+  at: { q: 'هل يمكنني استبدال منتج أو إرجاعه؟', a: 'لا، ذلك غير ممكن.' },
+  ps: { q: 'هل يمكنني استبدال منتج أو إرجاعه؟', a: 'لا، ذلك غير ممكن.' },
+  ma: { q: 'هل يمكنني استبدال منتج أو إرجاعه؟', a: 'لا، ذلك غير ممكن.' },
+  dz: { q: 'هل يمكنني استبدال منتج أو إرجاعه؟', a: 'لا، ذلك غير ممكن.' },
+  ka: { q: 'შემიძლია პროდუქტის გაცვლა ან დაბრუნება?', a: 'არა, ეს არ არის შესაძლებელი.' },
+  hy: { q: 'Կարո՞ղ եմ փոխանակել կամ վերադարձնել ապրանքը', a: 'Ոչ, դա հնարավոր չէ։' },
+  az: { q: 'Məhsulu dəyişdirə və ya geri qaytara bilərəmmi?', a: 'Xeyr, bu mümkün deyil.' },
+  ja: { q: '商品の交換や返品はできますか？', a: 'いいえ、できません。' },
+  zh: { q: '我可以换货或退货吗？', a: '不可以。' },
 }
 
 const PACKS = {
@@ -69,7 +114,7 @@ const PACKS = {
     'contact.faq.title': 'Veelgestelde vragen',
     'contact.faq.q1': 'Hoe en wanneer ontvang ik een product na aankoop?',
     'contact.faq.a1':
-      'Na je bestelling sturen we je een betaallink. Na betaling ontvang je je product(en) binnen de genoemde standaard levertijd.',
+      'Na je bestelling sturen we je een betaallink. Na betaling ontvang je jouw product(en) binnen de genoemde standaard levertijd.',
     'contact.faq.q2': 'Kan ik een terugbetaling krijgen?',
     'contact.faq.a2':
       'Producten zijn over het algemeen niet restitueerbaar na aankoop. Neem contact op met ons verkoopteam met je bestelnummer als er iets mis is.',
@@ -79,6 +124,8 @@ const PACKS = {
     'contact.faq.q4': 'Welke betaalmethoden accepteren jullie?',
     'contact.faq.a4':
       'We ondersteunen online afrekenen met gangbare Europese betaalmethoden en accepteren ook BitCoin.',
+    'contact.faq.q5': EXCHANGE_FAQ.nl.q,
+    'contact.faq.a5': EXCHANGE_FAQ.nl.a,
     'contact.mailto.subject': 'Contact — {siteName}',
   },
   de: {
@@ -174,11 +221,31 @@ const LOCALE_FALLBACK = {
 }
 
 function resolvePack(locale) {
+  const exchange = EXCHANGE_FAQ[locale] ?? EXCHANGE_FAQ.en
   const dedicated = PACKS[locale]
-  if (dedicated) return { ...EN, ...dedicated }
+  const base = dedicated ? { ...EN, ...dedicated } : null
+  if (base) {
+    return {
+      ...base,
+      'contact.faq.q5': exchange.q,
+      'contact.faq.a5': exchange.a,
+    }
+  }
   const fb = LOCALE_FALLBACK[locale]
-  if (fb && PACKS[fb]) return { ...EN, ...PACKS[fb] }
-  return EN
+  if (fb && PACKS[fb]) {
+    const merged = { ...EN, ...PACKS[fb] }
+    const exchangeFb = EXCHANGE_FAQ[locale] ?? EXCHANGE_FAQ[fb] ?? EXCHANGE_FAQ.en
+    return {
+      ...merged,
+      'contact.faq.q5': exchangeFb.q,
+      'contact.faq.a5': exchangeFb.a,
+    }
+  }
+  return {
+    ...EN,
+    'contact.faq.q5': exchange.q,
+    'contact.faq.a5': exchange.a,
+  }
 }
 
 const keys = Object.keys(EN)

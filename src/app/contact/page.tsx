@@ -21,6 +21,7 @@ const FAQ_KEYS = [
   { q: 'contact.faq.q2', a: 'contact.faq.a2' },
   { q: 'contact.faq.q3', a: 'contact.faq.a3' },
   { q: 'contact.faq.q4', a: 'contact.faq.a4' },
+  { q: 'contact.faq.q5', a: 'contact.faq.a5' },
 ] as const
 
 export default function ContactPage() {
@@ -172,18 +173,18 @@ export default function ContactPage() {
           </div>
         </form>
 
-        <section className={`rounded-xl border p-6 sm:p-8 h-full flex flex-col ${card}`}>
-          <h3 className={`text-lg font-semibold mb-6 shrink-0 ${heading}`}>{t('contact.faq.title')}</h3>
-          <div className="flex-1 flex flex-col gap-4 min-h-0">
+        <section className={`rounded-xl border p-4 sm:p-5 h-full flex flex-col ${card}`}>
+          <h3 className={`text-base font-semibold mb-3 shrink-0 ${heading}`}>{t('contact.faq.title')}</h3>
+          <div className="flex-1 flex flex-col gap-1.5 min-h-0 overflow-y-auto">
             {faqItems.map((item) => (
               <article
                 key={item.q}
-                className={`rounded-lg border p-4 ${
+                className={`rounded-md border px-3 py-2 ${
                   isDark ? 'border-dark-600 bg-dark-900/50' : 'border-gray-200 bg-gray-50'
                 }`}
               >
-                <h4 className={`font-semibold mb-2 text-sm ${heading}`}>{item.q}</h4>
-                <p className={`text-sm leading-relaxed ${muted}`}>{item.a}</p>
+                <h4 className={`font-semibold mb-0.5 text-xs sm:text-sm leading-snug ${heading}`}>{item.q}</h4>
+                <p className={`text-xs leading-snug ${muted}`}>{item.a}</p>
               </article>
             ))}
           </div>
