@@ -39,14 +39,16 @@ export default function PricelistBulkActionsBar({
   const { t } = useI18n()
   const border = isDark ? 'border-dark-700 bg-dark-900/80' : 'border-gray-200 bg-white'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const selectBtnClass =
+    'btn-secondary text-xs px-2.5 py-1 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed'
 
   return (
     <div className={`rounded-xl border px-3 py-3 sm:px-4 space-y-2.5 ${border}`}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex flex-wrap items-center gap-2">
         {!allOnPageSelected ? (
           <button
             type="button"
-            className={`text-sm font-medium hover:underline ${muted}`}
+            className={selectBtnClass}
             onClick={onSelectAllPage}
             disabled={busy}
           >
@@ -56,7 +58,7 @@ export default function PricelistBulkActionsBar({
         {!allFilteredSelected && filteredCount > selectedCount ? (
           <button
             type="button"
-            className={`text-sm font-medium hover:underline ${muted}`}
+            className={selectBtnClass}
             onClick={onSelectAllFiltered}
             disabled={busy}
           >
@@ -66,7 +68,7 @@ export default function PricelistBulkActionsBar({
         {missingCount > 0 ? (
           <button
             type="button"
-            className={`text-sm font-medium hover:underline ${muted}`}
+            className={selectBtnClass}
             onClick={onSelectAllMissing}
             disabled={busy}
           >
