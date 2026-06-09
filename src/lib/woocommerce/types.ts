@@ -62,6 +62,9 @@ export type WooStoreProduct = {
   brands: WooStoreBrand[]
   attributes?: WooStoreAttribute[]
   on_sale?: boolean
+  type?: string
+  parent?: number
+  variation?: string
 }
 
 export type WooCommercePriceMode = 'storefront' | 'purchase_price'

@@ -140,6 +140,65 @@ assert.equal(arMapped.sku, '228235-1-1')
 assert.equal(arMapped.price, 850)
 assert.match(arMapped.description, /Brand: Rolex/)
 
+import { mapWooVariationsToProductOptions } from '../src/lib/woocommerce/variations'
+
+const arVariations: WooStoreProduct[] = [
+  {
+    id: 157964,
+    name: 'Rolex Day-Date 228238-0007 Replica',
+    slug: 'rolex-day-date-228238-0007-replica',
+    sku: '228235-1-1',
+    permalink: 'https://www.arfactorywatch.com/watch/rolex-day-date-228238-0007-replica/?attribute_pa_mechanism=japanese',
+    short_description: '',
+    description: '',
+    type: 'variation',
+    parent: 157948,
+    variation: 'Mechanism: Japanese',
+    prices: {
+      price: '85000',
+      regular_price: '90000',
+      sale_price: '85000',
+      currency_code: 'USD',
+      currency_minor_unit: 2,
+    },
+    images: [],
+    categories: [],
+    brands: [],
+  },
+  {
+    id: 157966,
+    name: 'Rolex Day-Date 228238-0007 Replica',
+    slug: 'rolex-day-date-228238-0007-replica-2',
+    sku: '228235-1-1',
+    permalink: 'https://www.arfactorywatch.com/watch/rolex-day-date-228238-0007-replica/?attribute_pa_mechanism=swiss',
+    short_description: '',
+    description: '',
+    type: 'variation',
+    parent: 157948,
+    variation: 'Mechanism: Swiss',
+    prices: {
+      price: '165000',
+      regular_price: '180000',
+      sale_price: '165000',
+      currency_code: 'USD',
+      currency_minor_unit: 2,
+    },
+    images: [],
+    categories: [],
+    brands: [],
+  },
+]
+
+const arOptions = mapWooVariationsToProductOptions(arFactorySample, arVariations, 'purchase_price')
+assert.ok(arOptions)
+assert.equal(arOptions![0].name, 'Mechanism')
+assert.equal(arOptions![0].values.length, 2)
+assert.equal(arOptions![0].values[0].label, 'Japanese')
+assert.equal(arOptions![0].values[0].price, 850)
+assert.equal(arOptions![0].values[0].purchase_price, 850)
+assert.equal(arOptions![0].values[1].label, 'Swiss')
+assert.equal(arOptions![0].values[1].price, 1650)
+
 assert.equal(normalizeWooCommercePriceMode('purchase_price'), 'purchase_price')
 assert.equal(normalizeWooCommercePriceMode('storefront'), 'storefront')
 assert.equal(normalizeWooCommercePriceMode(null), 'storefront')

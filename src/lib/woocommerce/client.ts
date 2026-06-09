@@ -120,6 +120,34 @@ export async function getWooStoreProduct(
   return data
 }
 
+/** Variations for a variable product (Store API: type=variation&parent=id). */
+export async function listWooStoreVariations(
+  storeUrl: string,
+  parentProductId: number
+): Promise<WooStoreProduct[]> {
+  const base = storeApiBase(storeUrl)
+  const all: WooStoreProduct[] = []
+  let page = 1
+  let totalPages = 1
+
+  do {
+    const params = new URLSearchParams({
+      type: 'variation',
+      parent: String(parentProductId),
+      page: String(page),
+      per_page: String(DEFAULT_PER_PAGE),
+    })
+    const { data, totalPages: pages } = await fetchStoreJson<WooStoreProduct[]>(
+      `${base}/products?${params.toString()}`
+    )
+    all.push(...data)
+    totalPages = pages || 1
+    page++
+  } while (page <= totalPages)
+
+  return all
+}
+
 /** Extract product slug from a WooCommerce product permalink on the same store. */
 export function parseWooProductSlugFromUrl(
   productUrl: string,

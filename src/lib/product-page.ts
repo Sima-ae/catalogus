@@ -2,6 +2,7 @@ import { resolveProductVersion } from '@/lib/brand'
 import { appPath, appUrl, shopBrandUrl, shopCategoryUrl } from '@/lib/paths'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
+import { parseProductOptions, type ProductOptions } from '@/lib/product-options'
 import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
 
 import { parseBrandCompound } from '@/lib/product-taxonomy'
@@ -46,6 +47,7 @@ export type ProductPageView = {
   pre_order: boolean
   availableSizes: string[]
   availableColors: string[]
+  productOptions: ProductOptions | null
   demo_url: string
   documentation_url: string
   support_url: string
@@ -135,6 +137,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     pre_order: raw.pre_order === 1 || raw.pre_order === true,
     availableSizes: parsePipeField(raw.available_sizes) ?? [],
     availableColors: parsePipeField(raw.available_colors) ?? [],
+    productOptions: parseProductOptions(raw.product_options),
     demo_url: String(raw.demo_url || '').trim() || appPath('/contact'),
     documentation_url: String(raw.documentation_url || '').trim() || appPath('/contact'),
     support_url: String(raw.support_url || '').trim() || appUrl('/contact'),

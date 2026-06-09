@@ -633,6 +633,55 @@ export async function syncProductPurchasePriceFromPlatformPricelist(
   ])
 }
 
+/** Most recent seller shipping cost for a product (by updated_at). */
+export async function resolveLatestNumericPricelistShippingCost(
+  productId: string
+): Promise<number | null> {
+  const rows = await queryDb<{ shipping_cost: string }[]>(
+    `SELECT shipping_cost
+     FROM seller_product_prices
+     WHERE product_id = ? AND shipping_cost IS NOT NULL
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [productId]
+  )
+  if (!rows[0]?.shipping_cost) return null
+  const cost = Number(rows[0].shipping_cost)
+  return Number.isFinite(cost) && cost >= 0 ? cost : null
+}
+
+/**
+ * Keep products.shipping_cost in sync with platform pricelist seller shipping
+ * (admin products table “Shipping costs” / Verzendkosten column).
+ * Never clears shipping_cost — only updates when a seller saves a value on the pricelist.
+ */
+export async function syncProductShippingCostFromPlatformPricelist(
+  productId: string
+): Promise<void> {
+  const onList = await isProductOnPricelist(PLATFORM_PRICELIST_OWNER_ID, productId)
+  if (!onList) return
+
+  const shippingCost = await resolveLatestNumericPricelistShippingCost(productId)
+  if (shippingCost == null) return
+
+  await queryDb(`UPDATE products SET shipping_cost = ? WHERE id = ?`, [
+    shippingCost,
+    productId,
+  ])
+}
+
+/** Backfill shipping_cost for every product on the platform pricelist. */
+export async function syncAllPlatformPricelistShippingCosts(): Promise<{ updated: number }> {
+  const rows = await queryDb<{ product_id: string }[]>(
+    `SELECT DISTINCT product_id FROM pricelist_items WHERE owner_user_id = ?`,
+    [PLATFORM_PRICELIST_OWNER_ID]
+  )
+  for (const row of rows) {
+    await syncProductShippingCostFromPlatformPricelist(row.product_id)
+  }
+  return { updated: rows.length }
+}
+
 /** Backfill purchase_price for every product on the platform pricelist. */
 export async function syncAllPlatformPricelistPurchasePrices(): Promise<{ updated: number }> {
   const rows = await queryDb<{ product_id: string }[]>(

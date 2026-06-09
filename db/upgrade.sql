@@ -545,3 +545,7 @@ ALTER TABLE products
 
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS pre_order TINYINT(1) NOT NULL DEFAULT 0 AFTER sold_out;
+
+-- Product variant options (Mechanism tiers, etc.) — see db/product_options.sql
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS product_options LONGTEXT NULL AFTER available_colors;

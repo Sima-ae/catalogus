@@ -205,6 +205,9 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'product.select.sizeAndColor': 'Please select a size and color',
     'product.select.size': 'Please select a size',
     'product.select.color': 'Please select a color',
+    'product.select.options': 'Please choose all product options',
+    'product.option.choose': 'Choose an option',
+    'product.option.clear': 'Clear',
 
     // Pricelist
     'pricelist.title': 'Pricelist',
@@ -433,6 +436,9 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'product.select.sizeAndColor': 'Selecteer een maat en kleur',
     'product.select.size': 'Selecteer een maat',
     'product.select.color': 'Selecteer een kleur',
+    'product.select.options': 'Kies alle productopties',
+    'product.option.choose': 'Kies een optie',
+    'product.option.clear': 'Wissen',
 
     // Pricelist
     'pricelist.title': 'Prijslijst',

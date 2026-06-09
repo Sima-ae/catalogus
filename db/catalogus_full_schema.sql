@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS products (
   gallery_images LONGTEXT NULL,
   available_sizes VARCHAR(512) NULL,
   available_colors VARCHAR(512) NULL,
+  product_options LONGTEXT NULL,
   source_url TEXT NULL,
   source_album_id VARCHAR(64) NULL,
   category VARCHAR(255) NOT NULL,

@@ -4,6 +4,7 @@ import {
 } from '@/lib/product-image-url'
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
+import { parseProductOptions, type ProductOptions } from '@/lib/product-options'
 
 /** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
 export function parsePipeField(value: unknown): string[] | null {
@@ -122,6 +123,7 @@ export function serializeProductRow(
     gallery_images: gallery,
     available_sizes: parsePipeField(row.available_sizes),
     available_colors: parsePipeField(row.available_colors),
+    product_options: parseProductOptions(row.product_options),
     source_url: row.source_url != null ? String(row.source_url) : null,
     source_album_id: row.source_album_id != null ? String(row.source_album_id) : null,
     tags: parseProductJsonField(row.tags),

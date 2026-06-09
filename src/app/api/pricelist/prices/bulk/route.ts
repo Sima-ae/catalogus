@@ -9,6 +9,7 @@ import {
   parseUnitPrice,
   setSellerProductStockStatus,
   syncProductPurchasePriceFromPlatformPricelist,
+  syncProductShippingCostFromPlatformPricelist,
   upsertSellerProductPrice,
   upsertSellerProductShippingCost,
   listPricelistProductIds,
@@ -194,6 +195,9 @@ async function processBulkItems(
             currency,
             updatedBy,
           })
+          if (isPlatformPricelistOwner(access.ownerId)) {
+            await syncProductShippingCostFromPlatformPricelist(item.productId)
+          }
         }
 
         if (isSellerActor && action === 'price') {

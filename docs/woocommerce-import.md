@@ -52,6 +52,15 @@ Optional filtered source later:
 | `purchase_price` | Lowest Woo price (e.g. $850 for Japanese tier) |
 | `price` | `0` (Price on request) |
 | `shipping_cost` | Value from **Shipping cost (EUR)** on the import source |
+| `product_options` | Variation tiers (e.g. Mechanism: Japanese $850, Swiss $1,650) |
+
+Variable AR Factory products import **Mechanism** options and per-tier prices from WooCommerce variations. Re-sync with `--refresh` to update options on existing products.
+
+Apply DB migration before re-import:
+
+```bash
+mysql supe_r_clones_cloud < db/product_options.sql
+```
 
 New imports and re-syncs copy the configured shipping cost onto each product. To backfill existing AR Factory products (one-time, uses €30 default):
 

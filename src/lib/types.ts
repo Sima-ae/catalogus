@@ -1,3 +1,5 @@
+import type { ProductOptions } from '@/lib/product-options'
+
 export interface Product {
   id: string
   name: string
@@ -11,6 +13,7 @@ export interface Product {
   gallery_images?: string[]
   available_sizes?: string[]
   available_colors?: string[]
+  product_options?: ProductOptions | null
   source_url?: string | null
   source_album_id?: string | null
   category: string

@@ -28,6 +28,7 @@ import {
 } from '@/lib/woocommerce/client'
 import { mirrorWooCommerceProductImages } from '@/lib/woocommerce/mirror-images'
 import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
+import { fetchWooProductOptions } from '@/lib/woocommerce/variations'
 import { wooSlugExternalId } from '@/lib/woocommerce/types'
 import { mirrorFacebookPostImages } from '@/lib/facebook/mirror-images'
 import { mapFacebookPost } from '@/lib/facebook/map-product'
@@ -181,6 +182,7 @@ export async function buildProductInputFromWooStoreProduct(
     catalogBrandId: source.catalog_brand_id,
     catalogBrandName: source.brand_name ?? null,
   })
+  const priceMode = normalizeWooCommercePriceMode(source.woocommerce_price_mode)
   const input = await buildProductInputFromWooCommerceImport(
     wooWithLocalImages,
     {
@@ -188,13 +190,38 @@ export async function buildProductInputFromWooStoreProduct(
       categoryId: catalog.categoryId,
       brandName: catalog.brandName,
     },
-    normalizeWooCommercePriceMode(source.woocommerce_price_mode)
+    priceMode
   )
-  const shippingCost = parseWooImportShippingCost(source.woocommerce_shipping_cost)
-  if (shippingCost != null) {
-    return { ...input, shipping_cost: shippingCost }
+
+  let productOptions = null as Awaited<ReturnType<typeof fetchWooProductOptions>>
+  try {
+    const storeUrl = resolveWooStoreUrl(source, product.permalink)
+    productOptions = await fetchWooProductOptions(storeUrl, product, priceMode)
+  } catch (err) {
+    console.warn(
+      `[woocommerce-import] Could not load variations for wc-${product.id}:`,
+      err instanceof Error ? err.message : err
+    )
   }
-  return input
+
+  const optionPurchasePrices =
+    productOptions?.flatMap((g) =>
+      g.values.map((v) => v.purchase_price ?? v.price).filter((p) => p > 0)
+    ) ?? []
+  const minOptionPurchase =
+    optionPurchasePrices.length > 0 ? Math.min(...optionPurchasePrices) : null
+
+  const shippingCost = parseWooImportShippingCost(source.woocommerce_shipping_cost)
+  return {
+    ...input,
+    ...(shippingCost != null ? { shipping_cost: shippingCost } : {}),
+    ...(productOptions ? { product_options: productOptions } : {}),
+    ...(priceMode === 'purchase_price' &&
+    minOptionPurchase != null &&
+    minOptionPurchase > 0
+      ? { purchase_price: minOptionPurchase }
+      : {}),
+  }
 }
 
 export function parseFacebookJobItemManual(rawJson: string | null | undefined): FacebookManualImportFields | null {

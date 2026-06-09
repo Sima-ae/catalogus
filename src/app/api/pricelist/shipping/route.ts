@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
+import { isPlatformPricelistOwner } from '@/lib/pricelist-constants'
 import {
   clearSellerProductShippingCost,
   parseUnitPrice,
+  syncProductShippingCostFromPlatformPricelist,
   upsertSellerProductShippingCost,
 } from '@/lib/pricelist-db'
 import {
@@ -83,6 +85,9 @@ export async function PUT(request: NextRequest) {
       currency,
       updatedBy,
     })
+    if (isPlatformPricelistOwner(access.ownerId)) {
+      await syncProductShippingCostFromPlatformPricelist(productId)
+    }
     const res = NextResponse.json({
       ok: true,
       shippingCost,
@@ -132,6 +137,9 @@ export async function DELETE(request: NextRequest) {
     const removed = await clearSellerProductShippingCost(targetSellerId, productId)
     if (!removed) {
       return NextResponse.json({ error: 'Shipping cost not found' }, { status: 404 })
+    }
+    if (isPlatformPricelistOwner(access.ownerId)) {
+      await syncProductShippingCostFromPlatformPricelist(productId)
     }
     return NextResponse.json({ ok: true, productId, sellerId: targetSellerId })
   } catch (error) {

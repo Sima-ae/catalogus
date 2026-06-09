@@ -13,27 +13,32 @@ export interface CartItem {
   quantity: number
   size?: string
   color?: string
+  /** Selected product option label (e.g. Swiss for Mechanism). */
+  product_option?: string
 }
 
 export function buildCartLineId(
   productId: string,
   size?: string,
-  color?: string
+  color?: string,
+  productOption?: string
 ): string {
-  if (!size && !color) return productId
-  return `${productId}::${size || '-'}::${color || '-'}`
+  if (!size && !color && !productOption) return productId
+  return `${productId}::${size || '-'}::${color || '-'}::${productOption || '-'}`
 }
 
 function normalizeCartItem(item: CartItem): CartItem {
   const productId = item.productId || item.id
   const size = item.size?.trim() || undefined
   const color = item.color?.trim() || undefined
+  const product_option = item.product_option?.trim() || undefined
   return {
     ...item,
     productId,
     size,
     color,
-    id: buildCartLineId(productId, size, color),
+    product_option,
+    id: buildCartLineId(productId, size, color, product_option),
   }
 }
 
@@ -158,8 +163,8 @@ interface CartContextType {
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
-  isInCart: (productId: string, opts?: { size?: string; color?: string }) => boolean
-  getItemQuantity: (productId: string, opts?: { size?: string; color?: string }) => number
+  isInCart: (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => boolean
+  getItemQuantity: (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -226,13 +231,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const isInCart = (productId: string, opts?: { size?: string; color?: string }) => {
-    const lineId = buildCartLineId(productId, opts?.size, opts?.color)
+  const isInCart = (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => {
+    const lineId = buildCartLineId(productId, opts?.size, opts?.color, opts?.product_option)
     return state.items.some(item => item.id === lineId)
   }
 
-  const getItemQuantity = (productId: string, opts?: { size?: string; color?: string }) => {
-    const lineId = buildCartLineId(productId, opts?.size, opts?.color)
+  const getItemQuantity = (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => {
+    const lineId = buildCartLineId(productId, opts?.size, opts?.color, opts?.product_option)
     const item = state.items.find(item => item.id === lineId)
     return item ? item.quantity : 0
   }

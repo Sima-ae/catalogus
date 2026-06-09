@@ -32,6 +32,13 @@ import ProductEditModal from '@/components/admin/ProductEditModal'
 import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
+import ProductOptionSelector from '@/components/shop/ProductOptionSelector'
+import {
+  allOptionsSelected,
+  optionPriceRange,
+  productHasOptions,
+  resolveSelectedOptionPrices,
+} from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
@@ -60,6 +67,7 @@ export default function ProductPageClient() {
   const [selectedLicense, setSelectedLicense] = useState('standard')
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [variantError, setVariantError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
@@ -253,44 +261,85 @@ export default function ProductPageClient() {
   const handleAddToCart = async () => {
     if (!product) return
 
+    const hasOptions = productHasOptions(product.productOptions)
+    const needsOptions = hasOptions && !allOptionsSelected(product.productOptions, selectedOptions)
     const needsSize = product.availableSizes.length > 0 && !selectedSize
     const needsColor = product.availableColors.length > 0 && !selectedColor
-    if (needsSize || needsColor) {
+    if (needsOptions || needsSize || needsColor) {
       setVariantError(
-        needsSize && needsColor
-          ? t('product.select.sizeAndColor')
-          : needsSize
-            ? t('product.select.size')
-            : t('product.select.color')
+        needsOptions
+          ? t('product.select.options')
+          : needsSize && needsColor
+            ? t('product.select.sizeAndColor')
+            : needsSize
+              ? t('product.select.size')
+              : t('product.select.color')
       )
       return
     }
+
+    const { price: optionPrice, original_price: optionOriginal } = resolveSelectedOptionPrices(
+      product.price,
+      product.original_price,
+      product.productOptions,
+      selectedOptions
+    )
+    const optionSummary = hasOptions
+      ? Object.entries(selectedOptions)
+          .filter(([, value]) => value)
+          .map(([group, value]) => `${group}: ${value}`)
+          .join(', ')
+      : ''
+    const productOptionKey = hasOptions
+      ? Object.values(selectedOptions).filter(Boolean).join('|')
+      : undefined
 
     setVariantError(null)
     setIsAdding(true)
     try {
       addItem({
         productId: product.id,
-        name: product.name,
-        price: product.price,
-        original_price: product.original_price,
+        name: optionSummary ? `${product.name} (${optionSummary})` : product.name,
+        price: hasOptions ? optionPrice : (selectedLicenseOption?.price ?? product.price),
+        original_price: hasOptions ? optionOriginal ?? undefined : product.original_price,
         image_url: product.image_url,
         size: selectedSize || undefined,
         color: selectedColor || undefined,
+        product_option: productOptionKey,
       })
     } finally {
       setIsAdding(false)
     }
   }
 
+  const productOptionKey = productHasOptions(product?.productOptions)
+    ? Object.values(selectedOptions).filter(Boolean).join('|')
+    : undefined
   const cartVariant = {
     size: selectedSize || undefined,
     color: selectedColor || undefined,
+    product_option: productOptionKey,
   }
   const quantityInCart = product ? getItemQuantity(product.id, cartVariant) : 0
   const inCart = product ? isInCart(product.id, cartVariant) : false
 
-  const licenseOptions = product
+  const displayPrices = product
+    ? resolveSelectedOptionPrices(
+        product.price,
+        product.original_price,
+        product.productOptions,
+        selectedOptions
+      )
+    : { price: 0, original_price: null as number | null }
+  const priceRange = product ? optionPriceRange(product.productOptions) : null
+  const showPriceRange =
+    productHasOptions(product?.productOptions) &&
+    !allOptionsSelected(product?.productOptions, selectedOptions) &&
+    priceRange != null &&
+    priceRange.max > priceRange.min
+
+  const licenseOptions =
+    product && !productHasOptions(product.productOptions)
     ? [
         {
           id: 'standard',
@@ -745,13 +794,16 @@ export default function ProductPageClient() {
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
               <div className="mb-4 space-y-1">
-                {hasPublicOriginalPrice(product.original_price, product.price) ? (
+                {hasPublicOriginalPrice(
+                  displayPrices.original_price ?? undefined,
+                  displayPrices.price
+                ) ? (
                   <div
                     className={`text-xl line-through tabular-nums ${
                       theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                     }`}
                   >
-                    {formatPriceAmount(product.original_price)}
+                    {formatPriceAmount(displayPrices.original_price)}
                   </div>
                 ) : null}
                 <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1">
@@ -763,13 +815,25 @@ export default function ProductPageClient() {
                   >
                     {currencySymbol}
                   </span>
-                  {isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
+                  {showPriceRange ? (
+                    <span className="text-3xl font-bold text-primary-500">
+                      {formatPriceAmount(priceRange!.min)} – {formatPriceAmount(priceRange!.max)}
+                    </span>
+                  ) : isZeroPrice(
+                      productHasOptions(product.productOptions)
+                        ? displayPrices.price
+                        : (selectedLicenseOption?.price ?? product.price)
+                    ) ? (
                     <span className="text-3xl font-bold text-primary-500">
                       {t('product.priceOnRequest')}
                     </span>
                   ) : (
                     <span className="text-3xl font-bold text-primary-500">
-                      {formatPriceAmount(selectedLicenseOption?.price)}
+                      {formatPriceAmount(
+                        productHasOptions(product.productOptions)
+                          ? displayPrices.price
+                          : (selectedLicenseOption?.price ?? product.price)
+                      )}
                     </span>
                   )}
                 </div>
@@ -777,6 +841,27 @@ export default function ProductPageClient() {
 
               {!catalogMode && (
                 <>
+                  {productHasOptions(product.productOptions) && product.productOptions ? (
+                    <div className="mb-4">
+                      <ProductOptionSelector
+                        groups={product.productOptions}
+                        selected={selectedOptions}
+                        onChange={(groupName, valueLabel) => {
+                          setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
+                          setVariantError(null)
+                        }}
+                        onClear={(groupName) => {
+                          setSelectedOptions((prev) => {
+                            const next = { ...prev }
+                            delete next[groupName]
+                            return next
+                          })
+                        }}
+                        variant="page"
+                      />
+                    </div>
+                  ) : null}
+
                   {product.availableSizes.length > 0 && (
                     <div className="space-y-2 mb-4">
                       <label className={`text-sm font-medium ${
@@ -839,6 +924,7 @@ export default function ProductPageClient() {
                     <p className="text-red-400 text-sm mb-4">{variantError}</p>
                   )}
 
+                  {licenseOptions.length > 0 ? (
                   <div className="space-y-3 mb-6">
                     <label className={`text-sm font-medium ${
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
@@ -869,6 +955,7 @@ export default function ProductPageClient() {
                       </label>
                     ))}
                   </div>
+                  ) : null}
 
                   <div className="space-y-4">
                     {inCart ? (

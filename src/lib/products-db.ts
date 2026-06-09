@@ -41,6 +41,7 @@ import {
   requireProductSku,
 } from '@/lib/product-sku'
 import { normalizeProductImagesForStorage, normalizeProductImageList, normalizeProductImageUrl } from '@/lib/product-image-url'
+import type { ProductOptions } from '@/lib/product-options'
 
 export { UnknownBrandError } from '@/lib/brands-db'
 
@@ -81,6 +82,7 @@ export type ProductInput = {
   pre_order?: boolean
   available_sizes?: string | null
   available_colors?: string | null
+  product_options?: ProductOptions | null
   source_url?: string | null
   source_album_id?: string | null
 }
@@ -177,6 +179,7 @@ type ProductSchemaFlags = {
   support_url: boolean
   available_sizes: boolean
   available_colors: boolean
+  product_options: boolean
   source_url: boolean
   source_album_id: boolean
 }
@@ -199,7 +202,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
          AND COLUMN_NAME IN (
            'category_id', 'author_id', 'compatibility', 'support_url',
-           'available_sizes', 'available_colors', 'source_url', 'source_album_id'
+           'available_sizes', 'available_colors', 'product_options', 'source_url', 'source_album_id'
          )`
     )
     const names = new Set(rows.map((r) => r.COLUMN_NAME))
@@ -210,6 +213,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       support_url: names.has('support_url'),
       available_sizes: names.has('available_sizes'),
       available_colors: names.has('available_colors'),
+      product_options: names.has('product_options'),
       source_url: names.has('source_url'),
       source_album_id: names.has('source_album_id'),
     }
@@ -221,6 +225,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       support_url: false,
       available_sizes: false,
       available_colors: false,
+      product_options: false,
       source_url: false,
       source_album_id: false,
     }
@@ -607,6 +612,9 @@ export async function insertProduct(input: ProductInput) {
     ...(schema.available_colors && input.available_colors !== undefined
       ? { available_colors: input.available_colors || null }
       : {}),
+    ...(schema.product_options && input.product_options !== undefined
+      ? { product_options: jsonCol(input.product_options) }
+      : {}),
     ...(schema.source_url && input.source_url !== undefined
       ? { source_url: input.source_url || null }
       : {}),
@@ -712,6 +720,10 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     available_colors:
       schema.available_colors && input.available_colors !== undefined
         ? input.available_colors || null
+        : undefined,
+    product_options:
+      schema.product_options && input.product_options !== undefined
+        ? jsonCol(input.product_options)
         : undefined,
     source_url:
       schema.source_url && input.source_url !== undefined ? input.source_url || null : undefined,
