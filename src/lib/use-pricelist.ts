@@ -17,6 +17,14 @@ export type PricelistBulkItem = {
   sellerId?: string
 }
 
+export type PricelistBulkFilterScope = {
+  search?: string
+  category?: string
+  subcategory?: string
+  brand?: string
+  missingPricesOnly?: boolean
+}
+
 export type PricelistBulkResult = {
   updated: number
   skipped: number
@@ -152,6 +160,34 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       setPageLoading(false)
     }
   }, [user, ownerId, ownerQuery, listQuery])
+
+  const fetchSelectionProductIds = useCallback(
+    async (scope: 'filtered' | 'allMissing'): Promise<string[]> => {
+      if (!ownerId) return []
+      const owner =
+        ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
+          ? PRICELIST_OWNER_QUERY_PLATFORM
+          : ownerId
+      const qs = buildPricelistItemsQueryString({
+        owner,
+        idsOnly: true,
+        search: scope === 'filtered' ? listQuery?.search : undefined,
+        category: scope === 'filtered' ? listQuery?.category : undefined,
+        subcategory: scope === 'filtered' ? listQuery?.subcategory : undefined,
+        brand: scope === 'filtered' ? listQuery?.brand : undefined,
+        missingPricesOnly: scope === 'allMissing' ? true : listQuery?.missingPricesOnly,
+      })
+      const res = await fetch(appPath(`/api/pricelist/items?${qs}`), {
+        headers: user ? catalogAuthHeaders(user) : {},
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load selection')
+      return Array.isArray(data.productIds) ? data.productIds.map(String) : []
+    },
+    [user, ownerId, ownerQuery, listQuery]
+  )
 
   const fetchExportItems = useCallback(async (): Promise<PricelistRow[]> => {
     if (!ownerId) return []
@@ -341,8 +377,14 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       stockStatus?: PricelistStockStatus
       unitPrice?: number
       shippingCost?: number
+      applyToFilters?: PricelistBulkFilterScope
     }
   ): Promise<PricelistBulkResult> => {
+    const useFilters = Boolean(payload.applyToFilters)
+    if (!useFilters && !bulkItems.length) {
+      return { updated: 0, skipped: 0, failed: 0, errors: [] }
+    }
+
     const res = await fetch(appPath('/api/pricelist/prices/bulk'), {
       method: 'POST',
       headers: {
@@ -353,18 +395,22 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       body: JSON.stringify({
         ownerId: ownerQuery,
         action,
-        items: bulkItems,
-        ...payload,
+        items: useFilters ? undefined : bulkItems,
+        applyToFilters: payload.applyToFilters,
+        stockStatus: payload.stockStatus,
+        unitPrice: payload.unitPrice,
+        shippingCost: payload.shippingCost,
       }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Bulk update failed')
+
     await loadItems()
     return {
       updated: Number(data.updated ?? 0),
       skipped: Number(data.skipped ?? 0),
       failed: Number(data.failed ?? 0),
-      errors: Array.isArray(data.errors) ? data.errors : [],
+      errors: Array.isArray(data.errors) ? data.errors.map(String) : [],
     }
   }
 
@@ -424,6 +470,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
     canManageItems,
     currentOwnerLabel,
     reload: loadItems,
+    fetchSelectionProductIds,
     fetchExportItems,
     accessMode,
     isGuest,

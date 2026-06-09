@@ -5,6 +5,9 @@ export const PRICELIST_OWNER_QUERY_PLATFORM = 'platform'
 
 export const PRICELIST_PAGE_SIZE = 20
 
+/** Max product IDs returned for “select all matching filters” (bulk select). */
+export const PRICELIST_MAX_SELECTION_IDS = 100_000
+
 export function isPlatformPricelistOwner(ownerId: string): boolean {
   return ownerId === PLATFORM_PRICELIST_OWNER_ID
 }

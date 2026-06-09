@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { starTargetOwnerForActor, verifyCatalogActor } from '@/lib/catalog-user-auth'
 import { parsePricelistItemsQuery } from '@/lib/pricelist-api-query'
+import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
 import {
   addPricelistItem,
   listPricelistPage,
+  listPricelistProductIds,
   listPricelistRowsForExport,
   removePricelistItem,
 } from '@/lib/pricelist-db'
@@ -71,6 +73,24 @@ export async function GET(request: NextRequest) {
 
   try {
     const parsed = await parsePricelistItemsQuery(request.nextUrl.searchParams)
+
+    if (parsed.idsOnly) {
+      const productIds = await listPricelistProductIds(
+        access.ownerId,
+        viewer,
+        parsed.filters,
+        PRICELIST_MAX_SELECTION_IDS
+      )
+      const res = NextResponse.json({
+        ownerId: access.ownerId,
+        productIds,
+        total: productIds.length,
+        mode: access.mode,
+        idsOnly: true,
+      })
+      ensureGuestContributorCookie(request, res, access)
+      return res
+    }
 
     if (parsed.exportAll) {
       const items = await listPricelistRowsForExport(

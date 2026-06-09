@@ -27,12 +27,11 @@ import {
   isPricelistRowBulkEditable,
   isPricelistRowBulkEditableShipping,
   isPricelistRowBulkSelectable,
-  pricelistRowNeedsPrice,
 } from '@/lib/pricelist-filters'
 import PricelistCatalogFilters from '@/components/pricelist/PricelistCatalogFilters'
 import PricelistBulkActionsBar from '@/components/pricelist/PricelistBulkActionsBar'
 import PricelistBulkPriceModal from '@/components/pricelist/PricelistBulkPriceModal'
-import type { PricelistBulkItem } from '@/lib/use-pricelist'
+import type { PricelistBulkFilterScope, PricelistBulkItem } from '@/lib/use-pricelist'
 import { formatMessage } from '@/lib/i18n'
 import PricelistMissingPricesButton from '@/components/pricelist/PricelistMissingPricesButton'
 import PricelistExportButton from '@/components/pricelist/PricelistExportButton'
@@ -115,6 +114,7 @@ export default function PricelistPageClient() {
     approvePriceEdit,
     removeItem,
     bulkUpdate,
+    fetchSelectionProductIds,
     canEditPrices,
     currentOwnerLabel,
     isGuest,
@@ -161,6 +161,7 @@ export default function PricelistPageClient() {
   } | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
+  const [selectionLoading, setSelectionLoading] = useState(false)
   const [bulkMessage, setBulkMessage] = useState<string | null>(null)
   const [bulkPriceOpen, setBulkPriceOpen] = useState(false)
   const [bulkShippingOpen, setBulkShippingOpen] = useState(false)
@@ -248,35 +249,53 @@ export default function PricelistPageClient() {
     [items, isSeller]
   )
 
-  const missingSelectableOnPage = useMemo(() => {
-    const needOpts = guestShareLink ? { guestShareLink: true as const } : undefined
-    return selectableOnPage.filter((row) => pricelistRowNeedsPrice(row, needOpts))
-  }, [selectableOnPage, guestShareLink])
-
-  const selectedRows = useMemo(
-    () => items.filter((row) => selectedIds.has(row.product_id)),
-    [items, selectedIds]
+  const rowByProductId = useMemo(
+    () => new Map(items.map((row) => [row.product_id, row])),
+    [items]
   )
 
   const allOnPageSelected =
     selectableOnPage.length > 0 &&
     selectableOnPage.every((row) => selectedIds.has(row.product_id))
   const someOnPageSelected = selectableOnPage.some((row) => selectedIds.has(row.product_id))
-  const allFilteredSelected =
-    selectableOnPage.length > 0 &&
-    selectableOnPage.every((row) => selectedIds.has(row.product_id))
+  const allFilteredSelected = total > 0 && selectedIds.size >= total
 
-  const toBulkPriceItems = (rows: PricelistRow[]): PricelistBulkItem[] =>
-    rows.map((row) => ({
-      productId: row.product_id,
-      ...(row.price_seller_id ? { sellerId: row.price_seller_id } : {}),
-    }))
+  const bulkFilterScope = useMemo((): PricelistBulkFilterScope | undefined => {
+    if (!allFilteredSelected) return undefined
+    return {
+      search: listQuery.search,
+      category: listQuery.category,
+      subcategory: listQuery.subcategory,
+      brand: listQuery.brand,
+      missingPricesOnly: listQuery.missingPricesOnly,
+    }
+  }, [allFilteredSelected, listQuery])
 
-  const toBulkShippingItems = (rows: PricelistRow[]): PricelistBulkItem[] =>
-    rows.map((row) => ({
-      productId: row.product_id,
-      ...(row.shipping_seller_id ? { sellerId: row.shipping_seller_id } : {}),
-    }))
+  const toBulkItems = (productIds: Iterable<string>): PricelistBulkItem[] =>
+    Array.from(productIds).map((productId) => ({ productId }))
+
+  const selectedProductIdsForBulkPrice = useMemo(() => {
+    const ids: string[] = []
+    for (const productId of Array.from(selectedIds)) {
+      const row = rowByProductId.get(productId)
+      if (!row || isPricelistRowBulkEditable(row, { isSeller })) ids.push(productId)
+    }
+    return ids
+  }, [selectedIds, rowByProductId, isSeller])
+
+  const selectedProductIdsForBulkShipping = useMemo(() => {
+    const ids: string[] = []
+    for (const productId of Array.from(selectedIds)) {
+      const row = rowByProductId.get(productId)
+      if (!row || isPricelistRowBulkEditableShipping(row, { isSeller })) ids.push(productId)
+    }
+    return ids
+  }, [selectedIds, rowByProductId, isSeller])
+
+  const bulkPriceTargetIds = isSeller ? selectedProductIdsForBulkPrice : Array.from(selectedIds)
+  const bulkShippingTargetIds = isSeller
+    ? selectedProductIdsForBulkShipping
+    : Array.from(selectedIds)
 
   const toggleSelect = (productId: string) => {
     setSelectedIds((prev) => {
@@ -299,26 +318,44 @@ export default function PricelistPageClient() {
     })
   }
 
-  const selectAllFiltered = () => {
-    setSelectedIds(new Set(selectableOnPage.map((row) => row.product_id)))
+  const selectAllFiltered = async () => {
+    setSelectionLoading(true)
+    setBulkMessage(null)
+    try {
+      const productIds = await fetchSelectionProductIds('filtered')
+      setSelectedIds(new Set(productIds))
+    } catch (e) {
+      setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
+    } finally {
+      setSelectionLoading(false)
+    }
   }
 
-  const selectAllMissing = () => {
-    setSelectedIds(new Set(missingSelectableOnPage.map((row) => row.product_id)))
-    if (!showMissingPricesOnly && missingSelectableOnPage.length > 0) {
-      setShowMissingPricesOnly(true)
+  const selectAllMissing = async () => {
+    setSelectionLoading(true)
+    setBulkMessage(null)
+    try {
+      const productIds = await fetchSelectionProductIds('allMissing')
+      setSelectedIds(new Set(productIds))
+      if (!showMissingPricesOnly && productIds.length > 0) {
+        setShowMissingPricesOnly(true)
+      }
+    } catch (e) {
+      setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
+    } finally {
+      setSelectionLoading(false)
     }
   }
 
   const runBulkStockStatus = async (stockStatus: 'out' | 'temporary') => {
-    if (!selectedRows.length) return
+    if (!selectedIds.size && !bulkFilterScope) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
       const result = await bulkUpdate(
         'stockStatus',
-        toBulkPriceItems(selectedRows),
-        { stockStatus }
+        bulkFilterScope ? [] : toBulkItems(selectedIds),
+        { stockStatus, applyToFilters: bulkFilterScope }
       )
       setSelectedIds(new Set())
       if (result.skipped > 0) {
@@ -339,12 +376,15 @@ export default function PricelistPageClient() {
   }
 
   const runBulkPrice = async (unitPrice: number) => {
-    const rows = selectedRows.filter((row) => isPricelistRowBulkEditable(row, { isSeller }))
-    if (!rows.length) return
+    if (!bulkPriceTargetIds.length && !bulkFilterScope) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
-      const result = await bulkUpdate('price', toBulkPriceItems(rows), { unitPrice })
+      const result = await bulkUpdate(
+        'price',
+        bulkFilterScope ? [] : toBulkItems(bulkPriceTargetIds),
+        { unitPrice, applyToFilters: bulkFilterScope }
+      )
       setBulkPriceOpen(false)
       setSelectedIds(new Set())
       if (result.skipped > 0) {
@@ -365,14 +405,15 @@ export default function PricelistPageClient() {
   }
 
   const runBulkShipping = async (shippingCost: number) => {
-    const rows = selectedRows.filter((row) =>
-      isPricelistRowBulkEditableShipping(row, { isSeller })
-    )
-    if (!rows.length) return
+    if (!bulkShippingTargetIds.length && !bulkFilterScope) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
-      const result = await bulkUpdate('shipping', toBulkShippingItems(rows), { shippingCost })
+      const result = await bulkUpdate(
+        'shipping',
+        bulkFilterScope ? [] : toBulkItems(bulkShippingTargetIds),
+        { shippingCost, applyToFilters: bulkFilterScope }
+      )
       setBulkShippingOpen(false)
       setSelectedIds(new Set())
       if (result.skipped > 0) {
@@ -562,7 +603,7 @@ export default function PricelistPageClient() {
               missingCount={missingPriceCount}
               allOnPageSelected={allOnPageSelected}
               allFilteredSelected={allFilteredSelected}
-              busy={bulkWorking}
+              busy={bulkWorking || selectionLoading}
               isDark={isDark}
               onSelectAllPage={toggleSelectAllPage}
               onSelectAllFiltered={selectAllFiltered}
@@ -618,9 +659,7 @@ export default function PricelistPageClient() {
 
       <PricelistBulkPriceModal
         open={bulkPriceOpen}
-        count={
-          selectedRows.filter((row) => isPricelistRowBulkEditable(row, { isSeller })).length
-        }
+        count={bulkFilterScope ? total : bulkPriceTargetIds.length}
         busy={bulkWorking}
         onClose={() => setBulkPriceOpen(false)}
         onApply={runBulkPrice}
@@ -629,10 +668,7 @@ export default function PricelistPageClient() {
       <PricelistBulkPriceModal
         open={bulkShippingOpen}
         variant="shipping"
-        count={
-          selectedRows.filter((row) => isPricelistRowBulkEditableShipping(row, { isSeller }))
-            .length
-        }
+        count={bulkFilterScope ? total : bulkShippingTargetIds.length}
         busy={bulkWorking}
         onClose={() => setBulkShippingOpen(false)}
         onApply={runBulkShipping}

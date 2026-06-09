@@ -712,6 +712,27 @@ async function countPricelistProductItems(
   return Number(rows[0]?.total ?? 0)
 }
 
+/** Product IDs for bulk “select all” (same filters as the list UI, no hydration). */
+export async function listPricelistProductIds(
+  listOwnerId: string,
+  viewer: PricelistListViewer,
+  filters: PricelistListFilterInput,
+  maxIds: number
+): Promise<string[]> {
+  const limit = Math.max(1, Math.floor(maxIds))
+  const sqlFragment = buildPricelistListSql(listOwnerId, viewer, filters)
+  const rows = await queryDb<{ product_id: string }[]>(
+    `SELECT DISTINCT p.id AS product_id
+     ${PRICELIST_LIST_FROM}
+     ${sqlFragment.joins}
+     ${sqlFragment.whereSql}
+     ORDER BY pi.created_at DESC
+     LIMIT ${limit}`,
+    sqlFragment.params
+  )
+  return rows.map((r) => r.product_id)
+}
+
 async function hydratePricelistRows(
   items: PricelistProductItemRow[],
   listOwnerId: string,

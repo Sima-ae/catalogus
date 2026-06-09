@@ -1,4 +1,5 @@
 import { loadActiveCategories } from '@/lib/categories-persistence'
+import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
 import { defaultPricelistPageSize } from '@/lib/pricelist-items-query-string'
 import type { PricelistListFilterInput } from '@/lib/pricelist-list-query'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
@@ -7,7 +8,45 @@ export type ParsedPricelistItemsQuery = {
   page: number
   limit: number
   exportAll: boolean
+  idsOnly: boolean
   filters: PricelistListFilterInput
+}
+
+export type PricelistClientFilterInput = {
+  search?: string
+  category?: string
+  subcategory?: string
+  brand?: string
+  missingPricesOnly?: boolean
+}
+
+/** Resolve list filters from URL params or bulk-update JSON (same rules as the pricelist UI). */
+export async function buildPricelistFiltersFromClient(
+  input: PricelistClientFilterInput
+): Promise<PricelistListFilterInput> {
+  const search = input.search?.trim() || undefined
+  const brandRaw = input.brand?.trim()
+  const brand = brandRaw && brandRaw !== 'All' ? brandRaw : undefined
+
+  const category = input.category?.trim()
+  const subcategory = input.subcategory?.trim()
+
+  let categoryFilter: PricelistListFilterInput['categoryFilter']
+  if (category && category !== 'All') {
+    const categories = await loadActiveCategories()
+    categoryFilter =
+      resolveShopCategoryFilter(categories, {
+        category,
+        subcategory: subcategory && subcategory !== 'All' ? subcategory : undefined,
+      }) ?? { categoryIds: [], legacyNames: [], strictIdOnly: true }
+  }
+
+  return {
+    search,
+    brand,
+    categoryFilter,
+    missingPricesOnly: input.missingPricesOnly !== false,
+  }
 }
 
 export async function parsePricelistItemsQuery(
@@ -23,37 +62,27 @@ export async function parsePricelistItemsQuery(
       : defaultPricelistPageSize()
 
   const exportAll = searchParams.get('export') === '1'
-
-  const search = searchParams.get('search')?.trim() || undefined
-  const brandRaw = searchParams.get('brand')?.trim()
-  const brand = brandRaw && brandRaw !== 'All' ? brandRaw : undefined
+  const idsOnly = searchParams.get('ids') === '1'
 
   const category = searchParams.get('category')?.trim()
   const subcategory = searchParams.get('subcategory')?.trim()
-
-  let categoryFilter: PricelistListFilterInput['categoryFilter']
-  if (category && category !== 'All') {
-    const categories = await loadActiveCategories()
-    categoryFilter =
-      resolveShopCategoryFilter(categories, {
-        category,
-        subcategory: subcategory && subcategory !== 'All' ? subcategory : undefined,
-      }) ?? { categoryIds: [], legacyNames: [], strictIdOnly: true }
-  }
-
   const missingParam = searchParams.get('missingPrices')
   const missingPricesOnly = missingParam === null ? true : missingParam !== 'false'
 
+  const filters = await buildPricelistFiltersFromClient({
+    search: searchParams.get('search') ?? undefined,
+    category,
+    subcategory,
+    brand: searchParams.get('brand') ?? undefined,
+    missingPricesOnly: exportAll ? false : missingPricesOnly,
+  })
+
   return {
     page,
-    limit: exportAll ? 5000 : limit,
+    limit: exportAll ? 5000 : idsOnly ? PRICELIST_MAX_SELECTION_IDS : limit,
     exportAll,
-    filters: {
-      search,
-      brand,
-      categoryFilter,
-      missingPricesOnly: exportAll ? false : missingPricesOnly,
-    },
+    idsOnly,
+    filters,
   }
 }
 

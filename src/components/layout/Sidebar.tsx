@@ -209,6 +209,7 @@ function NavLink({
   theme,
   label,
   onNavigate,
+  variant = 'default',
 }: {
   item: { href: string; icon: any }
   pathname: string | null
@@ -217,22 +218,44 @@ function NavLink({
   theme: string
   label: string
   onNavigate?: () => void
+  variant?: 'default' | 'compact'
 }) {
+  const isCompact = variant === 'compact'
+  const isDark = theme === 'dark'
+
   return (
     <Link
       href={localizedAppPath(pathname, item.href)}
       onClick={onNavigate}
-      className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
-        isActive
-          ? 'nav-active'
-          : theme === 'dark'
-            ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
-            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-      } ${isCollapsed ? 'justify-center' : ''}`}
+      className={`flex items-center transition-colors ${
+        isCompact
+          ? `gap-2 px-2 py-1 rounded-md text-xs font-medium tracking-tight ${
+              isActive
+                ? 'nav-active'
+                : isDark
+                  ? 'text-gray-400 hover:bg-dark-800/80 hover:text-gray-200'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+            }`
+          : `px-3 py-2 rounded-lg ${
+              isActive
+                ? 'nav-active'
+                : isDark
+                  ? 'text-gray-300 hover:bg-dark-800 hover:text-white'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+            } ${isCollapsed ? 'justify-center' : ''}`
+      }`}
       title={isCollapsed ? label : undefined}
     >
-      <item.icon className={`w-6 h-6 sm:w-[26px] sm:h-[26px] flex-shrink-0 ${isCollapsed ? '' : 'mr-3'}`} />
-      {!isCollapsed && <span className="text-sm sm:text-base">{label}</span>}
+      <item.icon
+        className={`flex-shrink-0 ${
+          isCompact
+            ? 'w-4 h-4 opacity-80'
+            : `w-6 h-6 sm:w-[26px] sm:h-[26px] ${isCollapsed ? '' : 'mr-3'}`
+        }`}
+      />
+      {!isCollapsed && (
+        <span className={isCompact ? 'leading-tight' : 'text-sm sm:text-base'}>{label}</span>
+      )}
     </Link>
   )
 }
@@ -328,11 +351,15 @@ export default function Sidebar({
         </Suspense>
       </div>
 
-      <div className={`pt-4 mt-auto shrink-0 border-t ${theme === 'dark' ? 'border-dark-800' : 'border-gray-200'}`}>
-        <div className="mb-3 lg:hidden">
+      <div
+        className={`pt-2.5 mt-auto shrink-0 border-t ${
+          theme === 'dark' ? 'border-dark-800/80' : 'border-gray-100'
+        }`}
+      >
+        <div className="mb-2 lg:hidden">
           <LanguageSwitcher variant="sidebar" />
         </div>
-        <nav className="space-y-2">
+        <nav className="flex flex-col gap-0.5">
           {bottomNavigation.map((item) => (
             <NavLink
               key={item.key}
@@ -342,6 +369,7 @@ export default function Sidebar({
               isActive={pathnameMatches(pathname, item.href)}
               isCollapsed={false}
               theme={theme}
+              variant="compact"
               onNavigate={close}
             />
           ))}
@@ -349,8 +377,8 @@ export default function Sidebar({
       </div>
 
       <div
-        className={`mt-4 pt-4 border-t text-xs ${
-          theme === 'dark' ? 'border-dark-800 text-gray-400' : 'border-gray-200 text-gray-500'
+        className={`mt-2.5 pt-2.5 border-t text-[10px] leading-snug ${
+          theme === 'dark' ? 'border-dark-800/80 text-gray-500' : 'border-gray-100 text-gray-400'
         }`}
       >
         <p>

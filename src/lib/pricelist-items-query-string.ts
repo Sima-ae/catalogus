@@ -11,6 +11,7 @@ export function buildPricelistItemsQueryString(input: {
   brand?: string
   missingPricesOnly?: boolean
   exportAll?: boolean
+  idsOnly?: boolean
 }): string {
   const params = new URLSearchParams()
   params.set('owner', input.owner)
@@ -24,6 +25,8 @@ export function buildPricelistItemsQueryString(input: {
   if (input.brand && input.brand !== 'All') params.set('brand', input.brand)
   if (input.missingPricesOnly === false) params.set('missingPrices', 'false')
   if (input.exportAll) params.set('export', '1')
+  if (input.idsOnly) params.set('ids', '1')
+  if (input.missingPricesOnly === true) params.set('missingPrices', 'true')
   return params.toString()
 }
 

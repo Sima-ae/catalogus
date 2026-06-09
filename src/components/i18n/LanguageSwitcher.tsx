@@ -26,14 +26,14 @@ export default function LanguageSwitcher({
   const currentCode = locale ?? DEFAULT_LOCALE
   const slugLabel = getLocaleSlug(currentCode).toUpperCase()
 
-  const flagSize = variant === 'sidebar' ? 22 : compact ? 18 : 20
+  const flagSize = variant === 'sidebar' ? 16 : compact ? 18 : 20
 
   if (variant === 'sidebar') {
     return (
       <button
         type="button"
         onClick={openPicker}
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm sm:text-base font-medium transition-colors text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-dark-800 dark:hover:text-white"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs font-medium tracking-tight transition-colors text-gray-500 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-dark-800/80 dark:hover:text-gray-200"
         aria-label={t('language.chooseTitle')}
         aria-haspopup="dialog"
       >
