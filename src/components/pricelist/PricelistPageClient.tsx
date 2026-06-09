@@ -24,9 +24,6 @@ import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 import { useI18n } from '@/lib/i18n-context'
 import { translatePricelistOwnerLabel } from '@/lib/i18n-pricelist'
 import {
-  countPricelistRowsNeedingPrice,
-  countPricelistRowsWithFilledPrice,
-  filterPricelistRows,
   isPricelistRowBulkEditable,
   pricelistRowNeedsPrice,
 } from '@/lib/pricelist-filters'
@@ -40,9 +37,8 @@ import PricelistExportButton from '@/components/pricelist/PricelistExportButton'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopBrand } from '@/lib/use-shop-brand'
-import { useShopCategories } from '@/lib/use-shop-categories'
-import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
+import type { PricelistListQuery } from '@/lib/use-pricelist'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -52,12 +48,59 @@ export default function PricelistPageClient() {
   const { t } = useI18n()
 
   const { user, isSuperAdmin } = useAuth()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const { selectedCategory } = useShopCategory()
+  const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
+    useShopSubcategory(selectedCategory)
+  const { selectedBrand } = useShopBrand()
+  const filterBrand = selectedBrand
+  const brandFilterCtx = {
+    selectedCategory,
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  }
+  const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
+  const [showMissingPricesOnly, setShowMissingPricesOnly] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(searchQuery), 300)
+    return () => window.clearTimeout(id)
+  }, [searchQuery])
+
+  const listQuery = useMemo((): PricelistListQuery => {
+    return {
+      page: currentPage,
+      search: debouncedSearch.trim() || undefined,
+      category: selectedCategory !== 'All' ? selectedCategory : undefined,
+      subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      brand: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
+      missingPricesOnly: showMissingPricesOnly,
+    }
+  }, [
+    brandFilterActive,
+    currentPage,
+    debouncedSearch,
+    filterBrand,
+    selectedCategory,
+    selectedSubcategory,
+    showMissingPricesOnly,
+  ])
+
   const {
     owners,
     ownerId,
     setOwnerId,
     items,
+    total,
+    totalOnPricelist,
+    totalPages,
+    missingPriceCount,
+    exportFilledCount,
     loading,
+    pageLoading,
     error,
     viewMode,
     setViewMode,
@@ -72,7 +115,8 @@ export default function PricelistPageClient() {
     currentOwnerLabel,
     isGuest,
     isSeller,
-  } = usePricelist(initialOwner)
+    fetchExportItems,
+  } = usePricelist(initialOwner, listQuery)
 
   const ownerQuery =
     ownerId === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
@@ -106,22 +150,6 @@ export default function PricelistPageClient() {
     : 'bg-white border-gray-300 text-gray-900'
 
   const showOwnerSelect = owners.length > 1
-  const [searchQuery, setSearchQuery] = useState('')
-  const { selectedCategory } = useShopCategory()
-  const categoryRows = useShopCategories()
-  const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
-    useShopSubcategory(selectedCategory)
-  const { selectedBrand } = useShopBrand()
-  const filterBrand = selectedBrand
-  const brandFilterCtx = {
-    selectedCategory,
-    selectedSubcategory,
-    hasSubcategories,
-    loadingSubcategories,
-  }
-  const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
-  const [showMissingPricesOnly, setShowMissingPricesOnly] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
   const [lightbox, setLightbox] = useState<{
     name: string
     images: string[]
@@ -147,89 +175,6 @@ export default function PricelistPageClient() {
 
   const guestShareLink = isGuest && Boolean(searchParams.get('owner'))
 
-  const shopCategoryFilter = useMemo(() => {
-    if (selectedCategory === 'All') return undefined
-    if (!categoryRows.length) return null
-    return (
-      resolveShopCategoryFilter(categoryRows, {
-        category: selectedCategory,
-        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-      }) ?? { categoryIds: [], legacyNames: [], strictIdOnly: true }
-    )
-  }, [categoryRows, selectedCategory, selectedSubcategory])
-
-  const filterParams = useMemo(
-    () => ({
-      searchQuery,
-      categoryFilter: selectedCategory !== 'All' ? selectedCategory : undefined,
-      subcategoryFilter:
-        selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-      shopCategoryFilter,
-      brandFilter: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
-      missingPricesOnly: showMissingPricesOnly,
-      guestShareLink,
-    }),
-    [
-      brandFilterActive,
-      filterBrand,
-      guestShareLink,
-      searchQuery,
-      selectedCategory,
-      selectedSubcategory,
-      shopCategoryFilter,
-      showMissingPricesOnly,
-    ]
-  )
-
-  const exportFilterParams = useMemo(
-    () => ({
-      searchQuery,
-      categoryFilter: selectedCategory !== 'All' ? selectedCategory : undefined,
-      subcategoryFilter:
-        selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-      shopCategoryFilter,
-      brandFilter: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
-      guestShareLink,
-    }),
-    [
-      brandFilterActive,
-      filterBrand,
-      guestShareLink,
-      searchQuery,
-      selectedCategory,
-      selectedSubcategory,
-      shopCategoryFilter,
-    ]
-  )
-
-  const scopedItems = useMemo(
-    () =>
-      filterPricelistRows(items, {
-        ...exportFilterParams,
-      }),
-    [items, exportFilterParams]
-  )
-
-  const missingPriceCount = useMemo(
-    () => countPricelistRowsNeedingPrice(items, { guestShareLink }),
-    [items, guestShareLink]
-  )
-
-  const filteredItems = useMemo(
-    () => filterPricelistRows(items, filterParams),
-    [items, filterParams]
-  )
-
-  const exportScopeItems = useMemo(
-    () => filterPricelistRows(items, exportFilterParams),
-    [items, exportFilterParams]
-  )
-
-  const filledPriceExportCount = useMemo(
-    () => countPricelistRowsWithFilledPrice(exportScopeItems),
-    [exportScopeItems]
-  )
-
   const hasActiveFilters = Boolean(
     selectedCategory !== 'All' ||
       selectedSubcategory !== 'All' ||
@@ -251,14 +196,12 @@ export default function PricelistPageClient() {
           t
         )
 
-  const totalFiltered = filteredItems.length
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / PRICELIST_PAGE_SIZE) || 1)
   const safePage = Math.min(Math.max(1, currentPage), totalPages)
 
   useEffect(() => {
     setCurrentPage(1)
   }, [
-    searchQuery,
+    debouncedSearch,
     ownerId,
     selectedCategory,
     selectedSubcategory,
@@ -286,6 +229,7 @@ export default function PricelistPageClient() {
 
   useEffect(() => {
     setSearchQuery('')
+    setDebouncedSearch('')
   }, [selectedCategory, selectedSubcategory, filterBrand])
 
   useEffect(() => {
@@ -294,29 +238,19 @@ export default function PricelistPageClient() {
     }
   }, [currentPage, totalPages])
 
-  const paginatedItems = useMemo(() => {
-    const start = (safePage - 1) * PRICELIST_PAGE_SIZE
-    return filteredItems.slice(start, start + PRICELIST_PAGE_SIZE)
-  }, [filteredItems, safePage])
-
   const selectableOnPage = useMemo(
-    () => paginatedItems.filter((row) => isPricelistRowBulkEditable(row, { isSeller })),
-    [paginatedItems, isSeller]
+    () => items.filter((row) => isPricelistRowBulkEditable(row, { isSeller })),
+    [items, isSeller]
   )
 
-  const selectableFiltered = useMemo(
-    () => filteredItems.filter((row) => isPricelistRowBulkEditable(row, { isSeller })),
-    [filteredItems, isSeller]
-  )
-
-  const missingSelectable = useMemo(() => {
+  const missingSelectableOnPage = useMemo(() => {
     const needOpts = guestShareLink ? { guestShareLink: true as const } : undefined
-    return selectableFiltered.filter((row) => pricelistRowNeedsPrice(row, needOpts))
-  }, [selectableFiltered, guestShareLink])
+    return selectableOnPage.filter((row) => pricelistRowNeedsPrice(row, needOpts))
+  }, [selectableOnPage, guestShareLink])
 
   const selectedRows = useMemo(
-    () => filteredItems.filter((row) => selectedIds.has(row.product_id)),
-    [filteredItems, selectedIds]
+    () => items.filter((row) => selectedIds.has(row.product_id)),
+    [items, selectedIds]
   )
 
   const allOnPageSelected =
@@ -324,8 +258,8 @@ export default function PricelistPageClient() {
     selectableOnPage.every((row) => selectedIds.has(row.product_id))
   const someOnPageSelected = selectableOnPage.some((row) => selectedIds.has(row.product_id))
   const allFilteredSelected =
-    selectableFiltered.length > 0 &&
-    selectableFiltered.every((row) => selectedIds.has(row.product_id))
+    selectableOnPage.length > 0 &&
+    selectableOnPage.every((row) => selectedIds.has(row.product_id))
 
   const toBulkItems = (rows: PricelistRow[]): PricelistBulkItem[] =>
     rows.map((row) => ({
@@ -355,12 +289,12 @@ export default function PricelistPageClient() {
   }
 
   const selectAllFiltered = () => {
-    setSelectedIds(new Set(selectableFiltered.map((row) => row.product_id)))
+    setSelectedIds(new Set(selectableOnPage.map((row) => row.product_id)))
   }
 
   const selectAllMissing = () => {
-    setSelectedIds(new Set(missingSelectable.map((row) => row.product_id)))
-    if (!showMissingPricesOnly && missingSelectable.length > 0) {
+    setSelectedIds(new Set(missingSelectableOnPage.map((row) => row.product_id)))
+    if (!showMissingPricesOnly && missingSelectableOnPage.length > 0) {
       setShowMissingPricesOnly(true)
     }
   }
@@ -419,9 +353,9 @@ export default function PricelistPageClient() {
       <div className="flex flex-wrap items-center justify-end gap-2">
         {showExportButton ? (
           <PricelistExportButton
-            items={exportScopeItems}
+            fetchItems={fetchExportItems}
             ownerLabel={exportOwnerLabel}
-            disabled={filledPriceExportCount === 0}
+            disabled={exportFilledCount === 0}
           />
         ) : null}
         {showMissingPricesButton ? (
@@ -436,7 +370,7 @@ export default function PricelistPageClient() {
 
   const paginationProps = {
     page: safePage,
-    totalItems: totalFiltered,
+    totalItems: total,
     pageSize: PRICELIST_PAGE_SIZE,
     onPageChange: setCurrentPage,
     centered: true,
@@ -516,14 +450,16 @@ export default function PricelistPageClient() {
         </p>
       ) : null}
 
-      {!loading && items.length > 0 ? <PricelistCatalogFilters /> : null}
+      {!loading && (totalOnPricelist > 0 || hasActiveFilters) ? (
+        <PricelistCatalogFilters />
+      ) : null}
 
       {loading ? (
         <div className="text-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500 mx-auto" />
           <p className={`mt-4 text-sm ${muted}`}>{t('loading.pricelist')}</p>
         </div>
-      ) : items.length === 0 ? (
+      ) : totalOnPricelist === 0 ? (
         <div
           className={`text-center py-16 rounded-xl border ${
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
@@ -532,19 +468,7 @@ export default function PricelistPageClient() {
           <p className={muted}>{t('pricelist.empty.none')}</p>
           <p className={`text-sm mt-2 ${muted}`}>{t('pricelist.empty.starHint')}</p>
         </div>
-      ) : scopedItems.length === 0 ? (
-        <div
-          className={`text-center py-16 rounded-xl border ${
-            isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
-          }`}
-        >
-          <p className={muted}>
-            {hasActiveFilters && !searchQuery.trim()
-              ? t('pricelist.empty.filters')
-              : t('pricelist.empty.search')}
-          </p>
-        </div>
-      ) : filteredItems.length === 0 ? (
+      ) : total === 0 && showMissingPricesOnly && !hasActiveFilters ? (
         <div
           className={`text-center py-16 rounded-xl border ${
             isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
@@ -561,14 +485,37 @@ export default function PricelistPageClient() {
             </button>
           ) : null}
         </div>
+      ) : total === 0 ? (
+        <div
+          className={`text-center py-16 rounded-xl border ${
+            isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
+          }`}
+        >
+          <p className={muted}>
+            {debouncedSearch.trim()
+              ? t('pricelist.empty.search')
+              : hasActiveFilters
+                ? t('pricelist.empty.filters')
+                : t('pricelist.empty.missingPrices')}
+          </p>
+          {showMissingPricesOnly && showMissingPricesButton ? (
+            <button
+              type="button"
+              className="btn-secondary mt-4 text-sm"
+              onClick={() => setShowMissingPricesOnly(false)}
+            >
+              {t('pricelist.filter.showAllProducts')}
+            </button>
+          ) : null}
+        </div>
       ) : viewMode === 'table' ? (
         <>
           <CatalogPagination {...paginationProps} />
           {enableBulkSelect ? (
             <PricelistBulkActionsBar
               selectedCount={selectedIds.size}
-              filteredCount={selectableFiltered.length}
-              missingCount={missingSelectable.length}
+              filteredCount={total}
+              missingCount={missingPriceCount}
               allOnPageSelected={allOnPageSelected}
               allFilteredSelected={allFilteredSelected}
               busy={bulkWorking}
@@ -582,8 +529,9 @@ export default function PricelistPageClient() {
               onOpenSetPrice={() => setBulkPriceOpen(true)}
             />
           ) : null}
+          <div className={pageLoading ? 'opacity-60 pointer-events-none' : ''}>
           <PricelistTable
-            items={paginatedItems}
+            items={items}
             enableBulkSelect={enableBulkSelect}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
@@ -606,13 +554,16 @@ export default function PricelistPageClient() {
             onRemove={removeItem}
             onOpenGallery={openGallery}
           />
+          </div>
           <CatalogPagination {...paginationProps} />
           <AppFooter />
         </>
       ) : (
         <>
           <CatalogPagination {...paginationProps} />
-          <PricelistGrid items={paginatedItems} isDark={isDark} onOpenGallery={openGallery} />
+          <div className={pageLoading ? 'opacity-60 pointer-events-none' : ''}>
+          <PricelistGrid items={items} isDark={isDark} onOpenGallery={openGallery} />
+          </div>
           <CatalogPagination {...paginationProps} />
           <AppFooter />
         </>

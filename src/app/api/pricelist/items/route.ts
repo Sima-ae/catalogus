@@ -2,7 +2,13 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { starTargetOwnerForActor, verifyCatalogActor } from '@/lib/catalog-user-auth'
-import { addPricelistItem, listPricelistRows, removePricelistItem } from '@/lib/pricelist-db'
+import { parsePricelistItemsQuery } from '@/lib/pricelist-api-query'
+import {
+  addPricelistItem,
+  listPricelistPage,
+  listPricelistRowsForExport,
+  removePricelistItem,
+} from '@/lib/pricelist-db'
 import { assertManageItems, requirePricelistAccess } from '@/lib/pricelist-api'
 import {
   readPricelistContributorId,
@@ -64,10 +70,44 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const items = await listPricelistRows(access.ownerId, viewer)
+    const parsed = await parsePricelistItemsQuery(request.nextUrl.searchParams)
+
+    if (parsed.exportAll) {
+      const items = await listPricelistRowsForExport(
+        access.ownerId,
+        viewer,
+        {
+          search: parsed.filters.search,
+          categoryFilter: parsed.filters.categoryFilter,
+          brand: parsed.filters.brand,
+        },
+        parsed.limit
+      )
+      const res = NextResponse.json({
+        ownerId: access.ownerId,
+        items,
+        mode: access.mode,
+        export: true,
+      })
+      ensureGuestContributorCookie(request, res, access)
+      return res
+    }
+
+    const page = await listPricelistPage(access.ownerId, viewer, {
+      page: parsed.page,
+      limit: parsed.limit,
+      filters: parsed.filters,
+    })
     const res = NextResponse.json({
       ownerId: access.ownerId,
-      items,
+      items: page.items,
+      total: page.total,
+      totalOnPricelist: page.totalOnPricelist,
+      page: page.page,
+      pageSize: page.pageSize,
+      totalPages: page.totalPages,
+      missingPriceCount: page.missingPriceCount,
+      exportFilledCount: page.exportFilledCount,
       mode: access.mode,
     })
     ensureGuestContributorCookie(request, res, access)

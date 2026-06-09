@@ -13,6 +13,14 @@ import {
   resolvePricelistPriceDisplay,
   type PricelistStockStatus,
 } from '@/lib/pricelist-stock-status'
+import {
+  buildPricelistFilledPriceCountSql,
+  buildPricelistListSql,
+  buildPricelistMissingCountSql,
+  type PricelistListFilterInput,
+  type PricelistListViewer,
+} from '@/lib/pricelist-list-query'
+import { PRICELIST_PAGE_SIZE } from '@/lib/pricelist-constants'
 
 export type { PricelistStockStatus } from '@/lib/pricelist-stock-status'
 
@@ -574,38 +582,77 @@ export async function syncAllPlatformPricelistPurchasePrices(): Promise<{ update
   return { updated: rows.length }
 }
 
-export async function listPricelistRows(
-  listOwnerId: string,
-  viewer: {
-    userId: string
-    role: 'admin' | 'buyer' | 'seller' | 'guest'
-    isSuperAdmin?: boolean
-  }
-): Promise<PricelistRow[]> {
-  const items = await queryDb<
-    {
-      item_id: string
-      product_id: string
-      name: string
-      sku: string
-      category: string | null
-      category_id: string | null
-      brand: string | null
-      image_url: string
-      gallery_images: unknown
-      source_url: string | null
-      created_at: string
-    }[]
-  >(
-    `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.category_id, p.brand,
-            p.image_url, p.gallery_images, p.source_url, pi.created_at
-     FROM pricelist_items pi
-     INNER JOIN products p ON p.id = pi.product_id
-     WHERE pi.owner_user_id = ?
-     ORDER BY pi.created_at DESC`,
-    [listOwnerId]
-  )
+type PricelistProductItemRow = {
+  item_id: string
+  product_id: string
+  name: string
+  sku: string
+  category: string | null
+  category_id: string | null
+  brand: string | null
+  image_url: string
+  gallery_images: unknown
+  source_url: string | null
+  created_at: string
+}
 
+export type PricelistPageResult = {
+  items: PricelistRow[]
+  total: number
+  /** Total rows on this pricelist (no filters). */
+  totalOnPricelist: number
+  page: number
+  pageSize: number
+  totalPages: number
+  missingPriceCount: number
+  exportFilledCount: number
+}
+
+const PRICELIST_LIST_FROM = `
+FROM pricelist_items pi
+INNER JOIN products p ON p.id = pi.product_id`
+
+const PRICELIST_ITEM_SELECT = `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.category_id, p.brand,
+            p.image_url, p.gallery_images, p.source_url, pi.created_at`
+
+async function fetchPricelistProductItems(
+  listOwnerId: string,
+  sqlFragment: { joins: string; whereSql: string; params: unknown[] },
+  options: { limit?: number; offset?: number }
+): Promise<PricelistProductItemRow[]> {
+  const limitSql =
+    options.limit != null ? ` LIMIT ${Math.max(1, Math.floor(options.limit))}` : ''
+  const offsetSql =
+    options.offset != null ? ` OFFSET ${Math.max(0, Math.floor(options.offset))}` : ''
+
+  return queryDb<PricelistProductItemRow[]>(
+    `${PRICELIST_ITEM_SELECT}
+     ${PRICELIST_LIST_FROM}
+     ${sqlFragment.joins}
+     ${sqlFragment.whereSql}
+     ORDER BY pi.created_at DESC${limitSql}${offsetSql}`,
+    sqlFragment.params
+  )
+}
+
+async function countPricelistProductItems(
+  sqlFragment: { joins: string; whereSql: string; params: unknown[] }
+): Promise<number> {
+  const rows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(DISTINCT pi.id) AS total
+     ${PRICELIST_LIST_FROM}
+     ${sqlFragment.joins}
+     ${sqlFragment.whereSql}`,
+    sqlFragment.params
+  )
+  return Number(rows[0]?.total ?? 0)
+}
+
+async function hydratePricelistRows(
+  items: PricelistProductItemRow[],
+  listOwnerId: string,
+  viewer: PricelistListViewer
+): Promise<PricelistRow[]> {
   const rows: PricelistRow[] = []
   const productIds = items.map((i) => i.product_id)
 
@@ -816,6 +863,89 @@ export async function listPricelistRows(
   }
 
   return rows
+}
+
+export async function listPricelistRows(
+  listOwnerId: string,
+  viewer: PricelistListViewer
+): Promise<PricelistRow[]> {
+  const sqlFragment = buildPricelistListSql(listOwnerId, viewer, {})
+  const items = await fetchPricelistProductItems(listOwnerId, sqlFragment, {})
+  return hydratePricelistRows(items, listOwnerId, viewer)
+}
+
+export async function listPricelistPage(
+  listOwnerId: string,
+  viewer: PricelistListViewer,
+  options: {
+    page?: number
+    limit?: number
+    filters?: PricelistListFilterInput
+  }
+): Promise<PricelistPageResult> {
+  const pageSize = Math.min(
+    100,
+    Math.max(1, Math.floor(options.limit ?? PRICELIST_PAGE_SIZE))
+  )
+  const page = Math.max(1, Math.floor(options.page ?? 1))
+  const filters = options.filters ?? {}
+
+  const listSql = buildPricelistListSql(listOwnerId, viewer, filters)
+  const offset = (page - 1) * pageSize
+
+  const exportCountSql = buildPricelistFilledPriceCountSql(listOwnerId, viewer, {
+    search: filters.search,
+    categoryFilter: filters.categoryFilter,
+    brand: filters.brand,
+  })
+  const missingCountSql = buildPricelistMissingCountSql(listOwnerId, viewer)
+
+  const baseSql = buildPricelistListSql(listOwnerId, viewer, {})
+
+  const [total, items, exportFilledCount, missingPriceCount, totalOnPricelist] =
+    await Promise.all([
+      countPricelistProductItems(listSql),
+      fetchPricelistProductItems(listOwnerId, listSql, { limit: pageSize, offset }),
+      exportCountSql
+        ? countPricelistProductItems(exportCountSql)
+        : Promise.resolve(0),
+      missingCountSql
+        ? countPricelistProductItems(missingCountSql)
+        : Promise.resolve(0),
+      countPricelistProductItems(baseSql),
+    ])
+
+  const rows = await hydratePricelistRows(items, listOwnerId, viewer)
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1)
+
+  return {
+    items: rows,
+    total,
+    totalOnPricelist,
+    page: Math.min(page, totalPages),
+    pageSize,
+    totalPages,
+    missingPriceCount,
+    exportFilledCount,
+  }
+}
+
+/** Export scope — same filters as the list UI but without missing-only and capped. */
+export async function listPricelistRowsForExport(
+  listOwnerId: string,
+  viewer: PricelistListViewer,
+  filters: Omit<PricelistListFilterInput, 'missingPricesOnly'>,
+  maxRows = 5000
+): Promise<PricelistRow[]> {
+  const sqlFragment = buildPricelistListSql(listOwnerId, viewer, {
+    ...filters,
+    missingPricesOnly: false,
+  })
+  const items = await fetchPricelistProductItems(listOwnerId, sqlFragment, {
+    limit: maxRows,
+    offset: 0,
+  })
+  return hydratePricelistRows(items, listOwnerId, viewer)
 }
 
 function groupPendingByProduct(

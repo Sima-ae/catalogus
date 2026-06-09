@@ -1,11 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import type { PricelistRow, PricelistStockStatus } from '@/lib/pricelist-db'
+import { buildPricelistItemsQueryString } from '@/lib/pricelist-items-query-string'
+import {
+  PLATFORM_PRICELIST_OWNER_ID,
+  PRICELIST_OWNER_QUERY_PLATFORM,
+} from '@/lib/pricelist-constants'
 
 export type PricelistBulkItem = {
   productId: string
@@ -18,10 +23,6 @@ export type PricelistBulkResult = {
   failed: number
   errors: string[]
 }
-import {
-  PLATFORM_PRICELIST_OWNER_ID,
-  PRICELIST_OWNER_QUERY_PLATFORM,
-} from '@/lib/pricelist-constants'
 
 function resolveOwnerQuery(ownerId: string, owners: PricelistOwnerOption[]): string {
   if (ownerId === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID) {
@@ -39,20 +40,36 @@ export type PricelistOwnerOption = {
   kind: 'self' | 'platform' | 'buyer'
 }
 
+export type PricelistListQuery = {
+  page: number
+  search?: string
+  category?: string
+  subcategory?: string
+  brand?: string
+  missingPricesOnly?: boolean
+}
+
 export function ownerQueryParam(ownerId: string, owners: PricelistOwnerOption[]): string {
   const match = owners.find((o) => o.id === ownerId || (o.kind === 'platform' && ownerId.includes('00000000')))
   if (match?.kind === 'platform') return PRICELIST_OWNER_QUERY_PLATFORM
   return ownerId
 }
 
-export function usePricelist(initialOwner?: string) {
+export function usePricelist(initialOwner?: string, listQuery?: PricelistListQuery) {
   const { user } = useAuth()
   const [owners, setOwners] = useState<PricelistOwnerOption[]>([])
   const [ownerId, setOwnerId] = useState<string>('')
   const [items, setItems] = useState<PricelistRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [totalOnPricelist, setTotalOnPricelist] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [missingPriceCount, setMissingPriceCount] = useState(0)
+  const [exportFilledCount, setExportFilledCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
+  const hasLoadedOnce = useRef(false)
 
   const ownerQuery = resolveOwnerQuery(ownerId, owners)
 
@@ -90,14 +107,24 @@ export function usePricelist(initialOwner?: string) {
 
   const loadItems = useCallback(async () => {
     if (!ownerId) return
-    setLoading(true)
+    if (!hasLoadedOnce.current) setLoading(true)
+    else setPageLoading(true)
     setError(null)
     try {
-      const q =
+      const owner =
         ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
-          ? `owner=${PRICELIST_OWNER_QUERY_PLATFORM}`
-          : `owner=${encodeURIComponent(ownerId)}`
-      const res = await fetch(appPath(`/api/pricelist/items?${q}`), {
+          ? PRICELIST_OWNER_QUERY_PLATFORM
+          : ownerId
+      const qs = buildPricelistItemsQueryString({
+        owner,
+        page: listQuery?.page ?? 1,
+        search: listQuery?.search,
+        category: listQuery?.category,
+        subcategory: listQuery?.subcategory,
+        brand: listQuery?.brand,
+        missingPricesOnly: listQuery?.missingPricesOnly,
+      })
+      const res = await fetch(appPath(`/api/pricelist/items?${qs}`), {
         headers: user ? catalogAuthHeaders(user) : {},
         credentials: 'include',
         cache: 'no-store',
@@ -105,18 +132,59 @@ export function usePricelist(initialOwner?: string) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load pricelist')
       setItems(data.items || [])
+      setTotal(Number(data.total ?? 0))
+      setTotalOnPricelist(Number(data.totalOnPricelist ?? data.total ?? 0))
+      setTotalPages(Math.max(1, Number(data.totalPages ?? 1)))
+      setMissingPriceCount(Number(data.missingPriceCount ?? 0))
+      setExportFilledCount(Number(data.exportFilledCount ?? 0))
       setAccessMode(data.mode === 'guest' ? 'guest' : 'full')
+      hasLoadedOnce.current = true
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load pricelist')
       setItems([])
+      setTotal(0)
+      setTotalOnPricelist(0)
+      setTotalPages(1)
+      setMissingPriceCount(0)
+      setExportFilledCount(0)
     } finally {
       setLoading(false)
+      setPageLoading(false)
     }
-  }, [user, ownerId, ownerQuery])
+  }, [user, ownerId, ownerQuery, listQuery])
+
+  const fetchExportItems = useCallback(async (): Promise<PricelistRow[]> => {
+    if (!ownerId) return []
+    const owner =
+      ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
+        ? PRICELIST_OWNER_QUERY_PLATFORM
+        : ownerId
+    const qs = buildPricelistItemsQueryString({
+      owner,
+      search: listQuery?.search,
+      category: listQuery?.category,
+      subcategory: listQuery?.subcategory,
+      brand: listQuery?.brand,
+      missingPricesOnly: false,
+      exportAll: true,
+    })
+    const res = await fetch(appPath(`/api/pricelist/items?${qs}`), {
+      headers: user ? catalogAuthHeaders(user) : {},
+      credentials: 'include',
+      cache: 'no-store',
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to load export data')
+    return (data.items || []) as PricelistRow[]
+  }, [user, ownerId, ownerQuery, listQuery])
 
   useEffect(() => {
     loadOwners().catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
   }, [user, loadOwners])
+
+  useEffect(() => {
+    hasLoadedOnce.current = false
+  }, [ownerId])
 
   useEffect(() => {
     if (!ownerId) return
@@ -224,7 +292,7 @@ export function usePricelist(initialOwner?: string) {
 
   const bulkUpdate = async (
     action: 'stockStatus' | 'price',
-    items: PricelistBulkItem[],
+    bulkItems: PricelistBulkItem[],
     payload: { stockStatus?: PricelistStockStatus; unitPrice?: number }
   ): Promise<PricelistBulkResult> => {
     const res = await fetch(appPath('/api/pricelist/prices/bulk'), {
@@ -237,7 +305,7 @@ export function usePricelist(initialOwner?: string) {
       body: JSON.stringify({
         ownerId: ownerQuery,
         action,
-        items,
+        items: bulkItems,
         ...payload,
       }),
     })
@@ -285,7 +353,13 @@ export function usePricelist(initialOwner?: string) {
     ownerId,
     setOwnerId,
     items,
+    total,
+    totalOnPricelist,
+    totalPages,
+    missingPriceCount,
+    exportFilledCount,
     loading,
+    pageLoading,
     error,
     viewMode,
     setViewMode,
@@ -300,6 +374,7 @@ export function usePricelist(initialOwner?: string) {
     canManageItems,
     currentOwnerLabel,
     reload: loadItems,
+    fetchExportItems,
     accessMode,
     isGuest,
     isSeller,

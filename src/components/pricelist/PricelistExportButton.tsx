@@ -12,14 +12,14 @@ import {
 import { useI18n } from '@/lib/i18n-context'
 
 type Props = {
-  items: PricelistRow[]
+  fetchItems: () => Promise<PricelistRow[]>
   ownerLabel: string
   disabled?: boolean
   className?: string
 }
 
 export default function PricelistExportButton({
-  items,
+  fetchItems,
   ownerLabel,
   disabled = false,
   className = 'btn-secondary text-xs px-2.5 py-1',
@@ -56,6 +56,7 @@ export default function PricelistExportButton({
 
   const runExport = useCallback(
     async (format: 'xls' | 'pdf') => {
+      const items = await fetchItems()
       const rows = buildPricelistExportRows(items)
       if (!rows.length) return
       setExporting(format)
@@ -70,7 +71,7 @@ export default function PricelistExportButton({
         setExporting(null)
       }
     },
-    [items, labels, ownerLabel]
+    [fetchItems, labels, ownerLabel]
   )
 
   const busy = exporting != null
