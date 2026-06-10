@@ -3,6 +3,7 @@ import { queryDb } from '@/lib/db'
 import {
   isPlatformPricelistOwner,
   PLATFORM_PRICELIST_OWNER_ID,
+  SELLER_PRICE_LATEST_ROW_ORDER_SQL,
 } from '@/lib/pricelist-constants'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
 import { listPendingEditRequestsForProducts } from '@/lib/seller-price-edit-db'
@@ -362,7 +363,7 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
      FROM (
        SELECT product_id, unit_price, currency, seller_id, shipping_cost,
               COALESCE(out_of_stock, 0) AS out_of_stock, stock_status, updated_at,
-              ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
+              ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
        FROM seller_product_prices
        WHERE product_id IN (${placeholders})
      ) ranked
@@ -508,16 +509,25 @@ export async function upsertSellerProductShippingCost(input: {
   currency: string
   updatedBy: string
 }): Promise<void> {
+  const existing = await getSellerProductPrice(input.sellerId, input.productId)
+  if (existing) {
+    await queryDb(
+      `UPDATE seller_product_prices
+       SET shipping_cost = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE seller_id = ? AND product_id = ?`,
+      [input.shippingCost, input.updatedBy, input.sellerId, input.productId]
+    )
+    return
+  }
+
+  const fallbackUnitPrice = await resolveLatestNumericPricelistUnitPrice(input.productId)
   await queryDb(
-    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, shipping_cost, updated_by)
-     VALUES (?, ?, 0, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       shipping_cost = VALUES(shipping_cost),
-       updated_by = VALUES(updated_by),
-       updated_at = CURRENT_TIMESTAMP`,
+    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, shipping_cost, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, ?, ?, ?, ?, 0, NULL)`,
     [
       input.sellerId,
       input.productId,
+      fallbackUnitPrice ?? 0,
       input.currency,
       input.shippingCost,
       input.updatedBy,
@@ -701,7 +711,7 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
        SELECT product_id, shipping_cost
        FROM (
          SELECT product_id, shipping_cost,
-           ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
          FROM seller_product_prices
          WHERE shipping_cost IS NOT NULL
        ) ranked
@@ -718,6 +728,32 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
       : 0
 
   return { onPricelist, withSavedShipping, updated }
+}
+
+/**
+ * Remove shipping-only stub rows that hid an existing seller price after bulk shipping €0.
+ * Safe when another row for the same product still has unit_price > 0.
+ */
+export async function removeShippingOnlyStubPriceRows(): Promise<{ removed: number }> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `DELETE spp FROM seller_product_prices spp
+     INNER JOIN pricelist_items pi
+       ON pi.product_id = spp.product_id AND pi.owner_user_id = ?
+     WHERE spp.unit_price <= 0
+       AND spp.shipping_cost IS NOT NULL
+       AND COALESCE(spp.stock_status, '') = ''
+       AND COALESCE(spp.out_of_stock, 0) = 0
+       AND EXISTS (
+         SELECT 1 FROM seller_product_prices other
+         WHERE other.product_id = spp.product_id AND other.unit_price > 0
+       )`,
+    [PLATFORM_PRICELIST_OWNER_ID]
+  )
+  const removed =
+    typeof result === 'object' && result != null && 'affectedRows' in result
+      ? Number(result.affectedRows ?? 0)
+      : 0
+  return { removed }
 }
 
 /** Backfill purchase_price for every product on the platform pricelist. */

@@ -4,7 +4,10 @@ import {
   combineCategoryIdAndLegacyTextMatch,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
 } from '@/lib/catalog-products'
-import { isPlatformPricelistOwner } from '@/lib/pricelist-constants'
+import {
+  isPlatformPricelistOwner,
+  SELLER_PRICE_LATEST_ROW_ORDER_SQL,
+} from '@/lib/pricelist-constants'
 import type { ShopCategoryFilterResult } from '@/lib/shop-category-tree'
 
 export type PricelistListFilterInput = {
@@ -33,7 +36,7 @@ LEFT JOIN (
   SELECT ranked.product_id, ranked.unit_price, ranked.stock_status, ranked.out_of_stock
   FROM (
     SELECT product_id, unit_price, stock_status, COALESCE(out_of_stock, 0) AS out_of_stock,
-           ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
     FROM seller_product_prices
   ) ranked
   WHERE ranked.rn = 1

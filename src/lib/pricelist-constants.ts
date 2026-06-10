@@ -12,6 +12,17 @@ export function isPlatformPricelistOwner(ownerId: string): boolean {
   return ownerId === PLATFORM_PRICELIST_OWNER_ID
 }
 
+/**
+ * ORDER BY for ROW_NUMBER() when resolving the effective seller price row per product.
+ * Shipping-only rows (unit_price 0, no stock status) must not beat rows with a saved price.
+ */
+export const SELLER_PRICE_LATEST_ROW_ORDER_SQL = `CASE
+    WHEN unit_price > 0 THEN 0
+    WHEN stock_status IS NOT NULL AND stock_status <> '' THEN 1
+    WHEN COALESCE(out_of_stock, 0) <> 0 THEN 1
+    ELSE 2
+  END, updated_at DESC`
+
 export function parsePricelistOwnerParam(raw: string | null | undefined): string | null {
   if (!raw || !raw.trim()) return null
   const v = raw.trim()
