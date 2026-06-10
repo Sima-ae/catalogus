@@ -33,12 +33,14 @@ export default function CatalogPagination({
 }: Props) {
   const t = useAppTheme()
   const { t: tr } = useI18n()
-  const textSize = compact ? 'text-xs' : 'text-sm'
-  const btnClass = compact ? 'btn-secondary text-xs px-2.5 py-1' : 'btn-secondary text-sm'
-  const inputClass = compact ? 'input w-12 text-xs py-1 px-2' : 'input w-20 text-sm'
-  const gapClass = compact ? 'gap-1.5' : 'gap-2'
+  const textSize = compact ? 'text-[11px] leading-tight' : 'text-sm'
+  const btnClass = compact
+    ? 'btn-secondary text-[11px] leading-tight px-1.5 py-0.5'
+    : 'btn-secondary text-sm'
+  const inputClass = compact ? 'input w-9 text-[11px] py-0.5 px-1' : 'input w-20 text-sm'
+  const gapClass = compact ? 'gap-1' : 'gap-2'
   const blockGap = compact ? 'gap-1.5' : 'gap-3'
-  const blockPy = compact ? 'py-1.5' : 'py-3'
+  const blockPy = compact ? 'py-1' : 'py-3'
   const gotoId = useId().replace(/:/g, '')
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
@@ -56,7 +58,7 @@ export default function CatalogPagination({
     return Math.min(totalPages, Math.max(1, parsed))
   }, [gotoValue, totalPages])
 
-  const goToInput = (
+  const goToInput = (hideLabel?: boolean) => (
     <form
       className={`flex items-center justify-center ${gapClass}`}
       onSubmit={(e) => {
@@ -66,9 +68,11 @@ export default function CatalogPagination({
         onPageChange(gotoPage)
       }}
     >
-      <label className={`${textSize} ${t.muted}`} htmlFor={gotoId}>
-        {tr('pagination.pageLabel')}
-      </label>
+      {hideLabel ? null : (
+        <label className={`${textSize} ${t.muted}`} htmlFor={gotoId}>
+          {tr('pagination.pageLabel')}
+        </label>
+      )}
       <input
         id={gotoId}
         inputMode="numeric"
@@ -76,7 +80,7 @@ export default function CatalogPagination({
         className={inputClass}
         value={gotoValue}
         onChange={(e) => setGotoValue(e.target.value)}
-        aria-label="Go to page number"
+        aria-label={tr('pagination.pageLabel')}
       />
       <button type="submit" className={btnClass} disabled={gotoPage == null}>
         {tr('pagination.go')}
@@ -86,46 +90,68 @@ export default function CatalogPagination({
 
   if (totalItems === 0) return null
 
+  const pagePart =
+    totalPages > 1 ? tr('pagination.pagePart', { page: safePage, totalPages }) : ''
+
   const statusText = tr('pagination.showing', {
     start,
     end,
     total: totalItems,
-    pagePart:
-      totalPages > 1
-        ? tr('pagination.pagePart', { page: safePage, totalPages })
-        : '',
+    pagePart,
   })
 
-  const pageNav = (
-    <div className={`flex flex-wrap items-center justify-center ${gapClass}`}>
+  const statusTextCompact = tr('pagination.showing', {
+    start,
+    end,
+    total: totalItems,
+    pagePart: '',
+  })
+
+  const prevLabel = compact ? tr('pagination.previousShort') : tr('pagination.previous')
+  const nextLabel = compact ? tr('pagination.nextShort') : tr('pagination.next')
+
+  const pageNav = (opts?: { nowrap?: boolean; hidePageLabel?: boolean }) => (
+    <div
+      className={`flex items-center justify-center ${gapClass} ${
+        opts?.nowrap ? 'flex-nowrap shrink-0' : 'flex-wrap'
+      }`}
+    >
       <button
         type="button"
         className={btnClass}
         disabled={safePage <= 1}
         onClick={() => onPageChange(safePage - 1)}
+        aria-label={tr('pagination.previous')}
       >
-        {tr('pagination.previous')}
+        {prevLabel}
       </button>
       <button
         type="button"
         className={btnClass}
         disabled={safePage >= totalPages}
         onClick={() => onPageChange(safePage + 1)}
+        aria-label={tr('pagination.next')}
       >
-        {tr('pagination.next')}
+        {nextLabel}
       </button>
-      {goToInput}
+      {goToInput(opts?.hidePageLabel)}
     </div>
   )
 
   if (centered && trailing) {
     return (
       <div
-        className={`grid w-full items-center gap-x-4 gap-y-2 ${blockPy} grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]`}
+        className={`flex w-full min-w-0 items-center ${compact ? 'gap-1.5' : 'gap-3'} ${blockPy}`}
       >
-        <p className={`${textSize} ${t.muted} text-left md:pr-2`}>{statusText}</p>
-        <div className="flex justify-center">{pageNav}</div>
-        <div className="flex justify-center md:justify-end">{trailing}</div>
+        <p className={`${textSize} ${t.muted} min-w-0 shrink truncate whitespace-nowrap`}>
+          {compact ? statusTextCompact : statusText}
+        </p>
+        <div
+          className={`ml-auto flex min-w-0 flex-nowrap items-center overflow-x-auto ${gapClass}`}
+        >
+          {pageNav({ nowrap: true, hidePageLabel: compact })}
+          {trailing}
+        </div>
       </div>
     )
   }
@@ -134,18 +160,18 @@ export default function CatalogPagination({
     return (
       <div className={`flex w-full flex-col items-center ${blockGap} ${blockPy} text-center`}>
         <p className={`${textSize} ${t.muted}`}>{statusText}</p>
-        {pageNav}
+        {pageNav()}
       </div>
     )
   }
 
   const navButtons = trailing ? (
     <div className={`flex flex-wrap items-center justify-center ${gapClass}`}>
-      {pageNav}
+      {pageNav()}
       <div className={compact ? 'ml-6 sm:ml-10' : 'ml-8 sm:ml-10'}>{trailing}</div>
     </div>
   ) : (
-    pageNav
+    pageNav()
   )
 
   return (

@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { starTargetOwnerForActor, verifyCatalogActor } from '@/lib/catalog-user-auth'
-import { parsePricelistItemsQuery } from '@/lib/pricelist-api-query'
+import { parsePricelistItemsQuery, restrictAdminOnlyPricelistFilters } from '@/lib/pricelist-api-query'
 import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
 import {
   addPricelistItem,
@@ -73,12 +73,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const parsed = await parsePricelistItemsQuery(request.nextUrl.searchParams)
+    const filters = restrictAdminOnlyPricelistFilters(parsed.filters, viewer)
 
     if (parsed.idsOnly) {
       const productIds = await listPricelistProductIds(
         access.ownerId,
         viewer,
-        parsed.filters,
+        filters,
         PRICELIST_MAX_SELECTION_IDS
       )
       const res = NextResponse.json({
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
     const page = await listPricelistPage(access.ownerId, viewer, {
       page: parsed.page,
       limit: parsed.limit,
-      filters: parsed.filters,
+      filters,
     })
     const res = NextResponse.json({
       ownerId: access.ownerId,

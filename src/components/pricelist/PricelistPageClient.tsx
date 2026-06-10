@@ -198,6 +198,8 @@ export default function PricelistPageClient() {
   const enableBulkSelect = canEditPrices && viewMode === 'table'
   const canExportPricelist = !isGuest && Boolean(user) && (Boolean(isSuperAdmin) || isAdmin)
   const showExportButton = canExportPricelist && viewMode === 'table'
+  const showAdminPriceFilters =
+    !isGuest && Boolean(user) && (Boolean(isSuperAdmin) || isAdmin) && viewMode === 'table'
 
   const exportOwnerLabel =
     isPlatformList
@@ -237,6 +239,15 @@ export default function PricelistPageClient() {
   useEffect(() => {
     setQuickFilter('missing')
   }, [ownerId])
+
+  useEffect(() => {
+    if (
+      !showAdminPriceFilters &&
+      (quickFilter === 'filled' || quickFilter === 'outOfStock')
+    ) {
+      setQuickFilter('missing')
+    }
+  }, [showAdminPriceFilters, quickFilter])
 
   useEffect(() => {
     setSearchQuery('')
@@ -442,12 +453,14 @@ export default function PricelistPageClient() {
 
   const missingPricesTrailing =
     showMissingPricesButton || showExportButton ? (
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-1">
         {showExportButton ? (
           <PricelistExportButton
             fetchItems={fetchExportItems}
             ownerLabel={exportOwnerLabel}
             disabled={exportFilledCount === 0}
+            compact
+            className="btn-secondary text-[11px] leading-tight px-1.5 py-0.5"
           />
         ) : null}
         {showMissingPricesButton ? (
@@ -460,22 +473,26 @@ export default function PricelistPageClient() {
               }
               inactiveLabelKey="pricelist.filter.showMissingPrices"
             />
-            <PricelistFilterToggleButton
-              active={quickFilter === 'filled'}
-              count={exportFilledCount}
-              onToggle={() =>
-                setQuickFilter((current) => (current === 'filled' ? 'all' : 'filled'))
-              }
-              inactiveLabelKey="pricelist.filter.showWithPrices"
-            />
-            <PricelistFilterToggleButton
-              active={quickFilter === 'outOfStock'}
-              count={outOfStockCount}
-              onToggle={() =>
-                setQuickFilter((current) => (current === 'outOfStock' ? 'all' : 'outOfStock'))
-              }
-              inactiveLabelKey="pricelist.filter.showOutOfStock"
-            />
+            {showAdminPriceFilters ? (
+              <>
+                <PricelistFilterToggleButton
+                  active={quickFilter === 'filled'}
+                  count={exportFilledCount}
+                  onToggle={() =>
+                    setQuickFilter((current) => (current === 'filled' ? 'all' : 'filled'))
+                  }
+                  inactiveLabelKey="pricelist.filter.showWithPrices"
+                />
+                <PricelistFilterToggleButton
+                  active={quickFilter === 'outOfStock'}
+                  count={outOfStockCount}
+                  onToggle={() =>
+                    setQuickFilter((current) => (current === 'outOfStock' ? 'all' : 'outOfStock'))
+                  }
+                  inactiveLabelKey="pricelist.filter.showOutOfStock"
+                />
+              </>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -487,6 +504,7 @@ export default function PricelistPageClient() {
     pageSize: PRICELIST_PAGE_SIZE,
     onPageChange: setCurrentPage,
     centered: true,
+    compact: true,
     trailing: missingPricesTrailing,
   }
 

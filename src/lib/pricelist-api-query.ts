@@ -1,7 +1,7 @@
 import { loadActiveCategories } from '@/lib/categories-persistence'
 import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
 import { defaultPricelistPageSize } from '@/lib/pricelist-items-query-string'
-import type { PricelistListFilterInput } from '@/lib/pricelist-list-query'
+import type { PricelistListFilterInput, PricelistListViewer } from '@/lib/pricelist-list-query'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 
 export type ParsedPricelistItemsQuery = {
@@ -53,6 +53,23 @@ export async function buildPricelistFiltersFromClient(
         : input.missingPricesOnly !== false,
     filledPricesOnly: input.filledPricesOnly === true,
     outOfStockOnly: input.outOfStockOnly === true,
+  }
+}
+
+/** Admin-only quick filters (with price / out of stock). */
+export function restrictAdminOnlyPricelistFilters(
+  filters: PricelistListFilterInput,
+  viewer: Pick<PricelistListViewer, 'role' | 'isSuperAdmin'>
+): PricelistListFilterInput {
+  const canUseAdminFilters = viewer.role === 'admin' || Boolean(viewer.isSuperAdmin)
+  if (canUseAdminFilters) return filters
+
+  const hadAdminFilter = filters.filledPricesOnly || filters.outOfStockOnly
+  return {
+    ...filters,
+    filledPricesOnly: false,
+    outOfStockOnly: false,
+    missingPricesOnly: hadAdminFilter ? true : filters.missingPricesOnly,
   }
 }
 

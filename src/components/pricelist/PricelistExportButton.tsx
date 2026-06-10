@@ -15,6 +15,8 @@ type Props = {
   fetchItems: () => Promise<PricelistRow[]>
   ownerLabel: string
   disabled?: boolean
+  /** Icon-only button to save toolbar space */
+  compact?: boolean
   className?: string
 }
 
@@ -22,6 +24,7 @@ export default function PricelistExportButton({
   fetchItems,
   ownerLabel,
   disabled = false,
+  compact = false,
   className = 'btn-secondary text-xs px-2.5 py-1',
 }: Props) {
   const { t } = useI18n()
@@ -85,10 +88,11 @@ export default function PricelistExportButton({
         aria-haspopup="menu"
         aria-expanded={open}
         className={`${className} inline-flex items-center gap-1 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed`}
+        aria-label={t('pricelist.export.download')}
       >
-        <ArrowDownTrayIcon className="h-4 w-4 shrink-0" aria-hidden />
-        {busy ? t('pricelist.export.exporting') : t('pricelist.export.download')}
-        <ChevronDownIcon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+        <ArrowDownTrayIcon className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0`} aria-hidden />
+        {compact ? null : busy ? t('pricelist.export.exporting') : t('pricelist.export.download')}
+        <ChevronDownIcon className={`${compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} shrink-0 opacity-70`} aria-hidden />
       </button>
       {open ? (
         <div

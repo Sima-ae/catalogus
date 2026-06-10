@@ -17,7 +17,7 @@ export default function PricelistFilterToggleButton({
   count = 0,
   onToggle,
   inactiveLabelKey,
-  className = 'btn-secondary text-xs px-2.5 py-1',
+  className = 'btn-secondary text-[11px] leading-tight px-1.5 py-0.5',
   disabled = false,
 }: Props) {
   const { t } = useI18n()
@@ -33,7 +33,7 @@ export default function PricelistFilterToggleButton({
       }`}
     >
       {active
-        ? t('pricelist.filter.showAllProducts')
+        ? t('pricelist.filter.showAllProductsShort')
         : t(inactiveLabelKey, { count })}
     </button>
   )
