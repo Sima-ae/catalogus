@@ -89,6 +89,10 @@ export type ProductFormMessageKey =
   | 'productForm.imagesAdvancedSummary'
   | 'productForm.imagesMainUrl'
   | 'productForm.imagesGalleryUrls'
+  | 'productForm.sectionMechanismOptions'
+  | 'productForm.optionsHint'
+  | 'productForm.optionPurchasePrice'
+  | 'productForm.optionSellingPrice'
 
 type ProductFormMessages = Record<ProductFormMessageKey, string>
 
@@ -181,6 +185,11 @@ const EN: ProductFormMessages = {
   'productForm.imagesAdvancedSummary': "Advanced: edit URLs as text",
   'productForm.imagesMainUrl': "Main image URL *",
   'productForm.imagesGalleryUrls': "Gallery URLs (one per line)",
+  'productForm.sectionMechanismOptions': "Mechanism options & prices",
+  'productForm.optionsHint':
+    "Set purchase and selling price per option (e.g. Japanese / Swiss). Shown on the shop when customers pick a mechanism.",
+  'productForm.optionPurchasePrice': "Purchase price",
+  'productForm.optionSellingPrice': "Selling price",
 }
 
 const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
@@ -363,6 +372,11 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.imagesAdvancedSummary': "Geavanceerd: URL's als tekst bewerken",
   'productForm.imagesMainUrl': "Hoofdafbeelding-URL *",
   'productForm.imagesGalleryUrls': "Galerij-URL's (één per regel)",
+  'productForm.sectionMechanismOptions': "Mechanisme-opties & prijzen",
+  'productForm.optionsHint':
+    "Stel inkoop- en verkoopprijs per optie in (bijv. Japanese / Swiss). Zichtbaar in de shop wanneer klanten een mechanisme kiezen.",
+  'productForm.optionPurchasePrice': "Inkoopprijs",
+  'productForm.optionSellingPrice': "Verkoopprijs",
 },
   de: {
   'productForm.modalSubtitle': "Alle Produktdetails, Kategorie, Bilder und Varianten aktualisieren.",

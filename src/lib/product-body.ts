@@ -1,4 +1,5 @@
 import type { ProductInput } from '@/lib/products-db'
+import { parseProductOptions } from '@/lib/product-options'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { normalizeProductImageList, normalizeProductImageUrl } from '@/lib/product-image-url'
 import { normalizeProductSku } from '@/lib/product-sku'
@@ -133,5 +134,9 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
     rating: parseOptionalNumber(body.rating),
     review_count: parseOptionalNumber(body.review_count),
     download_count: parseOptionalNumber(body.download_count),
+    product_options:
+      body.product_options !== undefined
+        ? parseProductOptions(body.product_options)
+        : undefined,
   }
 }

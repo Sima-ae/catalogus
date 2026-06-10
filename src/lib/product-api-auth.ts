@@ -4,6 +4,7 @@ import { verifySellerActor } from '@/lib/seller-api-auth'
 import { productBelongsToSeller, type SellerActor } from '@/lib/product-ownership'
 import type { Product } from '@/lib/types'
 import type { ProductInput } from '@/lib/products-db'
+import { stripProductOptionsInternalPricing } from '@/lib/product-options'
 import { sellerAuthorIcon, sellerDisplayName } from '@/lib/product-ownership'
 
 export type CatalogAccess =
@@ -61,9 +62,12 @@ export function applySellerProductInput(
   seller: SellerActor
 ): ProductInput {
   const name = sellerDisplayName(seller)
-  const { purchase_price: _pp, shipping_cost: _sc, ...rest } = input
+  const { purchase_price: _pp, shipping_cost: _sc, product_options, ...rest } = input
   return {
     ...rest,
+    ...(product_options !== undefined
+      ? { product_options: stripProductOptionsInternalPricing(product_options) ?? undefined }
+      : {}),
     author: name,
     author_icon: sellerAuthorIcon(seller),
     author_id: seller.userId,

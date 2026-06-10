@@ -145,6 +145,28 @@ export function allOptionsSelected(
 }
 
 /** Default selection: cheapest tier per group (e.g. Japanese before Swiss). */
+/** Remove internal cost fields from option tiers (shop / buyer API responses). */
+export function stripProductOptionsInternalPricing(
+  options: ProductOptions | null | undefined
+): ProductOptions | null {
+  if (!options?.length) return options ?? null
+  return options.map((group) => ({
+    ...group,
+    values: group.values.map(({ purchase_price: _purchasePrice, ...value }) => value),
+  }))
+}
+
+/** Lowest purchase_price across all option tiers (for products.purchase_price sync). */
+export function minOptionPurchasePrice(
+  options: ProductOptions | null | undefined
+): number | null {
+  if (!options?.length) return null
+  const values = options
+    .flatMap((g) => g.values.map((v) => v.purchase_price))
+    .filter((p): p is number => p != null && Number.isFinite(p) && p >= 0)
+  return values.length ? Math.min(...values) : null
+}
+
 export function defaultProductOptionSelection(
   options: ProductOptions | null | undefined
 ): Record<string, string> {

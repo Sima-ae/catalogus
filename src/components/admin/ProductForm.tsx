@@ -26,8 +26,14 @@ import {
   parseBrandCompound,
 } from '@/lib/product-taxonomy'
 import ProductImageGalleryEditor from '@/components/admin/ProductImageGalleryEditor'
+import ProductOptionsEditor from '@/components/admin/ProductOptionsEditor'
 import CategoryCheckboxList from '@/components/admin/CategoryCheckboxList'
 import TaxonomyCheckboxList from '@/components/admin/TaxonomyCheckboxList'
+import {
+  minOptionPurchasePrice,
+  productHasOptions,
+  type ProductOptions,
+} from '@/lib/product-options'
 
 type BrandOption = { id: string; name: string; slug: string }
 
@@ -109,6 +115,8 @@ export default function ProductForm({
     brand: string
     categoryId?: string | null
   } | null>(null)
+  const [productOptions, setProductOptions] = useState<ProductOptions | null>(null)
+  const hasMechanismOptions = productHasOptions(productOptions)
 
   useEffect(() => {
     fetch(appPath('/api/categories'))
@@ -174,6 +182,7 @@ export default function ProductForm({
     if (mode === 'create' && initial) {
       const mapped = mapProductToForm(initial)
       setForm((f) => ({ ...f, ...mapped }))
+      setProductOptions(initial.product_options ?? null)
       setTaxonomySeed({
         category: mapped.category,
         brand: mapped.brand,
@@ -197,6 +206,7 @@ export default function ProductForm({
       .then((p: Product) => {
         const mapped = mapProductToForm(p)
         setForm(mapped)
+        setProductOptions(p.product_options ?? null)
         setTaxonomySeed({
           category: mapped.category,
           brand: mapped.brand,
@@ -262,7 +272,13 @@ export default function ProductForm({
       brand,
       price: form.price,
       original_price: form.original_price,
+      ...(productOptions?.length ? { product_options: productOptions } : {}),
     } as Record<string, unknown>)
+
+    if (productOptions?.length) {
+      const minPurchase = minOptionPurchasePrice(productOptions)
+      if (minPurchase != null) payload.purchase_price = minPurchase
+    }
 
     const url =
       mode === 'create'
@@ -288,6 +304,7 @@ export default function ProductForm({
       const updated = data as Product
       const mapped = mapProductToForm(updated)
       setForm(mapped)
+      setProductOptions(updated.product_options ?? null)
       setTaxonomySeed({
         category: mapped.category,
         brand: mapped.brand,
@@ -506,8 +523,19 @@ export default function ProductForm({
             </div>
           ) : null}
         </div>
+        {hasMechanismOptions && productOptions ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold">{tr('productForm.sectionMechanismOptions')}</h3>
+            <ProductOptionsEditor
+              options={productOptions}
+              onChange={setProductOptions}
+              showPurchasePrice={!isSeller}
+              disabled={saving}
+            />
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 [&_.form-label]:mb-1 [&_.form-label]:text-xs [&_input]:py-1.5 [&_input]:text-sm">
-          {!isSeller ? (
+          {!isSeller && !hasMechanismOptions ? (
             <Field
               label={tr('productForm.purchasePrice')}
               name="purchase_price"
@@ -527,23 +555,27 @@ export default function ProductForm({
               onChange={onChange}
             />
           ) : null}
-          <Field
-            label={tr('productForm.price')}
-            name="price"
-            type="number"
-            step="0.01"
-            value={form.price}
-            onChange={onChange}
-            required
-          />
-          <Field
-            label={tr('productForm.originalPrice')}
-            name="original_price"
-            type="number"
-            step="0.01"
-            value={form.original_price}
-            onChange={onChange}
-          />
+          {!hasMechanismOptions ? (
+            <>
+              <Field
+                label={tr('productForm.price')}
+                name="price"
+                type="number"
+                step="0.01"
+                value={form.price}
+                onChange={onChange}
+                required
+              />
+              <Field
+                label={tr('productForm.originalPrice')}
+                name="original_price"
+                type="number"
+                step="0.01"
+                value={form.original_price}
+                onChange={onChange}
+              />
+            </>
+          ) : null}
         </div>
         <div>
           <Field label={tr('productForm.sku')} name="sku" value={form.sku} onChange={onChange} required />

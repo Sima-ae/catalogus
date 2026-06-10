@@ -4,7 +4,11 @@ import {
 } from '@/lib/product-image-url'
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
-import { parseProductOptions, type ProductOptions } from '@/lib/product-options'
+import {
+  parseProductOptions,
+  stripProductOptionsInternalPricing,
+  type ProductOptions,
+} from '@/lib/product-options'
 
 /** Pipe-delimited DB field (e.g. sizes `39|40|41`) → string array. */
 export function parsePipeField(value: unknown): string[] | null {
@@ -123,7 +127,9 @@ export function serializeProductRow(
     gallery_images: gallery,
     available_sizes: parsePipeField(row.available_sizes),
     available_colors: parsePipeField(row.available_colors),
-    product_options: parseProductOptions(row.product_options),
+    product_options: options?.includePurchasePrice
+      ? parseProductOptions(row.product_options)
+      : stripProductOptionsInternalPricing(parseProductOptions(row.product_options)),
     source_url: row.source_url != null ? String(row.source_url) : null,
     source_album_id: row.source_album_id != null ? String(row.source_album_id) : null,
     tags: parseProductJsonField(row.tags),
@@ -150,10 +156,19 @@ export function serializeProductRow(
   }
 }
 
-/** Strip admin-only pricing from a product payload (shop / seller APIs). */
+/** Strip admin-only pricing from a product payload (shop / buyer / seller APIs). */
 export function omitProductInternalPricing<
-  T extends { purchase_price?: unknown; shipping_cost?: unknown },
+  T extends {
+    purchase_price?: unknown
+    shipping_cost?: unknown
+    product_options?: ProductOptions | null
+  },
 >(product: T): Omit<T, 'purchase_price' | 'shipping_cost'> {
-  const { purchase_price: _pp, shipping_cost: _sc, ...rest } = product
-  return rest
+  const { purchase_price: _pp, shipping_cost: _sc, product_options, ...rest } = product
+  return {
+    ...rest,
+    ...(product_options != null
+      ? { product_options: stripProductOptionsInternalPricing(product_options) }
+      : {}),
+  } as Omit<T, 'purchase_price' | 'shipping_cost'>
 }

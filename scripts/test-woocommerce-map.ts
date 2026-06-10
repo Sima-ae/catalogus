@@ -18,6 +18,8 @@ import {
   wooDescriptionFromAttributes,
 } from '../src/lib/woocommerce/map-product'
 import { buildProductInputFromWooCommerceImport } from '../src/lib/import-db'
+import { stripProductOptionsInternalPricing } from '../src/lib/product-options'
+import { omitProductInternalPricing } from '../src/lib/product-serialize'
 import { normalizeWooCommercePriceMode } from '../src/lib/woocommerce/types'
 
 const prices: WooStorePrices = {
@@ -198,6 +200,20 @@ assert.equal(arOptions![0].values[0].price, 850)
 assert.equal(arOptions![0].values[0].purchase_price, 850)
 assert.equal(arOptions![0].values[1].label, 'Swiss')
 assert.equal(arOptions![0].values[1].price, 1650)
+
+const publicOptions = stripProductOptionsInternalPricing(arOptions)
+assert.equal(publicOptions![0].values[0].purchase_price, undefined)
+assert.equal(publicOptions![0].values[0].price, 850)
+
+const publicProduct = omitProductInternalPricing({
+  price: 100,
+  purchase_price: 50,
+  shipping_cost: 5,
+  product_options: arOptions,
+})
+assert.ok(!('purchase_price' in publicProduct))
+assert.ok(!('shipping_cost' in publicProduct))
+assert.equal(publicProduct.product_options![0].values[0].purchase_price, undefined)
 
 assert.equal(normalizeWooCommercePriceMode('purchase_price'), 'purchase_price')
 assert.equal(normalizeWooCommercePriceMode('storefront'), 'storefront')
