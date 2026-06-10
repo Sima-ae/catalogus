@@ -103,7 +103,7 @@ export default function ProductOptionsEditor({
                       step="0.01"
                       min="0"
                       className="input w-full py-1.5 text-sm"
-                      value={value.price}
+                      value={value.price > 0 ? value.price : ''}
                       onChange={(e) =>
                         updateValue(groupIndex, valueIndex, 'price', e.target.value)
                       }

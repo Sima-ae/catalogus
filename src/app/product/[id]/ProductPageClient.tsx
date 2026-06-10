@@ -698,6 +698,52 @@ export default function ProductPageClient() {
               </div>
             </div>
 
+            {/* Price and options — between reviews and description */}
+            <div className={`rounded-lg p-6 border ${
+              theme === 'dark' 
+                ? 'bg-dark-800 border-dark-700' 
+                : 'bg-white border-gray-200 shadow-lg'
+            }`}>
+              <div className={productHasOptions(product.productOptions) ? 'mb-5' : undefined}>
+                {productHasOptions(product.productOptions) ? (
+                  <ProductOptionPrice
+                    price={displayPrices.price}
+                    originalPrice={displayPrices.original_price}
+                    size="page"
+                  />
+                ) : isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
+                  <span className="text-2xl sm:text-3xl font-bold text-primary-500">
+                    {t('product.priceOnRequest')}
+                  </span>
+                ) : (
+                  <ProductOptionPrice
+                    price={selectedLicenseOption?.price ?? product.price}
+                    originalPrice={product.original_price}
+                    size="page"
+                  />
+                )}
+              </div>
+
+              {productHasOptions(product.productOptions) && product.productOptions ? (
+                <ProductOptionSelector
+                  groups={product.productOptions}
+                  selected={selectedOptions}
+                  onChange={(groupName, valueLabel) => {
+                    setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
+                    setVariantError(null)
+                  }}
+                  onClear={(groupName) => {
+                    setSelectedOptions((prev) => {
+                      const next = { ...prev }
+                      delete next[groupName]
+                      return next
+                    })
+                  }}
+                  variant="page"
+                />
+              ) : null}
+            </div>
+
             {product.shortDescription ? (
               <div
                 className={`rounded-lg p-4 border ${
@@ -774,56 +820,13 @@ export default function ProductPageClient() {
               </div>
             </div>
 
-            {/* Price and License Selection */}
+            {/* Size, license, and cart */}
+            {!catalogMode && (
             <div className={`rounded-lg p-6 border ${
               theme === 'dark' 
                 ? 'bg-dark-800 border-dark-700' 
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
-              <div className="mb-5">
-                {productHasOptions(product.productOptions) ? (
-                  <ProductOptionPrice
-                    price={displayPrices.price}
-                    originalPrice={displayPrices.original_price}
-                    size="page"
-                  />
-                ) : isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
-                  <span className="text-2xl sm:text-3xl font-bold text-primary-500">
-                    {t('product.priceOnRequest')}
-                  </span>
-                ) : (
-                  <ProductOptionPrice
-                    price={selectedLicenseOption?.price ?? product.price}
-                    originalPrice={product.original_price}
-                    size="page"
-                  />
-                )}
-              </div>
-
-              {productHasOptions(product.productOptions) && product.productOptions ? (
-                <div className="mb-5">
-                  <ProductOptionSelector
-                    groups={product.productOptions}
-                    selected={selectedOptions}
-                    onChange={(groupName, valueLabel) => {
-                      setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
-                      setVariantError(null)
-                    }}
-                    onClear={(groupName) => {
-                      setSelectedOptions((prev) => {
-                        const next = { ...prev }
-                        delete next[groupName]
-                        return next
-                      })
-                    }}
-                    variant="page"
-                  />
-                </div>
-              ) : null}
-
-              {!catalogMode && (
-                <>
-
                   {product.availableSizes.length > 0 && (
                     <div className="space-y-2 mb-4">
                       <label className={`text-sm font-medium ${
@@ -985,9 +988,8 @@ export default function ProductPageClient() {
                       </>
                     )}
                   </div>
-                </>
-              )}
             </div>
+            )}
 
             {product.category ||
             product.brands.length > 0 ||

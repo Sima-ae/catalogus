@@ -28,6 +28,7 @@ import {
 } from '@/lib/woocommerce/client'
 import { mirrorWooCommerceProductImages } from '@/lib/woocommerce/mirror-images'
 import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
+import { minOptionPurchasePrice } from '@/lib/product-options'
 import { fetchWooProductOptions } from '@/lib/woocommerce/variations'
 import { wooSlugExternalId } from '@/lib/woocommerce/types'
 import { mirrorFacebookPostImages } from '@/lib/facebook/mirror-images'
@@ -204,12 +205,7 @@ export async function buildProductInputFromWooStoreProduct(
     )
   }
 
-  const optionPurchasePrices =
-    productOptions?.flatMap((g) =>
-      g.values.map((v) => v.purchase_price ?? v.price).filter((p) => p > 0)
-    ) ?? []
-  const minOptionPurchase =
-    optionPurchasePrices.length > 0 ? Math.min(...optionPurchasePrices) : null
+  const minOptionPurchase = minOptionPurchasePrice(productOptions)
 
   const shippingCost = parseWooImportShippingCost(source.woocommerce_shipping_cost)
   return {

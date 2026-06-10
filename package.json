@@ -27,6 +27,7 @@
     "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts",
     "db:seed-site-access-codes": "tsx scripts/seed-site-access-codes.ts",
     "db:sync-purchase-prices": "tsx scripts/sync-purchase-prices-from-pricelist.ts",
+    "db:clear-imported-sales-prices": "tsx scripts/clear-imported-sales-prices.ts",
     "db:sync-shipping-costs": "tsx scripts/sync-shipping-costs-from-pricelist.ts",
     "db:restore-pricelist-prices-after-shipping": "tsx scripts/restore-pricelist-prices-after-shipping-bulk.ts",
     "db:set-ar-factory-shipping": "tsx scripts/set-ar-factory-shipping-cost.ts",

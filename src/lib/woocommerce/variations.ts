@@ -64,7 +64,8 @@ export function mapWooVariationsToProductOptions(
     const value = {
       label: parts.value,
       slug: slugifyOption(parts.value),
-      price: usePurchasePrice ? price : price,
+      // Purchase-price imports: cost on purchase_price only; sales price filled in admin later.
+      price: usePurchasePrice ? 0 : price,
       original_price: usePurchasePrice ? null : originalPrice,
       ...(usePurchasePrice && price > 0 ? { purchase_price: price } : {}),
     }

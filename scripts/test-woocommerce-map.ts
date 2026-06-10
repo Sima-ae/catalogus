@@ -196,14 +196,15 @@ assert.ok(arOptions)
 assert.equal(arOptions![0].name, 'Mechanism')
 assert.equal(arOptions![0].values.length, 2)
 assert.equal(arOptions![0].values[0].label, 'Japanese')
-assert.equal(arOptions![0].values[0].price, 850)
+assert.equal(arOptions![0].values[0].price, 0)
 assert.equal(arOptions![0].values[0].purchase_price, 850)
 assert.equal(arOptions![0].values[1].label, 'Swiss')
-assert.equal(arOptions![0].values[1].price, 1650)
+assert.equal(arOptions![0].values[1].price, 0)
+assert.equal(arOptions![0].values[1].purchase_price, 1650)
 
 const publicOptions = stripProductOptionsInternalPricing(arOptions)
 assert.equal(publicOptions![0].values[0].purchase_price, undefined)
-assert.equal(publicOptions![0].values[0].price, 850)
+assert.equal(publicOptions![0].values[0].price, 0)
 
 const publicProduct = omitProductInternalPricing({
   price: 100,
