@@ -34,7 +34,11 @@ import {
   ShoppingBagIcon,
 } from '@heroicons/react/24/outline'
 import { type CatalogMode } from '@/lib/catalog'
-import { buildCatalogProductsUrl, isCatalogProductsPage } from '@/lib/catalog-products'
+import {
+  buildCatalogProductsUrl,
+  isCatalogProductsPage,
+  type CatalogProductsPage,
+} from '@/lib/catalog-products'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { useAuth } from '@/lib/auth-local'
@@ -63,22 +67,29 @@ export type ShopCatalogConfig = {
   centerCatalog?: boolean
 }
 
-function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
+function ShopCatalogPageContent({
+  config,
+  initialCatalog,
+}: {
+  config: ShopCatalogConfig
+  initialCatalog?: CatalogProductsPage | null
+}) {
   const { t: tr } = useI18n()
-  const [products, setProducts] = useState<Product[]>([])
-  const [totalItems, setTotalItems] = useState(0)
+  const [products, setProducts] = useState<Product[]>(initialCatalog?.items ?? [])
+  const [totalItems, setTotalItems] = useState(initialCatalog?.total ?? 0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
   const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
     useShopSubcategory(selectedCategory)
   const { selectedBrand, setSelectedBrand } = useShopBrand()
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialCatalog)
   const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
   const [reorderSaving, setReorderSaving] = useState(false)
-  const hasLoadedOnce = useRef(false)
+  const hasLoadedOnce = useRef(Boolean(initialCatalog))
+  const skippedInitialFetch = useRef(false)
   const { user, isAdmin } = useAuth()
   const [categoryProductCount, setCategoryProductCount] = useState<number | null>(null)
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
@@ -206,6 +217,26 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     }
 
     const pageToLoad = currentPage
+    const isDefaultBrowse =
+      pageToLoad === 1 &&
+      selectedCategory === 'All' &&
+      selectedSubcategory === 'All' &&
+      !brandFilterActive &&
+      !filterTag &&
+      !debouncedSearch
+
+    if (
+      initialCatalog &&
+      !skippedInitialFetch.current &&
+      isDefaultBrowse &&
+      reloadToken === 0
+    ) {
+      skippedInitialFetch.current = true
+      hasLoadedOnce.current = true
+      setLoading(false)
+      setPageLoading(false)
+      return
+    }
 
     async function loadProducts() {
       if (!hasLoadedOnce.current) setLoading(true)
@@ -263,6 +294,11 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
     debouncedSearch,
     filterSignature,
     reloadToken,
+    initialCatalog,
+    brandFilterActive,
+    filterTag,
+    selectedCategory,
+    selectedSubcategory,
   ])
 
   useEffect(() => {
@@ -507,10 +543,16 @@ function ShopCatalogPageContent({ config }: { config: ShopCatalogConfig }) {
   )
 }
 
-export default function ShopCatalogPage({ config }: { config: ShopCatalogConfig }) {
+export default function ShopCatalogPage({
+  config,
+  initialCatalog,
+}: {
+  config: ShopCatalogConfig
+  initialCatalog?: CatalogProductsPage | null
+}) {
   return (
     <Suspense fallback={null}>
-      <ShopCatalogPageContent config={config} />
+      <ShopCatalogPageContent config={config} initialCatalog={initialCatalog} />
     </Suspense>
   )
 }

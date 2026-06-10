@@ -26,11 +26,14 @@ import ProductEditModal from '@/components/admin/ProductEditModal'
 import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
-import ProductOptionSelector from '@/components/shop/ProductOptionSelector'
+import ProductOptionSelector, {
+  ProductFixedOptionDisplay,
+} from '@/components/shop/ProductOptionSelector'
 import ProductOptionPrice from '@/components/shop/ProductOptionPrice'
 import { useProductOptionSelection } from '@/components/shop/use-product-option-selection'
 import {
   allOptionsSelected,
+  isSingleFixedProductOption,
   productHasOptions,
   resolveSelectedOptionPrices,
 } from '@/lib/product-options'
@@ -725,22 +728,29 @@ export default function ProductPageClient() {
               </div>
 
               {productHasOptions(product.productOptions) && product.productOptions ? (
-                <ProductOptionSelector
-                  groups={product.productOptions}
-                  selected={selectedOptions}
-                  onChange={(groupName, valueLabel) => {
-                    setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
-                    setVariantError(null)
-                  }}
-                  onClear={(groupName) => {
-                    setSelectedOptions((prev) => {
-                      const next = { ...prev }
-                      delete next[groupName]
-                      return next
-                    })
-                  }}
-                  variant="page"
-                />
+                isSingleFixedProductOption(product.productOptions) ? (
+                  <ProductFixedOptionDisplay
+                    groups={product.productOptions}
+                    variant="page"
+                  />
+                ) : (
+                  <ProductOptionSelector
+                    groups={product.productOptions}
+                    selected={selectedOptions}
+                    onChange={(groupName, valueLabel) => {
+                      setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
+                      setVariantError(null)
+                    }}
+                    onClear={(groupName) => {
+                      setSelectedOptions((prev) => {
+                        const next = { ...prev }
+                        delete next[groupName]
+                        return next
+                      })
+                    }}
+                    variant="page"
+                  />
+                )
               ) : null}
             </div>
 

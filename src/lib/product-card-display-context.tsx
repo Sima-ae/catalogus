@@ -23,13 +23,19 @@ const ProductCardDisplayContext = createContext<ProductCardDisplayContextValue>(
   refresh: async () => {},
 })
 
-export function ProductCardDisplayProvider({ children }: { children: React.ReactNode }) {
-  const [showCardDetails, setShowCardDetails] = useState(true)
-  const [ready, setReady] = useState(false)
+export function ProductCardDisplayProvider({
+  children,
+  initialShowCardDetails,
+}: {
+  children: React.ReactNode
+  initialShowCardDetails?: boolean
+}) {
+  const [showCardDetails, setShowCardDetails] = useState(initialShowCardDetails ?? true)
+  const [ready, setReady] = useState(initialShowCardDetails !== undefined)
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(appPath('/api/product-card-display'), { cache: 'no-store' })
+      const res = await fetch(appPath('/api/product-card-display'))
       const data = await res.json()
       if (res.ok && typeof data.showCardDetails === 'boolean') {
         setShowCardDetails(data.showCardDetails)
@@ -42,8 +48,9 @@ export function ProductCardDisplayProvider({ children }: { children: React.React
   }, [])
 
   useEffect(() => {
+    if (initialShowCardDetails !== undefined) return
     refresh()
-  }, [refresh])
+  }, [refresh, initialShowCardDetails])
 
   const value = useMemo(
     () => ({ showCardDetails, ready, refresh }),

@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
+import { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import { buildPageMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
+import { listActiveProductsPaginated } from '@/lib/products-db'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
@@ -12,7 +14,18 @@ export async function generateMetadata(): Promise<Metadata> {
   )
 }
 
-export default function NewProductsPage() {
+export default async function NewProductsPage() {
+  let initialCatalog = null
+  try {
+    initialCatalog = await listActiveProductsPaginated({
+      page: 1,
+      limit: CATALOG_PAGE_SIZE,
+      mode: 'new',
+    })
+  } catch {
+    // Client-side fetch fallback if DB is unavailable during SSR.
+  }
+
   return (
     <ShopCatalogPage
       config={{
@@ -28,6 +41,7 @@ export default function NewProductsPage() {
           'Nothing was added during the current catalog week yet. The list resets every Sunday at midnight. Browse the full catalog on Home in the meantime.',
         centerCatalog: true,
       }}
+      initialCatalog={initialCatalog}
     />
   )
 }

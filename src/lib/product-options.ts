@@ -160,9 +160,24 @@ export function minOptionPurchasePrice(
   return values.length ? Math.min(...values) : null
 }
 
-/** Default: no tier pre-selected — UI shows localized "Choose an option" placeholder. */
-export function defaultProductOptionSelection(
-  _options: ProductOptions | null | undefined
+/** One option group with a single tier — no selector needed. */
+export function isSingleFixedProductOption(
+  options: ProductOptions | null | undefined
+): boolean {
+  return Boolean(options?.length === 1 && options[0].values.length === 1)
+}
+
+export function singleFixedProductOptionSelection(
+  options: ProductOptions | null | undefined
 ): Record<string, string> {
-  return {}
+  if (!isSingleFixedProductOption(options)) return {}
+  const group = options![0]
+  return { [group.name]: group.values[0].label }
+}
+
+/** Default: auto-select when only one tier; otherwise show "Choose an option" placeholder. */
+export function defaultProductOptionSelection(
+  options: ProductOptions | null | undefined
+): Record<string, string> {
+  return singleFixedProductOptionSelection(options)
 }

@@ -21,7 +21,11 @@ import {
   resolveShopCategoryFilter,
 } from '@/lib/shop-category-tree'
 import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
-import { serializeProductRow, type SerializeProductRowOptions } from '@/lib/product-serialize'
+import {
+  serializeCatalogProductRow,
+  serializeProductRow,
+  type SerializeProductRowOptions,
+} from '@/lib/product-serialize'
 import { joinBrandNames, parseBrandCompound } from '@/lib/product-taxonomy'
 import {
   brandsTableExists,
@@ -306,12 +310,13 @@ function dedupeProductRows(rows: Record<string, unknown>[]): Record<string, unkn
 
 async function serializeProductRows(
   rows: Record<string, unknown>[],
-  options?: SerializeProductRowOptions
+  options?: SerializeProductRowOptions & { catalog?: boolean }
 ) {
   const brandSkuPrefixes =
     options?.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
+  const serialize = options?.catalog ? serializeCatalogProductRow : serializeProductRow
   return dedupeProductRows(rows).map((row) =>
-    serializeProductRow(row, { brandSkuPrefixes, ...options })
+    serialize(row, { brandSkuPrefixes, ...options })
   )
 }
 
@@ -927,7 +932,7 @@ export async function listActiveProductsPaginated(
   const total = Number(countRows[0]?.total ?? 0)
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
   const items = await applyStorefrontSoldOutFromPlatformPricelist(
-    await serializeProductRows(rows)
+    await serializeProductRows(rows, { catalog: true })
   )
 
   return {

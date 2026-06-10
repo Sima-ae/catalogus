@@ -94,6 +94,34 @@ export default function ProductOptionSelector({
   )
 }
 
+/** Read-only label when a product has exactly one option tier (e.g. "Mechanism: Swiss"). */
+export function ProductFixedOptionDisplay({
+  groups,
+  variant = 'page',
+  className = '',
+}: {
+  groups: ProductOptions
+  variant?: 'page' | 'card'
+  className?: string
+}) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const compact = variant === 'card'
+  const group = groups[0]
+  const value = group?.values[0]
+  if (!group || !value) return null
+
+  return (
+    <p
+      className={`${compact ? 'text-xs' : 'text-sm'} ${className} ${
+        isDark ? 'text-gray-200' : 'text-gray-800'
+      }`}
+    >
+      <span className="font-bold">{group.name}:</span> {value.label}
+    </p>
+  )
+}
+
 /** Compact tier labels for product cards (e.g. "Japanese  Swiss"). */
 export function ProductOptionLabels({
   groups,

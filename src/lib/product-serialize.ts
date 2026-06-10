@@ -156,6 +156,31 @@ export function serializeProductRow(
   }
 }
 
+/** Lightweight shop grid payload — omits heavy fields not shown on product cards. */
+export function serializeCatalogProductRow(
+  row: Record<string, unknown>,
+  options?: SerializeProductRowOptions
+) {
+  const full = serializeProductRow(row, options)
+  return {
+    id: full.id,
+    name: full.name,
+    description: '',
+    short_description: full.short_description,
+    price: full.price,
+    original_price: full.original_price,
+    image_url: full.image_url,
+    category: full.category,
+    category_id: full.category_id,
+    brand: full.brand,
+    brand_id: full.brand_id,
+    product_options: full.product_options,
+    sold_out: full.sold_out,
+    pre_order: full.pre_order,
+    author_id: (full as { author_id?: string }).author_id,
+  }
+}
+
 /** Strip admin-only pricing from a product payload (shop / buyer / seller APIs). */
 export function omitProductInternalPricing<
   T extends {

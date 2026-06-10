@@ -22,13 +22,19 @@ const CatalogModeContext = createContext<CatalogModeContextValue>({
   refresh: async () => {},
 })
 
-export function CatalogModeProvider({ children }: { children: React.ReactNode }) {
-  const [catalogMode, setCatalogMode] = useState(false)
-  const [ready, setReady] = useState(false)
+export function CatalogModeProvider({
+  children,
+  initialCatalogMode,
+}: {
+  children: React.ReactNode
+  initialCatalogMode?: boolean
+}) {
+  const [catalogMode, setCatalogMode] = useState(initialCatalogMode ?? false)
+  const [ready, setReady] = useState(initialCatalogMode !== undefined)
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(appPath('/api/catalog-mode'), { cache: 'no-store' })
+      const res = await fetch(appPath('/api/catalog-mode'))
       const data = await res.json()
       if (res.ok && typeof data.catalogMode === 'boolean') {
         setCatalogMode(data.catalogMode)
@@ -41,8 +47,9 @@ export function CatalogModeProvider({ children }: { children: React.ReactNode })
   }, [])
 
   useEffect(() => {
+    if (initialCatalogMode !== undefined) return
     refresh()
-  }, [refresh])
+  }, [refresh, initialCatalogMode])
 
   const value = useMemo(
     () => ({ catalogMode, ready, refresh }),

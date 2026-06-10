@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useI18n } from '@/lib/i18n-context'
 
-export const CATALOG_PAGE_SIZE = 60
+export const CATALOG_PAGE_SIZE = 24
 
 type Props = {
   page: number

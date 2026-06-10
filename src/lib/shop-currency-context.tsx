@@ -20,12 +20,21 @@ const ShopCurrencyContext = createContext<ShopCurrencyContextValue>({
   symbol: getCurrencySymbol(DEFAULT_SHOP_CURRENCY),
 })
 
-export function ShopCurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [currencyCode, setCurrencyCode] = useState<ShopCurrencyCode>(DEFAULT_SHOP_CURRENCY)
+export function ShopCurrencyProvider({
+  children,
+  initialCurrency,
+}: {
+  children: React.ReactNode
+  initialCurrency?: string
+}) {
+  const [currencyCode, setCurrencyCode] = useState<ShopCurrencyCode>(
+    initialCurrency ? normalizeCurrencyCode(initialCurrency) : DEFAULT_SHOP_CURRENCY
+  )
 
   useEffect(() => {
+    if (initialCurrency) return
     let cancelled = false
-    fetch(appPath('/api/settings/public'), { cache: 'no-store' })
+    fetch(appPath('/api/settings/public'))
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data?.currency) return
@@ -35,7 +44,7 @@ export function ShopCurrencyProvider({ children }: { children: React.ReactNode }
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialCurrency])
 
   useEffect(() => {
     setActiveShopCurrencyCode(currencyCode)

@@ -19,6 +19,7 @@ import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
 import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
 import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
+import { loadShopBootstrap } from '@/lib/shop-bootstrap'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -42,9 +43,10 @@ export default async function RootLayout({
       ? rawLocale
       : DEFAULT_LOCALE
   const messages = getMessages(locale)
-  const [categoryMessages, tagMessages] = await Promise.all([
+  const [categoryMessages, tagMessages, shopBootstrap] = await Promise.all([
     getCategoryTranslationMessages(locale),
     getTagTranslationMessages(locale),
+    loadShopBootstrap(locale),
   ])
   const preloadText = messages['loading.generic'] || 'Loading…'
 
@@ -79,10 +81,14 @@ export default async function RootLayout({
                   tagMessages={tagMessages}
                 >
                     <LanguagePickerProvider>
-                      <CatalogModeProvider>
-                        <ProductCardDisplayProvider>
+                      <CatalogModeProvider initialCatalogMode={shopBootstrap.catalogMode}>
+                        <ProductCardDisplayProvider
+                          initialShowCardDetails={shopBootstrap.showCardDetails}
+                        >
                           <CartProvider>
-                            <ShopCurrencyProvider>{children}</ShopCurrencyProvider>
+                            <ShopCurrencyProvider initialCurrency={shopBootstrap.currency}>
+                              {children}
+                            </ShopCurrencyProvider>
                           </CartProvider>
                         </ProductCardDisplayProvider>
                       </CatalogModeProvider>

@@ -13,12 +13,19 @@ export async function GET(_request: NextRequest) {
   try {
     const locale = await getServerLocale()
     const { settings } = await loadSiteSettings()
-    return NextResponse.json({
-      site_name: settings.site_name,
-      site_tagline: resolveSiteTagline(locale, settings.site_tagline),
-      support_email: settings.support_email,
-      currency: settings.currency,
-    })
+    return NextResponse.json(
+      {
+        site_name: settings.site_name,
+        site_tagline: resolveSiteTagline(locale, settings.site_tagline),
+        support_email: settings.support_email,
+        currency: settings.currency,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        },
+      }
+    )
   } catch (error) {
     logDbRouteError('Public settings fetch error', error)
     return NextResponse.json(

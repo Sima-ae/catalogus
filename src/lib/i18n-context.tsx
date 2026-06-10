@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_LOCALE,
   getMessages,
@@ -48,11 +48,16 @@ export function I18nProvider({
     setTagMessages(initialTagMessages)
   }, [initialTagMessages])
 
+  const skipInitialCategoryFetch = useRef(Object.keys(initialCategoryMessages).length > 0)
+  const skipInitialTagFetch = useRef(Object.keys(initialTagMessages).length > 0)
+
   useEffect(() => {
+    if (skipInitialCategoryFetch.current && locale === initialLocale) {
+      skipInitialCategoryFetch.current = false
+      return
+    }
     let cancelled = false
-    fetch(appPath(`/api/i18n/category-messages?locale=${encodeURIComponent(locale)}`), {
-      cache: 'no-store',
-    })
+    fetch(appPath(`/api/i18n/category-messages?locale=${encodeURIComponent(locale)}`))
       .then((res) => (res.ok ? res.json() : {}))
       .then((data: unknown) => {
         if (cancelled || !data || typeof data !== 'object' || Array.isArray(data)) return
@@ -64,13 +69,15 @@ export function I18nProvider({
     return () => {
       cancelled = true
     }
-  }, [locale])
+  }, [locale, initialLocale])
 
   useEffect(() => {
+    if (skipInitialTagFetch.current && locale === initialLocale) {
+      skipInitialTagFetch.current = false
+      return
+    }
     let cancelled = false
-    fetch(appPath(`/api/i18n/tag-messages?locale=${encodeURIComponent(locale)}`), {
-      cache: 'no-store',
-    })
+    fetch(appPath(`/api/i18n/tag-messages?locale=${encodeURIComponent(locale)}`))
       .then((res) => (res.ok ? res.json() : {}))
       .then((data: unknown) => {
         if (cancelled || !data || typeof data !== 'object' || Array.isArray(data)) return
@@ -82,7 +89,7 @@ export function I18nProvider({
     return () => {
       cancelled = true
     }
-  }, [locale])
+  }, [locale, initialLocale])
 
   const value = useMemo<I18nContextValue>(() => {
     return {

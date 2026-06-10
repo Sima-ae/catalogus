@@ -17,19 +17,27 @@ import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import ProductRibbon from '@/components/shop/ProductRibbon'
-import ProductOptionSelector, { ProductOptionLabels } from '@/components/shop/ProductOptionSelector'
+import ProductOptionSelector, {
+  ProductFixedOptionDisplay,
+  ProductOptionLabels,
+} from '@/components/shop/ProductOptionSelector'
 import ProductOptionPrice from '@/components/shop/ProductOptionPrice'
 import { useProductOptionSelection } from '@/components/shop/use-product-option-selection'
-import { allOptionsSelected, productHasOptions } from '@/lib/product-options'
+import {
+  allOptionsSelected,
+  isSingleFixedProductOption,
+  optionPriceRange,
+  productHasOptions,
+} from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 
 interface ProductCardProps {
   product: Product
   onDeleted?: (productId: string) => void
 }
 
-export default function ProductCard({ product, onDeleted }: ProductCardProps) {
+function ProductCard({ product, onDeleted }: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const localizedPath = useLocalizedPath()
@@ -42,6 +50,7 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
   const [optionError, setOptionError] = useState<string | null>(null)
 
   const hasOptions = productHasOptions(product.product_options)
+  const singleFixedOption = isSingleFixedProductOption(product.product_options)
   const { selected: selectedOptions, setSelected: setSelectedOptions, displayPrices } =
     useProductOptionSelection(product.price, product.original_price, product.product_options)
   const productOptionKey = hasOptions
@@ -94,7 +103,16 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
   }
 
   const mainImage = productImageSrc(product.image_url)
-  const flipImage = productImageSrc(product.gallery_images?.[0]?.trim() || product.image_url)
+
+  const cardPriceLabel = (() => {
+    if (hasOptions) {
+      const range = optionPriceRange(product.product_options)
+      if (range && range.min > 0) return formatPrice(range.min)
+      return t('product.priceOnRequest')
+    }
+    if (isZeroPrice(product.price)) return t('product.priceOnRequest')
+    return formatPrice(product.price)
+  })()
 
   return (
     <div
@@ -115,32 +133,23 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
         scroll={false}
         onClick={saveListingScroll}
       >
-        <div className={`relative aspect-[3/4] mb-3 overflow-hidden rounded-lg product-card-flip ${
+        <div className={`product-card-image relative aspect-[3/4] mb-3 overflow-hidden rounded-lg ${
           theme === 'dark' ? 'bg-dark-900' : 'bg-white'
         }`}>
-          <div className="product-card-flip-inner">
-            <div className="product-card-flip-face">
-              <Image
-                src={mainImage}
-                alt={product.name}
-                fill
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
-                className="object-contain"
-                unoptimized={shouldUnoptimizeProductImage(mainImage)}
-              />
-            </div>
-            <div className="product-card-flip-face product-card-flip-back">
-              <Image
-                src={flipImage}
-                alt={product.name}
-                fill
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
-                className="object-contain"
-                unoptimized={shouldUnoptimizeProductImage(flipImage)}
-              />
-            </div>
+          <Image
+            src={mainImage}
+            alt={product.name}
+            fill
+            loading="lazy"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
+            className="object-contain"
+            unoptimized={shouldUnoptimizeProductImage(mainImage)}
+          />
+          <div className="pointer-events-none absolute top-2 left-1/2 z-10 max-w-[58%] -translate-x-1/2">
+            <span className="sold-out-ribbon-text block rounded-full bg-black px-2.5 py-1 text-center text-[10px] font-semibold leading-tight text-white shadow-md sm:text-xs">
+              {cardPriceLabel}
+            </span>
           </div>
-          <div className="pointer-events-none absolute inset-0 z-[1] bg-black bg-opacity-0 transition-all duration-300 group-hover:bg-opacity-20" />
           <div className="absolute top-2 left-2 z-10">
             <ProductCardDeleteButton
               productId={product.id}
@@ -162,7 +171,7 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
           scroll={false}
           onClick={saveListingScroll}
         >
-          <h3 className={`font-semibold text-xs sm:text-sm line-clamp-2 leading-tight transition-colors ${
+          <h3 className={`text-center font-semibold text-xs sm:text-sm line-clamp-2 leading-tight transition-colors ${
             theme === 'dark'
               ? 'text-gray-100 group-hover:text-white'
               : 'group-hover:text-primary-600'
@@ -182,22 +191,29 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
         {showCardDetails ? (
         <div className="space-y-2 pt-1">
           {hasOptions && product.product_options ? (
-            <ProductOptionSelector
-              groups={product.product_options}
-              selected={selectedOptions}
-              onChange={(groupName, valueLabel) => {
-                setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
-                setOptionError(null)
-              }}
-              onClear={(groupName) => {
-                setSelectedOptions((prev) => {
-                  const next = { ...prev }
-                  delete next[groupName]
-                  return next
-                })
-              }}
-              variant="card"
-            />
+            singleFixedOption ? (
+              <ProductFixedOptionDisplay
+                groups={product.product_options}
+                variant="card"
+              />
+            ) : (
+              <ProductOptionSelector
+                groups={product.product_options}
+                selected={selectedOptions}
+                onChange={(groupName, valueLabel) => {
+                  setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
+                  setOptionError(null)
+                }}
+                onClear={(groupName) => {
+                  setSelectedOptions((prev) => {
+                    const next = { ...prev }
+                    delete next[groupName]
+                    return next
+                  })
+                }}
+                variant="card"
+              />
+            )
           ) : null}
           {optionError ? (
             <p className="text-red-500 text-xs">{optionError}</p>
@@ -218,7 +234,7 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
               </span>
             )}
           </div>
-          {hasOptions && product.product_options ? (
+          {hasOptions && product.product_options && !singleFixedOption ? (
             <ProductOptionLabels
               groups={product.product_options}
               className={`shrink-0 text-right max-w-[48%] ${
@@ -256,3 +272,15 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
     </div>
   )
 }
+
+export default memo(ProductCard, (prev, next) => {
+  return (
+    prev.product.id === next.product.id &&
+    prev.product.price === next.product.price &&
+    prev.product.sold_out === next.product.sold_out &&
+    prev.product.pre_order === next.product.pre_order &&
+    prev.product.image_url === next.product.image_url &&
+    prev.product.name === next.product.name &&
+    prev.onDeleted === next.onDeleted
+  )
+})

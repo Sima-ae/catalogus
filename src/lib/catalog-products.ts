@@ -2,8 +2,8 @@ import type { CatalogMode } from '@/lib/catalog'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import type { Product } from '@/lib/types'
 
-export const DEFAULT_CATALOG_PAGE_SIZE = 60
-export const MAX_CATALOG_PAGE_SIZE = 120
+export const DEFAULT_CATALOG_PAGE_SIZE = 24
+export const MAX_CATALOG_PAGE_SIZE = 60
 
 export type CatalogProductsQuery = {
   page: number
