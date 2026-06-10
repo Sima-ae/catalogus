@@ -48,6 +48,7 @@ import { getPricelistBulkMessages } from '@/lib/i18n-pricelist-bulk'
 import { getPricelistShippingSaveMessages } from '@/lib/i18n-pricelist-shipping-save'
 import { getShopSoldOutMessages } from '@/lib/i18n-shop-sold-out'
 import { getShopPreOrderMessages } from '@/lib/i18n-shop-pre-order'
+import { getProductOptionMessages } from '@/lib/i18n-product-options'
 import { getActivityOrderMessages } from '@/lib/i18n-activity-order'
 import { getDashboardMessages } from '@/lib/i18n-dashboard'
 import { getContactMessages } from '@/lib/i18n-contact'
@@ -598,6 +599,7 @@ export function getMessages(locale: Locale): Messages {
     ...getPricelistShippingSaveMessages(locale),
     ...getShopSoldOutMessages(locale),
     ...getShopPreOrderMessages(locale),
+    ...getProductOptionMessages(locale),
     ...getActivityOrderMessages(locale),
     ...getDashboardMessages(locale),
     ...getContactMessages(locale),

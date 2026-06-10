@@ -94,6 +94,13 @@ export function resolveSelectedOptionPrices(
     }
   }
 
+  if (!allOptionsSelected(options, selected)) {
+    return {
+      price: basePrice,
+      original_price: baseOriginalPrice ?? null,
+    }
+  }
+
   let price: number | null = null
   let original_price: number | null = null
 
@@ -104,19 +111,6 @@ export function resolveSelectedOptionPrices(
     if (!value) continue
     price = value.price
     original_price = value.original_price ?? null
-  }
-
-  if (price == null) {
-    const allPrices = options.flatMap((g) => g.values.map((v) => v.price)).filter((p) => p > 0)
-    if (allPrices.length) {
-      price = Math.min(...allPrices)
-      const max = Math.max(...allPrices)
-      if (max > price) {
-        // Range hint: keep min as display base; UI can show range separately
-      }
-    } else {
-      price = basePrice
-    }
   }
 
   return { price: price ?? basePrice, original_price }
@@ -144,7 +138,6 @@ export function allOptionsSelected(
   return options.every((g) => Boolean(selected[g.name]?.trim()))
 }
 
-/** Default selection: cheapest tier per group (e.g. Japanese before Swiss). */
 /** Remove internal cost fields from option tiers (shop / buyer API responses). */
 export function stripProductOptionsInternalPricing(
   options: ProductOptions | null | undefined
@@ -167,16 +160,9 @@ export function minOptionPurchasePrice(
   return values.length ? Math.min(...values) : null
 }
 
+/** Default: no tier pre-selected — UI shows localized "Choose an option" placeholder. */
 export function defaultProductOptionSelection(
-  options: ProductOptions | null | undefined
+  _options: ProductOptions | null | undefined
 ): Record<string, string> {
-  if (!options?.length) return {}
-  const selected: Record<string, string> = {}
-  for (const group of options) {
-    const sorted = [...group.values].sort(
-      (a, b) => a.price - b.price || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
-    )
-    if (sorted[0]?.label) selected[group.name] = sorted[0].label
-  }
-  return selected
+  return {}
 }
