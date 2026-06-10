@@ -1,5 +1,6 @@
 'use client'
 
+import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import type { ProductOptionGroup, ProductOptions } from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
@@ -27,6 +28,7 @@ export default function ProductOptionSelector({
 }: Props) {
   const { theme } = useTheme()
   const { t } = useI18n()
+  const isDark = theme === 'dark'
   const compact = variant === 'card'
 
   return (
@@ -35,13 +37,13 @@ export default function ProductOptionSelector({
         const current = selected[group.name] ?? ''
         const selectId = groupSelectId(group, variant)
         return (
-          <div key={group.name} className={compact ? 'space-y-1' : 'space-y-2'}>
-            <div className="flex items-center gap-2 flex-wrap">
+          <div key={group.name} className={compact ? 'space-y-1.5' : 'space-y-2'}>
+            <div className="flex items-center justify-between gap-2">
               <label
                 htmlFor={selectId}
-                className={`font-semibold shrink-0 ${
+                className={`font-bold shrink-0 ${
                   compact ? 'text-xs' : 'text-sm'
-                } ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}
+                } ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
               >
                 {group.name}:
               </label>
@@ -49,31 +51,42 @@ export default function ProductOptionSelector({
                 <button
                   type="button"
                   onClick={() => onClear(group.name)}
-                  className={`text-xs underline-offset-2 hover:underline ${
-                    theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'
+                  className={`inline-flex items-center gap-0.5 text-xs hover:underline underline-offset-2 ${
+                    isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'
                   }`}
                 >
+                  <span aria-hidden>×</span>
                   {t('product.option.clear')}
                 </button>
               ) : null}
             </div>
-            <select
-              id={selectId}
-              value={current}
-              onChange={(e) => onChange(group.name, e.target.value)}
-              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                theme === 'dark'
-                  ? 'bg-dark-900 border-dark-600 text-gray-100'
-                  : 'bg-white border-gray-300 text-gray-900'
-              } ${compact ? 'text-xs py-1.5' : ''}`}
-            >
-              <option value="">{t('product.option.choose')}</option>
-              {group.values.map((value) => (
-                <option key={value.label} value={value.label}>
-                  {value.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id={selectId}
+                value={current}
+                onChange={(e) => onChange(group.name, e.target.value)}
+                className={`w-full appearance-none rounded-full border font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/60 ${
+                  compact ? 'py-1.5 pl-3 pr-8 text-xs' : 'py-2.5 pl-4 pr-10 text-sm'
+                } ${
+                  isDark
+                    ? 'bg-dark-900 border-dark-600 text-gray-100'
+                    : 'bg-white border-gray-300 text-gray-800 shadow-sm'
+                } ${!current ? (isDark ? 'text-gray-500' : 'text-gray-400') : ''}`}
+              >
+                <option value="">{t('product.option.choose')}</option>
+                {group.values.map((value) => (
+                  <option key={value.label} value={value.label}>
+                    {value.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon
+                className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-gray-400 ${
+                  compact ? 'right-2 h-3.5 w-3.5' : 'right-3 h-4 w-4'
+                }`}
+                aria-hidden
+              />
+            </div>
           </div>
         )
       })}
@@ -81,6 +94,7 @@ export default function ProductOptionSelector({
   )
 }
 
+/** Compact tier labels for product cards (e.g. "Japanese  Swiss"). */
 export function ProductOptionLabels({
   groups,
   className = '',
@@ -91,8 +105,14 @@ export function ProductOptionLabels({
   const labels = groups.flatMap((g) => g.values.map((v) => v.label))
   if (!labels.length) return null
   return (
-    <span className={`font-semibold text-xs sm:text-sm ${className}`}>
-      {labels.join(' ')}
+    <span
+      className={`inline-flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 font-bold leading-tight ${
+        className || 'text-xs sm:text-sm'
+      }`}
+    >
+      {labels.map((label) => (
+        <span key={label}>{label}</span>
+      ))}
     </span>
   )
 }

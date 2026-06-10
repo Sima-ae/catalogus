@@ -143,3 +143,18 @@ export function allOptionsSelected(
   if (!options?.length) return true
   return options.every((g) => Boolean(selected[g.name]?.trim()))
 }
+
+/** Default selection: cheapest tier per group (e.g. Japanese before Swiss). */
+export function defaultProductOptionSelection(
+  options: ProductOptions | null | undefined
+): Record<string, string> {
+  if (!options?.length) return {}
+  const selected: Record<string, string> = {}
+  for (const group of options) {
+    const sorted = [...group.values].sort(
+      (a, b) => a.price - b.price || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+    )
+    if (sorted[0]?.label) selected[group.name] = sorted[0].label
+  }
+  return selected
+}

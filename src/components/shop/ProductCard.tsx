@@ -9,7 +9,7 @@ import { catalogListingKey, isShopCatalogPath, parseCatalogPageParam } from '@/l
 import { useLocalizedPath } from '@/lib/use-localized-path'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
-import { formatPrice, hasPublicOriginalPrice, isZeroPrice } from '@/lib/format-price'
+import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
 import { shouldUnoptimizeProductImage, productImageSrc } from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
@@ -18,12 +18,9 @@ import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import ProductRibbon from '@/components/shop/ProductRibbon'
 import ProductOptionSelector, { ProductOptionLabels } from '@/components/shop/ProductOptionSelector'
-import {
-  allOptionsSelected,
-  optionPriceRange,
-  productHasOptions,
-  resolveSelectedOptionPrices,
-} from '@/lib/product-options'
+import ProductOptionPrice from '@/components/shop/ProductOptionPrice'
+import { useProductOptionSelection } from '@/components/shop/use-product-option-selection'
+import { allOptionsSelected, productHasOptions } from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
 import { useState } from 'react'
 
@@ -42,22 +39,11 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
   const { showCardDetails } = useProductCardDisplay()
   const { t } = useI18n()
   const [isAdding, setIsAdding] = useState(false)
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [optionError, setOptionError] = useState<string | null>(null)
 
   const hasOptions = productHasOptions(product.product_options)
-  const displayPrices = resolveSelectedOptionPrices(
-    product.price,
-    product.original_price,
-    product.product_options,
-    selectedOptions
-  )
-  const priceRange = optionPriceRange(product.product_options)
-  const showPriceRange =
-    hasOptions &&
-    !allOptionsSelected(product.product_options, selectedOptions) &&
-    priceRange != null &&
-    priceRange.max > priceRange.min
+  const { selected: selectedOptions, setSelected: setSelectedOptions, displayPrices } =
+    useProductOptionSelection(product.price, product.original_price, product.product_options)
   const productOptionKey = hasOptions
     ? Object.values(selectedOptions).filter(Boolean).join('|')
     : undefined
@@ -216,59 +202,54 @@ export default function ProductCard({ product, onDeleted }: ProductCardProps) {
           {optionError ? (
             <p className="text-red-500 text-xs">{optionError}</p>
           ) : null}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col min-w-0 gap-0.5">
-            {hasPublicOriginalPrice(displayPrices.original_price, displayPrices.price) ? (
-              <span className={`line-through text-xs truncate transition-colors ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                {formatPrice(displayPrices.original_price)}
+        <div className="flex items-end justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            {hasOptions ? (
+              <ProductOptionPrice
+                price={displayPrices.price}
+                originalPrice={displayPrices.original_price}
+                size="card"
+              />
+            ) : (
+              <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
+                {isZeroPrice(product.price)
+                  ? t('product.priceOnRequest')
+                  : formatPrice(product.price)}
               </span>
-            ) : null}
-            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-              {showPriceRange ? (
-                <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                  {formatPrice(priceRange!.min)} – {formatPrice(priceRange!.max)}
-                </span>
-              ) : (
-                <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                  {isZeroPrice(hasOptions ? displayPrices.price : product.price)
-                    ? t('product.priceOnRequest')
-                    : formatPrice(hasOptions ? displayPrices.price : product.price)}
-                </span>
-              )}
-              {hasOptions && product.product_options ? (
-                <ProductOptionLabels groups={product.product_options} />
-              ) : null}
-            </div>
+            )}
           </div>
-          
-          {!catalogMode && (
-            <div className="flex items-center space-x-2">
-              {inCart ? (
-                <div className="flex items-center space-x-1">
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    disabled={isAdding}
-                    className="btn-primary text-xs py-1 px-2 flex-shrink-0 bg-green-600 hover:bg-green-700"
-                  >
-                    {isAdding ? 'Adding...' : `In Cart (${quantity})`}
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  disabled={isAdding}
-                  className="btn-primary text-xs py-1 px-2 flex-shrink-0"
-                >
-                  {isAdding ? 'Adding...' : 'Add to Cart'}
-                </button>
-              )}
-            </div>
-          )}
+          {hasOptions && product.product_options ? (
+            <ProductOptionLabels
+              groups={product.product_options}
+              className={`shrink-0 text-right max-w-[48%] ${
+                theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+              }`}
+            />
+          ) : null}
         </div>
+        {!catalogMode ? (
+          <div className="pt-1">
+            {inCart ? (
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={isAdding}
+                className="btn-primary w-full text-xs py-2 bg-green-600 hover:bg-green-700"
+              >
+                {isAdding ? 'Adding...' : `In Cart (${quantity})`}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={isAdding}
+                className="btn-primary w-full text-xs py-2"
+              >
+                {isAdding ? 'Adding...' : 'Add to Cart'}
+              </button>
+            )}
+          </div>
+        ) : null}
         </div>
         ) : null}
       </div>

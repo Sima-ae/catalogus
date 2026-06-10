@@ -15,13 +15,7 @@ import { appPath } from '@/lib/paths'
 import { useLocalizedPath } from '@/lib/use-localized-path'
 import { getCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { parseJsonResponse } from '@/lib/fetch-json'
-import { useShopCurrency } from '@/lib/shop-currency-context'
-import {
-  formatPrice,
-  formatPriceAmount,
-  hasPublicOriginalPrice,
-  isZeroPrice,
-} from '@/lib/format-price'
+import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { productImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
@@ -33,9 +27,10 @@ import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import ProductOptionSelector from '@/components/shop/ProductOptionSelector'
+import ProductOptionPrice from '@/components/shop/ProductOptionPrice'
+import { useProductOptionSelection } from '@/components/shop/use-product-option-selection'
 import {
   allOptionsSelected,
-  optionPriceRange,
   productHasOptions,
   resolveSelectedOptionPrices,
 } from '@/lib/product-options'
@@ -61,13 +56,21 @@ export default function ProductPageClient() {
   const { t } = useI18n()
   const toLocalizedPath = useLocalizedPath()
   const [product, setProduct] = useState<ProductPageView | null>(null)
+  const {
+    selected: selectedOptions,
+    setSelected: setSelectedOptions,
+    displayPrices,
+  } = useProductOptionSelection(
+    product?.price ?? 0,
+    product?.original_price ?? null,
+    product?.productOptions ?? null
+  )
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
   const [selectedLicense, setSelectedLicense] = useState('standard')
   const [selectedSize, setSelectedSize] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const [variantError, setVariantError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
@@ -76,7 +79,6 @@ export default function ProductPageClient() {
   const [headerSearch, setHeaderSearch] = useState('')
   const { mobileOpen, open, close } = useMobileSidebar()
   const { catalogMode } = useCatalogMode()
-  const { symbol: currencySymbol } = useShopCurrency()
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const canEditProduct = !authLoading && (isAdmin || isSuperAdmin)
   const [editOpen, setEditOpen] = useState(false)
@@ -322,21 +324,6 @@ export default function ProductPageClient() {
   }
   const quantityInCart = product ? getItemQuantity(product.id, cartVariant) : 0
   const inCart = product ? isInCart(product.id, cartVariant) : false
-
-  const displayPrices = product
-    ? resolveSelectedOptionPrices(
-        product.price,
-        product.original_price,
-        product.productOptions,
-        selectedOptions
-      )
-    : { price: 0, original_price: null as number | null }
-  const priceRange = product ? optionPriceRange(product.productOptions) : null
-  const showPriceRange =
-    productHasOptions(product?.productOptions) &&
-    !allOptionsSelected(product?.productOptions, selectedOptions) &&
-    priceRange != null &&
-    priceRange.max > priceRange.min
 
   const licenseOptions =
     product && !productHasOptions(product.productOptions)
@@ -793,74 +780,49 @@ export default function ProductPageClient() {
                 ? 'bg-dark-800 border-dark-700' 
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
-              <div className="mb-4 space-y-1">
-                {hasPublicOriginalPrice(
-                  displayPrices.original_price ?? undefined,
-                  displayPrices.price
-                ) ? (
-                  <div
-                    className={`text-xl line-through tabular-nums ${
-                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                    }`}
-                  >
-                    {formatPriceAmount(displayPrices.original_price)}
-                  </div>
-                ) : null}
-                <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1">
-                  <span
-                    className={`text-xl font-medium tabular-nums ${
-                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                    }`}
-                    aria-hidden
-                  >
-                    {currencySymbol}
+              <div className="mb-5">
+                {productHasOptions(product.productOptions) ? (
+                  <ProductOptionPrice
+                    price={displayPrices.price}
+                    originalPrice={displayPrices.original_price}
+                    size="page"
+                  />
+                ) : isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
+                  <span className="text-2xl sm:text-3xl font-bold text-primary-500">
+                    {t('product.priceOnRequest')}
                   </span>
-                  {showPriceRange ? (
-                    <span className="text-3xl font-bold text-primary-500">
-                      {formatPriceAmount(priceRange!.min)} – {formatPriceAmount(priceRange!.max)}
-                    </span>
-                  ) : isZeroPrice(
-                      productHasOptions(product.productOptions)
-                        ? displayPrices.price
-                        : (selectedLicenseOption?.price ?? product.price)
-                    ) ? (
-                    <span className="text-3xl font-bold text-primary-500">
-                      {t('product.priceOnRequest')}
-                    </span>
-                  ) : (
-                    <span className="text-3xl font-bold text-primary-500">
-                      {formatPriceAmount(
-                        productHasOptions(product.productOptions)
-                          ? displayPrices.price
-                          : (selectedLicenseOption?.price ?? product.price)
-                      )}
-                    </span>
-                  )}
-                </div>
+                ) : (
+                  <ProductOptionPrice
+                    price={selectedLicenseOption?.price ?? product.price}
+                    originalPrice={product.original_price}
+                    size="page"
+                  />
+                )}
               </div>
+
+              {productHasOptions(product.productOptions) && product.productOptions ? (
+                <div className="mb-5">
+                  <ProductOptionSelector
+                    groups={product.productOptions}
+                    selected={selectedOptions}
+                    onChange={(groupName, valueLabel) => {
+                      setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
+                      setVariantError(null)
+                    }}
+                    onClear={(groupName) => {
+                      setSelectedOptions((prev) => {
+                        const next = { ...prev }
+                        delete next[groupName]
+                        return next
+                      })
+                    }}
+                    variant="page"
+                  />
+                </div>
+              ) : null}
 
               {!catalogMode && (
                 <>
-                  {productHasOptions(product.productOptions) && product.productOptions ? (
-                    <div className="mb-4">
-                      <ProductOptionSelector
-                        groups={product.productOptions}
-                        selected={selectedOptions}
-                        onChange={(groupName, valueLabel) => {
-                          setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
-                          setVariantError(null)
-                        }}
-                        onClear={(groupName) => {
-                          setSelectedOptions((prev) => {
-                            const next = { ...prev }
-                            delete next[groupName]
-                            return next
-                          })
-                        }}
-                        variant="page"
-                      />
-                    </div>
-                  ) : null}
 
                   {product.availableSizes.length > 0 && (
                     <div className="space-y-2 mb-4">

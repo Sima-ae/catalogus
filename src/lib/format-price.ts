@@ -63,12 +63,19 @@ function resolveCurrencySymbol(options: FormatPriceOptions): string {
   return getCurrencySymbol(options.currencyCode ?? activeShopCurrencyCode)
 }
 
-/** Amount or zero label only — pair with a separate currency symbol. */
+/** Numeric amount only (no currency symbol) — pair with a separate currency symbol. */
 export function formatPriceAmount(
   value: number | string | null | undefined,
   options: Omit<FormatPriceOptions, 'currency'> = {}
 ): string {
-  return formatPrice(value, { ...options, currency: '' }).trim()
+  const { zeroLabel = 'Price on request', useCommaDecimals = true } = options
+  if (isZeroPrice(value)) return zeroLabel
+  const n =
+    typeof value === 'number'
+      ? value
+      : parseFloat(String(value).replace(/\s/g, '').replace(',', '.'))
+  if (!Number.isFinite(n)) return zeroLabel
+  return useCommaDecimals ? n.toFixed(2).replace('.', ',') : n.toFixed(2)
 }
 
 /** Display product/order price; zero → "Price on request" by default. */
