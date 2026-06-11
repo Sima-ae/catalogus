@@ -111,7 +111,7 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
 
   const cardPriceLabel = (() => {
     if (hasOptions) {
-      const range = optionPriceRange(product.product_options)
+      const range = optionPriceRange(shopProductOptions)
       if (range && range.min > 0) return formatPrice(range.min)
       return t('product.priceOnRequest')
     }
@@ -122,7 +122,7 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
   return (
     <div
       data-product-id={product.id}
-      className={`card group relative overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 w-full ${
+      className={`card group relative overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 w-full pb-10 ${
       theme === 'dark' 
         ? 'bg-dark-800 border-dark-700' 
         : 'bg-white border-gray-200'
@@ -150,24 +150,25 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
             className="object-contain"
             unoptimized={shouldUnoptimizeProductImage(mainImage)}
           />
-          <div className="pointer-events-none absolute top-2 left-1/2 z-10 max-w-[58%] -translate-x-1/2">
-            <span className="sold-out-ribbon-text block rounded-full bg-black px-2.5 py-1 text-center text-[10px] font-semibold leading-tight text-white shadow-md sm:text-xs">
+          <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">
+            <span className="sold-out-ribbon-text inline-block max-w-full rounded-full bg-black px-3 py-1.5 text-center text-[10px] font-semibold leading-none text-white shadow-md whitespace-nowrap sm:px-4 sm:py-2 sm:text-xs">
               {cardPriceLabel}
             </span>
           </div>
-          <div className="absolute top-2 left-2 z-10">
-            <ProductCardDeleteButton
-              productId={product.id}
-              productName={product.name}
-              size="sm"
-              onDeleted={() => onDeleted?.(product.id)}
-            />
-          </div>
-          <div className="absolute top-2 right-2 z-10">
-            <PricelistStarButton productId={product.id} size="sm" />
-          </div>
         </div>
       </Link>
+
+      <div className="absolute bottom-2 left-2 z-20">
+        <ProductCardDeleteButton
+          productId={product.id}
+          productName={product.name}
+          size="sm"
+          onDeleted={() => onDeleted?.(product.id)}
+        />
+      </div>
+      <div className="absolute bottom-2 right-2 z-20">
+        <PricelistStarButton productId={product.id} size="sm" />
+      </div>
       
       <div className="space-y-2">
         <Link
