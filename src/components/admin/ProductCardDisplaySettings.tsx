@@ -81,9 +81,9 @@ export default function ProductCardDisplaySettings() {
     <div className="card max-w-2xl mb-6 p-6 border border-primary-500/30">
       <h2 className={`text-lg font-semibold mb-1 ${t.heading}`}>Product card display</h2>
       <p className={`text-sm mb-4 ${t.muted}`}>
-        Controls what appears on product cards in the shop grid (homepage, New Arrivals, and
-        category listings). The full product page is not affected. Only super admin can change
-        this.
+        Controls what logged-in admins see on product cards in the shop grid (homepage, New
+        Arrivals, and category listings). Buyers and visitors always see only the image, title,
+        and price badge. The full product page is not affected. Only super admin can change this.
       </p>
 
       {loading ? (
@@ -103,8 +103,8 @@ export default function ProductCardDisplaySettings() {
             <span className={t.body}>
               <span className="font-medium">Show price and short description on product cards</span>
               <span className={`block text-sm mt-1 ${t.muted}`}>
-                When off, cards show only the product image and title (no price, description, or
-                Add to Cart on the card).
+                When off, admin cards match the public view (image, title, and price badge only).
+                When on, admins also see description, options, price row, and Add to Cart on cards.
               </span>
             </span>
           </label>

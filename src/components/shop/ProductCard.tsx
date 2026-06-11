@@ -11,7 +11,10 @@ import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
-import { shouldUnoptimizeProductImage, productImageSrc } from '@/lib/product-image-url'
+import {
+  catalogCardImageSrc,
+  shouldUnoptimizeProductImage,
+} from '@/lib/product-image-url'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
@@ -31,21 +34,27 @@ import {
   shopProductHasOptions,
 } from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
+import { isCatalogAdminUser, useAuth } from '@/lib/auth-local'
 import { memo, useMemo, useState } from 'react'
 
 interface ProductCardProps {
   product: Product
   onDeleted?: (productId: string) => void
+  /** Preload above-the-fold card images for faster first paint. */
+  imagePriority?: boolean
 }
 
-function ProductCard({ product, onDeleted }: ProductCardProps) {
+function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const localizedPath = useLocalizedPath()
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
   const { catalogMode } = useCatalogMode()
-  const { showCardDetails } = useProductCardDisplay()
+  const { showCardDetails: cardDetailsSetting } = useProductCardDisplay()
+  const { user, loading: authLoading } = useAuth()
+  const showCardDetails =
+    !authLoading && isCatalogAdminUser(user) && cardDetailsSetting
   const { t } = useI18n()
   const [isAdding, setIsAdding] = useState(false)
   const [optionError, setOptionError] = useState<string | null>(null)
@@ -107,7 +116,7 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
     saveCatalogNavState(listingKey, returnUrl, product.id, page)
   }
 
-  const mainImage = productImageSrc(product.image_url)
+  const mainImage = catalogCardImageSrc(product.image_url, product.source_url)
 
   const cardPriceLabel = (() => {
     if (hasOptions) {
@@ -122,7 +131,7 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
   return (
     <div
       data-product-id={product.id}
-      className={`card group relative overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-300 w-full pb-10 ${
+      className={`product-card card group relative isolate overflow-hidden w-full pb-10 md:hover:shadow-lg md:transition-shadow ${
       theme === 'dark' 
         ? 'bg-dark-800 border-dark-700' 
         : 'bg-white border-gray-200'
@@ -134,20 +143,21 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
       ) : null}
       <Link
         href={localizedPath(`/product/${product.id}`)}
-        className="block"
+        className="block touch-pan-y"
         scroll={false}
         onClick={saveListingScroll}
       >
-        <div className={`product-card-image relative aspect-[3/4] mb-3 overflow-hidden rounded-lg ${
-          theme === 'dark' ? 'bg-dark-900' : 'bg-white'
+        <div className={`product-card-image aspect-[3/4] mb-2 sm:mb-3 overflow-hidden rounded-lg ${
+          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
         }`}>
           <Image
             src={mainImage}
             alt={product.name}
             fill
-            loading="lazy"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
-            className="object-contain"
+            priority={imagePriority}
+            loading={imagePriority ? undefined : 'lazy'}
+            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
+            className="product-card-image-el object-contain"
             unoptimized={shouldUnoptimizeProductImage(mainImage)}
           />
           <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">
@@ -173,21 +183,21 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
       <div className="space-y-2">
         <Link
           href={localizedPath(`/product/${product.id}`)}
-          className="block"
+          className="block touch-pan-y"
           scroll={false}
           onClick={saveListingScroll}
         >
-          <h3 className={`text-center font-semibold text-xs sm:text-sm line-clamp-2 leading-tight transition-colors ${
+          <h3 className={`text-center font-semibold text-xs sm:text-sm line-clamp-2 leading-tight ${
             theme === 'dark'
-              ? 'text-gray-100 group-hover:text-white'
-              : 'group-hover:text-primary-600'
+              ? 'text-gray-100 [@media(hover:hover)]:group-hover:text-white'
+              : '[@media(hover:hover)]:group-hover:text-primary-600'
           }`}>
             {product.name}
           </h3>
         </Link>
         
         {showCardDetails && cardDescription ? (
-          <p className={`text-xs line-clamp-2 leading-tight transition-colors ${
+          <p className={`text-xs line-clamp-2 leading-tight ${
             theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
           }`}>
             {cardDescription}
@@ -287,6 +297,7 @@ export default memo(ProductCard, (prev, next) => {
     prev.product.pre_order === next.product.pre_order &&
     prev.product.image_url === next.product.image_url &&
     prev.product.name === next.product.name &&
-    prev.onDeleted === next.onDeleted
+    prev.onDeleted === next.onDeleted &&
+    prev.imagePriority === next.imagePriority
   )
 })

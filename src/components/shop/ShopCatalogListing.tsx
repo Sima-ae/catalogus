@@ -3,7 +3,7 @@
 import CatalogProductCount from '@/components/shop/CatalogProductCount'
 import CatalogPagination, { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import SortableProductGrid from '@/components/shop/SortableProductGrid'
-import { useAuth } from '@/lib/auth-local'
+import { isCatalogAdminUser, useAuth } from '@/lib/auth-local'
 import type { Product } from '@/lib/types'
 
 type Props = {
@@ -34,11 +34,12 @@ export default function ShopCatalogListing({
   centered = false,
   loading = false,
 }: Props) {
-  const { user, isAdmin, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
+  const isCatalogAdmin = isCatalogAdminUser(user)
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
   const canReorder = Boolean(
-    !authLoading && user && isAdmin && reorderScope && onReorder
+    !authLoading && isCatalogAdmin && reorderScope && onReorder
   )
 
   const listingBody = (
@@ -51,7 +52,7 @@ export default function ShopCatalogListing({
         centered={centered}
         compact={centered}
       />
-      <div className={loading ? 'opacity-60 pointer-events-none' : ''}>
+      <div aria-busy={loading || undefined}>
         <SortableProductGrid
           products={products}
           reorderEnabled={canReorder}

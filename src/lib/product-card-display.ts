@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 
-/** When true, product grid cards show price and short description (default). */
+/** When true, logged-in admins see price, description, and options on shop grid cards (default). */
 export const PRODUCT_CARD_SHOW_DETAILS_KEY = 'product_card_show_details'
 
 export async function isProductCardDetailsEnabled(): Promise<boolean> {
@@ -23,7 +23,7 @@ export async function setProductCardDetailsEnabled(enabled: boolean): Promise<vo
       randomUUID(),
       PRODUCT_CARD_SHOW_DETAILS_KEY,
       enabled ? 'true' : 'false',
-      'When false, shop product cards show only image and title',
+      'When false, admin shop cards show only image, title, and price badge',
     ]
   )
 }

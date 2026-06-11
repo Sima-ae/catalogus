@@ -104,9 +104,19 @@ export default function ProductPageClient() {
       return
     }
 
+    const mobileMq = window.matchMedia('(max-width: 640px)')
+    if (mobileMq.matches) {
+      setThumbColumnHeight(null)
+      return
+    }
+
+    let frame = 0
     const syncHeight = () => {
-      const h = Math.round(main.getBoundingClientRect().height)
-      if (h > 0) setThumbColumnHeight(h)
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const h = Math.round(main.getBoundingClientRect().height)
+        if (h > 0) setThumbColumnHeight((prev) => (prev === h ? prev : h))
+      })
     }
 
     syncHeight()
@@ -115,16 +125,31 @@ export default function ProductPageClient() {
     window.addEventListener('resize', syncHeight)
 
     return () => {
+      cancelAnimationFrame(frame)
       observer.disconnect()
       window.removeEventListener('resize', syncHeight)
     }
+  }, [product])
+
+  useEffect(() => {
+    if (!product?.gallery?.length) return
+    const preloadAt = (index: number) => {
+      if (index < 0 || index >= product.gallery.length) return
+      const src = productImageSrc(product.gallery[index])
+      if (!src) return
+      const img = new window.Image()
+      img.decoding = 'async'
+      img.src = src
+    }
+    preloadAt(selectedImage + 1)
+    preloadAt(selectedImage - 1)
   }, [product, selectedImage])
 
   useEffect(() => {
     const list = thumbListRef.current
     if (!list) return
     const active = list.querySelector<HTMLElement>('[aria-selected="true"]')
-    active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    active?.scrollIntoView({ block: 'nearest', behavior: 'auto' })
   }, [selectedImage, product?.gallery.length])
 
   const reloadProduct = useCallback(async () => {

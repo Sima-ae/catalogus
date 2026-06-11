@@ -141,11 +141,26 @@ export default function SortableProductGrid({
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
+  if (!reorderEnabled) {
+    return (
+      <div className={`${catalogGridClassName} ${saving ? 'opacity-60 pointer-events-none' : ''}`}>
+        {ordered.map((product, index) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onDeleted={onProductDeleted}
+            imagePriority={index < 6}
+          />
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div
       className={`${catalogGridClassName} ${saving ? 'opacity-60 pointer-events-none' : ''}`}
     >
-      {ordered.map((product) => {
+      {ordered.map((product, index) => {
         const isDragging = draggingId === product.id
         const isOver = overId === product.id && draggingId != null && !isDragging
 
@@ -164,14 +179,16 @@ export default function SortableProductGrid({
                 e.stopPropagation()
               }
             }}
-            className={`relative transition-shadow duration-150 ${
-              reorderEnabled ? 'cursor-grab active:cursor-grabbing touch-none' : ''
-            } ${isDragging ? 'z-20 scale-[0.98] opacity-55 shadow-lg' : ''} ${
-              isOver ? 'ring-2 ring-primary-500 ring-offset-2 rounded-xl' : ''
-            }`}
-            style={reorderEnabled ? { touchAction: 'none' } : undefined}
+            className={`relative cursor-grab transition-shadow duration-150 active:cursor-grabbing touch-none ${
+              isDragging ? 'z-20 scale-[0.98] opacity-55 shadow-lg' : ''
+            } ${isOver ? 'ring-2 ring-primary-500 ring-offset-2 rounded-xl' : ''}`}
+            style={{ touchAction: 'none' }}
           >
-            <ProductCard product={product} onDeleted={onProductDeleted} />
+            <ProductCard
+              product={product}
+              onDeleted={onProductDeleted}
+              imagePriority={index < 6}
+            />
           </div>
         )
       })}

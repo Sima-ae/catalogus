@@ -160,6 +160,35 @@ export function upgradeYupooImageUrl(url: string): string {
   return u.split('?')[0] || u
 }
 
+/** Lighter Yupoo CDN path for catalog grid cards (faster mobile loads). */
+export function downgradeYupooImageUrlForCard(url: string): string {
+  let u = url.trim().split('?')[0]
+  u = u.replace(/\/medium\./gi, '/small.')
+  u = u.replace(/\/original\./gi, '/small.')
+  u = u.replace(/\/square\./gi, '/small.')
+  u = u.replace(/\/thumb\./gi, '/small.')
+  return u
+}
+
+/**
+ * Image URL tuned for shop grid cards: smaller Yupoo variants, same paths for self-hosted /images/.
+ */
+export function catalogCardImageSrc(
+  url: string | null | undefined,
+  sourceUrl?: string | null
+): string {
+  const normalized = normalizeProductImageUrl(url)
+  if (!normalized) return ''
+
+  const sized = isYupooImageUrl(normalized)
+    ? downgradeYupooImageUrlForCard(normalized)
+    : normalized
+  const display = toDisplayProductImageUrl(sized, sourceUrl)
+  if (!display) return ''
+  if (display.startsWith('/')) return appPath(display)
+  return display
+}
+
 function unwrapDisplayImageUrl(url: string): string {
   const raw = url.trim()
   if (!raw.includes('/api/yupoo-image')) return raw

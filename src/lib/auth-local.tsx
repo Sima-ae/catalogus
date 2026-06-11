@@ -13,6 +13,11 @@ export interface AuthUser {
   badge_rating?: number | null
 }
 
+/** Logged-in admin or super admin (shop catalog management tools). */
+export function isCatalogAdminUser(user: AuthUser | null | undefined): boolean {
+  return user?.role === 'admin'
+}
+
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean

@@ -134,7 +134,7 @@ function ShopCatalogPageContent({
   })
 
   const handleReorder = async (productIds: string[]) => {
-    if (!reorderScope || !user) return
+    if (!isAdmin || !reorderScope || !user) return
     setReorderSaving(true)
     try {
       const res = await fetch(appPath('/api/admin/catalog/reorder'), {
@@ -521,8 +521,8 @@ function ShopCatalogPageContent({
                 totalItems={totalItems}
                 onPageChange={setCurrentPage}
                 onProductDeleted={handleProductDeleted}
-                onReorder={handleReorder}
-                reorderScope={reorderScope}
+                onReorder={isAdmin ? handleReorder : undefined}
+                reorderScope={isAdmin ? reorderScope : null}
                 reorderSaving={reorderSaving}
                 centered={config.centerCatalog}
                 loading={resultsLoading}
