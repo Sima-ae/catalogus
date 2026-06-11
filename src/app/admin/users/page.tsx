@@ -7,6 +7,7 @@ import AdminPageShell from '@/components/admin/AdminPageShell'
 import UserForm from '@/components/admin/UserForm'
 import AdminEmptyState from '@/components/admin/AdminEmptyState'
 import {
+  AdminSortableTh,
   AdminTable,
   AdminTableBody,
   AdminTableHead,
@@ -31,6 +32,44 @@ import {
 
 const ROLE_FILTER_KEYS: RoleDisplayKey[] = ['buyer', 'seller', 'admin', 'super_admin']
 
+type UserSortKey = 'status' | 'name' | 'email' | 'role' | 'badge'
+type UserSortDir = 'asc' | 'desc'
+
+function compareUsers(
+  a: UserListRow,
+  b: UserListRow,
+  sortKey: UserSortKey,
+  sortDir: UserSortDir,
+  roleLabel: (key: RoleDisplayKey) => string
+): number {
+  let cmp = 0
+  switch (sortKey) {
+    case 'status':
+      cmp = Number(userHasActiveCode(a)) - Number(userHasActiveCode(b))
+      break
+    case 'name':
+      cmp = (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' })
+      break
+    case 'email':
+      cmp = a.email.localeCompare(b.email, undefined, { sensitivity: 'base' })
+      break
+    case 'role':
+      cmp = roleLabel(resolveRoleDisplayKey(a)).localeCompare(
+        roleLabel(resolveRoleDisplayKey(b)),
+        undefined,
+        { sensitivity: 'base' }
+      )
+      break
+    case 'badge': {
+      const ar = a.badge_rating ?? -1
+      const br = b.badge_rating ?? -1
+      cmp = ar - br
+      break
+    }
+  }
+  return sortDir === 'asc' ? cmp : -cmp
+}
+
 function userHasActiveCode(user: UserListRow): boolean {
   return Boolean(user.site_access_code?.trim())
 }
@@ -50,8 +89,20 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | RoleDisplayKey>('all')
   const [badgeFilter, setBadgeFilter] = useState<'all' | 'none' | '1' | '2' | '3' | '4' | '5'>('all')
+  const [sortKey, setSortKey] = useState<UserSortKey | null>(null)
+  const [sortDir, setSortDir] = useState<UserSortDir>('asc')
 
   const roleLabel = (key: RoleDisplayKey) => tr(`admin.users.role.${key}`)
+
+  const handleSort = (key: string) => {
+    const nextKey = key as UserSortKey
+    if (sortKey === nextKey) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(nextKey)
+      setSortDir('asc')
+    }
+  }
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -69,6 +120,11 @@ export default function AdminUsersPage() {
       return true
     })
   }, [users, search, roleFilter, badgeFilter])
+
+  const sortedUsers = useMemo(() => {
+    if (!sortKey) return filteredUsers
+    return [...filteredUsers].sort((a, b) => compareUsers(a, b, sortKey, sortDir, roleLabel))
+  }, [filteredUsers, sortKey, sortDir, tr])
 
   const hasActiveFilters = search.trim() !== '' || roleFilter !== 'all' || badgeFilter !== 'all'
 
@@ -270,7 +326,7 @@ export default function AdminUsersPage() {
           </div>
           <p className={`text-sm ${t.muted}`}>
             {formatMessage(tr('admin.users.matchingSummary'), {
-              matching: filteredUsers.length,
+              matching: sortedUsers.length,
               total: users.length,
             })}
             {roleFilter !== 'all' && (
@@ -295,24 +351,54 @@ export default function AdminUsersPage() {
           </p>
         </div>
       )}
-      {!loading && !error && users.length > 0 && filteredUsers.length === 0 && (
+      {!loading && !error && users.length > 0 && sortedUsers.length === 0 && (
         <AdminEmptyState
           title={tr('admin.users.noMatches')}
           description={tr('admin.users.noMatchesHint')}
         />
       )}
-      {!loading && !error && filteredUsers.length > 0 && (
+      {!loading && !error && sortedUsers.length > 0 && (
         <AdminTable>
           <AdminTableHead>
-            <AdminTh>{tr('admin.users.col.status')}</AdminTh>
-            <AdminTh>{tr('admin.users.col.name')}</AdminTh>
-            <AdminTh>{tr('admin.users.col.email')}</AdminTh>
-            <AdminTh>{tr('admin.users.col.role')}</AdminTh>
-            <AdminTh>{tr('admin.users.col.badge')}</AdminTh>
+            <AdminSortableTh
+              label={tr('admin.users.col.status')}
+              sortKey="status"
+              activeSortKey={sortKey}
+              direction={sortDir}
+              onSort={handleSort}
+            />
+            <AdminSortableTh
+              label={tr('admin.users.col.name')}
+              sortKey="name"
+              activeSortKey={sortKey}
+              direction={sortDir}
+              onSort={handleSort}
+            />
+            <AdminSortableTh
+              label={tr('admin.users.col.email')}
+              sortKey="email"
+              activeSortKey={sortKey}
+              direction={sortDir}
+              onSort={handleSort}
+            />
+            <AdminSortableTh
+              label={tr('admin.users.col.role')}
+              sortKey="role"
+              activeSortKey={sortKey}
+              direction={sortDir}
+              onSort={handleSort}
+            />
+            <AdminSortableTh
+              label={tr('admin.users.col.badge')}
+              sortKey="badge"
+              activeSortKey={sortKey}
+              direction={sortDir}
+              onSort={handleSort}
+            />
             <AdminTh align="right">{tr('admin.users.col.actions')}</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
-            {filteredUsers.map((u) => {
+            {sortedUsers.map((u) => {
               const canRate =
                 isSuperAdmin &&
                 u.role !== 'admin' &&

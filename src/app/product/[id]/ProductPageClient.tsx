@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -33,9 +33,10 @@ import ProductOptionPrice from '@/components/shop/ProductOptionPrice'
 import { useProductOptionSelection } from '@/components/shop/use-product-option-selection'
 import {
   allOptionsSelected,
+  getShopProductOptions,
   isSingleFixedProductOption,
-  productHasOptions,
   resolveSelectedOptionPrices,
+  shopProductHasOptions,
 } from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
@@ -59,6 +60,10 @@ export default function ProductPageClient() {
   const { t } = useI18n()
   const toLocalizedPath = useLocalizedPath()
   const [product, setProduct] = useState<ProductPageView | null>(null)
+  const shopProductOptions = useMemo(
+    () => getShopProductOptions(product?.productOptions ?? null),
+    [product?.productOptions]
+  )
   const {
     selected: selectedOptions,
     setSelected: setSelectedOptions,
@@ -66,7 +71,7 @@ export default function ProductPageClient() {
   } = useProductOptionSelection(
     product?.price ?? 0,
     product?.original_price ?? null,
-    product?.productOptions ?? null
+    shopProductOptions
   )
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -266,8 +271,8 @@ export default function ProductPageClient() {
   const handleAddToCart = async () => {
     if (!product) return
 
-    const hasOptions = productHasOptions(product.productOptions)
-    const needsOptions = hasOptions && !allOptionsSelected(product.productOptions, selectedOptions)
+    const hasOptions = shopProductHasOptions(product.productOptions)
+    const needsOptions = hasOptions && !allOptionsSelected(shopProductOptions, selectedOptions)
     const needsSize = product.availableSizes.length > 0 && !selectedSize
     const needsColor = product.availableColors.length > 0 && !selectedColor
     if (needsOptions || needsSize || needsColor) {
@@ -286,7 +291,7 @@ export default function ProductPageClient() {
     const { price: optionPrice, original_price: optionOriginal } = resolveSelectedOptionPrices(
       product.price,
       product.original_price,
-      product.productOptions,
+      shopProductOptions,
       selectedOptions
     )
     const optionSummary = hasOptions
@@ -317,7 +322,7 @@ export default function ProductPageClient() {
     }
   }
 
-  const productOptionKey = productHasOptions(product?.productOptions)
+  const productOptionKey = shopProductHasOptions(product?.productOptions)
     ? Object.values(selectedOptions).filter(Boolean).join('|')
     : undefined
   const cartVariant = {
@@ -329,7 +334,7 @@ export default function ProductPageClient() {
   const inCart = product ? isInCart(product.id, cartVariant) : false
 
   const licenseOptions =
-    product && !productHasOptions(product.productOptions)
+    product && !shopProductHasOptions(product.productOptions)
     ? [
         {
           id: 'standard',
@@ -707,8 +712,8 @@ export default function ProductPageClient() {
                 ? 'bg-dark-800 border-dark-700' 
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
-              <div className={productHasOptions(product.productOptions) ? 'mb-5' : undefined}>
-                {productHasOptions(product.productOptions) ? (
+              <div className={shopProductHasOptions(product.productOptions) ? 'mb-5' : undefined}>
+                {shopProductHasOptions(product.productOptions) ? (
                   <ProductOptionPrice
                     price={displayPrices.price}
                     originalPrice={displayPrices.original_price}
@@ -727,15 +732,15 @@ export default function ProductPageClient() {
                 )}
               </div>
 
-              {productHasOptions(product.productOptions) && product.productOptions ? (
+              {shopProductOptions ? (
                 isSingleFixedProductOption(product.productOptions) ? (
                   <ProductFixedOptionDisplay
-                    groups={product.productOptions}
+                    groups={shopProductOptions}
                     variant="page"
                   />
                 ) : (
                   <ProductOptionSelector
-                    groups={product.productOptions}
+                    groups={shopProductOptions}
                     selected={selectedOptions}
                     onChange={(groupName, valueLabel) => {
                       setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))

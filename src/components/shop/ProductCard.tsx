@@ -25,12 +25,13 @@ import ProductOptionPrice from '@/components/shop/ProductOptionPrice'
 import { useProductOptionSelection } from '@/components/shop/use-product-option-selection'
 import {
   allOptionsSelected,
+  getShopProductOptions,
   isSingleFixedProductOption,
   optionPriceRange,
-  productHasOptions,
+  shopProductHasOptions,
 } from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 
 interface ProductCardProps {
   product: Product
@@ -49,16 +50,20 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [optionError, setOptionError] = useState<string | null>(null)
 
-  const hasOptions = productHasOptions(product.product_options)
+  const shopProductOptions = useMemo(
+    () => getShopProductOptions(product.product_options),
+    [product.product_options]
+  )
+  const hasOptions = shopProductHasOptions(product.product_options)
   const singleFixedOption = isSingleFixedProductOption(product.product_options)
   const { selected: selectedOptions, setSelected: setSelectedOptions, displayPrices } =
-    useProductOptionSelection(product.price, product.original_price, product.product_options)
+    useProductOptionSelection(product.price, product.original_price, shopProductOptions)
   const productOptionKey = hasOptions
     ? Object.values(selectedOptions).filter(Boolean).join('|')
     : undefined
   
   const handleAddToCart = async () => {
-    if (hasOptions && !allOptionsSelected(product.product_options, selectedOptions)) {
+    if (hasOptions && !allOptionsSelected(shopProductOptions, selectedOptions)) {
       setOptionError(t('product.select.options'))
       return
     }
@@ -190,15 +195,15 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
 
         {showCardDetails ? (
         <div className="space-y-2 pt-1">
-          {hasOptions && product.product_options ? (
+          {shopProductOptions ? (
             singleFixedOption ? (
               <ProductFixedOptionDisplay
-                groups={product.product_options}
+                groups={shopProductOptions}
                 variant="card"
               />
             ) : (
               <ProductOptionSelector
-                groups={product.product_options}
+                groups={shopProductOptions}
                 selected={selectedOptions}
                 onChange={(groupName, valueLabel) => {
                   setSelectedOptions((prev) => ({ ...prev, [groupName]: valueLabel }))
@@ -234,9 +239,9 @@ function ProductCard({ product, onDeleted }: ProductCardProps) {
               </span>
             )}
           </div>
-          {hasOptions && product.product_options && !singleFixedOption ? (
+          {shopProductOptions && !singleFixedOption ? (
             <ProductOptionLabels
-              groups={product.product_options}
+              groups={shopProductOptions}
               className={`shrink-0 text-right max-w-[48%] ${
                 theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
               }`}

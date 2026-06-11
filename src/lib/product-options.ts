@@ -71,6 +71,24 @@ export function productHasOptions(options: ProductOptions | null | undefined): b
   return Boolean(options?.some((g) => g.values.length > 0))
 }
 
+/** Shop-visible tiers only — selling price filled in (price > 0). */
+export function getShopProductOptions(
+  options: ProductOptions | null | undefined
+): ProductOptions | null {
+  if (!options?.length) return null
+  const groups = options
+    .map((group) => ({
+      ...group,
+      values: group.values.filter((v) => v.price > 0),
+    }))
+    .filter((g) => g.values.length > 0)
+  return groups.length ? groups : null
+}
+
+export function shopProductHasOptions(options: ProductOptions | null | undefined): boolean {
+  return Boolean(getShopProductOptions(options)?.length)
+}
+
 export function findOptionValue(
   groups: ProductOptions,
   groupName: string,
@@ -160,18 +178,20 @@ export function minOptionPurchasePrice(
   return values.length ? Math.min(...values) : null
 }
 
-/** One option group with a single tier — no selector needed. */
+/** One shop-visible tier (e.g. only Swiss has a sales price) — no selector needed. */
 export function isSingleFixedProductOption(
   options: ProductOptions | null | undefined
 ): boolean {
-  return Boolean(options?.length === 1 && options[0].values.length === 1)
+  const shop = getShopProductOptions(options)
+  return Boolean(shop?.length === 1 && shop[0].values.length === 1)
 }
 
 export function singleFixedProductOptionSelection(
   options: ProductOptions | null | undefined
 ): Record<string, string> {
-  if (!isSingleFixedProductOption(options)) return {}
-  const group = options![0]
+  const shop = getShopProductOptions(options)
+  if (!shop || shop.length !== 1 || shop[0].values.length !== 1) return {}
+  const group = shop[0]
   return { [group.name]: group.values[0].label }
 }
 
