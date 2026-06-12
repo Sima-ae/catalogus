@@ -412,7 +412,11 @@ body.app-protected [contenteditable='true'] {
     contain: layout style;
   }
 
-  .product-card-image {
+  html.light .product-card-image {
+    @apply relative isolate bg-white;
+  }
+
+  html.dark .product-card-image {
     @apply relative isolate;
   }
 

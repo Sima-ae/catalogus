@@ -149,7 +149,7 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
         onClick={saveListingScroll}
       >
         <div className={`product-card-image aspect-[3/4] mb-2 sm:mb-3 overflow-hidden rounded-lg ${
-          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
+          theme === 'dark' ? 'bg-dark-900' : 'bg-white'
         }`}>
           <Image
             src={mainImage}
