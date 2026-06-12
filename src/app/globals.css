@@ -459,6 +459,26 @@ body.app-protected [contenteditable='true'] {
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff;
   }
+
+  /* Featured product — top-left corner triangle on catalog cards */
+  .product-featured-tip-triangle {
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+
+  .product-featured-tip-label {
+    left: 0.2rem;
+    top: 0.35rem;
+    font-size: 0.5625rem;
+    letter-spacing: 0.06em;
+  }
+
+  @media (min-width: 640px) {
+    .product-featured-tip-label {
+      left: 0.3rem;
+      top: 0.45rem;
+      font-size: 0.625rem;
+    }
+  }
 }
 
 @media (max-width: 640px) {

@@ -177,6 +177,7 @@ export function serializeCatalogProductRow(
     product_options: full.product_options,
     sold_out: full.sold_out,
     pre_order: full.pre_order,
+    featured: full.featured,
     source_url: full.source_url,
     author_id: (full as { author_id?: string }).author_id,
   }

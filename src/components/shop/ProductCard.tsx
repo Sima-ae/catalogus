@@ -20,6 +20,7 @@ import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import ProductRibbon from '@/components/shop/ProductRibbon'
+import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
 import ProductOptionSelector, {
   ProductFixedOptionDisplay,
   ProductOptionLabels,
@@ -160,6 +161,7 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
             className="product-card-image-el object-contain"
             unoptimized={shouldUnoptimizeProductImage(mainImage)}
           />
+          {product.featured ? <ProductFeaturedTipBadge /> : null}
           <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">
             <span className="sold-out-ribbon-text inline-block max-w-full rounded-full bg-black px-3 py-1.5 text-center text-[10px] font-semibold leading-none text-white shadow-md whitespace-nowrap sm:px-4 sm:py-2 sm:text-xs">
               {cardPriceLabel}
@@ -295,6 +297,7 @@ export default memo(ProductCard, (prev, next) => {
     prev.product.price === next.product.price &&
     prev.product.sold_out === next.product.sold_out &&
     prev.product.pre_order === next.product.pre_order &&
+    prev.product.featured === next.product.featured &&
     prev.product.image_url === next.product.image_url &&
     prev.product.name === next.product.name &&
     prev.onDeleted === next.onDeleted &&
