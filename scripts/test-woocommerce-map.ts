@@ -202,6 +202,7 @@ assert.equal(arOptions![0].values[1].label, 'Swiss')
 assert.equal(arOptions![0].values[1].price, 0)
 assert.equal(arOptions![0].values[1].purchase_price, 1650)
 
+import { mergeRefreshProductPricing } from '../src/lib/import-refresh-pricing'
 import { adminListDisplaySalePrice, getShopProductOptions } from '../src/lib/product-options'
 
 const arShopOptions = getShopProductOptions(arOptions)
@@ -222,6 +223,59 @@ const partialMarginOptions = [
 const partialShop = getShopProductOptions(partialMarginOptions)
 assert.equal(partialShop![0].values.length, 1)
 assert.equal(partialShop![0].values[0].label, 'Swiss')
+
+const refreshMerged = mergeRefreshProductPricing(
+  {
+    price: 1899,
+    original_price: null,
+    purchase_price: 850,
+    product_options: partialMarginOptions,
+  },
+  {
+    price: 0,
+    original_price: null,
+    purchase_price: 850,
+    product_options: [
+      {
+        name: 'Mechanism',
+        slug: 'mechanism',
+        values: [
+          { label: 'Japanese', slug: 'japanese', price: 0, purchase_price: 850 },
+          { label: 'Swiss', slug: 'swiss', price: 0, purchase_price: 1650 },
+        ],
+      },
+    ],
+  }
+)
+assert.equal(refreshMerged.price, 1899)
+assert.equal(refreshMerged.product_options![0].values[1].price, 1650)
+assert.equal(refreshMerged.product_options![0].values[1].purchase_price, 1650)
+
+const refreshPurchaseBump = mergeRefreshProductPricing(
+  {
+    price: 999,
+    purchase_price: 850,
+    product_options: [
+      {
+        name: 'Mechanism',
+        values: [{ label: 'Japanese', price: 999, purchase_price: 850 }],
+      },
+    ],
+  },
+  {
+    price: 0,
+    purchase_price: 900,
+    product_options: [
+      {
+        name: 'Mechanism',
+        values: [{ label: 'Japanese', price: 0, purchase_price: 900 }],
+      },
+    ],
+  }
+)
+assert.equal(refreshPurchaseBump.price, 999)
+assert.equal(refreshPurchaseBump.product_options![0].values[0].price, 999)
+assert.equal(refreshPurchaseBump.product_options![0].values[0].purchase_price, 900)
 
 assert.equal(adminListDisplaySalePrice(0, partialMarginOptions), 1650)
 assert.equal(adminListDisplaySalePrice(0, arOptions), 0)

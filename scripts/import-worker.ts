@@ -29,6 +29,8 @@ import {
   isCatalogImagesVpsWrite,
 } from '@/lib/catalog-images-root'
 import type { ImportJobItemRow, ImportSourceRow } from '@/lib/import-db'
+import { mergeRefreshProductPricing } from '@/lib/import-refresh-pricing'
+import { getProductById } from '@/lib/products-db'
 import {
   appendJobErrorLog,
   buildProductInputFromImport,
@@ -225,7 +227,11 @@ async function saveImportedProduct(
   translationFailed?: boolean
 ) {
   if (existing && flags.refresh) {
-    await updateProduct(existing.id, inputForRefresh(input))
+    const current = await getProductById(existing.id, { includePurchasePrice: true })
+    const refreshInput = current
+      ? { ...input, ...mergeRefreshProductPricing(current, input) }
+      : input
+    await updateProduct(existing.id, inputForRefresh(refreshInput))
     await updateJobItem(item.id, {
       status: 'imported',
       product_id: existing.id,
