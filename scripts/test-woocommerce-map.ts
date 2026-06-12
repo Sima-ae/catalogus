@@ -202,6 +202,45 @@ assert.equal(arOptions![0].values[1].label, 'Swiss')
 assert.equal(arOptions![0].values[1].price, 0)
 assert.equal(arOptions![0].values[1].purchase_price, 1650)
 
+import { adminListDisplaySalePrice, getShopProductOptions } from '../src/lib/product-options'
+
+const arShopOptions = getShopProductOptions(arOptions)
+assert.ok(arShopOptions)
+assert.equal(arShopOptions![0].values.length, 2)
+assert.equal(arShopOptions![0].values[0].label, 'Japanese')
+
+const partialMarginOptions = [
+  {
+    name: 'Mechanism',
+    slug: 'mechanism',
+    values: [
+      { label: 'Japanese', slug: 'japanese', price: 0, purchase_price: 850 },
+      { label: 'Swiss', slug: 'swiss', price: 1650, original_price: null },
+    ],
+  },
+]
+const partialShop = getShopProductOptions(partialMarginOptions)
+assert.equal(partialShop![0].values.length, 1)
+assert.equal(partialShop![0].values[0].label, 'Swiss')
+
+assert.equal(adminListDisplaySalePrice(0, partialMarginOptions), 1650)
+assert.equal(adminListDisplaySalePrice(0, arOptions), 0)
+assert.equal(
+  adminListDisplaySalePrice(
+    0,
+    [
+      {
+        name: 'Mechanism',
+        values: [
+          { label: 'Japanese', price: 850 },
+          { label: 'Swiss', price: 1650 },
+        ],
+      },
+    ]
+  ),
+  1650
+)
+
 const publicOptions = stripProductOptionsInternalPricing(arOptions)
 assert.equal(publicOptions![0].values[0].purchase_price, undefined)
 assert.equal(publicOptions![0].values[0].price, 0)

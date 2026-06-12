@@ -44,6 +44,7 @@ import { getTagLabel } from '@/lib/i18n-tags'
 import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSegment } from '@/lib/product-taxonomy'
 import { useI18n } from '@/lib/i18n-context'
 import { formatMessage } from '@/lib/i18n'
+import { adminListDisplaySalePrice } from '@/lib/product-options'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
 
@@ -834,7 +835,9 @@ export default function AdminProductsPage() {
                 <AdminTd>
                   <AdminShippingCostCell value={p.shipping_cost} isDark={t.isDark} />
                 </AdminTd>
-                <AdminTd>{formatAdminSalePrice(p.price, tr)}</AdminTd>
+                <AdminTd>
+                  {formatAdminSalePrice(adminListDisplaySalePrice(p.price, p.product_options), tr)}
+                </AdminTd>
                 <AdminTd>
                   <span
                     className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass(p.status, t.isDark)}`}

@@ -71,16 +71,24 @@ export function productHasOptions(options: ProductOptions | null | undefined): b
   return Boolean(options?.some((g) => g.values.length > 0))
 }
 
-/** Shop-visible tiers only — selling price filled in (price > 0). */
+/**
+ * Shop-visible option tiers.
+ * - When any tier has a sales price, only those tiers are shown (e.g. Swiss priced, Japanese still at 0).
+ * - When every tier is price-on-request (price 0), show all tiers so buyers can still pick Mechanism.
+ */
 export function getShopProductOptions(
   options: ProductOptions | null | undefined
 ): ProductOptions | null {
   if (!options?.length) return null
   const groups = options
-    .map((group) => ({
-      ...group,
-      values: group.values.filter((v) => v.price > 0),
-    }))
+    .map((group) => {
+      const priced = group.values.filter((v) => v.price > 0)
+      const values =
+        priced.length > 0
+          ? priced
+          : group.values.filter((v) => String(v.label ?? '').trim())
+      return { ...group, values }
+    })
     .filter((g) => g.values.length > 0)
   return groups.length ? groups : null
 }
@@ -146,6 +154,16 @@ export function optionPriceRange(
   const prices = options.flatMap((g) => g.values.map((v) => v.price)).filter((p) => p > 0)
   if (!prices.length) return null
   return { min: Math.min(...prices), max: Math.max(...prices) }
+}
+
+/** Admin product table: highest option sales price when any tier is priced, else base product price. */
+export function adminListDisplaySalePrice(
+  basePrice: number,
+  options: ProductOptions | null | undefined
+): number {
+  const range = optionPriceRange(options)
+  if (range && range.max > 0) return range.max
+  return basePrice
 }
 
 export function allOptionsSelected(
