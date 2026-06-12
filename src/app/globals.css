@@ -479,6 +479,21 @@ body.app-protected [contenteditable='true'] {
       font-size: 0.625rem;
     }
   }
+
+  .product-featured-tip--gallery .product-featured-tip-label {
+    left: 0.35rem;
+    top: 0.5rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+  }
+
+  @media (min-width: 640px) {
+    .product-featured-tip--gallery .product-featured-tip-label {
+      left: 0.45rem;
+      top: 0.6rem;
+      font-size: 0.75rem;
+    }
+  }
 }
 
 @media (max-width: 640px) {

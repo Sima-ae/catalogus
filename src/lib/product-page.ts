@@ -45,6 +45,7 @@ export type ProductPageView = {
   gallery: string[]
   sold_out: boolean
   pre_order: boolean
+  featured: boolean
   availableSizes: string[]
   availableColors: string[]
   productOptions: ProductOptions | null
@@ -135,6 +136,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     gallery: fullGallery,
     sold_out: raw.sold_out === 1 || raw.sold_out === true,
     pre_order: raw.pre_order === 1 || raw.pre_order === true,
+    featured: raw.featured === 1 || raw.featured === true,
     availableSizes: parsePipeField(raw.available_sizes) ?? [],
     availableColors: parsePipeField(raw.available_colors) ?? [],
     productOptions: parseProductOptions(raw.product_options),

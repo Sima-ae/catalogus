@@ -20,6 +20,7 @@ import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { productImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import ProductRibbon from '@/components/shop/ProductRibbon'
+import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
@@ -525,7 +526,9 @@ export default function ProductPageClient() {
             ) : null}
 
             <div ref={mainGalleryRef} className="min-w-0 flex-1 relative">
-              <div className="absolute top-3 left-3 z-20">
+              <div
+                className={`absolute top-3 z-20 ${product.featured ? 'left-14 sm:left-16' : 'left-3'}`}
+              >
                 <ProductCardDeleteButton
                   productId={product.id}
                   productName={product.name}
@@ -554,6 +557,7 @@ export default function ProductPageClient() {
                     priority
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                   />
+                  {product.featured ? <ProductFeaturedTipBadge variant="gallery" /> : null}
                   <ProductImageWatermark variant="gallery" />
                 </button>
               ) : (
