@@ -136,8 +136,10 @@ function AdminShippingCostCell({
   )
 }
 
-const adminTableSkuCol = 'w-[1%] max-w-[5.5rem]'
+const adminTableSkuCol = 'w-[5.5rem] max-w-[5.5rem] min-w-0'
 const adminTableMoneyCol = 'w-[1%] whitespace-nowrap tabular-nums'
+
+function formatAdminSalePrice(
   value: number | null | undefined,
   tr: (key: string) => string
 ): string {
@@ -748,7 +750,7 @@ export default function AdminProductsPage() {
               onPageChange={setCurrentPage}
             />
           </div>
-          <AdminTable>
+          <AdminTable className="table-fixed">
           <AdminTableHead>
             <AdminTh>
               <input
@@ -781,8 +783,8 @@ export default function AdminProductsPage() {
                     className="rounded border-gray-400"
                   />
                 </AdminTd>
-                <AdminTd>
-                  <div className="flex items-center gap-3 min-w-[12rem]">
+                <AdminTd className="min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
                     {p.image_url ? (
                       <Image
                         src={productImageSrc(p.image_url)}
@@ -798,8 +800,11 @@ export default function AdminProductsPage() {
                     <span className="font-medium line-clamp-2">{p.name}</span>
                   </div>
                 </AdminTd>
-                <AdminTd className={`${adminTableSkuCol} font-mono text-[10px] leading-tight`}>
-                  <span className="block truncate" title={p.sku || undefined}>
+                <AdminTd className={`${adminTableSkuCol} align-top`}>
+                  <span
+                    className="block font-mono text-[10px] leading-tight line-clamp-2 break-all"
+                    title={p.sku || undefined}
+                  >
                     {p.sku || '—'}
                   </span>
                 </AdminTd>

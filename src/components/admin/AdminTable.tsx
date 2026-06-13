@@ -4,10 +4,16 @@ import type { ReactNode } from 'react'
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { useAppTheme } from '@/lib/theme-classes'
 
-export function AdminTable({ children }: { children: ReactNode }) {
+export function AdminTable({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <div className="card overflow-x-auto">
-      <table className="w-full text-sm">{children}</table>
+      <table className={`w-full text-sm ${className}`.trim()}>{children}</table>
     </div>
   )
 }
