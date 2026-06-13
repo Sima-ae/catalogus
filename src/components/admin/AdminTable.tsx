@@ -24,14 +24,16 @@ export function AdminTableHead({ children }: { children: ReactNode }) {
 export function AdminTh({
   children,
   align = 'left',
+  className = '',
 }: {
   children: ReactNode
   align?: 'left' | 'right'
+  className?: string
 }) {
   const t = useAppTheme()
   return (
     <th
-      className={`py-3 px-4 font-semibold ${align === 'right' ? 'text-right' : 'text-left'} ${t.tableHead}`}
+      className={`py-3 px-4 font-semibold ${align === 'right' ? 'text-right' : 'text-left'} ${t.tableHead} ${className}`.trim()}
     >
       {children}
     </th>

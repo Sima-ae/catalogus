@@ -136,7 +136,8 @@ function AdminShippingCostCell({
   )
 }
 
-function formatAdminSalePrice(
+const adminTableSkuCol = 'w-[1%] max-w-[5.5rem]'
+const adminTableMoneyCol = 'w-[1%] whitespace-nowrap tabular-nums'
   value: number | null | undefined,
   tr: (key: string) => string
 ): string {
@@ -759,12 +760,12 @@ export default function AdminProductsPage() {
               />
             </AdminTh>
             <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
-            <AdminTh>{tr('adminProducts.col.sku')}</AdminTh>
+            <AdminTh className={adminTableSkuCol}>{tr('adminProducts.col.sku')}</AdminTh>
             <AdminTh>{tr('adminProducts.col.category')}</AdminTh>
             <AdminTh>{tr('adminProducts.col.brand')}</AdminTh>
-            <AdminTh>{tr('productForm.purchasePrice')}</AdminTh>
+            <AdminTh className={adminTableMoneyCol}>{tr('productForm.purchasePrice')}</AdminTh>
             <AdminTh>{tr('productForm.shippingCost')}</AdminTh>
-            <AdminTh>{tr('adminProducts.col.price')}</AdminTh>
+            <AdminTh className={adminTableMoneyCol}>{tr('adminProducts.col.price')}</AdminTh>
             <AdminTh>{tr('adminProducts.col.status')}</AdminTh>
             <AdminTh align="right">{tr('adminProducts.col.actions')}</AdminTh>
           </AdminTableHead>
@@ -797,7 +798,11 @@ export default function AdminProductsPage() {
                     <span className="font-medium line-clamp-2">{p.name}</span>
                   </div>
                 </AdminTd>
-                <AdminTd className="font-mono text-xs whitespace-nowrap">{p.sku || '—'}</AdminTd>
+                <AdminTd className={`${adminTableSkuCol} font-mono text-[10px] leading-tight`}>
+                  <span className="block truncate" title={p.sku || undefined}>
+                    {p.sku || '—'}
+                  </span>
+                </AdminTd>
                 <AdminTd>
                   {p.category ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -831,11 +836,13 @@ export default function AdminProductsPage() {
                     '—'
                   )}
                 </AdminTd>
-                <AdminTd>{formatAdminPurchasePrice(p.purchase_price)}</AdminTd>
+                <AdminTd className={adminTableMoneyCol}>
+                  {formatAdminPurchasePrice(p.purchase_price)}
+                </AdminTd>
                 <AdminTd>
                   <AdminShippingCostCell value={p.shipping_cost} isDark={t.isDark} />
                 </AdminTd>
-                <AdminTd>
+                <AdminTd className={adminTableMoneyCol}>
                   {formatAdminSalePrice(adminListDisplaySalePrice(p.price, p.product_options), tr)}
                 </AdminTd>
                 <AdminTd>
