@@ -136,8 +136,20 @@ function AdminShippingCostCell({
   )
 }
 
-const adminTableSkuCol = 'w-[5.5rem] max-w-[5.5rem] min-w-0'
-const adminTableMoneyCol = 'w-[1%] whitespace-nowrap tabular-nums'
+const adminProductsColgroup = (
+  <colgroup>
+    <col className="w-9" />
+    <col className="w-[26%]" />
+    <col className="w-[7%]" />
+    <col className="w-[8%]" />
+    <col className="w-[10%]" />
+    <col className="w-[11%]" />
+    <col className="w-[9%]" />
+    <col className="w-[11%]" />
+    <col className="w-[8%]" />
+    <col className="w-[7%]" />
+  </colgroup>
+)
 
 function formatAdminSalePrice(
   value: number | null | undefined,
@@ -751,8 +763,9 @@ export default function AdminProductsPage() {
             />
           </div>
           <AdminTable className="table-fixed">
+          {adminProductsColgroup}
           <AdminTableHead>
-            <AdminTh>
+            <AdminTh className="px-2">
               <input
                 type="checkbox"
                 checked={allOnPageSelected}
@@ -762,19 +775,21 @@ export default function AdminProductsPage() {
               />
             </AdminTh>
             <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
-            <AdminTh className={adminTableSkuCol}>{tr('adminProducts.col.sku')}</AdminTh>
-            <AdminTh>{tr('adminProducts.col.category')}</AdminTh>
-            <AdminTh>{tr('adminProducts.col.brand')}</AdminTh>
-            <AdminTh className={adminTableMoneyCol}>{tr('productForm.purchasePrice')}</AdminTh>
-            <AdminTh>{tr('productForm.shippingCost')}</AdminTh>
-            <AdminTh className={adminTableMoneyCol}>{tr('adminProducts.col.price')}</AdminTh>
-            <AdminTh>{tr('adminProducts.col.status')}</AdminTh>
-            <AdminTh align="right">{tr('adminProducts.col.actions')}</AdminTh>
+            <AdminTh className="px-2">{tr('adminProducts.col.sku')}</AdminTh>
+            <AdminTh className="px-2">{tr('adminProducts.col.category')}</AdminTh>
+            <AdminTh className="px-2">{tr('adminProducts.col.brand')}</AdminTh>
+            <AdminTh className="whitespace-nowrap px-2">{tr('productForm.purchasePrice')}</AdminTh>
+            <AdminTh className="whitespace-nowrap px-2">{tr('productForm.shippingCost')}</AdminTh>
+            <AdminTh className="whitespace-nowrap px-2">{tr('adminProducts.col.price')}</AdminTh>
+            <AdminTh className="px-2">{tr('adminProducts.col.status')}</AdminTh>
+            <AdminTh align="right" className="px-2">
+              {tr('adminProducts.col.actions')}
+            </AdminTh>
           </AdminTableHead>
           <AdminTableBody>
             {pageItems.map((p) => (
               <AdminTr key={p.id}>
-                <AdminTd>
+                <AdminTd className="px-2">
                   <input
                     type="checkbox"
                     checked={selected.has(p.id)}
@@ -800,15 +815,15 @@ export default function AdminProductsPage() {
                     <span className="font-medium line-clamp-2">{p.name}</span>
                   </div>
                 </AdminTd>
-                <AdminTd className={`${adminTableSkuCol} align-top`}>
+                <AdminTd className="px-2 align-top">
                   <span
-                    className="block font-mono text-[10px] leading-tight line-clamp-2 break-all"
+                    className="block font-mono text-[10px] leading-snug line-clamp-2 break-all"
                     title={p.sku || undefined}
                   >
                     {p.sku || '—'}
                   </span>
                 </AdminTd>
-                <AdminTd>
+                <AdminTd className="px-2 align-top">
                   {p.category ? (
                     <div className="flex flex-wrap gap-1.5">
                       {formatAdminProductCategoryLabels(p, categories, tr).map((cat) => (
@@ -823,7 +838,7 @@ export default function AdminProductsPage() {
                     '—'
                   )}
                 </AdminTd>
-                <AdminTd>
+                <AdminTd className="px-2 align-top">
                   {p.brand || (p.tags && p.tags.length > 0) ? (
                     <div className="flex flex-wrap gap-1.5">
                       {parseBrandCompound(p.brand || '').map((brand) => (
@@ -841,23 +856,23 @@ export default function AdminProductsPage() {
                     '—'
                   )}
                 </AdminTd>
-                <AdminTd className={adminTableMoneyCol}>
+                <AdminTd className="whitespace-nowrap tabular-nums px-2 align-top">
                   {formatAdminPurchasePrice(p.purchase_price)}
                 </AdminTd>
-                <AdminTd>
+                <AdminTd className="whitespace-nowrap px-2 align-top">
                   <AdminShippingCostCell value={p.shipping_cost} isDark={t.isDark} />
                 </AdminTd>
-                <AdminTd className={adminTableMoneyCol}>
+                <AdminTd className="whitespace-nowrap tabular-nums px-2 align-top">
                   {formatAdminSalePrice(adminListDisplaySalePrice(p.price, p.product_options), tr)}
                 </AdminTd>
-                <AdminTd>
+                <AdminTd className="px-2 align-top">
                   <span
                     className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass(p.status, t.isDark)}`}
                   >
                     {statusLabel(p.status || 'active', tr)}
                   </span>
                 </AdminTd>
-                <AdminTd align="right">
+                <AdminTd align="right" className="px-2 align-top">
                   <div className="flex items-center justify-end gap-2">
                     <Link
                       href={appPath(`/admin/products/${p.id}/edit`)}
