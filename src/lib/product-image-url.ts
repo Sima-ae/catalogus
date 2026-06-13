@@ -104,7 +104,7 @@ export function absoluteCatalogImageUrl(url: string | null | undefined): string 
 }
 
 export function isYupooImageUrl(url: string | null | undefined): boolean {
-  const raw = String(url ?? '').trim()
+  const raw = unwrapDisplayImageUrl(String(url ?? '').trim())
   if (!raw) return false
   try {
     return new URL(raw).hostname.toLowerCase().endsWith('yupoo.com')
@@ -162,7 +162,8 @@ export function upgradeYupooImageUrl(url: string): string {
 
 /** Lighter Yupoo CDN path for catalog grid cards (faster mobile loads). */
 export function downgradeYupooImageUrlForCard(url: string): string {
-  let u = url.trim().split('?')[0]
+  const raw = unwrapDisplayImageUrl(url.trim())
+  let u = raw.split('?')[0]
   u = u.replace(/\/medium\./gi, '/small.')
   u = u.replace(/\/original\./gi, '/small.')
   u = u.replace(/\/square\./gi, '/small.')
@@ -177,7 +178,17 @@ export function catalogCardImageSrc(
   url: string | null | undefined,
   sourceUrl?: string | null
 ): string {
-  const normalized = normalizeProductImageUrl(url)
+  const raw = String(url ?? '').trim()
+  if (!raw) return ''
+
+  // Proxied Yupoo URLs must keep their query string (never run size downgrade on the wrapper).
+  if (raw.includes('/api/yupoo-image')) {
+    const normalized = normalizeProductImageUrl(raw)
+    if (!normalized) return ''
+    return normalized.startsWith('/') ? appPath(normalized) : normalized
+  }
+
+  const normalized = normalizeProductImageUrl(raw)
   if (!normalized) return ''
 
   const sized = isYupooImageUrl(normalized)

@@ -18,7 +18,16 @@ import {
   wooDescriptionFromAttributes,
 } from '../src/lib/woocommerce/map-product'
 import { buildProductInputFromWooCommerceImport } from '../src/lib/import-db'
-import { stripProductOptionsInternalPricing } from '../src/lib/product-options'
+import { mergeRefreshProductPricing } from '../src/lib/import-refresh-pricing'
+import {
+  catalogCardImageSrc,
+  resolveProductDisplayImages,
+} from '../src/lib/product-image-url'
+import {
+  adminListDisplaySalePrice,
+  getShopProductOptions,
+  stripProductOptionsInternalPricing,
+} from '../src/lib/product-options'
 import { omitProductInternalPricing } from '../src/lib/product-serialize'
 import { normalizeWooCommercePriceMode } from '../src/lib/woocommerce/types'
 
@@ -202,8 +211,18 @@ assert.equal(arOptions![0].values[1].label, 'Swiss')
 assert.equal(arOptions![0].values[1].price, 0)
 assert.equal(arOptions![0].values[1].purchase_price, 1650)
 
-import { mergeRefreshProductPricing } from '../src/lib/import-refresh-pricing'
-import { adminListDisplaySalePrice, getShopProductOptions } from '../src/lib/product-options'
+const yupooResolved = resolveProductDisplayImages(
+  'https://photo.yupoo.com/test/album/medium.jpg',
+  null,
+  'https://x.yupoo.com/albums/123'
+)
+const proxyMain = yupooResolved.main
+assert.ok(proxyMain.includes('/api/yupoo-image'))
+assert.ok(proxyMain.includes('url='))
+const cardFromProxy = catalogCardImageSrc(proxyMain, 'https://x.yupoo.com/albums/123')
+assert.ok(cardFromProxy.includes('/api/yupoo-image'))
+assert.ok(cardFromProxy.includes('url='))
+assert.notEqual(cardFromProxy, '/api/yupoo-image')
 
 const arShopOptions = getShopProductOptions(arOptions)
 assert.ok(arShopOptions)
