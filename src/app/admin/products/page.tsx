@@ -125,7 +125,7 @@ function AdminShippingCostCell({
   }
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded border text-sm tabular-nums font-semibold ${
+      className={`inline-flex items-center px-1.5 py-0.5 rounded border text-xs tabular-nums font-semibold whitespace-nowrap ${
         isDark
           ? 'bg-dark-900 border-green-500/60 text-green-400'
           : 'bg-white border-green-500 text-green-700'
@@ -136,16 +136,18 @@ function AdminShippingCostCell({
   )
 }
 
+const adminProductsMoneyCol = 'whitespace-nowrap tabular-nums text-xs px-1'
+
 const adminProductsColgroup = (
   <colgroup>
     <col className="w-9" />
-    <col className="w-[26%]" />
-    <col className="w-[7%]" />
+    <col className="w-[24%]" />
+    <col className="w-[12%]" />
     <col className="w-[8%]" />
-    <col className="w-[10%]" />
-    <col className="w-[11%]" />
     <col className="w-[9%]" />
-    <col className="w-[11%]" />
+    <col className="w-[8%]" />
+    <col className="w-[6%]" />
+    <col className="w-[10%]" />
     <col className="w-[8%]" />
     <col className="w-[7%]" />
   </colgroup>
@@ -778,9 +780,15 @@ export default function AdminProductsPage() {
             <AdminTh className="px-2">{tr('adminProducts.col.sku')}</AdminTh>
             <AdminTh className="px-2">{tr('adminProducts.col.category')}</AdminTh>
             <AdminTh className="px-2">{tr('adminProducts.col.brand')}</AdminTh>
-            <AdminTh className="whitespace-nowrap px-2">{tr('productForm.purchasePrice')}</AdminTh>
-            <AdminTh className="whitespace-nowrap px-2">{tr('productForm.shippingCost')}</AdminTh>
-            <AdminTh className="whitespace-nowrap px-2">{tr('adminProducts.col.price')}</AdminTh>
+            <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
+              {tr('productForm.purchasePrice')}
+            </AdminTh>
+            <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
+              {tr('productForm.shippingCost')}
+            </AdminTh>
+            <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
+              {tr('adminProducts.col.price')}
+            </AdminTh>
             <AdminTh className="px-2">{tr('adminProducts.col.status')}</AdminTh>
             <AdminTh align="right" className="px-2">
               {tr('adminProducts.col.actions')}
@@ -856,13 +864,13 @@ export default function AdminProductsPage() {
                     '—'
                   )}
                 </AdminTd>
-                <AdminTd className="whitespace-nowrap tabular-nums px-2 align-top">
+                <AdminTd className={`${adminProductsMoneyCol} align-top`}>
                   {formatAdminPurchasePrice(p.purchase_price)}
                 </AdminTd>
-                <AdminTd className="whitespace-nowrap px-2 align-top">
+                <AdminTd className={`${adminProductsMoneyCol} align-top`}>
                   <AdminShippingCostCell value={p.shipping_cost} isDark={t.isDark} />
                 </AdminTd>
-                <AdminTd className="whitespace-nowrap tabular-nums px-2 align-top">
+                <AdminTd className={`${adminProductsMoneyCol} align-top`}>
                   {formatAdminSalePrice(adminListDisplaySalePrice(p.price, p.product_options), tr)}
                 </AdminTd>
                 <AdminTd className="px-2 align-top">

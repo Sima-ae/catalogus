@@ -37,7 +37,9 @@ export default function CatalogPagination({
   const btnClass = compact
     ? 'btn-secondary text-[11px] leading-tight px-1.5 py-0.5'
     : 'btn-secondary text-sm'
-  const inputClass = compact ? 'input w-9 text-[11px] py-0.5 px-1' : 'input w-20 text-sm'
+  const inputClass = compact
+    ? 'input w-14 min-w-[3.25rem] text-center tabular-nums text-[11px] py-0.5 px-1.5'
+    : 'input w-20 min-w-[4.5rem] text-center tabular-nums text-sm'
   const gapClass = compact ? 'gap-1' : 'gap-2'
   const blockGap = compact ? 'gap-1.5' : 'gap-3'
   const blockPy = compact ? 'py-1' : 'py-3'
