@@ -12,6 +12,7 @@ import {
   DocumentTextIcon,
   NoSymbolIcon,
   DocumentDuplicateIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import StatCard from '@/components/admin/StatCard'
@@ -38,7 +39,9 @@ import {
 } from '@/lib/catalog-products'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
 import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/AdminBulkEditModal'
-import DuplicateProductsModal from '@/components/admin/DuplicateProductsModal'
+import DuplicateProductsModal, {
+  type DuplicateScanMode,
+} from '@/components/admin/DuplicateProductsModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
@@ -48,6 +51,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { formatMessage } from '@/lib/i18n'
 import { adminListDisplaySalePrice } from '@/lib/product-options'
 import type { ImageDuplicateScanResult } from '@/lib/product-image-duplicates'
+import type { TitleDuplicateScanResult } from '@/lib/product-title-duplicates'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
 
@@ -183,11 +187,13 @@ export default function AdminProductsPage() {
   const [bulkWorking, setBulkWorking] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [duplicateScanOpen, setDuplicateScanOpen] = useState(false)
+  const [duplicateScanMode, setDuplicateScanMode] = useState<DuplicateScanMode>('image')
   const [duplicateScanLoading, setDuplicateScanLoading] = useState(false)
   const [duplicateScanError, setDuplicateScanError] = useState('')
-  const [duplicateScanResult, setDuplicateScanResult] = useState<ImageDuplicateScanResult | null>(
-    null
-  )
+  const [duplicateScanResult, setDuplicateScanResult] = useState<
+    ImageDuplicateScanResult | TitleDuplicateScanResult | null
+  >(null)
+  const [deletingDuplicateIds, setDeletingDuplicateIds] = useState<Set<string>>(new Set())
   const [successMessage, setSuccessMessage] = useState('')
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
@@ -501,31 +507,108 @@ export default function AdminProductsPage() {
     }
   }
 
-  const runDuplicateImageScan = useCallback(async () => {
-    if (!user) return
-    setDuplicateScanLoading(true)
-    setDuplicateScanError('')
-    try {
-      const res = await fetch(appPath('/api/admin/products/duplicate-images'), {
-        headers: adminAuthHeaders(user),
-        cache: 'no-store',
-      })
-      const data = await parseJsonResponse<ImageDuplicateScanResult & { error?: string }>(res)
-      if (!res.ok) {
-        throw new Error(data.error || tr('admin.products.duplicateScanFailed'))
+  const runDuplicateScan = useCallback(
+    async (mode: DuplicateScanMode) => {
+      if (!user) return
+      setDuplicateScanLoading(true)
+      setDuplicateScanError('')
+      try {
+        const path =
+          mode === 'image'
+            ? '/api/admin/products/duplicate-images'
+            : '/api/admin/products/duplicate-titles'
+        const res = await fetch(appPath(path), {
+          headers: adminAuthHeaders(user),
+          cache: 'no-store',
+        })
+        const data = await parseJsonResponse<
+          (ImageDuplicateScanResult | TitleDuplicateScanResult) & { error?: string }
+        >(res)
+        if (!res.ok) {
+          throw new Error(
+            data.error ||
+              tr(
+                mode === 'image'
+                  ? 'admin.products.duplicateScanFailed'
+                  : 'admin.products.duplicateTitleScanFailed'
+              )
+          )
+        }
+        setDuplicateScanMode(mode)
+        setDuplicateScanResult(data)
+      } catch (e) {
+        setDuplicateScanError(
+          e instanceof Error
+            ? e.message
+            : tr(
+                mode === 'image'
+                  ? 'admin.products.duplicateScanFailed'
+                  : 'admin.products.duplicateTitleScanFailed'
+              )
+        )
+        setDuplicateScanResult(null)
+      } finally {
+        setDuplicateScanLoading(false)
       }
-      setDuplicateScanResult(data)
-    } catch (e) {
-      setDuplicateScanError(e instanceof Error ? e.message : tr('admin.products.duplicateScanFailed'))
-      setDuplicateScanResult(null)
-    } finally {
-      setDuplicateScanLoading(false)
-    }
-  }, [user, tr])
+    },
+    [user, tr]
+  )
 
-  const openDuplicateScan = () => {
+  const openDuplicateScan = (mode: DuplicateScanMode) => {
+    setDuplicateScanMode(mode)
     setDuplicateScanOpen(true)
-    void runDuplicateImageScan()
+    void runDuplicateScan(mode)
+  }
+
+  const removeProductFromDuplicateScanResult = useCallback((productId: string) => {
+    setDuplicateScanResult((prev) => {
+      if (!prev) return prev
+      const groups = prev.groups
+        .map((group) => ({
+          ...group,
+          products: group.products.filter((product) => product.id !== productId),
+        }))
+        .filter((group) => group.products.length >= 2)
+      const duplicateProductIds = Array.from(
+        new Set(groups.flatMap((group) => group.products.map((product) => product.id)))
+      )
+      return {
+        scannedProducts: prev.scannedProducts,
+        duplicateProductIds,
+        groups,
+      } as ImageDuplicateScanResult | TitleDuplicateScanResult
+    })
+  }, [])
+
+  const handleDuplicateProductDelete = async (productId: string) => {
+    if (!user || deletingDuplicateIds.has(productId)) return
+    if (!confirm(tr('admin.products.confirmMoveToTrash'))) return
+
+    setDeletingDuplicateIds((prev) => new Set(prev).add(productId))
+    setDuplicateScanError('')
+
+    try {
+      const res = await fetch(appPath('/api/admin/products/bulk-delete'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds: [productId] }),
+      })
+      const data = await parseJsonResponse<{ error?: string }>(res)
+      if (!res.ok) throw new Error(data.error || tr('admin.products.bulkUpdateFailed'))
+      removeProductFromDuplicateScanResult(productId)
+      loadProducts()
+    } catch (e) {
+      setDuplicateScanError(e instanceof Error ? e.message : tr('admin.products.bulkUpdateFailed'))
+    } finally {
+      setDeletingDuplicateIds((prev) => {
+        const next = new Set(prev)
+        next.delete(productId)
+        return next
+      })
+    }
   }
 
   const selectedIds = Array.from(selected)
@@ -538,15 +621,26 @@ export default function AdminProductsPage() {
       actions={
         <>
           {isAdmin ? (
-            <button
-              type="button"
-              className="btn-secondary flex items-center gap-2 text-sm"
-              disabled={duplicateScanLoading}
-              onClick={openDuplicateScan}
-            >
-              <DocumentDuplicateIcon className="h-5 w-5" />
-              {tr('admin.products.duplicateScan')}
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 text-sm"
+                disabled={duplicateScanLoading}
+                onClick={() => openDuplicateScan('image')}
+              >
+                <DocumentDuplicateIcon className="h-5 w-5" />
+                {tr('admin.products.duplicateScan')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 text-sm"
+                disabled={duplicateScanLoading}
+                onClick={() => openDuplicateScan('title')}
+              >
+                <MagnifyingGlassIcon className="h-5 w-5" />
+                {tr('admin.products.duplicateTitleScan')}
+              </button>
+            </>
           ) : null}
           {stats.draft > 0 && (
             <button
@@ -970,15 +1064,18 @@ export default function AdminProductsPage() {
         onApply={runBulkEdit}
       />
       <DuplicateProductsModal
+        mode={duplicateScanMode}
         open={duplicateScanOpen}
         loading={duplicateScanLoading}
         error={duplicateScanError}
         result={duplicateScanResult}
+        deletingProductIds={deletingDuplicateIds}
         onClose={() => {
-          if (duplicateScanLoading) return
+          if (duplicateScanLoading || deletingDuplicateIds.size > 0) return
           setDuplicateScanOpen(false)
         }}
-        onRescan={() => void runDuplicateImageScan()}
+        onRescan={() => void runDuplicateScan(duplicateScanMode)}
+        onDeleteProduct={(productId) => void handleDuplicateProductDelete(productId)}
       />
     </AdminPageShell>
   )

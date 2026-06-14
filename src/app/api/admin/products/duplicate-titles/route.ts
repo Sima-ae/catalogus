@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { findProductImageDuplicateGroups } from '@/lib/product-image-duplicates'
+import { findProductTitleDuplicateGroups } from '@/lib/product-title-duplicates'
 import { listProductsForDuplicateScan } from '@/lib/products-db'
 
 export const dynamic = 'force-dynamic'
@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
   try {
     const includeTrash = request.nextUrl.searchParams.get('includeTrash') === '1'
     const products = await listProductsForDuplicateScan({ includeTrash })
-    const result = findProductImageDuplicateGroups(products)
+    const result = findProductTitleDuplicateGroups(products)
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error('Duplicate image scan error:', error)
+    console.error('Duplicate title scan error:', error)
     return NextResponse.json(
-      { error: getDbErrorMessage(error, 'Failed to scan for duplicate images') },
+      { error: getDbErrorMessage(error, 'Failed to scan for duplicate titles') },
       { status: 503 }
     )
   }

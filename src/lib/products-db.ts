@@ -1739,23 +1739,27 @@ export async function deleteCategoryById(id: string) {
   await queryDb('DELETE FROM categories WHERE id = ?', [id])
 }
 
-export type ProductImageDuplicateScanRow = {
+export type ProductDuplicateScanRow = {
   id: string
   name: string
   sku: string | null
   status: string
+  brand: string | null
   image_url: string
+  source_url: string | null
   gallery_images: string[] | null
 }
 
-/** Lightweight product list for admin duplicate-image scan (excludes trash by default). */
-export async function listProductsForImageDuplicateScan(options?: {
+export type ProductImageDuplicateScanRow = ProductDuplicateScanRow
+
+/** Lightweight product list for admin duplicate scans (excludes trash by default). */
+export async function listProductsForDuplicateScan(options?: {
   includeTrash?: boolean
-}): Promise<ProductImageDuplicateScanRow[]> {
+}): Promise<ProductDuplicateScanRow[]> {
   const includeTrash = options?.includeTrash === true
   const where = includeTrash ? '' : "WHERE p.status <> 'trash'"
   const rows = await queryDb<Record<string, unknown>[]>(
-    `SELECT p.id, p.name, p.sku, p.status, p.image_url, p.gallery_images
+    `SELECT p.id, p.name, p.sku, p.status, p.brand, p.image_url, p.source_url, p.gallery_images
      FROM products p
      ${where}
      ORDER BY p.name ASC`
@@ -1766,7 +1770,16 @@ export async function listProductsForImageDuplicateScan(options?: {
     name: String(row.name ?? ''),
     sku: row.sku == null || row.sku === '' ? null : String(row.sku),
     status: String(row.status ?? 'active'),
+    brand: row.brand == null || row.brand === '' ? null : String(row.brand),
     image_url: String(row.image_url ?? ''),
+    source_url: row.source_url == null || row.source_url === '' ? null : String(row.source_url),
     gallery_images: parseProductJsonField(row.gallery_images),
   }))
+}
+
+/** @deprecated Use listProductsForDuplicateScan */
+export async function listProductsForImageDuplicateScan(options?: {
+  includeTrash?: boolean
+}): Promise<ProductImageDuplicateScanRow[]> {
+  return listProductsForDuplicateScan(options)
 }

@@ -381,6 +381,16 @@ export function isCatalogHostedImage(url: string | null | undefined): boolean {
   }
 }
 
+/** Browser src for admin/shop UI — Yupoo via proxy, catalog paths via basePath. */
+export function adminProductImageDisplaySrc(
+  url: string | null | undefined,
+  sourceUrl?: string | null
+): string {
+  const display = toDisplayProductImageUrl(url, sourceUrl)
+  if (!display) return ''
+  return productImageSrc(display) || display
+}
+
 /** External CDN URLs (Yupoo etc.) must bypass the Next.js image optimizer. */
 export function shouldUnoptimizeProductImage(url: string | null | undefined): boolean {
   const raw = String(url ?? '').trim()

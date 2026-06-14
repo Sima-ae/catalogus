@@ -81,6 +81,16 @@ export type AdminMessageKey =
   | 'admin.products.duplicateScanRescan'
   | 'admin.products.duplicateScanClose'
   | 'admin.products.duplicateScanFailed'
+  | 'admin.products.duplicateTitleScan'
+  | 'admin.products.duplicateTitleScanTitle'
+  | 'admin.products.duplicateTitleScanHint'
+  | 'admin.products.duplicateTitleScanLoading'
+  | 'admin.products.duplicateTitleScanEmpty'
+  | 'admin.products.duplicateTitleScanSummary'
+  | 'admin.products.duplicateTitleScanGroupLabel'
+  | 'admin.products.duplicateTitleScanRescan'
+  | 'admin.products.duplicateTitleScanClose'
+  | 'admin.products.duplicateTitleScanFailed'
   | 'adminProducts.col.product'
   | 'adminProducts.col.sku'
   | 'adminProducts.col.category'
@@ -180,6 +190,16 @@ const EN: AdminMessages = {
   'admin.products.duplicateScanRescan': "Scan again",
   'admin.products.duplicateScanClose': "Close",
   'admin.products.duplicateScanFailed': "Duplicate scan failed",
+  'admin.products.duplicateTitleScan': "Scan duplicate titles",
+  'admin.products.duplicateTitleScanTitle': "Possible duplicate titles",
+  'admin.products.duplicateTitleScanHint': "Products grouped by matching title keywords (model nicknames, references, or distinctive words).",
+  'admin.products.duplicateTitleScanLoading': "Scanning catalog for duplicate titles…",
+  'admin.products.duplicateTitleScanEmpty': "No duplicate title groups found.",
+  'admin.products.duplicateTitleScanSummary': "{groups} duplicate group(s) · {products} product(s) involved · {scanned} scanned",
+  'admin.products.duplicateTitleScanGroupLabel': "{count} products match · {keywords}",
+  'admin.products.duplicateTitleScanRescan': "Scan again",
+  'admin.products.duplicateTitleScanClose': "Close",
+  'admin.products.duplicateTitleScanFailed': "Title duplicate scan failed",
   'adminProducts.col.product': "Product",
   'adminProducts.col.sku': "SKU",
   'adminProducts.col.category': "Category",
@@ -276,6 +296,16 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.duplicateScanRescan': "Opnieuw scannen",
   'admin.products.duplicateScanClose': "Sluiten",
   'admin.products.duplicateScanFailed': "Duplicaatscan mislukt",
+  'admin.products.duplicateTitleScan': "Duplicaten scannen (titel)",
+  'admin.products.duplicateTitleScanTitle': "Mogelijke dubbele titels",
+  'admin.products.duplicateTitleScanHint': "Producten gegroepeerd op overeenkomende titel-trefwoorden (modelnamen, referenties of onderscheidende woorden).",
+  'admin.products.duplicateTitleScanLoading': "Catalogus scannen op dubbele titels…",
+  'admin.products.duplicateTitleScanEmpty': "Geen dubbele titelgroepen gevonden.",
+  'admin.products.duplicateTitleScanSummary': "{groups} duplicaatgroep(en) · {products} product(en) · {scanned} gescand",
+  'admin.products.duplicateTitleScanGroupLabel': "{count} producten · {keywords}",
+  'admin.products.duplicateTitleScanRescan': "Opnieuw scannen",
+  'admin.products.duplicateTitleScanClose': "Sluiten",
+  'admin.products.duplicateTitleScanFailed': "Titel-duplicaatscan mislukt",
   'adminProducts.col.category': "Categorie",
   'adminProducts.col.brand': "Merk",
   'adminProducts.col.price': "Prijs",

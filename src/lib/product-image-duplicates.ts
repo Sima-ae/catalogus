@@ -10,6 +10,7 @@ export type ProductImageDuplicateInput = {
   sku: string | null
   status: string
   image_url: string
+  source_url?: string | null
   gallery_images?: string[] | null
 }
 
@@ -19,6 +20,7 @@ export type ImageDuplicateProduct = {
   sku: string | null
   status: string
   image_url: string
+  source_url: string | null
 }
 
 export type ImageDuplicateGroup = {
@@ -40,6 +42,7 @@ function toDuplicateProduct(row: ProductImageDuplicateInput): ImageDuplicateProd
     sku: row.sku,
     status: row.status,
     image_url: row.image_url,
+    source_url: row.source_url ?? null,
   }
 }
 
