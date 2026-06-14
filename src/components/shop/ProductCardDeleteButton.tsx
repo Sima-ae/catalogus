@@ -9,6 +9,7 @@ import { parseJsonResponse } from '@/lib/fetch-json'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useI18n } from '@/lib/i18n-context'
 import { translateTrashApiError } from '@/lib/i18n-product-trash'
+import { useTheme } from '@/lib/theme'
 
 type Props = {
   productId: string
@@ -26,6 +27,8 @@ export default function ProductCardDeleteButton({
   onDeleted,
 }: Props) {
   const { t } = useI18n()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const { user, isAdmin, loading: authLoading } = useAuth()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -69,6 +72,7 @@ export default function ProductCardDeleteButton({
   }
 
   const label = productName?.trim() || t('product.trash.defaultName')
+  const nameClass = isDark ? 'text-white' : 'text-gray-900'
 
   return (
     <>
@@ -86,12 +90,22 @@ export default function ProductCardDeleteButton({
       <ConfirmDialog
         open={confirmOpen}
         title={t('product.trash.confirmTitle')}
-        message={
-          error
-            ? t('product.trash.errorRetry', { error })
-            : t('product.trash.confirmMessage', { name: label })
+        messageNode={
+          error ? (
+            <p>{t('product.trash.errorRetry', { error })}</p>
+          ) : (
+            <>
+              <p className={`font-medium line-clamp-2 break-words ${nameClass}`}>&ldquo;{label}&rdquo;</p>
+              <p className="mt-2">{t('product.trash.confirmHint')}</p>
+            </>
+          )
         }
-        confirmLabel={t('product.trash.confirmButton')}
+        confirmLabel={
+          <>
+            <span className="sm:hidden">{t('product.trash.confirmButtonShort')}</span>
+            <span className="hidden sm:inline">{t('product.trash.confirmButton')}</span>
+          </>
+        }
         cancelLabel={t('product.trash.cancel')}
         busyLabel={t('product.trash.busy')}
         closeDialogLabel={t('confirm.closeDialog')}

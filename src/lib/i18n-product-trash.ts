@@ -3,7 +3,9 @@ import type { Locale } from '@/lib/i18n-locale-registry'
 export type ProductTrashMessageKey =
   | 'product.trash.confirmTitle'
   | 'product.trash.confirmMessage'
+  | 'product.trash.confirmHint'
   | 'product.trash.confirmButton'
+  | 'product.trash.confirmButtonShort'
   | 'product.trash.cancel'
   | 'product.trash.busy'
   | 'product.trash.ariaLabel'
@@ -19,7 +21,10 @@ const EN: ProductTrashMessages = {
   'product.trash.confirmTitle': 'Move to trash?',
   'product.trash.confirmMessage':
     'Move "{name}" to the trash bin? It will be hidden from the shop but can be restored from Admin → Products.',
+  'product.trash.confirmHint':
+    'It will be hidden from the shop but can be restored from Admin → Products.',
   'product.trash.confirmButton': 'Move to trash',
+  'product.trash.confirmButtonShort': 'Delete',
   'product.trash.cancel': 'Cancel',
   'product.trash.busy': 'Please wait…',
   'product.trash.ariaLabel': 'Move product to trash',
@@ -34,7 +39,10 @@ const NL: ProductTrashMessages = {
   'product.trash.confirmTitle': 'Naar prullenbak verplaatsen?',
   'product.trash.confirmMessage':
     '"{name}" naar de prullenbak verplaatsen? Het product verdwijnt uit de shop, maar kan worden hersteld via Admin → Producten.',
+  'product.trash.confirmHint':
+    'Het product verdwijnt uit de shop, maar kan worden hersteld via Admin → Producten.',
   'product.trash.confirmButton': 'Naar prullenbak',
+  'product.trash.confirmButtonShort': 'Verwijderen',
   'product.trash.cancel': 'Annuleren',
   'product.trash.busy': 'Even geduld…',
   'product.trash.ariaLabel': 'Product naar prullenbak verplaatsen',
@@ -52,6 +60,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'In den Papierkorb verschieben?',
     'product.trash.confirmMessage':
       '"{name}" in den Papierkorb verschieben? Es wird im Shop ausgeblendet, kann aber unter Admin → Produkte wiederhergestellt werden.',
+    'product.trash.confirmHint':
+      'Es wird im Shop ausgeblendet, kann aber unter Admin → Produkte wiederhergestellt werden.',
+    'product.trash.confirmButtonShort': 'In Papierkorb',
     'product.trash.confirmButton': 'In Papierkorb',
     'product.trash.cancel': 'Abbrechen',
     'product.trash.busy': 'Bitte warten…',
@@ -66,6 +77,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Mettre à la corbeille ?',
     'product.trash.confirmMessage':
       'Mettre « {name} » à la corbeille ? Il sera masqué dans la boutique mais pourra être restauré depuis Admin → Produits.',
+    'product.trash.confirmHint':
+      'Il sera masqué dans la boutique mais pourra être restauré depuis Admin → Produits.',
+    'product.trash.confirmButtonShort': 'corbeille',
     'product.trash.confirmButton': 'Mettre à la corbeille',
     'product.trash.cancel': 'Annuler',
     'product.trash.busy': 'Veuillez patienter…',
@@ -80,6 +94,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': '¿Mover a la papelera?',
     'product.trash.confirmMessage':
       '¿Mover «{name}» a la papelera? Se ocultará en la tienda, pero podrá restaurarse desde Admin → Productos.',
+    'product.trash.confirmHint':
+      'Se ocultará en la tienda, pero podrá restaurarse desde Admin → Productos.',
+    'product.trash.confirmButtonShort': 'papelera',
     'product.trash.confirmButton': 'Mover a la papelera',
     'product.trash.cancel': 'Cancelar',
     'product.trash.busy': 'Espere…',
@@ -94,6 +111,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Mover para o lixo?',
     'product.trash.confirmMessage':
       'Mover «{name}» para o lixo? Ficará oculto na loja, mas pode ser restaurado em Admin → Produtos.',
+    'product.trash.confirmHint':
+      'Ficará oculto na loja, mas pode ser restaurado em Admin → Produtos.',
+    'product.trash.confirmButtonShort': 'lixo',
     'product.trash.confirmButton': 'Mover para o lixo',
     'product.trash.cancel': 'Cancelar',
     'product.trash.busy': 'Aguarde…',
@@ -108,6 +128,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Spostare nel cestino?',
     'product.trash.confirmMessage':
       'Spostare «{name}» nel cestino? Sarà nascosto nel negozio ma potrà essere ripristinato da Admin → Prodotti.',
+    'product.trash.confirmHint':
+      'Sarà nascosto nel negozio ma potrà essere ripristinato da Admin → Prodotti.',
+    'product.trash.confirmButtonShort': 'cestino',
     'product.trash.confirmButton': 'Sposta nel cestino',
     'product.trash.cancel': 'Annulla',
     'product.trash.busy': 'Attendere…',
@@ -122,6 +145,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Μετακίνηση στα απορρίμματα;',
     'product.trash.confirmMessage':
       'Μετακίνηση του «{name}» στα απορρίμματα; Θα κρυφτεί από το κατάστημα, αλλά μπορεί να επαναφερθεί από Admin → Προϊόντα.',
+    'product.trash.confirmHint':
+      'Μετακίνηση του «{name}» στα απορρίμματα; Θα κρυφτεί από το κατάστημα, αλλά μπορεί να επαναφερθεί από Admin → Προϊόντα.',
+    'product.trash.confirmButtonShort': 'απορρίμματα',
     'product.trash.confirmButton': 'Μετακίνηση στα απορρίμματα',
     'product.trash.cancel': 'Ακύρωση',
     'product.trash.busy': 'Περιμένετε…',
@@ -136,6 +162,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Przenieść do kosza?',
     'product.trash.confirmMessage':
       'Przenieść «{name}» do kosza? Zniknie ze sklepu, ale można go przywrócić w Admin → Produkty.',
+    'product.trash.confirmHint':
+      'Zniknie ze sklepu, ale można go przywrócić w Admin → Produkty.',
+    'product.trash.confirmButtonShort': 'kosza',
     'product.trash.confirmButton': 'Przenieś do kosza',
     'product.trash.cancel': 'Anuluj',
     'product.trash.busy': 'Proszę czekać…',
@@ -150,6 +179,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Přesunout do koše?',
     'product.trash.confirmMessage':
       'Přesunout «{name}» do koše? V obchodě bude skrytý, ale lze obnovit v Admin → Produkty.',
+    'product.trash.confirmHint':
+      'V obchodě bude skrytý, ale lze obnovit v Admin → Produkty.',
+    'product.trash.confirmButtonShort': 'koše',
     'product.trash.confirmButton': 'Přesunout do koše',
     'product.trash.cancel': 'Zrušit',
     'product.trash.busy': 'Čekejte…',
@@ -164,6 +196,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Presunúť do koša?',
     'product.trash.confirmMessage':
       'Presunúť «{name}» do koša? V obchode bude skrytý, ale dá sa obnoviť v Admin → Produkty.',
+    'product.trash.confirmHint':
+      'V obchode bude skrytý, ale dá sa obnoviť v Admin → Produkty.',
+    'product.trash.confirmButtonShort': 'koša',
     'product.trash.confirmButton': 'Presunúť do koša',
     'product.trash.cancel': 'Zrušiť',
     'product.trash.busy': 'Čakajte…',
@@ -178,6 +213,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Áthelyezés a kukába?',
     'product.trash.confirmMessage':
       'Áthelyezi «{name}» a kukába? Elrejtődik a boltban, de visszaállítható az Admin → Termékek menüben.',
+    'product.trash.confirmHint':
+      'Elrejtődik a boltban, de visszaállítható az Admin → Termékek menüben.',
+    'product.trash.confirmButtonShort': 'Kukába',
     'product.trash.confirmButton': 'Kukába',
     'product.trash.cancel': 'Mégse',
     'product.trash.busy': 'Kis türelmet…',
@@ -192,6 +230,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Mutare la coș?',
     'product.trash.confirmMessage':
       'Mutați «{name}» la coș? Va fi ascuns din magazin, dar poate fi restaurat din Admin → Produse.',
+    'product.trash.confirmHint':
+      'Va fi ascuns din magazin, dar poate fi restaurat din Admin → Produse.',
+    'product.trash.confirmButtonShort': 'Mută la coș',
     'product.trash.confirmButton': 'Mută la coș',
     'product.trash.cancel': 'Anulează',
     'product.trash.busy': 'Așteptați…',
@@ -206,6 +247,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Преместване в кошчето?',
     'product.trash.confirmMessage':
       'Преместване на «{name}» в кошчето? Ще бъде скрит от магазина, но може да се възстанови от Admin → Продукти.',
+    'product.trash.confirmHint':
+      'Ще бъде скрит от магазина, но може да се възстанови от Admin → Продукти.',
+    'product.trash.confirmButtonShort': 'В кошчето',
     'product.trash.confirmButton': 'В кошчето',
     'product.trash.cancel': 'Отказ',
     'product.trash.busy': 'Моля, изчакайте…',
@@ -220,6 +264,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Premjestiti u smeće?',
     'product.trash.confirmMessage':
       'Premjestiti «{name}» u smeće? Bit će skriven u trgovini, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmHint':
+      'Bit će skriven u trgovini, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmButtonShort': 'U smeće',
     'product.trash.confirmButton': 'U smeće',
     'product.trash.cancel': 'Odustani',
     'product.trash.busy': 'Pričekajte…',
@@ -234,6 +281,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Преместити у корпу?',
     'product.trash.confirmMessage':
       'Преместити «{name}» у корпу? Biće sakriven u prodavnici, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmHint':
+      'Biće sakriven u prodavnici, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmButtonShort': 'У корпу',
     'product.trash.confirmButton': 'У корпу',
     'product.trash.cancel': 'Откажи',
     'product.trash.busy': 'Сачекајте…',
@@ -248,6 +298,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Premjestiti u smeće?',
     'product.trash.confirmMessage':
       'Premjestiti «{name}» u smeće? Bit će skriven u trgovini, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmHint':
+      'Bit će skriven u trgovini, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmButtonShort': 'U smeće',
     'product.trash.confirmButton': 'U smeće',
     'product.trash.cancel': 'Odustani',
     'product.trash.busy': 'Pričekajte…',
@@ -262,6 +315,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Premjestiti u smeće?',
     'product.trash.confirmMessage':
       'Premjestiti «{name}» u smeće? Biće skriven u prodavnici, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmHint':
+      'Biće skriven u prodavnici, ali se može vratiti iz Admin → Proizvodi.',
+    'product.trash.confirmButtonShort': 'U smeće',
     'product.trash.confirmButton': 'U smeće',
     'product.trash.cancel': 'Odustani',
     'product.trash.busy': 'Sačekajte…',
@@ -276,6 +332,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Të shfaqet në kosh?',
     'product.trash.confirmMessage':
       'Të zhvendoset «{name}» në kosh? Do të fshihet nga dyqani, por mund të rikthehet nga Admin → Produktet.',
+    'product.trash.confirmHint':
+      'Do të fshihet nga dyqani, por mund të rikthehet nga Admin → Produktet.',
+    'product.trash.confirmButtonShort': 'Në kosh',
     'product.trash.confirmButton': 'Në kosh',
     'product.trash.cancel': 'Anulo',
     'product.trash.busy': 'Ju lutemi prisni…',
@@ -290,6 +349,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Премести во корпа?',
     'product.trash.confirmMessage':
       'Да се премести «{name}» во корпа? Ќе биде скриен од продавницата, но може да се врати од Admin → Производи.',
+    'product.trash.confirmHint':
+      'Ќе биде скриен од продавницата, но може да се врати од Admin → Производи.',
+    'product.trash.confirmButtonShort': 'Во корпа',
     'product.trash.confirmButton': 'Во корпа',
     'product.trash.cancel': 'Откажи',
     'product.trash.busy': 'Почекајте…',
@@ -304,6 +366,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Perkelti į šiukšlinę?',
     'product.trash.confirmMessage':
       'Perkelti «{name}» į šiukšlinę? Jis bus paslėptas parduotuvėje, bet galima atkurti skiltyje Admin → Produktai.',
+    'product.trash.confirmHint':
+      'Jis bus paslėptas parduotuvėje, bet galima atkurti skiltyje Admin → Produktai.',
+    'product.trash.confirmButtonShort': 'Į šiukšlinę',
     'product.trash.confirmButton': 'Į šiukšlinę',
     'product.trash.cancel': 'Atšaukti',
     'product.trash.busy': 'Palaukite…',
@@ -318,6 +383,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Flyt til papirkurv?',
     'product.trash.confirmMessage':
       'Flyt «{name}» til papirkurven? Det skjules i butikken, men kan gendannes fra Admin → Produkter.',
+    'product.trash.confirmHint':
+      'Det skjules i butikken, men kan gendannes fra Admin → Produkter.',
+    'product.trash.confirmButtonShort': 'papirkurv',
     'product.trash.confirmButton': 'Flyt til papirkurv',
     'product.trash.cancel': 'Annuller',
     'product.trash.busy': 'Vent…',
@@ -332,6 +400,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Flytta till papperskorgen?',
     'product.trash.confirmMessage':
       'Flytta «{name}» till papperskorgen? Den döljs i butiken men kan återställas från Admin → Produkter.',
+    'product.trash.confirmHint':
+      'Den döljs i butiken men kan återställas från Admin → Produkter.',
+    'product.trash.confirmButtonShort': 'papperskorg',
     'product.trash.confirmButton': 'Flytta till papperskorg',
     'product.trash.cancel': 'Avbryt',
     'product.trash.busy': 'Vänta…',
@@ -346,6 +417,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Flytt til papirkurv?',
     'product.trash.confirmMessage':
       'Flytt «{name}» til papirkurven? Den skjules i butikken, men kan gjenopprettes fra Admin → Produkter.',
+    'product.trash.confirmHint':
+      'Den skjules i butikken, men kan gjenopprettes fra Admin → Produkter.',
+    'product.trash.confirmButtonShort': 'papirkurv',
     'product.trash.confirmButton': 'Flytt til papirkurv',
     'product.trash.cancel': 'Avbryt',
     'product.trash.busy': 'Vent…',
@@ -360,6 +434,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Siirrä roskakoriin?',
     'product.trash.confirmMessage':
       'Siirrä «{name}» roskakoriin? Se piilotetaan kaupasta, mutta voidaan palauttaa kohdasta Admin → Tuotteet.',
+    'product.trash.confirmHint':
+      'Se piilotetaan kaupasta, mutta voidaan palauttaa kohdasta Admin → Tuotteet.',
+    'product.trash.confirmButtonShort': 'roskakoriin',
     'product.trash.confirmButton': 'Siirrä roskakoriin',
     'product.trash.cancel': 'Peruuta',
     'product.trash.busy': 'Odota…',
@@ -374,6 +451,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Перемістити в кошик?',
     'product.trash.confirmMessage':
       'Перемістити «{name}» у кошик? Товар буде приховано в магазині, але його можна відновити в Admin → Продукти.',
+    'product.trash.confirmHint':
+      'Товар буде приховано в магазині, але його можна відновити в Admin → Продукти.',
+    'product.trash.confirmButtonShort': 'У кошик',
     'product.trash.confirmButton': 'У кошик',
     'product.trash.cancel': 'Скасувати',
     'product.trash.busy': 'Зачекайте…',
@@ -388,6 +468,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Переместить в корзину?',
     'product.trash.confirmMessage':
       'Переместить «{name}» в корзину? Товар будет скрыт в магазине, но его можно восстановить в Admin → Продукты.',
+    'product.trash.confirmHint':
+      'Товар будет скрыт в магазине, но его можно восстановить в Admin → Продукты.',
+    'product.trash.confirmButtonShort': 'В корзину',
     'product.trash.confirmButton': 'В корзину',
     'product.trash.cancel': 'Отмена',
     'product.trash.busy': 'Подождите…',
@@ -402,6 +485,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Çöpe taşınsın mı?',
     'product.trash.confirmMessage':
       '«{name}» çöpe taşınsın mı? Mağazada gizlenir ancak Admin → Ürünler bölümünden geri yüklenebilir.',
+    'product.trash.confirmHint':
+      'Mağazada gizlenir ancak Admin → Ürünler bölümünden geri yüklenebilir.',
+    'product.trash.confirmButtonShort': 'Çöpe taşı',
     'product.trash.confirmButton': 'Çöpe taşı',
     'product.trash.cancel': 'İptal',
     'product.trash.busy': 'Lütfen bekleyin…',
@@ -416,6 +502,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'להעביר לפח האשפה?',
     'product.trash.confirmMessage':
       'להעביר את «{name}» לפח האשפה? המוצר יוסתר מהחנות, אך ניתן לשחזר מ-Admin → מוצרים.',
+    'product.trash.confirmHint':
+      'המוצר יוסתר מהחנות, אך ניתן לשחזר מ-Admin → מוצרים.',
+    'product.trash.confirmButtonShort': 'העבר לפח',
     'product.trash.confirmButton': 'העבר לפח',
     'product.trash.cancel': 'ביטול',
     'product.trash.busy': 'המתן…',
@@ -430,6 +519,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'ゴミ箱に移動しますか？',
     'product.trash.confirmMessage':
       '「{name}」をゴミ箱に移動しますか？ショップから非表示になりますが、Admin → 商品から復元できます。',
+    'product.trash.confirmHint':
+      '「{name}」をゴミ箱に移動しますか？ショップから非表示になりますが、Admin → 商品から復元できます。',
+    'product.trash.confirmButtonShort': 'ゴミ箱へ移動',
     'product.trash.confirmButton': 'ゴミ箱へ移動',
     'product.trash.cancel': 'キャンセル',
     'product.trash.busy': 'お待ちください…',
@@ -444,6 +536,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': '移到回收站？',
     'product.trash.confirmMessage':
       '将「{name}」移到回收站？它将从商店隐藏，但可在 Admin → 产品 中恢复。',
+    'product.trash.confirmHint':
+      '将「{name}」移到回收站？它将从商店隐藏，但可在 Admin → 产品 中恢复。',
+    'product.trash.confirmButtonShort': '移到回收站',
     'product.trash.confirmButton': '移到回收站',
     'product.trash.cancel': '取消',
     'product.trash.busy': '请稍候…',
@@ -458,6 +553,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'წავშალოთ ნაგვის ყუთში?',
     'product.trash.confirmMessage':
       'გადავიტანოთ «{name}» ნაგვის ყუთში? ის დამალული იქნება მაღაზიაში, მაგრამ აღდგება Admin → პროდუქტები-დან.',
+    'product.trash.confirmHint':
+      'ის დამალული იქნება მაღაზიაში, მაგრამ აღდგება Admin → პროდუქტები-დან.',
+    'product.trash.confirmButtonShort': 'ნაგვის ყუთში',
     'product.trash.confirmButton': 'ნაგვის ყუთში',
     'product.trash.cancel': 'გაუქმება',
     'product.trash.busy': 'გთხოვთ დაელოდოთ…',
@@ -472,6 +570,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Տեղափոխե՞լ աղբարկղ:',
     'product.trash.confirmMessage':
       'Տեղափոխե՞լ «{name}» աղբարկղ: Այն կթաքցվի խանութից, բայց կարելի է վերականգնել Admin → Ապրանքներ բաժնից:',
+    'product.trash.confirmHint':
+      'Տեղափոխե՞լ «{name}» աղբարկղ: Այն կթաքցվի խանութից, բայց կարելի է վերականգնել Admin → Ապրանքներ բաժնից:',
+    'product.trash.confirmButtonShort': 'Աղբարկղ',
     'product.trash.confirmButton': 'Աղբարկղ',
     'product.trash.cancel': 'Չեղարկել',
     'product.trash.busy': 'Խնդրում ենք սպասել…',
@@ -486,6 +587,9 @@ const BY_LOCALE: Partial<Record<Locale, ProductTrashMessages>> = {
     'product.trash.confirmTitle': 'Zibil qutusuna köçürülsün?',
     'product.trash.confirmMessage':
       '«{name}» zibil qutusuna köçürülsün? Mağazada gizlənəcək, lakin Admin → Məhsullar bölməsindən bərpa oluna bilər.',
+    'product.trash.confirmHint':
+      'Mağazada gizlənəcək, lakin Admin → Məhsullar bölməsindən bərpa oluna bilər.',
+    'product.trash.confirmButtonShort': 'Zibil qutusuna',
     'product.trash.confirmButton': 'Zibil qutusuna',
     'product.trash.cancel': 'Ləğv et',
     'product.trash.busy': 'Gözləyin…',
@@ -502,6 +606,9 @@ const AR: ProductTrashMessages = {
   'product.trash.confirmTitle': 'نقل إلى سلة المحذوفات؟',
   'product.trash.confirmMessage':
     'نقل «{name}» إلى سلة المحذوفات؟ سيُخفى من المتجر ويمكن استعادته من Admin → المنتجات.',
+  'product.trash.confirmHint':
+    'نقل «{name}» إلى سلة المحذوفات؟ سيُخفى من المتجر ويمكن استعادته من Admin → المنتجات.',
+  'product.trash.confirmButtonShort': 'نقل إلى السلة',
   'product.trash.confirmButton': 'نقل إلى السلة',
   'product.trash.cancel': 'إلغاء',
   'product.trash.busy': 'يرجى الانتظار…',

@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useTheme } from '@/lib/theme'
 
 type Props = {
   open: boolean
   title: string
-  message: string
-  confirmLabel?: string
-  cancelLabel?: string
+  message?: string
+  messageNode?: ReactNode
+  confirmLabel?: ReactNode
+  cancelLabel?: ReactNode
   busyLabel?: string
   closeDialogLabel?: string
   confirmVariant?: 'danger' | 'primary'
@@ -21,6 +23,7 @@ export default function ConfirmDialog({
   open,
   title,
   message,
+  messageNode,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   busyLabel = 'Please wait…',
@@ -54,15 +57,24 @@ export default function ConfirmDialog({
     }
   }, [open, busy, onCancel])
 
-  if (!open) return null
+  if (!open || typeof document === 'undefined') return null
 
   const confirmClass =
     confirmVariant === 'danger'
-      ? 'btn-primary bg-red-600 hover:bg-red-700 focus:ring-red-500'
-      : 'btn-primary'
+      ? 'inline-flex min-h-[2.5rem] flex-1 items-center justify-center rounded-lg border border-red-600 bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:border-red-700 hover:bg-red-700 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50 sm:flex-none sm:min-w-[7.5rem]'
+      : 'btn-primary inline-flex min-h-[2.5rem] flex-1 items-center justify-center whitespace-nowrap px-3 py-2 text-sm sm:flex-none sm:min-w-[7.5rem]'
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" role="presentation">
+  const cancelClass = `inline-flex min-h-[2.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 sm:flex-none sm:min-w-[7.5rem] ${
+    isDark
+      ? 'border-dark-600 bg-dark-800 text-gray-100 hover:bg-dark-700 focus-visible:ring-primary-500'
+      : 'border-gray-300 bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-primary-500'
+  }`
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[120] flex items-end justify-center p-3 sm:items-center sm:p-4"
+      role="presentation"
+    >
       <button
         type="button"
         className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
@@ -78,48 +90,41 @@ export default function ConfirmDialog({
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
         tabIndex={-1}
-        className={`relative z-10 w-full max-w-md rounded-xl border shadow-2xl outline-none ${
+        className={`relative z-10 w-full max-w-[min(100%,22rem)] rounded-xl border shadow-2xl outline-none sm:max-w-md ${
           isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
         }`}
       >
-        <div className="px-5 py-4 sm:px-6 sm:py-5">
+        <div className="px-4 py-3.5 sm:px-6 sm:py-5">
           <h2
             id="confirm-dialog-title"
-            className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}
+            className={`text-base font-semibold leading-snug sm:text-lg ${
+              isDark ? 'text-white' : 'text-gray-900'
+            }`}
           >
             {title}
           </h2>
-          <p
+          <div
             id="confirm-dialog-message"
-            className={`mt-2 text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
+            className={`mt-2 text-sm leading-snug ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
           >
-            {message}
-          </p>
+            {messageNode ?? message}
+          </div>
         </div>
 
         <div
-          className={`flex flex-col-reverse gap-2 border-t px-5 py-4 sm:flex-row sm:justify-end sm:px-6 ${
+          className={`flex flex-row gap-2 border-t px-4 py-3 sm:justify-end sm:px-6 sm:py-4 ${
             isDark ? 'border-dark-700' : 'border-gray-200'
           }`}
         >
-          <button
-            type="button"
-            className="btn-secondary w-full sm:w-auto"
-            disabled={busy}
-            onClick={onCancel}
-          >
+          <button type="button" className={cancelClass} disabled={busy} onClick={onCancel}>
             {cancelLabel}
           </button>
-          <button
-            type="button"
-            className={`${confirmClass} w-full sm:w-auto`}
-            disabled={busy}
-            onClick={onConfirm}
-          >
+          <button type="button" className={confirmClass} disabled={busy} onClick={onConfirm}>
             {busy ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
