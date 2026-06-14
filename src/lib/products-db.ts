@@ -21,9 +21,9 @@ import {
   resolveShopCategoryFilter,
 } from '@/lib/shop-category-tree'
 import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
-import {
-  serializeCatalogProductRow,
+import { serializeCatalogProductRow,
   serializeProductRow,
+  parseProductJsonField,
   type SerializeProductRowOptions,
 } from '@/lib/product-serialize'
 import { joinBrandNames, parseBrandCompound } from '@/lib/product-taxonomy'
@@ -1737,4 +1737,36 @@ export async function updateCategoryById(
 
 export async function deleteCategoryById(id: string) {
   await queryDb('DELETE FROM categories WHERE id = ?', [id])
+}
+
+export type ProductImageDuplicateScanRow = {
+  id: string
+  name: string
+  sku: string | null
+  status: string
+  image_url: string
+  gallery_images: string[] | null
+}
+
+/** Lightweight product list for admin duplicate-image scan (excludes trash by default). */
+export async function listProductsForImageDuplicateScan(options?: {
+  includeTrash?: boolean
+}): Promise<ProductImageDuplicateScanRow[]> {
+  const includeTrash = options?.includeTrash === true
+  const where = includeTrash ? '' : "WHERE p.status <> 'trash'"
+  const rows = await queryDb<Record<string, unknown>[]>(
+    `SELECT p.id, p.name, p.sku, p.status, p.image_url, p.gallery_images
+     FROM products p
+     ${where}
+     ORDER BY p.name ASC`
+  )
+
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    sku: row.sku == null || row.sku === '' ? null : String(row.sku),
+    status: String(row.status ?? 'active'),
+    image_url: String(row.image_url ?? ''),
+    gallery_images: parseProductJsonField(row.gallery_images),
+  }))
 }

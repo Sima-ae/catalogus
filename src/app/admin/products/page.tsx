@@ -11,6 +11,7 @@ import {
   CheckCircleIcon,
   DocumentTextIcon,
   NoSymbolIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import StatCard from '@/components/admin/StatCard'
@@ -37,6 +38,7 @@ import {
 } from '@/lib/catalog-products'
 import { buildCategoryPickerOptions, type CategoryPickerOption } from '@/lib/category-picker'
 import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/AdminBulkEditModal'
+import DuplicateProductsModal from '@/components/admin/DuplicateProductsModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
@@ -45,6 +47,7 @@ import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSeg
 import { useI18n } from '@/lib/i18n-context'
 import { formatMessage } from '@/lib/i18n'
 import { adminListDisplaySalePrice } from '@/lib/product-options'
+import type { ImageDuplicateScanResult } from '@/lib/product-image-duplicates'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
 
@@ -163,7 +166,7 @@ function formatAdminSalePrice(
 export default function AdminProductsPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
@@ -179,6 +182,12 @@ export default function AdminProductsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [duplicateScanOpen, setDuplicateScanOpen] = useState(false)
+  const [duplicateScanLoading, setDuplicateScanLoading] = useState(false)
+  const [duplicateScanError, setDuplicateScanError] = useState('')
+  const [duplicateScanResult, setDuplicateScanResult] = useState<ImageDuplicateScanResult | null>(
+    null
+  )
   const [successMessage, setSuccessMessage] = useState('')
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
@@ -492,6 +501,33 @@ export default function AdminProductsPage() {
     }
   }
 
+  const runDuplicateImageScan = useCallback(async () => {
+    if (!user) return
+    setDuplicateScanLoading(true)
+    setDuplicateScanError('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/duplicate-images'), {
+        headers: adminAuthHeaders(user),
+        cache: 'no-store',
+      })
+      const data = await parseJsonResponse<ImageDuplicateScanResult & { error?: string }>(res)
+      if (!res.ok) {
+        throw new Error(data.error || tr('admin.products.duplicateScanFailed'))
+      }
+      setDuplicateScanResult(data)
+    } catch (e) {
+      setDuplicateScanError(e instanceof Error ? e.message : tr('admin.products.duplicateScanFailed'))
+      setDuplicateScanResult(null)
+    } finally {
+      setDuplicateScanLoading(false)
+    }
+  }, [user, tr])
+
+  const openDuplicateScan = () => {
+    setDuplicateScanOpen(true)
+    void runDuplicateImageScan()
+  }
+
   const selectedIds = Array.from(selected)
   const allOnPageSelected =
     pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))
@@ -501,6 +537,17 @@ export default function AdminProductsPage() {
       titleKey="admin.nav.products"
       actions={
         <>
+          {isAdmin ? (
+            <button
+              type="button"
+              className="btn-secondary flex items-center gap-2 text-sm"
+              disabled={duplicateScanLoading}
+              onClick={openDuplicateScan}
+            >
+              <DocumentDuplicateIcon className="h-5 w-5" />
+              {tr('admin.products.duplicateScan')}
+            </button>
+          ) : null}
           {stats.draft > 0 && (
             <button
               type="button"
@@ -921,6 +968,17 @@ export default function AdminProductsPage() {
         busy={bulkWorking}
         onClose={() => setBulkEditOpen(false)}
         onApply={runBulkEdit}
+      />
+      <DuplicateProductsModal
+        open={duplicateScanOpen}
+        loading={duplicateScanLoading}
+        error={duplicateScanError}
+        result={duplicateScanResult}
+        onClose={() => {
+          if (duplicateScanLoading) return
+          setDuplicateScanOpen(false)
+        }}
+        onRescan={() => void runDuplicateImageScan()}
       />
     </AdminPageShell>
   )

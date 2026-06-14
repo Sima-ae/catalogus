@@ -40,6 +40,7 @@
     "test:woocommerce-map": "tsx scripts/test-woocommerce-map.ts",
     "test:facebook-map": "tsx scripts/test-facebook-map.ts",
     "test:lkxox-map": "tsx scripts/test-lkxox-map.ts",
+    "test:product-image-duplicates": "tsx scripts/test-product-image-duplicates.ts",
     "db:mirror-woocommerce-images": "tsx scripts/mirror-woocommerce-images.ts",
     "db:repair-import-images": "tsx scripts/repair-import-product-images.ts"
   },

@@ -71,6 +71,16 @@ export type AdminMessageKey =
   | 'admin.products.bulkUpdateFailed'
   | 'admin.products.bulkPublishFailed'
   | 'admin.products.bulkEditFailed'
+  | 'admin.products.duplicateScan'
+  | 'admin.products.duplicateScanTitle'
+  | 'admin.products.duplicateScanHint'
+  | 'admin.products.duplicateScanLoading'
+  | 'admin.products.duplicateScanEmpty'
+  | 'admin.products.duplicateScanSummary'
+  | 'admin.products.duplicateScanGroupLabel'
+  | 'admin.products.duplicateScanRescan'
+  | 'admin.products.duplicateScanClose'
+  | 'admin.products.duplicateScanFailed'
   | 'adminProducts.col.product'
   | 'adminProducts.col.sku'
   | 'adminProducts.col.category'
@@ -160,6 +170,16 @@ const EN: AdminMessages = {
   'admin.products.bulkUpdateFailed': "Bulk update failed",
   'admin.products.bulkPublishFailed': "Bulk publish failed",
   'admin.products.bulkEditFailed': "Bulk edit failed",
+  'admin.products.duplicateScan': "Scan duplicate images",
+  'admin.products.duplicateScanTitle': "Possible duplicate products",
+  'admin.products.duplicateScanHint': "Products grouped by matching main or gallery image.",
+  'admin.products.duplicateScanLoading': "Scanning catalog for duplicate images…",
+  'admin.products.duplicateScanEmpty': "No duplicate images found.",
+  'admin.products.duplicateScanSummary': "{groups} duplicate group(s) · {products} product(s) involved · {scanned} scanned",
+  'admin.products.duplicateScanGroupLabel': "{count} products share this image",
+  'admin.products.duplicateScanRescan': "Scan again",
+  'admin.products.duplicateScanClose': "Close",
+  'admin.products.duplicateScanFailed': "Duplicate scan failed",
   'adminProducts.col.product': "Product",
   'adminProducts.col.sku': "SKU",
   'adminProducts.col.category': "Category",
@@ -246,6 +266,16 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.bulkUpdateFailed': "Bulkupdate mislukt",
   'admin.products.bulkPublishFailed': "Bulkpublicatie mislukt",
   'admin.products.bulkEditFailed': "Bulk bewerken mislukt",
+  'admin.products.duplicateScan': "Duplicaten scannen (afbeelding)",
+  'admin.products.duplicateScanTitle': "Mogelijke dubbele producten",
+  'admin.products.duplicateScanHint': "Producten gegroepeerd op dezelfde hoofd- of galerijafbeelding.",
+  'admin.products.duplicateScanLoading': "Catalogus scannen op dubbele afbeeldingen…",
+  'admin.products.duplicateScanEmpty': "Geen dubbele afbeeldingen gevonden.",
+  'admin.products.duplicateScanSummary': "{groups} duplicaatgroep(en) · {products} product(en) · {scanned} gescand",
+  'admin.products.duplicateScanGroupLabel': "{count} producten delen deze afbeelding",
+  'admin.products.duplicateScanRescan': "Opnieuw scannen",
+  'admin.products.duplicateScanClose': "Sluiten",
+  'admin.products.duplicateScanFailed': "Duplicaatscan mislukt",
   'adminProducts.col.category': "Categorie",
   'adminProducts.col.brand': "Merk",
   'adminProducts.col.price': "Prijs",
