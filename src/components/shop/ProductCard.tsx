@@ -148,19 +148,21 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
         scroll={false}
         onClick={saveListingScroll}
       >
-        <div className={`product-card-image aspect-[3/4] mb-2 sm:mb-3 overflow-hidden rounded-lg ${
+        <div className={`product-card-image aspect-[3/4] mb-1 sm:mb-1.5 overflow-hidden rounded-lg ${
           theme === 'dark' ? 'bg-dark-900' : 'bg-white'
         }`}>
-          <Image
-            src={mainImage}
-            alt={product.name}
-            fill
-            priority={imagePriority}
-            loading={imagePriority ? undefined : 'lazy'}
-            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
-            className="product-card-image-el object-contain"
-            unoptimized={shouldUnoptimizeProductImage(mainImage)}
-          />
+          <div className="absolute inset-x-0 top-9 bottom-0.5 sm:top-10 sm:bottom-1">
+            <Image
+              src={mainImage}
+              alt={product.name}
+              fill
+              priority={imagePriority}
+              loading={imagePriority ? undefined : 'lazy'}
+              sizes="(max-width: 640px) 46vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
+              className="product-card-image-el object-contain"
+              unoptimized={shouldUnoptimizeProductImage(mainImage)}
+            />
+          </div>
           {product.featured ? <ProductFeaturedTipBadge /> : null}
           <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">
             <span className="sold-out-ribbon-text inline-block max-w-full rounded-full bg-black px-3 py-1.5 text-center text-[10px] font-semibold leading-none text-white shadow-md whitespace-nowrap sm:px-4 sm:py-2 sm:text-xs">
