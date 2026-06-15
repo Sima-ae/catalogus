@@ -215,3 +215,13 @@ export function applySiteAccessCookies(
     )
   }
 }
+
+/** Clear the HttpOnly unlock cookie (e.g. after inactivity timeout). */
+export function clearSiteAccessUnlockCookie(
+  res: { cookies: { set: (name: string, value: string, options?: object) => void } }
+) {
+  res.cookies.set(SITE_ACCESS_COOKIE, '', {
+    ...getSiteAccessCookieOptions(0),
+    maxAge: 0,
+  })
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import { isPricelistSharePath } from '@/lib/pricelist-share-path'
@@ -10,6 +10,8 @@ import {
   resolveSiteAccessRedirect,
 } from '@/lib/site-access-redirect'
 import { SITE_ACCESS_META_REQUIRED } from '@/lib/site-access-cookie'
+import { useSiteAccessInactivity } from '@/hooks/useSiteAccessInactivity'
+import SiteAccessInactivityModal from '@/components/site-access/SiteAccessInactivityModal'
 
 type Status = { required: boolean; unlocked: boolean }
 
@@ -45,6 +47,13 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const onGate =
     pathname === gatePath || pathname?.endsWith('/site-access-gate')
 
+  const pricelistShare = isPricelistSharePath(pathname || '', searchParams.get('owner'))
+
+  const inactivityEnabled =
+    Boolean(status?.required && status?.unlocked && !onGate && !pricelistShare)
+
+  const { inactivityLocked, resumeAfterUnlock } = useSiteAccessInactivity(inactivityEnabled)
+
   useEffect(() => {
     let cancelled = false
     fetch(appPath('/api/site-access/status'), { credentials: 'include', cache: 'no-store' })
@@ -61,8 +70,6 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     }
   }, [])
 
-  const pricelistShare = isPricelistSharePath(pathname || '', searchParams.get('owner'))
-
   useEffect(() => {
     if (!status) return
 
@@ -75,11 +82,16 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
       return
     }
 
-    if (status.required && !status.unlocked && !pricelistShare) {
+    if (status.required && !status.unlocked && !pricelistShare && !inactivityLocked) {
       const from = pathname || '/'
       router.replace(`${gatePath}?from=${encodeURIComponent(from)}`)
     }
-  }, [status, onGate, pathname, router, gatePath, searchParams, pricelistShare])
+  }, [status, onGate, pathname, router, gatePath, searchParams, pricelistShare, inactivityLocked])
+
+  const handleInactivityUnlock = useCallback(() => {
+    resumeAfterUnlock()
+    setStatus((prev) => (prev ? { ...prev, unlocked: true } : prev))
+  }, [resumeAfterUnlock])
 
   if (!status) {
     return (
@@ -89,7 +101,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     )
   }
 
-  if (status.required && !status.unlocked && !onGate && !pricelistShare) {
+  if (status.required && !status.unlocked && !onGate && !pricelistShare && !inactivityLocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
         {t('loading.generic')}
@@ -97,5 +109,12 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     )
   }
 
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      {inactivityLocked ? (
+        <SiteAccessInactivityModal onUnlock={handleInactivityUnlock} />
+      ) : null}
+    </>
+  )
 }
