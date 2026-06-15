@@ -26,6 +26,27 @@ export type PricelistClientFilterInput = {
   outOfStockOnly?: boolean
 }
 
+export function parsePricelistClientFilterInput(raw: unknown): PricelistClientFilterInput | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  return {
+    search: row.search != null ? String(row.search) : undefined,
+    category: row.category != null ? String(row.category) : undefined,
+    subcategory: row.subcategory != null ? String(row.subcategory) : undefined,
+    brand: row.brand != null ? String(row.brand) : undefined,
+    missingPricesOnly:
+      row.missingPricesOnly === false || row.missingPricesOnly === 'false'
+        ? false
+        : row.missingPricesOnly === true || row.missingPricesOnly === 'true'
+          ? true
+          : undefined,
+    filledPricesOnly:
+      row.filledPricesOnly === true || row.filledPricesOnly === 'true' ? true : undefined,
+    outOfStockOnly:
+      row.outOfStockOnly === true || row.outOfStockOnly === 'true' ? true : undefined,
+  }
+}
+
 export function parsePricelistPageLimit(raw: string | null | undefined): number {
   const n = parseInt(raw ?? String(PRICELIST_PAGE_SIZE), 10)
   if (!Number.isFinite(n) || n <= 0) return PRICELIST_PAGE_SIZE

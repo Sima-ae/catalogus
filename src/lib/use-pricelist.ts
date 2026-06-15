@@ -34,6 +34,12 @@ export type PricelistBulkResult = {
   errors: string[]
 }
 
+export type PricelistBulkRemoveResult = {
+  removed: number
+  failed: number
+  errors: string[]
+}
+
 function resolveOwnerQuery(ownerId: string, owners: PricelistOwnerOption[]): string {
   if (ownerId === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID) {
     return PRICELIST_OWNER_QUERY_PLATFORM
@@ -442,6 +448,39 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
     await loadItems()
   }
 
+  const bulkRemove = async (
+    bulkItems: PricelistBulkItem[],
+    applyToFilters?: PricelistBulkFilterScope
+  ): Promise<PricelistBulkRemoveResult> => {
+    const useFilters = Boolean(applyToFilters)
+    if (!useFilters && !bulkItems.length) {
+      return { removed: 0, failed: 0, errors: [] }
+    }
+
+    const res = await fetch(appPath('/api/pricelist/items/bulk-remove'), {
+      method: 'POST',
+      headers: {
+        ...(user ? catalogAuthHeaders(user) : {}),
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        ownerId: ownerQuery,
+        items: useFilters ? undefined : bulkItems,
+        applyToFilters,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Bulk remove failed')
+
+    await loadItems()
+    return {
+      removed: Number(data.removed ?? 0),
+      failed: Number(data.failed ?? 0),
+      errors: Array.isArray(data.errors) ? data.errors.map(String) : [],
+    }
+  }
+
   const isGuest = accessMode === 'guest'
   const isSeller = user?.role === 'seller'
   const canEditPrices =
@@ -479,6 +518,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
     requestPriceEdit,
     approvePriceEdit,
     removeItem,
+    bulkRemove,
     bulkUpdate,
     canEditPrices,
     canManageItems,

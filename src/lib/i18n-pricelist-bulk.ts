@@ -10,6 +10,10 @@ export type PricelistBulkMessageKey =
   | 'pricelist.bulk.setTemporarilyOutOfStock'
   | 'pricelist.bulk.setPrice'
   | 'pricelist.bulk.setShipping'
+  | 'pricelist.bulk.delete'
+  | 'pricelist.bulk.deleteConfirm'
+  | 'pricelist.bulk.removed'
+  | 'pricelist.bulk.removeFailed'
   | 'pricelist.bulk.working'
   | 'pricelist.bulk.done'
   | 'pricelist.bulk.partial'
@@ -35,6 +39,11 @@ const EN: BulkMessages = {
   'pricelist.bulk.setTemporarilyOutOfStock': 'Temporarily out of stock',
   'pricelist.bulk.setPrice': 'Set price…',
   'pricelist.bulk.setShipping': 'Set shipping…',
+  'pricelist.bulk.delete': 'Delete',
+  'pricelist.bulk.deleteConfirm':
+    'Remove {count} product(s) from the pricelist? This cannot be undone.',
+  'pricelist.bulk.removed': 'Removed {count} product(s) from pricelist',
+  'pricelist.bulk.removeFailed': 'Bulk remove failed',
   'pricelist.bulk.working': 'Updating…',
   'pricelist.bulk.done': 'Updated {count} product(s)',
   'pricelist.bulk.partial': 'Updated {updated}, skipped {skipped}',
@@ -50,7 +59,7 @@ const EN: BulkMessages = {
   'pricelist.bulk.colSelect': 'Select',
 }
 
-const BY_LOCALE: Partial<Record<Locale, BulkMessages>> = {
+const BY_LOCALE: Partial<Record<Locale, Partial<BulkMessages>>> = {
   en: EN,
   nl: {
     'pricelist.bulk.selected': '{count} geselecteerd',
@@ -62,6 +71,11 @@ const BY_LOCALE: Partial<Record<Locale, BulkMessages>> = {
     'pricelist.bulk.setTemporarilyOutOfStock': 'Tijdelijk uitverkocht',
     'pricelist.bulk.setPrice': 'Prijs instellen…',
     'pricelist.bulk.setShipping': 'Verzenden instellen…',
+    'pricelist.bulk.delete': 'Verwijderen',
+    'pricelist.bulk.deleteConfirm':
+      '{count} product(en) van de prijslijst verwijderen? Dit kan niet ongedaan worden gemaakt.',
+    'pricelist.bulk.removed': '{count} product(en) van de prijslijst verwijderd',
+    'pricelist.bulk.removeFailed': 'Bulk verwijderen mislukt',
     'pricelist.bulk.working': 'Bijwerken…',
     'pricelist.bulk.done': '{count} product(en) bijgewerkt',
     'pricelist.bulk.partial': '{updated} bijgewerkt, {skipped} overgeslagen',
@@ -966,5 +980,7 @@ const BY_LOCALE: Partial<Record<Locale, BulkMessages>> = {
 }
 
 export function getPricelistBulkMessages(locale: Locale): BulkMessages {
-  return BY_LOCALE[locale] ?? EN
+  const localeMessages = BY_LOCALE[locale]
+  if (!localeMessages) return EN
+  return { ...EN, ...localeMessages }
 }

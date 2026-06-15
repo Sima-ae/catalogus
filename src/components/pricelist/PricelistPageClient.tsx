@@ -123,6 +123,7 @@ export default function PricelistPageClient() {
     requestPriceEdit,
     approvePriceEdit,
     removeItem,
+    bulkRemove,
     bulkUpdate,
     fetchSelectionProductIds,
     canEditPrices,
@@ -137,12 +138,12 @@ export default function PricelistPageClient() {
       ? PRICELIST_OWNER_QUERY_PLATFORM
       : ownerId
 
-  const canRemoveItems = Boolean(isSuperAdmin) && !isGuest
-
   const isPlatformList =
     ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
 
   const isAdmin = user?.role === 'admin'
+  const canRemoveItems =
+    !isGuest && Boolean(user) && (Boolean(isSuperAdmin) || isAdmin)
   const canManagePriceEditRequests = isAdmin && isPlatformList && !isGuest
 
   const listOwnerIdForShare =
@@ -463,6 +464,41 @@ export default function PricelistPageClient() {
     }
   }
 
+  const runBulkRemove = async () => {
+    const count = bulkFilterScope ? total : selectedIds.size
+    if (!count) return
+    if (
+      !window.confirm(formatMessage(t('pricelist.bulk.deleteConfirm'), { count }))
+    ) {
+      return
+    }
+    setBulkWorking(true)
+    setBulkMessage(null)
+    try {
+      const result = await bulkRemove(
+        bulkFilterScope ? [] : toBulkItems(selectedIds),
+        bulkFilterScope
+      )
+      setSelectedIds(new Set())
+      if (result.failed > 0) {
+        setBulkMessage(
+          formatMessage(t('pricelist.bulk.partial'), {
+            updated: result.removed,
+            skipped: result.failed,
+          })
+        )
+      } else {
+        setBulkMessage(formatMessage(t('pricelist.bulk.removed'), { count: result.removed }))
+      }
+    } catch (e) {
+      setBulkMessage(
+        e instanceof Error ? e.message : t('pricelist.bulk.removeFailed')
+      )
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
   const missingPricesTrailing =
     showMissingPricesButton || showExportButton || total > 0 ? (
       <div className="flex shrink-0 flex-nowrap items-center gap-1">
@@ -688,6 +724,8 @@ export default function PricelistPageClient() {
               onSetTemporarilyOutOfStock={() => void runBulkStockStatus('temporary')}
               onOpenSetPrice={() => setBulkPriceOpen(true)}
               onOpenSetShipping={() => setBulkShippingOpen(true)}
+              showDelete={canRemoveItems}
+              onDelete={() => void runBulkRemove()}
             />
           ) : null}
           <div className={pageLoading ? 'opacity-60 pointer-events-none' : ''}>

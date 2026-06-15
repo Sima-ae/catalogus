@@ -185,6 +185,27 @@ export async function removePricelistItem(ownerUserId: string, productId: string
   )
 }
 
+export async function bulkRemovePricelistItems(
+  ownerUserId: string,
+  productIds: string[]
+): Promise<{ removed: number; failed: number; errors: string[] }> {
+  let removed = 0
+  const errors: string[] = []
+
+  for (const productId of productIds) {
+    try {
+      await removePricelistItem(ownerUserId, productId)
+      removed += 1
+    } catch (itemError) {
+      errors.push(
+        `${productId}: ${itemError instanceof Error ? itemError.message : 'Failed'}`
+      )
+    }
+  }
+
+  return { removed, failed: errors.length, errors }
+}
+
 type SellerPriceRow = {
   unit_price: number
   currency: string
