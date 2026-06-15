@@ -630,6 +630,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'adminProducts.status.draft': "Bozza",
   'adminProducts.status.inactive': "Inattivo",
   },
+  zh: {
+    'admin.products.perPage': '每页',
+  },
 }
 
 /** Admin header search — short uppercase-style placeholder per locale. */

@@ -585,8 +585,10 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
 }
 
 export function getMessages(locale: Locale): Messages {
-  const bundle = MESSAGES[locale] ?? MESSAGES.en ?? MESSAGES[DEFAULT_LOCALE]!
+  const en = MESSAGES.en ?? {}
+  const bundle = MESSAGES[locale] ?? {}
   return {
+    ...en,
     ...bundle,
     ...getGateMessages(locale),
     ...getAccessOverlay(locale),
