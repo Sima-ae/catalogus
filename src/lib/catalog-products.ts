@@ -4,6 +4,7 @@ import type { Product } from '@/lib/types'
 
 export const DEFAULT_CATALOG_PAGE_SIZE = 24
 export const MAX_CATALOG_PAGE_SIZE = 60
+export const MAX_ADMIN_PRODUCTS_PAGE_SIZE = 500
 
 export type CatalogProductsQuery = {
   page: number
@@ -51,15 +52,17 @@ export function isCatalogProductsPage(value: unknown): value is CatalogProductsP
 }
 
 export function parseCatalogProductsQuery(
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
+  options?: { maxPageSize?: number }
 ): CatalogProductsQuery | null {
   const pageRaw = searchParams.get('page')
   if (pageRaw == null || pageRaw === '') return null
 
   const page = Math.max(1, parseInt(pageRaw, 10) || 1)
   const limitRaw = parseInt(searchParams.get('limit') || String(DEFAULT_CATALOG_PAGE_SIZE), 10)
+  const maxPageSize = options?.maxPageSize ?? MAX_CATALOG_PAGE_SIZE
   const limit = Math.min(
-    MAX_CATALOG_PAGE_SIZE,
+    maxPageSize,
     Math.max(1, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_CATALOG_PAGE_SIZE)
   )
 
@@ -297,7 +300,9 @@ export type AdminProductsQuery = CatalogProductsQuery & {
 export function parseAdminProductsQuery(
   searchParams: URLSearchParams
 ): AdminProductsQuery | null {
-  const base = parseCatalogProductsQuery(searchParams)
+  const base = parseCatalogProductsQuery(searchParams, {
+    maxPageSize: MAX_ADMIN_PRODUCTS_PAGE_SIZE,
+  })
   if (!base) return null
 
   const statusRaw = searchParams.get('status')?.trim().toLowerCase()

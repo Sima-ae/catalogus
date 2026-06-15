@@ -18,7 +18,7 @@ import {
   requireProductWrite,
   resolveCatalogAccess,
 } from '@/lib/product-api-auth'
-import { parseAdminProductsQuery, parseCatalogProductsQuery } from '@/lib/catalog-products'
+import { parseAdminProductsQuery, parseCatalogProductsQuery, MAX_ADMIN_PRODUCTS_PAGE_SIZE } from '@/lib/catalog-products'
 import { omitProductInternalPricing } from '@/lib/product-serialize'
 
 export const dynamic = 'force-dynamic'
@@ -26,31 +26,35 @@ export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
+    const scope = request.nextUrl.searchParams.get('scope')?.trim()
+    const access = await resolveCatalogAccess(request)
+
+    if (scope === 'admin' && access.kind === 'admin') {
+      const adminQuery = parseAdminProductsQuery(request.nextUrl.searchParams)
+      if (!adminQuery) {
+        return NextResponse.json(
+          {
+            error: `Pagination required. Use ?page=1&limit=${MAX_ADMIN_PRODUCTS_PAGE_SIZE} with scope=admin.`,
+          },
+          { status: 400 }
+        )
+      }
+      const [result, dashboardStats] = await Promise.all([
+        listProductsPaginatedAdmin(adminQuery.page, adminQuery.limit, {
+          status: adminQuery.status,
+          search: adminQuery.search,
+          category: adminQuery.category,
+          categoryId: adminQuery.categoryId,
+          brand: adminQuery.brand,
+        }),
+        getProductDashboardStats(),
+      ])
+      return NextResponse.json({ ...result, dashboardStats })
+    }
+
     const paginatedQuery = parseCatalogProductsQuery(request.nextUrl.searchParams)
 
     if (paginatedQuery) {
-      const scope = request.nextUrl.searchParams.get('scope')?.trim()
-      const access = await resolveCatalogAccess(request)
-
-      if (scope === 'admin' && access.kind === 'admin') {
-        const adminQuery = parseAdminProductsQuery(request.nextUrl.searchParams)
-        const [result, dashboardStats] = await Promise.all([
-          listProductsPaginatedAdmin(
-            paginatedQuery.page,
-            paginatedQuery.limit,
-            {
-              status: adminQuery?.status,
-              search: adminQuery?.search,
-              category: adminQuery?.category,
-              categoryId: adminQuery?.categoryId,
-              brand: adminQuery?.brand,
-            }
-          ),
-          getProductDashboardStats(),
-        ])
-        return NextResponse.json({ ...result, dashboardStats })
-      }
-
       if (access.kind === 'seller') {
         const result = await listProductsForSellerPaginated(
           access.actor.userId,
