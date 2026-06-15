@@ -52,6 +52,7 @@ export type PricelistOwnerOption = {
 
 export type PricelistListQuery = {
   page: number
+  limit?: number
   search?: string
   category?: string
   subcategory?: string
@@ -131,6 +132,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       const qs = buildPricelistItemsQueryString({
         owner,
         page: listQuery?.page ?? 1,
+        limit: listQuery?.limit,
         search: listQuery?.search,
         category: listQuery?.category,
         subcategory: listQuery?.subcategory,

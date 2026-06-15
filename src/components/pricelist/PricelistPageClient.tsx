@@ -12,6 +12,8 @@ import {
   PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
   PRICELIST_PAGE_SIZE,
+  PRICELIST_PAGE_SIZES,
+  type PricelistPageSize,
 } from '@/lib/pricelist-constants'
 import PricelistViewToggle from '@/components/pricelist/PricelistViewToggle'
 import PricelistTable from '@/components/pricelist/PricelistTable'
@@ -67,6 +69,7 @@ export default function PricelistPageClient() {
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const [quickFilter, setQuickFilter] = useState<PricelistQuickFilter>('missing')
   const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState<PricelistPageSize>(PRICELIST_PAGE_SIZE)
 
   useEffect(() => {
     const id = window.setTimeout(() => setDebouncedSearch(searchQuery), 300)
@@ -76,6 +79,7 @@ export default function PricelistPageClient() {
   const listQuery = useMemo((): PricelistListQuery => {
     return {
       page: currentPage,
+      limit: pageSize,
       search: debouncedSearch.trim() || undefined,
       category: selectedCategory !== 'All' ? selectedCategory : undefined,
       subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
@@ -89,6 +93,7 @@ export default function PricelistPageClient() {
     currentPage,
     debouncedSearch,
     filterBrand,
+    pageSize,
     selectedCategory,
     selectedSubcategory,
     quickFilter,
@@ -221,6 +226,7 @@ export default function PricelistPageClient() {
     filterBrand,
     brandFilterActive,
     quickFilter,
+    pageSize,
   ])
 
   useEffect(() => {
@@ -452,8 +458,25 @@ export default function PricelistPageClient() {
   }
 
   const missingPricesTrailing =
-    showMissingPricesButton || showExportButton ? (
+    showMissingPricesButton || showExportButton || total > 0 ? (
       <div className="flex shrink-0 flex-nowrap items-center gap-1">
+        <label className="flex items-center gap-1">
+          <span className={`sr-only sm:not-sr-only sm:text-[11px] ${muted}`}>
+            {t('admin.products.perPage')}
+          </span>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value) as PricelistPageSize)}
+            className={`rounded-lg border px-1.5 py-0.5 text-[11px] leading-tight ${selectClass}`}
+            aria-label={t('admin.products.perPage')}
+          >
+            {PRICELIST_PAGE_SIZES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
         {showExportButton ? (
           <PricelistExportButton
             fetchItems={fetchExportItems}
@@ -501,7 +524,7 @@ export default function PricelistPageClient() {
   const paginationProps = {
     page: safePage,
     totalItems: total,
-    pageSize: PRICELIST_PAGE_SIZE,
+    pageSize,
     onPageChange: setCurrentPage,
     centered: true,
     compact: true,

@@ -18,7 +18,7 @@ export function buildPricelistItemsQueryString(input: {
   const params = new URLSearchParams()
   params.set('owner', input.owner)
   if (input.page != null && input.page > 1) params.set('page', String(input.page))
-  if (input.limit != null) params.set('limit', String(input.limit))
+  if (input.limit != null && input.limit > 0) params.set('limit', String(input.limit))
   if (input.search?.trim()) params.set('search', input.search.trim())
   if (input.category && input.category !== 'All') params.set('category', input.category)
   if (input.subcategory && input.subcategory !== 'All') {

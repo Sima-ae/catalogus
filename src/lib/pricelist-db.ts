@@ -22,7 +22,7 @@ import {
   type PricelistListFilterInput,
   type PricelistListViewer,
 } from '@/lib/pricelist-list-query'
-import { PRICELIST_PAGE_SIZE } from '@/lib/pricelist-constants'
+import { PRICELIST_PAGE_SIZE, MAX_PRICELIST_PAGE_SIZE } from '@/lib/pricelist-constants'
 
 export type { PricelistStockStatus } from '@/lib/pricelist-stock-status'
 
@@ -1146,7 +1146,7 @@ export async function listPricelistPage(
   }
 ): Promise<PricelistPageResult> {
   const pageSize = Math.min(
-    100,
+    MAX_PRICELIST_PAGE_SIZE,
     Math.max(1, Math.floor(options.limit ?? PRICELIST_PAGE_SIZE))
   )
   const page = Math.max(1, Math.floor(options.page ?? 1))

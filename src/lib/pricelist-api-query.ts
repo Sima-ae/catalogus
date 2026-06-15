@@ -1,6 +1,10 @@
 import { loadActiveCategories } from '@/lib/categories-persistence'
-import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
-import { defaultPricelistPageSize } from '@/lib/pricelist-items-query-string'
+import {
+  MAX_PRICELIST_PAGE_SIZE,
+  PRICELIST_MAX_SELECTION_IDS,
+  PRICELIST_PAGE_SIZE,
+  PRICELIST_PAGE_SIZES,
+} from '@/lib/pricelist-constants'
 import type { PricelistListFilterInput, PricelistListViewer } from '@/lib/pricelist-list-query'
 import { resolveShopCategoryFilter } from '@/lib/shop-category-tree'
 
@@ -20,6 +24,13 @@ export type PricelistClientFilterInput = {
   missingPricesOnly?: boolean
   filledPricesOnly?: boolean
   outOfStockOnly?: boolean
+}
+
+export function parsePricelistPageLimit(raw: string | null | undefined): number {
+  const n = parseInt(raw ?? String(PRICELIST_PAGE_SIZE), 10)
+  if (!Number.isFinite(n) || n <= 0) return PRICELIST_PAGE_SIZE
+  if ((PRICELIST_PAGE_SIZES as readonly number[]).includes(n)) return n
+  return Math.min(MAX_PRICELIST_PAGE_SIZE, Math.max(PRICELIST_PAGE_SIZE, n))
 }
 
 /** Resolve list filters from URL params or bulk-update JSON (same rules as the pricelist UI). */
@@ -79,11 +90,7 @@ export async function parsePricelistItemsQuery(
   const pageRaw = parseInt(searchParams.get('page') ?? '1', 10)
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
-  const limitRaw = parseInt(searchParams.get('limit') ?? String(defaultPricelistPageSize()), 10)
-  const limit =
-    Number.isFinite(limitRaw) && limitRaw > 0
-      ? Math.min(100, limitRaw)
-      : defaultPricelistPageSize()
+  const limit = parsePricelistPageLimit(searchParams.get('limit'))
 
   const exportAll = searchParams.get('export') === '1'
   const idsOnly = searchParams.get('ids') === '1'
@@ -118,4 +125,3 @@ export async function parsePricelistItemsQuery(
     filters,
   }
 }
-

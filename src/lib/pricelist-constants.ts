@@ -3,7 +3,13 @@ export const PLATFORM_PRICELIST_OWNER_ID = '00000000-0000-4000-8000-000000000001
 
 export const PRICELIST_OWNER_QUERY_PLATFORM = 'platform'
 
-export const PRICELIST_PAGE_SIZE = 20
+/** Allowed page sizes on the pricelist (same as admin products). */
+export const PRICELIST_PAGE_SIZES = [50, 100, 250, 500] as const
+export type PricelistPageSize = (typeof PRICELIST_PAGE_SIZES)[number]
+export const MAX_PRICELIST_PAGE_SIZE = 500
+
+/** Default rows per page on the pricelist table. */
+export const PRICELIST_PAGE_SIZE: PricelistPageSize = 50
 
 /** Max product IDs returned for “select all matching filters” (bulk select). */
 export const PRICELIST_MAX_SELECTION_IDS = 100_000
