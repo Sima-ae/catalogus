@@ -7,7 +7,7 @@ import {
 } from '@/lib/pricelist-constants'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
 import { listPendingEditRequestsForProducts } from '@/lib/seller-price-edit-db'
-import { parseProductJsonField } from '@/lib/product-serialize'
+import { parseProductJsonField, resolveProductBrandDisplay } from '@/lib/product-serialize'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
 import {
   isPricelistStockStatus,
@@ -776,6 +776,8 @@ type PricelistProductItemRow = {
   category: string | null
   category_id: string | null
   brand: string | null
+  brand_id: string | null
+  resolved_brand_name: string | null
   shipping_cost: number | string | null
   image_url: string
   gallery_images: unknown
@@ -798,9 +800,11 @@ export type PricelistPageResult = {
 
 const PRICELIST_LIST_FROM = `
 FROM pricelist_items pi
-INNER JOIN products p ON p.id = pi.product_id`
+INNER JOIN products p ON p.id = pi.product_id
+LEFT JOIN brands b ON b.active = 1 AND p.brand_id IS NOT NULL AND b.id = p.brand_id`
 
 const PRICELIST_ITEM_SELECT = `SELECT pi.id AS item_id, p.id AS product_id, p.name, p.sku, p.category, p.category_id, p.brand,
+            p.brand_id, b.name AS resolved_brand_name,
             p.shipping_cost, p.image_url, p.gallery_images, p.source_url, pi.created_at`
 
 async function fetchPricelistProductItems(
@@ -1101,7 +1105,7 @@ async function hydratePricelistRows(
       sku: item.sku,
       category: item.category?.trim() || '—',
       category_id: item.category_id?.trim() || null,
-      brand: item.brand?.trim() || '—',
+      brand: resolveProductBrandDisplay(item as Record<string, unknown>).trim() || '—',
       product_shipping_cost: productShippingCost,
       seller_shipping_cost: sellerShipping,
       display_shipping_cost: displayShipping,

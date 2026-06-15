@@ -149,8 +149,14 @@ function appendBrandFilter(where: string[], params: unknown[], brand?: string): 
   const b = brand?.trim()
   if (!b || b === 'All') return
   const brandFilter = buildProductBrandSegmentFilter(b)
-  where.push(brandFilter.sql)
-  params.push(...brandFilter.params)
+  const lower = b.toLowerCase()
+  where.push(
+    `(${brandFilter.sql} OR EXISTS (
+      SELECT 1 FROM brands bx
+      WHERE bx.active = 1 AND bx.id = p.brand_id AND LOWER(TRIM(bx.name)) = ?
+    ))`
+  )
+  params.push(...brandFilter.params, lower)
 }
 
 function sellerFilledPriceSql(sellerId: string): { sql: string; params: unknown[] } {

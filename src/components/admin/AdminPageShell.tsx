@@ -22,7 +22,6 @@ export default function AdminPageShell({
   children: React.ReactNode
 }) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const { theme } = useTheme()
   const { t: tr } = useI18n()
   const isDark = theme === 'dark'
@@ -38,11 +37,7 @@ export default function AdminPageShell({
       <div className="flex-1 flex flex-col min-w-0 w-full lg:ml-0">
         <AppStickyHeader
           title=""
-          searchPlaceholder={tr('admin.searchPlaceholder')}
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchClassName="w-full max-w-none md:max-w-[11rem] lg:max-w-[12rem] xl:max-w-[13rem] 2xl:max-w-[14rem]"
-          headerGridClassName="md:grid-cols-[minmax(0,1fr)_10.5rem_minmax(0,auto)] lg:grid-cols-[minmax(0,1fr)_11.5rem_minmax(0,auto)] xl:grid-cols-[minmax(0,1fr)_12.5rem_minmax(0,auto)] 2xl:grid-cols-[minmax(0,1fr)_13.5rem_minmax(0,auto)]"
+          showSearch={false}
           leftContent={
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 w-full">
               <div className="flex items-center shrink-0 lg:hidden">
