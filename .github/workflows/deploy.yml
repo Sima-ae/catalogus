@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# Shell-only workflow (no actions/*) — build on GitHub, upload .next via ssh, deploy on VPS.
 name: Deploy to VPS
 
 on:
@@ -14,10 +15,32 @@ env:
   NEXT_PUBLIC_APP_URL: https://superclones.cloud
 
 jobs:
-  build-check:
-    name: Build check
+  build-and-deploy:
+    name: Build and deploy to VPS
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
+      - name: Check VPS secrets are configured
+        id: vps_secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [[ -n "${VPS_HOST:-}" && -n "${VPS_USER:-}" && -n "${VPS_SSH_KEY:-}" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Set VPS_HOST, VPS_USER=root, VPS_SSH_KEY (deploy key, no passphrase — same as inkoop.autos)."
+          fi
+
+      - name: Require VPS secrets (deploy cannot run without them)
+        if: steps.vps_secrets.outputs.configured != 'true'
+        run: |
+          echo "::error::Add VPS_HOST, VPS_USER, VPS_SSH_KEY in Settings → Secrets → Actions."
+          exit 1
+
       - name: Checkout
         env:
           REPO_URL: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
@@ -55,51 +78,7 @@ jobs:
           tar -czf next-build.tar.gz .next
           ls -lh next-build.tar.gz
 
-      - name: Upload Next.js build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-build
-          path: next-build.tar.gz
-          retention-days: 3
-          if-no-files-found: error
-
-  deploy:
-    name: Deploy to production VPS
-    needs: build-check
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-
-    steps:
-      - name: Check VPS secrets are configured
-        id: vps_secrets
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_USER: ${{ secrets.VPS_USER }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-        run: |
-          if [[ -n "${VPS_HOST:-}" && -n "${VPS_USER:-}" && -n "${VPS_SSH_KEY:-}" ]]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Set VPS_HOST, VPS_USER=root, VPS_SSH_KEY (deploy key, no passphrase — same as inkoop.autos)."
-          fi
-
-      - name: Require VPS secrets (deploy cannot run without them)
-        if: steps.vps_secrets.outputs.configured != 'true'
-        run: |
-          echo "::error::Add VPS_HOST, VPS_USER, VPS_SSH_KEY in Settings → Secrets → Actions."
-          exit 1
-
-      - name: Download Next.js build artifact
-        if: steps.vps_secrets.outputs.configured == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: next-build
-          path: .
-
       - name: Deploy over SSH
-        if: steps.vps_secrets.outputs.configured == 'true'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -135,7 +114,6 @@ jobs:
 
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # ssh uses -p for port; scp uses -P — keep one array for ssh only.
           SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes)
 
           echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
@@ -152,13 +130,7 @@ jobs:
           fi
 
           echo "==> Upload pre-built .next to VPS"
-          if [[ ! -f next-build.tar.gz ]]; then
-            echo "::error::next-build.tar.gz missing after artifact download"
-            ls -la
-            exit 1
-          fi
           ls -lh next-build.tar.gz
-          # Stream via ssh (scp -p means "preserve times", not port — breaks with -p 22).
           ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" "cat > /tmp/next-build.tar.gz" < next-build.tar.gz
           ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'test -s /tmp/next-build.tar.gz'
 
