@@ -135,6 +135,7 @@ jobs:
 
           ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+          # ssh uses -p for port; scp uses -P — keep one array for ssh only.
           SSH_OPTS=(-i ~/.ssh/deploy_key -p "$PORT" -o BatchMode=yes -o ConnectTimeout=30 -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes)
 
           echo "==> SSH ${VPS_USER}@${VPS_HOST}:${PORT} → ${APP_DIR}"
@@ -156,7 +157,10 @@ jobs:
             ls -la
             exit 1
           fi
-          scp "${SSH_OPTS[@]}" next-build.tar.gz "${VPS_USER}@${VPS_HOST}:/tmp/next-build.tar.gz"
+          ls -lh next-build.tar.gz
+          # Stream via ssh (scp -p means "preserve times", not port — breaks with -p 22).
+          ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" "cat > /tmp/next-build.tar.gz" < next-build.tar.gz
+          ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" 'test -s /tmp/next-build.tar.gz'
 
           REMOTE_SCRIPT="$(mktemp)"
           trap 'rm -f "$REMOTE_SCRIPT"' EXIT
