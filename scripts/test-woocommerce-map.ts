@@ -13,6 +13,8 @@ import {
 } from '../src/lib/woocommerce/types'
 import {
   mapWooStoreProduct,
+  collectWooProductImageUrls,
+  upgradeWooCommerceStoreImageUrl,
   stripWooHtml,
   wooBrandFromAttributes,
   wooDescriptionFromAttributes,
@@ -69,6 +71,23 @@ assert.equal(mapped.brandName, 'ROLEX')
 assert.equal(mapped.categoryName, 'Dames horloges')
 assert.equal(mapped.sku, 'wc-3693')
 assert.deepEqual(mapped.imageUrls, ['https://stuntxl.com/wp-content/uploads/a.jpg'])
+
+assert.equal(
+  upgradeWooCommerceStoreImageUrl('https://example.com/watch-300x300.jpg'),
+  'https://example.com/watch.jpg'
+)
+
+const withVariationImages = collectWooProductImageUrls(sample, [
+  {
+    ...sample,
+    id: 4000,
+    images: [{ id: 2, src: 'https://stuntxl.com/wp-content/uploads/b-150x150.jpg' }],
+  },
+])
+assert.deepEqual(withVariationImages, [
+  'https://stuntxl.com/wp-content/uploads/a.jpg',
+  'https://stuntxl.com/wp-content/uploads/b.jpg',
+])
 
 const arFactoryPrices: WooStorePrices = {
   price: '85000',

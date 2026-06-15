@@ -98,9 +98,11 @@ export function mapWooVariationsToProductOptions(
 export async function fetchWooProductOptions(
   storeUrl: string,
   product: WooStoreProduct,
-  priceMode: WooCommercePriceMode = 'storefront'
+  priceMode: WooCommercePriceMode = 'storefront',
+  preloadedVariations?: WooStoreProduct[]
 ): Promise<ProductOptions | null> {
   if (String(product.type ?? '').toLowerCase() !== 'variable') return null
-  const variations = await listWooStoreVariations(storeUrl, product.id)
+  const variations =
+    preloadedVariations ?? (await listWooStoreVariations(storeUrl, product.id))
   return mapWooVariationsToProductOptions(product, variations, priceMode)
 }

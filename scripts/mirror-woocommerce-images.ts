@@ -13,7 +13,7 @@ import { queryDb } from '@/lib/db'
 import { buildProductGallery } from '@/lib/product-image-url'
 import { parseProductJsonField } from '@/lib/product-serialize'
 import {
-  isWooImportMirrorPath,
+  hasRemoteWooStoreImageUrls,
   mirrorWooCommerceImageList,
 } from '@/lib/woocommerce/mirror-images'
 import { updateProduct } from '@/lib/products-db'
@@ -38,8 +38,8 @@ function loadDotEnv() {
   }
 }
 
-function hasRemoteStuntxlUrl(urls: string[]): boolean {
-  return urls.some((url) => /stuntxl\.com/i.test(url) && !isWooImportMirrorPath(url))
+function hasRemoteWooImageUrl(urls: string[]): boolean {
+  return hasRemoteWooStoreImageUrls(urls)
 }
 
 function mirrorFolderKey(sourceAlbumId: string | null, productId: string): string {
@@ -70,8 +70,8 @@ async function main() {
       : `SELECT id, name, image_url, gallery_images, source_album_id
          FROM products
          WHERE source_album_id LIKE 'wc-%'
-            OR image_url LIKE '%stuntxl.com%'
-            OR gallery_images LIKE '%stuntxl.com%'
+            OR image_url LIKE 'http%'
+            OR gallery_images LIKE '%http%'
          ORDER BY name ASC`,
     productIdFilter ? [productIdFilter] : []
   )
@@ -90,7 +90,7 @@ async function main() {
       continue
     }
 
-    if (!hasRemoteStuntxlUrl(combined)) {
+    if (!hasRemoteWooImageUrl(combined)) {
       console.log(`SKIP (already local): ${row.name} (${row.id})`)
       skipped++
       continue

@@ -1,8 +1,10 @@
+import fs from 'fs/promises'
+import path from 'path'
 import {
   catalogImagePublicPath,
-  clearCatalogImageDirectory,
   writeCatalogImageFile,
 } from '@/lib/catalog-image-storage'
+import { getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
 import {
   cleanProductGalleryUrls,
   isCatalogHostedImage,
@@ -39,14 +41,14 @@ export function isWooImportMirrorPath(url: string | null | undefined): boolean {
   const raw = String(url ?? '').trim()
   if (!raw) return false
   try {
-    const path = raw.startsWith('http') ? new URL(raw).pathname : raw
-    return path.includes(`/images/${MIRROR_SUBDIR}/`)
+    const pathPart = raw.startsWith('http') ? new URL(raw).pathname : raw
+    return pathPart.includes(`/images/${MIRROR_SUBDIR}/`)
   } catch {
     return raw.includes(`/images/${MIRROR_SUBDIR}/`) || raw.includes(`${MIRROR_SUBDIR}/`)
   }
 }
 
-function isRemoteHttpUrl(url: string): boolean {
+export function isRemoteHttpUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim())
 }
 
@@ -101,8 +103,32 @@ async function downloadRemoteImage(url: string): Promise<{ buffer: Buffer; conte
   return { buffer, contentType: typeBase || null }
 }
 
+async function pruneExtraMirrorFiles(productDir: string, keepCount: number): Promise<void> {
+  if (keepCount < 0) return
+  for (const root of getCatalogImagesWriteRoots()) {
+    const dirPath = path.join(root, productDir)
+    let entries: string[]
+    try {
+      entries = await fs.readdir(dirPath)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      const match = /^(\d{3})\.(jpe?g|png|webp|gif)$/i.exec(name)
+      if (!match) continue
+      if (Number(match[1]) > keepCount) {
+        try {
+          await fs.unlink(path.join(dirPath, name))
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+}
+
 /**
- * Download WooCommerce product images to /images/imports/woocommerce/{externalId}/ on the VPS.
+ * Download WooCommerce product images to /images/imports/woocommerce/{externalId}/.
  * Returns local catalog URLs in the same order (deduped, branding stripped).
  */
 export async function mirrorWooCommerceProductImages(
@@ -113,14 +139,9 @@ export async function mirrorWooCommerceProductImages(
   if (!cleaned.length) return []
 
   const productDir = wooImportMirrorRelativeDir(externalId)
-  const remoteUrls = cleaned.filter((url) => isRemoteHttpUrl(url) && !isWooImportMirrorPath(url))
-
-  if (remoteUrls.length) {
-    await clearCatalogImageDirectory(productDir)
-  }
-
   const mirrored: string[] = []
   let downloadIndex = 0
+  let downloadFailures = 0
 
   for (const url of cleaned) {
     if (isWooImportMirrorPath(url)) {
@@ -137,12 +158,28 @@ export async function mirrorWooCommerceProductImages(
       continue
     }
 
-    downloadIndex++
-    const { buffer, contentType } = await downloadRemoteImage(url)
-    const ext = resolveImageExtension(contentType, url)
-    const relativeFile = `${productDir}/${padIndex(downloadIndex)}.${ext}`
-    const localUrl = await writeCatalogImageFile(relativeFile, buffer)
-    mirrored.push(localUrl)
+    try {
+      downloadIndex++
+      const { buffer, contentType } = await downloadRemoteImage(url)
+      const ext = resolveImageExtension(contentType, url)
+      const relativeFile = `${productDir}/${padIndex(downloadIndex)}.${ext}`
+      const localUrl = await writeCatalogImageFile(relativeFile, buffer)
+      mirrored.push(localUrl)
+    } catch (err) {
+      downloadFailures++
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(`[woo-mirror] skip image for ${externalId}: ${message}`)
+    }
+  }
+
+  if (downloadIndex > 0) {
+    await pruneExtraMirrorFiles(productDir, downloadIndex)
+  }
+
+  if (!mirrored.length && downloadFailures > 0) {
+    throw new Error(
+      `Could not mirror any images for ${externalId} (${downloadFailures} failed)`
+    )
   }
 
   return mirrored
@@ -158,4 +195,14 @@ export async function mirrorWooCommerceImageList(
 
 export function wooImportMirrorPathForIndex(externalId: string, index: number, ext: string): string {
   return catalogImagePublicPath(`${wooImportMirrorRelativeDir(externalId)}/${padIndex(index)}.${ext}`)
+}
+
+/** True when URLs still point at a remote Woo store (not yet mirrored locally). */
+export function hasRemoteWooStoreImageUrls(urls: string[]): boolean {
+  return urls.some(
+    (url) =>
+      isRemoteHttpUrl(url) &&
+      !isWooImportMirrorPath(url) &&
+      !(isCatalogHostedImage(url) && !isRemoteHttpUrl(url))
+  )
 }

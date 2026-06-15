@@ -12,7 +12,7 @@ import {
 import { resolveYupooProductTitleAsync } from '@/lib/yupoo/product-title'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
-import { mapWooStoreProduct } from '@/lib/woocommerce/map-product'
+import { mapWooStoreProduct, collectWooProductImageUrls } from '@/lib/woocommerce/map-product'
 import { resolveImportCatalogMapping } from '@/lib/woocommerce/resolve-catalog'
 import type {
   WooCommercePriceMode,
@@ -23,6 +23,7 @@ import { normalizeWooCommercePriceMode } from '@/lib/woocommerce/types'
 import { resolveWooCommercePriceModeForSource } from '@/lib/woocommerce/price-mode'
 import {
   listWooStoreProducts,
+  listWooStoreVariations,
   wooProductsToJobItems,
   parseWooProductSlugFromUrl,
   normalizeWooCommerceStoreUrl,
@@ -175,8 +176,23 @@ export async function buildProductInputFromWooStoreProduct(
   product: WooStoreProduct,
   source: ImportSourceRow
 ): Promise<ProductInput> {
+  const storeUrl = resolveWooStoreUrl(source, product.permalink)
   const woo = mapWooStoreProduct(product)
-  const mirroredUrls = await mirrorWooCommerceProductImages(woo.externalId, woo.imageUrls)
+
+  let variations: WooStoreProduct[] = []
+  if (String(product.type ?? '').toLowerCase() === 'variable') {
+    try {
+      variations = await listWooStoreVariations(storeUrl, product.id)
+    } catch (err) {
+      console.warn(
+        `[woocommerce-import] Could not load variations for wc-${product.id}:`,
+        err instanceof Error ? err.message : err
+      )
+    }
+  }
+
+  const allImageUrls = collectWooProductImageUrls(product, variations)
+  const mirroredUrls = await mirrorWooCommerceProductImages(woo.externalId, allImageUrls)
   const wooWithLocalImages = { ...woo, imageUrls: mirroredUrls }
   const catalog = await resolveImportCatalogMapping(wooWithLocalImages, {
     catalogCategoryId: source.catalog_category_id,
@@ -197,11 +213,10 @@ export async function buildProductInputFromWooStoreProduct(
 
   let productOptions = null as Awaited<ReturnType<typeof fetchWooProductOptions>>
   try {
-    const storeUrl = resolveWooStoreUrl(source, product.permalink)
-    productOptions = await fetchWooProductOptions(storeUrl, product, priceMode)
+    productOptions = await fetchWooProductOptions(storeUrl, product, priceMode, variations)
   } catch (err) {
     console.warn(
-      `[woocommerce-import] Could not load variations for wc-${product.id}:`,
+      `[woocommerce-import] Could not map variation options for wc-${product.id}:`,
       err instanceof Error ? err.message : err
     )
   }

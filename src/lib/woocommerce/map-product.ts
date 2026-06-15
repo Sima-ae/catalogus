@@ -1,6 +1,8 @@
 import { load } from 'cheerio'
+import { cleanProductGalleryUrls } from '@/lib/product-image-url'
 import type {
   WooStoreAttribute,
+  WooStoreImage,
   WooStoreProduct,
   WooProductData,
 } from '@/lib/woocommerce/types'
@@ -65,15 +67,45 @@ function wooCategoryNameFromProduct(product: WooStoreProduct): string | null {
   return String(sorted[0].name ?? '').trim() || null
 }
 
+/** Strip WooCommerce thumbnail size suffixes so we mirror full-resolution files. */
+export function upgradeWooCommerceStoreImageUrl(url: string): string {
+  const raw = String(url ?? '').trim().split('?')[0]
+  if (!raw) return ''
+  return raw.replace(/-\d+x\d+(?=\.(jpe?g|png|webp|gif)$)/i, '')
+}
+
+export function wooImageUrlFromStoreImage(img: WooStoreImage): string {
+  const src = upgradeWooCommerceStoreImageUrl(String(img.src ?? '').trim())
+  if (src) return src
+  return upgradeWooCommerceStoreImageUrl(String(img.thumbnail ?? '').trim())
+}
+
+/** Parent gallery + variation images, deduped (order preserved). */
+export function collectWooProductImageUrls(
+  product: WooStoreProduct,
+  variations: WooStoreProduct[] = []
+): string[] {
+  const urls: string[] = []
+  for (const img of product.images ?? []) {
+    const url = wooImageUrlFromStoreImage(img)
+    if (url) urls.push(url)
+  }
+  for (const variation of variations) {
+    for (const img of variation.images ?? []) {
+      const url = wooImageUrlFromStoreImage(img)
+      if (url) urls.push(url)
+    }
+  }
+  return cleanProductGalleryUrls(urls)
+}
+
 export function mapWooStoreProduct(product: WooStoreProduct): WooProductData {
   const { price, originalPrice } = wooPriceToDecimal(product.prices)
   const attributes = product.attributes ?? []
   const brandName =
     product.brands?.[0]?.name?.trim() || wooBrandFromAttributes(attributes) || null
   const categoryName = wooCategoryNameFromProduct(product)
-  const imageUrls = (product.images ?? [])
-    .map((img) => String(img.src ?? '').trim())
-    .filter(Boolean)
+  const imageUrls = collectWooProductImageUrls(product)
 
   const sku = String(product.sku ?? '').trim() || wooExternalId(product.id)
 
