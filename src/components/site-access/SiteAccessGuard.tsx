@@ -52,7 +52,13 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const inactivityEnabled =
     Boolean(status?.required && status?.unlocked && !onGate && !pricelistShare)
 
-  const { inactivityLocked, resumeAfterUnlock } = useSiteAccessInactivity(inactivityEnabled)
+  const handleInactivityLock = useCallback(() => {
+    setStatus((prev) => (prev ? { ...prev, unlocked: false } : prev))
+  }, [])
+
+  const { inactivityLocked, resumeAfterUnlock } = useSiteAccessInactivity(inactivityEnabled, {
+    onLock: handleInactivityLock,
+  })
 
   useEffect(() => {
     let cancelled = false

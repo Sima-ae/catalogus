@@ -7,11 +7,17 @@ import {
   SITE_ACCESS_INACTIVITY_MS,
 } from '@/lib/site-access-inactivity'
 
-export function useSiteAccessInactivity(enabled: boolean) {
+export function useSiteAccessInactivity(
+  enabled: boolean,
+  options?: { onLock?: () => void }
+) {
   const [inactivityLocked, setInactivityLocked] = useState(false)
   const lastActivityRef = useRef(Date.now())
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lockingRef = useRef(false)
+
+  const onLockRef = useRef(options?.onLock)
+  onLockRef.current = options?.onLock
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -38,6 +44,7 @@ export function useSiteAccessInactivity(enabled: boolean) {
             credentials: 'include',
           })
           setInactivityLocked(true)
+          onLockRef.current?.()
         } catch {
           scheduleTimer()
         } finally {

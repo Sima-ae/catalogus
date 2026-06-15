@@ -65,41 +65,41 @@ export default async function RootLayout({
       <body className={`${inter.className} app-protected transition-colors duration-200`}>
         <AuthProvider>
           <ContentProtection />
-          <Suspense
-            fallback={
-              <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-dark-900 text-gray-400 px-4">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
-                <p className="text-sm">{preloadText}</p>
-              </div>
-            }
-          >
-            <SiteAccessGuard>
-              <ThemeProvider>
-                <I18nProvider
-                  initialLocale={locale}
-                  categoryMessages={categoryMessages}
-                  tagMessages={tagMessages}
-                >
-                    <LanguagePickerProvider>
-                      <CatalogModeProvider initialCatalogMode={shopBootstrap.catalogMode}>
-                        <ProductCardDisplayProvider
-                          initialShowCardDetails={shopBootstrap.showCardDetails}
-                        >
-                          <CartProvider>
-                            <ShopCurrencyProvider initialCurrency={shopBootstrap.currency}>
-                              {children}
-                            </ShopCurrencyProvider>
-                          </CartProvider>
-                        </ProductCardDisplayProvider>
-                      </CatalogModeProvider>
-                      <Suspense fallback={null}>
-                        <LanguageSwitcherModal />
-                      </Suspense>
-                    </LanguagePickerProvider>
-                </I18nProvider>
-              </ThemeProvider>
-            </SiteAccessGuard>
-          </Suspense>
+          <ThemeProvider>
+            <I18nProvider
+              initialLocale={locale}
+              categoryMessages={categoryMessages}
+              tagMessages={tagMessages}
+            >
+              <Suspense
+                fallback={
+                  <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-dark-900 text-gray-400 px-4">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+                    <p className="text-sm">{preloadText}</p>
+                  </div>
+                }
+              >
+                <SiteAccessGuard>
+                  <LanguagePickerProvider>
+                    <CatalogModeProvider initialCatalogMode={shopBootstrap.catalogMode}>
+                      <ProductCardDisplayProvider
+                        initialShowCardDetails={shopBootstrap.showCardDetails}
+                      >
+                        <CartProvider>
+                          <ShopCurrencyProvider initialCurrency={shopBootstrap.currency}>
+                            {children}
+                          </ShopCurrencyProvider>
+                        </CartProvider>
+                      </ProductCardDisplayProvider>
+                    </CatalogModeProvider>
+                    <Suspense fallback={null}>
+                      <LanguageSwitcherModal />
+                    </Suspense>
+                  </LanguagePickerProvider>
+                </SiteAccessGuard>
+              </Suspense>
+            </I18nProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
