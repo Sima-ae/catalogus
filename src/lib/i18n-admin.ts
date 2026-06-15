@@ -91,6 +91,10 @@ export type AdminMessageKey =
   | 'admin.products.duplicateTitleScanRescan'
   | 'admin.products.duplicateTitleScanClose'
   | 'admin.products.duplicateTitleScanFailed'
+  | 'admin.products.zeroDraftPurchasePrices'
+  | 'admin.products.confirmZeroDraftPurchasePrices'
+  | 'admin.products.zeroDraftPurchasePricesDone'
+  | 'admin.products.zeroDraftPurchasePricesFailed'
   | 'adminProducts.col.product'
   | 'adminProducts.col.sku'
   | 'adminProducts.col.category'
@@ -200,6 +204,12 @@ const EN: AdminMessages = {
   'admin.products.duplicateTitleScanRescan': "Scan again",
   'admin.products.duplicateTitleScanClose': "Close",
   'admin.products.duplicateTitleScanFailed': "Title duplicate scan failed",
+  'admin.products.zeroDraftPurchasePrices': "Zero concept purchase prices",
+  'admin.products.confirmZeroDraftPurchasePrices':
+    'Set purchase price to €0 on all {count} concept (draft) products? This is a one-time bulk action.',
+  'admin.products.zeroDraftPurchasePricesDone':
+    'Purchase price set to €0 on {total} concept product(s) ({cleared} had a non-zero price).',
+  'admin.products.zeroDraftPurchasePricesFailed': "Failed to zero concept purchase prices",
   'adminProducts.col.product': "Product",
   'adminProducts.col.sku': "SKU",
   'adminProducts.col.category': "Category",
@@ -306,6 +316,12 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.duplicateTitleScanRescan': "Opnieuw scannen",
   'admin.products.duplicateTitleScanClose': "Sluiten",
   'admin.products.duplicateTitleScanFailed': "Titel-duplicaatscan mislukt",
+  'admin.products.zeroDraftPurchasePrices': "Inkoopprijs concept op €0",
+  'admin.products.confirmZeroDraftPurchasePrices':
+    'Inkoopprijs op €0 zetten voor alle {count} conceptproducten? Dit is een eenmalige bulkactie.',
+  'admin.products.zeroDraftPurchasePricesDone':
+    'Inkoopprijs op €0 gezet voor {total} conceptproduct(en) ({cleared} hadden een prijs > €0).',
+  'admin.products.zeroDraftPurchasePricesFailed': "Inkoopprijs op nul zetten mislukt",
   'adminProducts.col.category': "Categorie",
   'adminProducts.col.brand': "Merk",
   'adminProducts.col.price': "Prijs",

@@ -507,6 +507,48 @@ export default function AdminProductsPage() {
     }
   }
 
+  const zeroDraftPurchasePrices = async () => {
+    if (!user || stats.draft <= 0) return
+    if (
+      !confirm(
+        formatMessage(tr('admin.products.confirmZeroDraftPurchasePrices'), { count: stats.draft })
+      )
+    ) {
+      return
+    }
+
+    setBulkWorking(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/zero-draft-purchase-prices'), {
+        method: 'POST',
+        headers: adminAuthHeaders(user),
+      })
+      const data = await parseJsonResponse<{
+        error?: string
+        totalDraft?: number
+        nonZeroBefore?: number
+      }>(res)
+      if (!res.ok) {
+        throw new Error(data.error || tr('admin.products.zeroDraftPurchasePricesFailed'))
+      }
+      setSuccessMessage(
+        formatMessage(tr('admin.products.zeroDraftPurchasePricesDone'), {
+          total: data.totalDraft ?? stats.draft,
+          cleared: data.nonZeroBefore ?? 0,
+        })
+      )
+      loadProducts()
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : tr('admin.products.zeroDraftPurchasePricesFailed')
+      )
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
   const runDuplicateScan = useCallback(
     async (mode: DuplicateScanMode) => {
       if (!user) return
@@ -643,14 +685,24 @@ export default function AdminProductsPage() {
             </>
           ) : null}
           {stats.draft > 0 && (
-            <button
-              type="button"
-              className="btn-secondary text-sm"
-              disabled={bulkWorking || loading}
-              onClick={publishAllDrafts}
-            >
-              {formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                disabled={bulkWorking || loading}
+                onClick={zeroDraftPurchasePrices}
+              >
+                {tr('admin.products.zeroDraftPurchasePrices')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                disabled={bulkWorking || loading}
+                onClick={publishAllDrafts}
+              >
+                {formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
+              </button>
+            </>
           )}
           <Link href={appPath('/admin/products/new')} className="btn-primary flex items-center gap-2">
             <PlusIcon className="w-5 h-5" />
