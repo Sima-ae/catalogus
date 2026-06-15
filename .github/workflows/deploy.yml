@@ -45,10 +45,19 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Upload Next.js build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: .next
+          retention-days: 3
+          if-no-files-found: error
+
   deploy:
     name: Deploy to production VPS
     needs: build-check
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -71,6 +80,13 @@ jobs:
         run: |
           echo "::error::Add VPS_HOST, VPS_USER, VPS_SSH_KEY in Settings → Secrets → Actions."
           exit 1
+
+      - name: Download Next.js build artifact
+        if: steps.vps_secrets.outputs.configured == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: next-artifact
 
       - name: Deploy over SSH
         if: steps.vps_secrets.outputs.configured == 'true'
@@ -124,6 +140,13 @@ jobs:
             exit 1
           fi
 
+          echo "==> Package CI .next build"
+          tar -C next-artifact -czf next-build.tar.gz .
+          ls -lh next-build.tar.gz
+
+          echo "==> Upload pre-built .next to VPS"
+          scp "${SSH_OPTS[@]}" next-build.tar.gz "${VPS_USER}@${VPS_HOST}:/tmp/next-build.tar.gz"
+
           REMOTE_SCRIPT="$(mktemp)"
           trap 'rm -f "$REMOTE_SCRIPT"' EXIT
           cat > "$REMOTE_SCRIPT" <<'REMOTE'
@@ -156,16 +179,26 @@ jobs:
           git reset --hard origin/main
           git clean -fd
           echo "==> $(git log -1 --oneline)"
+
+          echo "==> Install pre-built .next from CI"
+          rm -rf .next
+          mkdir -p .next
+          tar -xzf /tmp/next-build.tar.gz -C .next
+          rm -f /tmp/next-build.tar.gz
+          if [[ ! -f .next/BUILD_ID ]]; then
+            echo "ERROR: extracted .next is missing BUILD_ID"
+            exit 1
+          fi
+
           chmod +x scripts/deploy.sh 2>/dev/null || true
-          bash scripts/deploy.sh
+          SKIP_BUILD=1 bash scripts/deploy.sh
           curl -sf -o /dev/null -w "catalogus :3001 HTTP %{http_code}\n" http://127.0.0.1:3001/ || echo "WARN: :3001 not reachable"
           REMOTE
 
           PUBLIC_HTML="${VPS_PUBLIC_HTML:-/home/superclones.cloud/public_html}"
-          # Long-running remote deploy (npm build) — keepalive + heartbeat prevent SSH broken pipe.
           if ! ssh "${SSH_OPTS[@]}" "${VPS_USER}@${VPS_HOST}" \
             "APP_DIR=$(printf '%q' "$APP_DIR") REPO_URL=$(printf '%q' "$REPO_URL") CATALOGUS_PUBLIC_HTML=$(printf '%q' "$PUBLIC_HTML") bash -s" < "$REMOTE_SCRIPT"; then
-            echo "::error::Deploy SSH session failed (often timeout during next build). Re-run workflow or on VPS: bash scripts/deploy.sh"
+            echo "::error::Deploy SSH session failed. Re-run workflow or on VPS: bash scripts/deploy.sh"
             exit 1
           fi
           echo "==> Deploy SSH session finished OK"

@@ -78,27 +78,42 @@ if ! node scripts/check-env.mjs; then
   exit 1
 fi
 
-echo "==> Install dependencies (include devDependencies for build)"
-npm ci
+echo "==> Install dependencies"
+if [[ "${SKIP_BUILD:-}" == "1" ]]; then
+  echo "    (production only — .next pre-built by CI)"
+  npm ci --omit=dev
+else
+  echo "    (include devDependencies for build)"
+  npm ci
+fi
 
-echo "==> Build Next.js (production)"
-(
-  while true; do
-    sleep 45
-    echo "==> build still running ($(date -u +%H:%M:%S) UTC)…"
-  done
-) &
-HEARTBEAT_PID=$!
-trap 'kill "$HEARTBEAT_PID" 2>/dev/null || true' EXIT
-set +e
-NODE_ENV=production npm run build
-BUILD_EXIT=$?
-set -e
-kill "$HEARTBEAT_PID" 2>/dev/null || true
-wait "$HEARTBEAT_PID" 2>/dev/null || true
-if [[ "$BUILD_EXIT" -ne 0 ]]; then
-  echo "ERROR: next build failed (exit $BUILD_EXIT)"
-  exit "$BUILD_EXIT"
+if [[ "${SKIP_BUILD:-}" == "1" ]]; then
+  if [[ ! -f .next/BUILD_ID ]]; then
+    echo "ERROR: SKIP_BUILD=1 but .next/BUILD_ID is missing."
+    echo "Deploy workflow should upload a CI build artifact before running deploy.sh."
+    exit 1
+  fi
+  echo "==> Skip Next.js build (using pre-built .next from CI)"
+else
+  echo "==> Build Next.js (production)"
+  (
+    while true; do
+      sleep 45
+      echo "==> build still running ($(date -u +%H:%M:%S) UTC)…"
+    done
+  ) &
+  HEARTBEAT_PID=$!
+  trap 'kill "$HEARTBEAT_PID" 2>/dev/null || true' EXIT
+  set +e
+  NODE_ENV=production npm run build
+  BUILD_EXIT=$?
+  set -e
+  kill "$HEARTBEAT_PID" 2>/dev/null || true
+  wait "$HEARTBEAT_PID" 2>/dev/null || true
+  if [[ "$BUILD_EXIT" -ne 0 ]]; then
+    echo "ERROR: next build failed (exit $BUILD_EXIT)"
+    exit "$BUILD_EXIT"
+  fi
 fi
 
 echo "==> Test MariaDB before restart"
