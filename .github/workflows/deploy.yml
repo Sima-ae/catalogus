@@ -45,11 +45,21 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Package Next.js build
+        run: |
+          if [[ ! -f .next/BUILD_ID ]]; then
+            echo "::error::next build did not produce .next/BUILD_ID"
+            ls -la
+            exit 1
+          fi
+          tar -czf next-build.tar.gz .next
+          ls -lh next-build.tar.gz
+
       - name: Upload Next.js build artifact
         uses: actions/upload-artifact@v4
         with:
           name: next-build
-          path: .next
+          path: next-build.tar.gz
           retention-days: 3
           if-no-files-found: error
 
@@ -86,7 +96,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: next-build
-          path: next-artifact
+          path: .
 
       - name: Deploy over SSH
         if: steps.vps_secrets.outputs.configured == 'true'
@@ -140,11 +150,12 @@ jobs:
             exit 1
           fi
 
-          echo "==> Package CI .next build"
-          tar -C next-artifact -czf next-build.tar.gz .
-          ls -lh next-build.tar.gz
-
           echo "==> Upload pre-built .next to VPS"
+          if [[ ! -f next-build.tar.gz ]]; then
+            echo "::error::next-build.tar.gz missing after artifact download"
+            ls -la
+            exit 1
+          fi
           scp "${SSH_OPTS[@]}" next-build.tar.gz "${VPS_USER}@${VPS_HOST}:/tmp/next-build.tar.gz"
 
           REMOTE_SCRIPT="$(mktemp)"
@@ -182,8 +193,7 @@ jobs:
 
           echo "==> Install pre-built .next from CI"
           rm -rf .next
-          mkdir -p .next
-          tar -xzf /tmp/next-build.tar.gz -C .next
+          tar -xzf /tmp/next-build.tar.gz -C .
           rm -f /tmp/next-build.tar.gz
           if [[ ! -f .next/BUILD_ID ]]; then
             echo "ERROR: extracted .next is missing BUILD_ID"
