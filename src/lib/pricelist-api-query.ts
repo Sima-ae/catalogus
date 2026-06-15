@@ -67,13 +67,27 @@ export async function buildPricelistFiltersFromClient(
   }
 }
 
-/** Admin-only quick filters (with price / out of stock). */
+/** Admin-only "with price" filter; out-of-stock is also allowed for share-link guests. */
 export function restrictAdminOnlyPricelistFilters(
   filters: PricelistListFilterInput,
   viewer: Pick<PricelistListViewer, 'role' | 'isSuperAdmin'>
 ): PricelistListFilterInput {
   const canUseAdminFilters = viewer.role === 'admin' || Boolean(viewer.isSuperAdmin)
   if (canUseAdminFilters) return filters
+
+  if (viewer.role === 'guest') {
+    if (filters.filledPricesOnly) {
+      return {
+        ...filters,
+        filledPricesOnly: false,
+        missingPricesOnly: true,
+      }
+    }
+    return {
+      ...filters,
+      filledPricesOnly: false,
+    }
+  }
 
   const hadAdminFilter = filters.filledPricesOnly || filters.outOfStockOnly
   return {
