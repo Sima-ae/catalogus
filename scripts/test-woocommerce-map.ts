@@ -330,7 +330,30 @@ assert.equal(publicProduct.product_options![0].values[0].purchase_price, undefin
 
 assert.equal(normalizeWooCommercePriceMode('purchase_price'), 'purchase_price')
 assert.equal(normalizeWooCommercePriceMode('storefront'), 'storefront')
-assert.equal(normalizeWooCommercePriceMode(null), 'storefront')
+assert.equal(normalizeWooCommercePriceMode(null), 'purchase_price')
+
+import { resolveWooCommercePriceModeForSource } from '../src/lib/woocommerce/price-mode'
+assert.equal(
+  resolveWooCommercePriceModeForSource({
+    woocommerce_store_url: 'https://otwatches.com',
+    woocommerce_price_mode: 'storefront',
+  }),
+  'purchase_price'
+)
+assert.equal(
+  resolveWooCommercePriceModeForSource({
+    woocommerce_store_url: 'https://stuntxl.com',
+    woocommerce_price_mode: 'storefront',
+  }),
+  'storefront'
+)
+assert.equal(
+  resolveWooCommercePriceModeForSource({
+    woocommerce_store_url: 'https://stuntxl.com',
+    woocommerce_price_mode: null,
+  }),
+  'purchase_price'
+)
 
 import { parseWooProductSlugFromUrl, normalizeWooCommerceStoreUrl } from '../src/lib/woocommerce/client'
 assert.equal(

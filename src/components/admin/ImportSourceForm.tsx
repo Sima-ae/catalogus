@@ -159,11 +159,12 @@ export default function ImportSourceForm({
               />
               <span className="space-y-1">
                 <span className={`text-sm block ${t.muted}`}>
-                  Import supplier price as purchase price (shop shows Price on request)
+                  Import WooCommerce price as purchase price (recommended for suppliers)
                 </span>
                 <span className={`text-xs block ${t.muted}`}>
-                  Use for AR Factory and similar suppliers — catalog price stays 0, internal
-                  purchase price is filled from WooCommerce.
+                  Enabled: shop price stays at Price on request; Woo price is stored as
+                  purchase price. Disable only for retail stores (e.g. sell at Woo price on
+                  the shop).
                 </span>
               </span>
             </label>

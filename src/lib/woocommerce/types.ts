@@ -72,9 +72,9 @@ export type WooCommercePriceMode = 'storefront' | 'purchase_price'
 export function normalizeWooCommercePriceMode(
   value: string | null | undefined
 ): WooCommercePriceMode {
-  return String(value ?? '').trim().toLowerCase() === 'purchase_price'
-    ? 'purchase_price'
-    : 'storefront'
+  const mode = String(value ?? '').trim().toLowerCase()
+  if (mode === 'storefront') return 'storefront'
+  return 'purchase_price'
 }
 
 export type WooProductListItem = {

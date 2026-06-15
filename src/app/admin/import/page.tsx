@@ -52,7 +52,7 @@ const emptyForm: ImportSourceFormValues = {
   yupoo_access_password: '',
   woocommerce_store_url: '',
   woocommerce_category_slug: '',
-  woocommerce_price_mode: 'storefront',
+  woocommerce_price_mode: 'purchase_price',
   woocommerce_shipping_cost: '',
   catalog_list_url: '',
   catalog_category_id: '',

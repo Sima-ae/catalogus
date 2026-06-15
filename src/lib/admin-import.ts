@@ -31,7 +31,7 @@ export function parseImportSourceBody(body: unknown): ImportSourceInput | null {
     woocommerce_store_url: String(raw.woocommerce_store_url ?? '').trim(),
     woocommerce_category_slug: String(raw.woocommerce_category_slug ?? '').trim(),
     woocommerce_price_mode: normalizeWooCommercePriceMode(
-      String(raw.woocommerce_price_mode ?? 'storefront')
+      String(raw.woocommerce_price_mode ?? 'purchase_price')
     ),
     woocommerce_shipping_cost: String(raw.woocommerce_shipping_cost ?? '').trim(),
     catalog_list_url: String(raw.catalog_list_url ?? '').trim(),

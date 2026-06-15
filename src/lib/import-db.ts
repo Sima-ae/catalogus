@@ -20,6 +20,7 @@ import type {
   WooStoreProduct,
 } from '@/lib/woocommerce/types'
 import { normalizeWooCommercePriceMode } from '@/lib/woocommerce/types'
+import { resolveWooCommercePriceModeForSource } from '@/lib/woocommerce/price-mode'
 import {
   listWooStoreProducts,
   wooProductsToJobItems,
@@ -183,7 +184,7 @@ export async function buildProductInputFromWooStoreProduct(
     catalogBrandId: source.catalog_brand_id,
     catalogBrandName: source.brand_name ?? null,
   })
-  const priceMode = normalizeWooCommercePriceMode(source.woocommerce_price_mode)
+  const priceMode = resolveWooCommercePriceModeForSource(source)
   const input = await buildProductInputFromWooCommerceImport(
     wooWithLocalImages,
     {
