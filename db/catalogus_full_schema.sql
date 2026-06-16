@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS products (
   status VARCHAR(32) NOT NULL DEFAULT 'active',
   featured TINYINT(1) NOT NULL DEFAULT 0,
   sold_out TINYINT(1) NOT NULL DEFAULT 0,
+  supplier_pricelist_id VARCHAR(36) NULL,
   pre_order TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -151,7 +152,8 @@ CREATE TABLE IF NOT EXISTS products (
   KEY idx_products_brand_id (brand_id),
   KEY idx_products_brand_subcategory_id (brand_subcategory_id),
   KEY idx_products_status_created (status, created_at),
-  KEY idx_products_status_category (status, category_id)
+  KEY idx_products_status_category (status, category_id),
+  KEY idx_products_supplier_pricelist (supplier_pricelist_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS category_translations (
@@ -303,6 +305,28 @@ CREATE TABLE IF NOT EXISTS import_job_items (
 -- Pricelist
 -- ---------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS pricelist_pages (
+  id VARCHAR(36) NOT NULL,
+  slug VARCHAR(64) NOT NULL,
+  label VARCHAR(255) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pricelist_pages_slug (slug),
+  KEY idx_pricelist_pages_active_sort (active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO pricelist_pages (id, slug, label, sort_order, active)
+VALUES (
+  '00000000-0000-4000-8000-000000000001',
+  'platform',
+  'Platform pricelist',
+  0,
+  1
+)
+ON DUPLICATE KEY UPDATE label = VALUES(label);
+
 CREATE TABLE IF NOT EXISTS pricelist_items (
   id VARCHAR(36) NOT NULL,
   owner_user_id VARCHAR(36) NOT NULL,
@@ -319,6 +343,7 @@ CREATE TABLE IF NOT EXISTS pricelist_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS seller_product_prices (
+  list_owner_id VARCHAR(36) NOT NULL,
   seller_id VARCHAR(36) NOT NULL,
   product_id VARCHAR(36) NOT NULL,
   unit_price DECIMAL(12,2) NOT NULL,
@@ -329,8 +354,9 @@ CREATE TABLE IF NOT EXISTS seller_product_prices (
   locked TINYINT(1) NOT NULL DEFAULT 0,
   out_of_stock TINYINT(1) NOT NULL DEFAULT 0,
   stock_status VARCHAR(16) NULL,
-  PRIMARY KEY (seller_id, product_id),
+  PRIMARY KEY (list_owner_id, seller_id, product_id),
   KEY idx_seller_prices_product (product_id),
+  KEY idx_seller_prices_list_product (list_owner_id, product_id),
   CONSTRAINT fk_seller_prices_product
     FOREIGN KEY (product_id) REFERENCES products(id)
     ON DELETE CASCADE

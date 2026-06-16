@@ -7,10 +7,7 @@ import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import { useTheme } from '@/lib/theme'
 import { buildPricelistShareUrl } from '@/lib/pricelist-share-url'
-import {
-  isPlatformPricelistOwner,
-  PRICELIST_OWNER_QUERY_PLATFORM,
-} from '@/lib/pricelist-constants'
+import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
 import { useI18n } from '@/lib/i18n-context'
 
 type Props = {
@@ -54,14 +51,11 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
   const [copied, setCopied] = useState(false)
   const [origin, setOrigin] = useState('')
 
-  const isPlatform =
-    isPlatformPricelistOwner(ownerId) || ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
-
   useEffect(() => {
     if (typeof window !== 'undefined') setOrigin(window.location.origin)
   }, [])
 
-  const sharePath = buildPricelistShareUrl(ownerId)
+  const sharePath = buildPricelistShareUrl(ownerQuery || ownerId)
   const shareUrl = useMemo(
     () => (origin ? `${origin}${sharePath}` : sharePath),
     [origin, sharePath]
@@ -69,10 +63,7 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
 
   useEffect(() => {
     if (!user) return
-    const q =
-      ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
-        ? `?owner=${PRICELIST_OWNER_QUERY_PLATFORM}`
-        : `?owner=${encodeURIComponent(ownerId)}`
+    const q = `?owner=${encodeURIComponent(ownerQuery || PRICELIST_OWNER_QUERY_PLATFORM)}`
     fetch(appPath(`/api/pricelist/access/password${q}`), {
       headers: catalogAuthHeaders(user),
       credentials: 'include',
@@ -96,22 +87,25 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       setError(t('pricelist.share.copyError'))
       window.setTimeout(() => setError(null), 3000)
     }
-  }, [shareUrl])
+  }, [shareUrl, t])
 
-  const handleSave = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!user) return
     setSaving(true)
-    setError(null)
     setMessage(null)
+    setError(null)
     try {
       const res = await fetch(appPath('/api/pricelist/access/password'), {
         method: 'PUT',
-        headers: { ...catalogAuthHeaders(user), 'Content-Type': 'application/json' },
+        headers: {
+          ...catalogAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
         credentials: 'include',
         body: JSON.stringify({
-          ownerId: ownerQuery,
-          password: password.trim() || undefined,
+          ownerId: ownerQuery || ownerId,
+          password: password.trim() || null,
           clear: !password.trim(),
         }),
       })
@@ -119,114 +113,73 @@ export default function PricelistSharePasswordSettings({ ownerId, ownerQuery }: 
       if (!res.ok) throw new Error(data.error || 'Failed to save')
       setHasPassword(Boolean(data.hasPassword))
       setPassword('')
-      setMessage(data.hasPassword ? t('pricelist.share.saved') : t('pricelist.share.removed'))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save')
+      setMessage(
+        data.hasPassword ? t('pricelist.share.passwordSaved') : t('pricelist.share.passwordCleared')
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
     } finally {
       setSaving(false)
     }
   }
 
-  const panel = isDark ? 'bg-dark-800 border-dark-700' : 'bg-gray-50 border-gray-200'
-  const inputClass = `min-w-0 flex-1 px-2 py-1.5 rounded-md border text-xs ${
-    isDark ? 'bg-dark-900 border-dark-600 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-  }`
-  const linkBoxClass = `min-w-0 flex-1 px-2 py-1.5 rounded-md border text-xs truncate text-left transition-colors ${
-    isDark
-      ? 'bg-dark-900 border-dark-600 text-gray-300 hover:border-primary-500/50 hover:bg-dark-800'
-      : 'bg-white border-gray-300 text-gray-800 hover:border-primary-400 hover:bg-gray-50'
-  }`
-  const muted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const label = isDark ? 'text-gray-300' : 'text-gray-700'
+  if (loading) {
+    return <p className="text-sm text-gray-500">{t('loading.generic')}</p>
+  }
 
-  const title = isPlatform ? t('pricelist.share.titlePlatform') : t('pricelist.share.title')
-  const hint = isPlatform ? t('pricelist.share.hintPlatform') : t('pricelist.share.hintOwner')
+  const panelClass = isDark
+    ? 'bg-dark-800/60 border-dark-600'
+    : 'bg-gray-50 border-gray-200'
 
   return (
-    <div className={`rounded-lg border p-3 sm:p-4 ${panel}`}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 sm:gap-y-2.5">
-        {/* Left: password */}
-        <div className="grid grid-rows-[auto_auto_1fr] gap-2 min-w-0">
-          <h2 className={`text-xs font-semibold leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {title}
-          </h2>
-          <p className={`text-[11px] leading-snug ${muted}`}>{hint}</p>
-          <div className="min-w-0">
-            {loading ? (
-              <p className={`text-xs ${muted}`}>{t('loading.generic')}</p>
-            ) : (
-              <form onSubmit={handleSave} className="flex flex-col gap-1.5">
-                <div className="flex items-stretch gap-1.5">
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={
-                      hasPassword ? t('pricelist.share.newPassword') : t('pricelist.share.setPassword')
-                    }
-                    className={`${inputClass} w-full`}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-50"
-                  >
-                    {saving
-                      ? t('pricelist.saving')
-                      : hasPassword
-                        ? t('pricelist.share.update')
-                        : t('pricelist.share.set')}
-                  </button>
-                </div>
-                {message ? <span className="text-xs text-green-600">{message}</span> : null}
-                {error ? <span className="text-xs text-red-500">{error}</span> : null}
-              </form>
-            )}
-          </div>
+    <div className={`rounded-lg border p-4 space-y-3 ${panelClass}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold">{t('pricelist.share.title')}</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 break-all">{shareUrl}</p>
         </div>
-
-        {/* Right: share link */}
-        <div className="grid grid-rows-[auto_auto_1fr] gap-2 min-w-0">
-          <div className="flex items-center justify-end min-h-[1.125rem]">
-            {hasPassword && !loading ? (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-green-600">
-                {t('pricelist.share.active')}
-              </span>
-            ) : null}
-          </div>
-          <p className={`text-[11px] font-medium leading-snug ${label}`}>{t('pricelist.share.linkLabel')}</p>
-          <div className="flex items-stretch gap-1.5 min-w-0">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className={`${linkBoxClass} cursor-pointer`}
-              title={t('pricelist.share.copyTitle')}
-              aria-label={t('pricelist.share.copy')}
-            >
-              {shareUrl}
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="btn-secondary shrink-0 inline-flex items-center gap-1 text-xs px-2.5 py-1.5"
-              aria-label={t('pricelist.share.copy')}
-            >
-              {copied ? (
-                <>
-                  <CheckIcon className="w-3.5 h-3.5 text-green-500" aria-hidden />
-                  {t('pricelist.share.copied')}
-                </>
-              ) : (
-                <>
-                  <ClipboardDocumentIcon className="w-3.5 h-3.5" aria-hidden />
-                  {t('pricelist.share.copy')}
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={handleCopyLink}
+          className="btn-secondary text-sm inline-flex items-center gap-2 shrink-0"
+        >
+          {copied ? (
+            <CheckIcon className="h-4 w-4 text-green-500" />
+          ) : (
+            <ClipboardDocumentIcon className="h-4 w-4" />
+          )}
+          {copied ? t('pricelist.share.copied') : t('pricelist.share.copyLink')}
+        </button>
       </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+        <label className="flex-1 space-y-1">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {t('pricelist.share.passwordLabel')}
+          </span>
+          <input
+            type="password"
+            className="input w-full"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={
+              hasPassword
+                ? t('pricelist.share.passwordPlaceholderUpdate')
+                : t('pricelist.share.passwordPlaceholder')
+            }
+            autoComplete="new-password"
+          />
+        </label>
+        <button type="submit" className="btn-primary text-sm" disabled={saving}>
+          {saving ? t('pricelist.share.saving') : t('pricelist.share.savePassword')}
+        </button>
+      </form>
+
+      {hasPassword ? (
+        <p className="text-xs text-amber-600 dark:text-amber-400">{t('pricelist.share.hasPassword')}</p>
+      ) : null}
+      {message ? <p className="text-sm text-green-600 dark:text-green-400">{message}</p> : null}
+      {error ? <p className="text-sm text-red-500">{error}</p> : null}
     </div>
   )
 }

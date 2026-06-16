@@ -4,8 +4,11 @@ import {
   PRICELIST_OWNER_QUERY_PLATFORM,
 } from '@/lib/pricelist-constants'
 
-export function buildPricelistShareUrl(ownerId: string): string {
+/** Build share URL using slug or owner id (client-safe — no DB). */
+export function buildPricelistShareUrl(ownerIdOrSlug: string): string {
   const owner =
-    ownerId === PLATFORM_PRICELIST_OWNER_ID ? PRICELIST_OWNER_QUERY_PLATFORM : ownerId
+    ownerIdOrSlug === PLATFORM_PRICELIST_OWNER_ID
+      ? PRICELIST_OWNER_QUERY_PLATFORM
+      : ownerIdOrSlug
   return appPath(`/pricelist?owner=${encodeURIComponent(owner)}`)
 }

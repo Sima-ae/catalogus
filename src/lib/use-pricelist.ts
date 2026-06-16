@@ -41,12 +41,9 @@ export type PricelistBulkRemoveResult = {
 }
 
 function resolveOwnerQuery(ownerId: string, owners: PricelistOwnerOption[]): string {
-  if (ownerId === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID) {
-    return PRICELIST_OWNER_QUERY_PLATFORM
-  }
-  if (owners.find((o) => o.id === ownerId)?.kind === 'platform') {
-    return PRICELIST_OWNER_QUERY_PLATFORM
-  }
+  const match = owners.find((o) => o.id === ownerId)
+  if (match?.kind === 'platform') return match.id
+  if (ownerId === PLATFORM_PRICELIST_OWNER_ID) return PRICELIST_OWNER_QUERY_PLATFORM
   return ownerId
 }
 
@@ -69,8 +66,9 @@ export type PricelistListQuery = {
 }
 
 export function ownerQueryParam(ownerId: string, owners: PricelistOwnerOption[]): string {
-  const match = owners.find((o) => o.id === ownerId || (o.kind === 'platform' && ownerId.includes('00000000')))
-  if (match?.kind === 'platform') return PRICELIST_OWNER_QUERY_PLATFORM
+  const match = owners.find((o) => o.id === ownerId)
+  if (match?.kind === 'platform') return match.id
+  if (ownerId === PLATFORM_PRICELIST_OWNER_ID) return PRICELIST_OWNER_QUERY_PLATFORM
   return ownerId
 }
 

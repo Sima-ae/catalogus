@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const ownerId = starTargetOwnerForActor(auth.actor)
+  const ownerId = access.ownerId
   const manage = await assertManageItems(auth.actor, ownerId)
   if (!manage.ok) {
     return NextResponse.json({ error: manage.error }, { status: manage.status })

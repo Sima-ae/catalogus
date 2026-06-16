@@ -10,6 +10,7 @@ import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
+import { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
 import type { AuthUser } from '@/lib/auth-local'
 
 type Props = {
@@ -36,6 +37,7 @@ export default function ShopPricelistBulkAddBar({
   const { t } = useI18n()
   const { theme } = useTheme()
   const dark = isDark ?? theme === 'dark'
+  const pricelistTarget = useAdminPricelistTargetSlug()
   const [busy, setBusy] = useState<'category' | 'brand' | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export default function ShopPricelistBulkAddBar({
           credentials: 'include',
           body: JSON.stringify({
             scope,
-            ownerId: PRICELIST_OWNER_QUERY_PLATFORM,
+            ownerId: pricelistTarget || PRICELIST_OWNER_QUERY_PLATFORM,
             category: selectedCategory !== 'All' ? selectedCategory : undefined,
             subcategory:
               selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
@@ -87,7 +89,7 @@ export default function ShopPricelistBulkAddBar({
         setBusy(null)
       }
     },
-    [selectedBrand, selectedCategory, selectedSubcategory, t, user]
+    [selectedBrand, selectedCategory, selectedSubcategory, t, user, pricelistTarget]
   )
 
   if (!showCategory && !showBrand) return null

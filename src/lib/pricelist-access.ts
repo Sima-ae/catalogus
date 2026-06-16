@@ -5,7 +5,7 @@ import {
   tryVerifyCatalogActor,
   type CatalogActor,
 } from '@/lib/catalog-user-auth'
-import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
+import { ensurePricelistPagesCache, parsePricelistOwnerParam, resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 import {
   createPricelistUnlockToken,
   readPricelistUnlockCookie,
@@ -29,11 +29,11 @@ export type PricelistAccessContext =
       ownerId?: string
     }
 
-export function resolveOwnerIdFromParam(
+export async function resolveOwnerIdFromParam(
   ownerParam: string | null | undefined,
   actor: CatalogActor | null
-): string {
-  const parsed = parsePricelistOwnerParam(ownerParam)
+): Promise<string> {
+  const parsed = await resolvePricelistOwnerId(ownerParam)
   if (parsed) return parsed
   if (actor) return defaultPricelistOwnerForActor(actor)
   throw new Error('OWNER_REQUIRED')
@@ -53,12 +53,13 @@ export async function resolvePricelistAccess(
   request: NextRequest,
   ownerParam: string | null | undefined
 ): Promise<PricelistAccessContext> {
+  await ensurePricelistPagesCache()
   let ownerId: string
   try {
     const actor = await tryVerifyCatalogActor(request)
-    ownerId = resolveOwnerIdFromParam(ownerParam, actor)
+    ownerId = await resolveOwnerIdFromParam(ownerParam, actor)
   } catch {
-    const parsed = parsePricelistOwnerParam(ownerParam)
+    const parsed = await resolvePricelistOwnerId(ownerParam)
     if (!parsed) {
       return {
         ok: false,

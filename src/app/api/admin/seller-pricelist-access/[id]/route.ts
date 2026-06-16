@@ -5,10 +5,7 @@ import {
   updateSellerAccessStatus,
   type AccessStatus,
 } from '@/lib/seller-pricelist-access-db'
-import {
-  isPlatformPricelistOwner,
-  PRICELIST_OWNER_QUERY_PLATFORM,
-} from '@/lib/pricelist-constants'
+import { ownerIdToSlug } from '@/lib/pricelist-pages-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -41,9 +38,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     }
     return NextResponse.json({
       ...updated,
-      list_owner_query: isPlatformPricelistOwner(updated.list_owner_id)
-        ? PRICELIST_OWNER_QUERY_PLATFORM
-        : updated.list_owner_id,
+      list_owner_query: ownerIdToSlug(updated.list_owner_id),
     })
   } catch (error) {
     console.error('Seller pricelist access PATCH:', error)

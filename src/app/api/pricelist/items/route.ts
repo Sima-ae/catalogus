@@ -184,6 +184,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ownerId }, { status: 201 })
   } catch (error) {
     const msg = error instanceof Error ? error.message : ''
+    if (msg === 'PRICELIST_CONFLICT') {
+      return NextResponse.json(
+        { error: 'Product is already on another supplier pricelist' },
+        { status: 409 }
+      )
+    }
     if (msg === 'PRODUCT_NOT_FOUND') {
       return NextResponse.json({ error: 'Product not found or inactive' }, { status: 404 })
     }

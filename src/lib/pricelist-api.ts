@@ -7,7 +7,7 @@ import {
   canViewPricelist,
   defaultPricelistOwnerForActor,
 } from '@/lib/catalog-user-auth'
-import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
+import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 import {
   readPricelistContributorId,
   getPricelistContributorCookieOptions,
@@ -25,7 +25,7 @@ export async function resolveListOwnerId(
   actor: CatalogActor,
   ownerParam: string | null | undefined
 ): Promise<{ ok: true; ownerId: string } | { ok: false; status: number; error: string }> {
-  const parsed = parsePricelistOwnerParam(ownerParam)
+  const parsed = await resolvePricelistOwnerId(ownerParam)
   const ownerId = parsed ?? defaultPricelistOwnerForActor(actor)
 
   if (!(await canViewPricelist(actor, ownerId))) {

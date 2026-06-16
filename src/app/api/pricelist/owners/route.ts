@@ -3,7 +3,11 @@ import { verifyCatalogActor, defaultPricelistOwnerForActor } from '@/lib/catalog
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { getViewablePricelistOwnersForSeller } from '@/lib/pricelist-db'
 import {
-  isPlatformPricelistOwner,
+  ensurePricelistPagesCache,
+  listPricelistPages,
+  ownerIdToSlug,
+} from '@/lib/pricelist-pages-db'
+import {
   PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
 } from '@/lib/pricelist-constants'
@@ -18,6 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    await ensurePricelistPagesCache()
     const defaultOwnerId = defaultPricelistOwnerForActor(auth.actor)
 
     if (auth.actor.role === 'seller') {
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         defaultOwnerId,
         owners: owners.map((o) => ({
-          id: isPlatformPricelistOwner(o.id) ? PRICELIST_OWNER_QUERY_PLATFORM : o.id,
+          id: o.kind === 'platform' ? ownerIdToSlug(o.id) : o.id,
           label: o.label,
           kind: o.kind,
         })),
@@ -33,15 +38,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (auth.actor.role === 'admin') {
+      const pages = await listPricelistPages({ activeOnly: true })
       return NextResponse.json({
         defaultOwnerId: PLATFORM_PRICELIST_OWNER_ID,
-        owners: [
-          {
-            id: PRICELIST_OWNER_QUERY_PLATFORM,
-            label: 'Platform pricelist',
-            kind: 'platform',
-          },
-        ],
+        owners: pages.map((p) => ({
+          id: p.slug,
+          label: p.label,
+          kind: 'platform' as const,
+        })),
       })
     }
 

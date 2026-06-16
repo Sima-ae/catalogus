@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import {
-  PRICELIST_MAX_SELECTION_IDS,
-  isPlatformPricelistOwner,
-} from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
+import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
 import {
   parseUnitPrice,
   setSellerProductStockStatus,
-  syncProductPurchasePriceFromPlatformPricelist,
-  syncProductShippingCostFromPlatformPricelist,
+  syncProductPurchasePriceFromPricelist,
+  syncProductShippingCostFromPricelist,
   upsertSellerProductPrice,
   upsertSellerProductShippingCost,
   listPricelistProductIds,
@@ -158,8 +156,16 @@ async function processBulkItems(
       if (isSellerActor) {
         const mayUpdate =
           action === 'shipping'
-            ? await assertSellerMayUpdateShipping(targetSellerId, item.productId)
-            : await assertSellerMayUpdatePrice(targetSellerId, item.productId)
+            ? await assertSellerMayUpdateShipping(
+                access.ownerId,
+                targetSellerId,
+                item.productId
+              )
+            : await assertSellerMayUpdatePrice(
+                access.ownerId,
+                targetSellerId,
+                item.productId
+              )
         if (!mayUpdate.ok) {
           skipped += 1
           continue
@@ -169,39 +175,42 @@ async function processBulkItems(
       try {
         if (action === 'stockStatus' && stockStatus) {
           await setSellerProductStockStatus({
+            listOwnerId: access.ownerId,
             sellerId: targetSellerId,
             productId: item.productId,
             stockStatus,
             currency,
             updatedBy,
-            syncProductSoldOut: isPlatformPricelistOwner(access.ownerId),
+            syncProductSoldOut: isCuratedSupplierPricelist(access.ownerId),
           })
         } else if (action === 'price' && unitPrice !== null) {
           await upsertSellerProductPrice({
+            listOwnerId: access.ownerId,
             sellerId: targetSellerId,
             productId: item.productId,
             unitPrice,
             currency,
             updatedBy,
           })
-          if (isPlatformPricelistOwner(access.ownerId)) {
-            await syncProductPurchasePriceFromPlatformPricelist(item.productId)
+          if (isCuratedSupplierPricelist(access.ownerId)) {
+            await syncProductPurchasePriceFromPricelist(item.productId, access.ownerId)
           }
         } else if (action === 'shipping' && shippingCost !== null) {
           await upsertSellerProductShippingCost({
+            listOwnerId: access.ownerId,
             sellerId: targetSellerId,
             productId: item.productId,
             shippingCost,
             currency,
             updatedBy,
           })
-          if (isPlatformPricelistOwner(access.ownerId)) {
-            await syncProductShippingCostFromPlatformPricelist(item.productId)
+          if (isCuratedSupplierPricelist(access.ownerId)) {
+            await syncProductShippingCostFromPricelist(item.productId, access.ownerId)
           }
         }
 
         if (isSellerActor && action === 'price') {
-          await lockSellerPriceAfterSave(targetSellerId, item.productId)
+          await lockSellerPriceAfterSave(access.ownerId, targetSellerId, item.productId)
         }
         if (isAdminActor && item.sellerId && item.sellerId !== access.actor!.userId) {
           await clearPendingEditRequestsForPrice(item.sellerId, item.productId)

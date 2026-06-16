@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
-import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
+import { readAdminPricelistTargetSlug } from '@/lib/admin-pricelist-target'
 
 type Options = {
   /** Pricelist owner query (`platform` or user id) when not using the actor default list. */
@@ -28,7 +28,7 @@ export function usePricelistMembership(productId: string, options?: Options) {
 
   const membershipOwnerQuery = (): string => {
     if (ownerQuery) return ownerQuery
-    if (user?.role === 'admin') return PRICELIST_OWNER_QUERY_PLATFORM
+    if (user?.role === 'admin') return readAdminPricelistTargetSlug()
     return user?.id ?? ''
   }
 

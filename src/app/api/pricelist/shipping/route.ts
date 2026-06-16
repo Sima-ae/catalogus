@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { isPlatformPricelistOwner } from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 import {
   clearSellerProductShippingCost,
   parseUnitPrice,
-  syncProductShippingCostFromPlatformPricelist,
+  syncProductShippingCostFromPricelist,
   upsertSellerProductShippingCost,
 } from '@/lib/pricelist-db'
 import {
@@ -63,7 +63,11 @@ export async function PUT(request: NextRequest) {
   const isAdminActor = access.mode === 'full' && access.actor?.role === 'admin'
 
   if (isSellerActor) {
-    const mayUpdate = await assertSellerMayUpdateShipping(sellerId, productId)
+    const mayUpdate = await assertSellerMayUpdateShipping(
+      access.ownerId,
+      sellerId,
+      productId
+    )
     if (!mayUpdate.ok) {
       return NextResponse.json(
         { error: mayUpdate.error, code: 'SHIPPING_LOCKED' },
@@ -79,14 +83,15 @@ export async function PUT(request: NextRequest) {
   try {
     const currency = await getShopCurrency()
     await upsertSellerProductShippingCost({
+      listOwnerId: access.ownerId,
       sellerId: targetSellerId,
       productId,
       shippingCost,
       currency,
       updatedBy,
     })
-    if (isPlatformPricelistOwner(access.ownerId)) {
-      await syncProductShippingCostFromPlatformPricelist(productId)
+    if (isCuratedSupplierPricelist(access.ownerId)) {
+      await syncProductShippingCostFromPricelist(productId, access.ownerId)
     }
     const res = NextResponse.json({
       ok: true,
@@ -134,12 +139,16 @@ export async function DELETE(request: NextRequest) {
   const targetSellerId = sellerIdParam || access.actor.userId
 
   try {
-    const removed = await clearSellerProductShippingCost(targetSellerId, productId)
+    const removed = await clearSellerProductShippingCost(
+      access.ownerId,
+      targetSellerId,
+      productId
+    )
     if (!removed) {
       return NextResponse.json({ error: 'Shipping cost not found' }, { status: 404 })
     }
-    if (isPlatformPricelistOwner(access.ownerId)) {
-      await syncProductShippingCostFromPlatformPricelist(productId)
+    if (isCuratedSupplierPricelist(access.ownerId)) {
+      await syncProductShippingCostFromPricelist(productId, access.ownerId)
     }
     return NextResponse.json({ ok: true, productId, sellerId: targetSellerId })
   } catch (error) {

@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCookieSecret } from '@/lib/site-access-cookie'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
+import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 import {
   createPricelistUnlockToken,
   getPricelistUnlockCookieOptions,
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const password = String(raw.password ?? '')
   const remember = Boolean(raw.remember)
 
-  const listOwnerId = parsePricelistOwnerParam(ownerParam)
+  const listOwnerId = await resolvePricelistOwnerId(ownerParam)
   if (!listOwnerId || !password) {
     return NextResponse.json({ error: 'owner and password are required' }, { status: 400 })
   }

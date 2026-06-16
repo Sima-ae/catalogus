@@ -2,14 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PricelistRow } from '@/lib/pricelist-db'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/auth-local'
 import { usePricelist } from '@/lib/use-pricelist'
 import {
-  isPlatformPricelistOwner,
-  PLATFORM_PRICELIST_OWNER_ID,
   PRICELIST_OWNER_QUERY_PLATFORM,
   PRICELIST_PAGE_SIZE,
   PRICELIST_PAGE_SIZES,
@@ -42,11 +40,13 @@ import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
 import type { PricelistListQuery } from '@/lib/use-pricelist'
+import { appPath } from '@/lib/paths'
 
 type PricelistQuickFilter = 'missing' | 'all' | 'filled' | 'outOfStock'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const initialOwner = searchParams.get('owner') || undefined
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -133,30 +133,20 @@ export default function PricelistPageClient() {
     fetchExportItems,
   } = usePricelist(initialOwner, listQuery)
 
-  const ownerQuery =
-    ownerId === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
-      ? PRICELIST_OWNER_QUERY_PLATFORM
-      : ownerId
+  const ownerQuery = ownerId
 
-  const isPlatformList =
-    ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
+  const currentOwner = owners.find((o) => o.id === ownerId)
+  const isCuratedList = currentOwner?.kind === 'platform'
 
   const isAdmin = user?.role === 'admin'
   const canRemoveItems =
     !isGuest && Boolean(user) && (Boolean(isSuperAdmin) || isAdmin)
-  const canManagePriceEditRequests = isAdmin && isPlatformList && !isGuest
+  const canManagePriceEditRequests = isAdmin && isCuratedList && !isGuest
 
-  const listOwnerIdForShare =
-    ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM || ownerId === PLATFORM_PRICELIST_OWNER_ID
-      ? PLATFORM_PRICELIST_OWNER_ID
-      : ownerId
+  const listOwnerIdForShare = ownerQuery
 
   const canManageSharePassword =
-    !isGuest &&
-    Boolean(user) &&
-    (isPlatformPricelistOwner(listOwnerIdForShare)
-      ? isSuperAdmin
-      : listOwnerIdForShare === user?.id)
+    !isGuest && Boolean(user) && isSuperAdmin && isCuratedList
 
   const heading = isDark ? 'text-white' : 'text-gray-900'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
@@ -183,8 +173,8 @@ export default function PricelistPageClient() {
     setLightbox({ name: row.name, images, initialIndex: 0 })
   }, [])
 
-  const subtitle = isPlatformList
-    ? t('pricelist.subtitle.platform')
+  const subtitle = isCuratedList
+    ? owners.find((o) => o.id === ownerId)?.label || t('pricelist.subtitle.platform')
     : translatePricelistOwnerLabel(
         owners.find((o) => o.id === ownerId) ?? { label: currentOwnerLabel },
         t
@@ -208,10 +198,10 @@ export default function PricelistPageClient() {
     !isGuest && Boolean(user) && (Boolean(isSuperAdmin) || isAdmin) && viewMode === 'table'
   /** Share-link suppliers (guest + platform pricelist) can filter out-of-stock items. */
   const showOutOfStockFilter =
-    showMissingPricesButton && (showAdminPriceFilters || (isGuest && isPlatformList))
+    showMissingPricesButton && (showAdminPriceFilters || (isGuest && isCuratedList))
 
   const exportOwnerLabel =
-    isPlatformList
+    isCuratedList
       ? t('pricelist.owner.platform')
       : translatePricelistOwnerLabel(
           owners.find((o) => o.id === ownerId) ?? { label: currentOwnerLabel },
@@ -604,7 +594,13 @@ export default function PricelistPageClient() {
           {showOwnerSelect ? (
             <select
               value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value
+                setOwnerId(next)
+                const params = new URLSearchParams(searchParams.toString())
+                params.set('owner', next)
+                router.replace(`${appPath('/pricelist')}?${params.toString()}`)
+              }}
               className={`rounded-lg border px-3 py-2 text-sm min-w-[8rem] sm:min-w-[12rem] max-w-full ${selectClass}`}
               aria-label={t('pricelist.selectOwner.aria')}
             >

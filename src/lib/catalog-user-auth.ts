@@ -5,9 +5,9 @@ import { getDbErrorMessage } from '@/lib/db-errors'
 import { getDevUserByIdAndEmail, isDevAuthEnabled } from '@/lib/dev-auth'
 import { isSuperAdminUser } from '@/lib/user-roles'
 import {
-  isPlatformPricelistOwner,
   PLATFORM_PRICELIST_OWNER_ID,
 } from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
 
 export type CatalogActor = {
@@ -118,10 +118,10 @@ export async function canViewPricelist(
   actor: CatalogActor,
   listOwnerId: string
 ): Promise<boolean> {
-  if (isPlatformPricelistOwner(listOwnerId)) {
+  if (isCuratedSupplierPricelist(listOwnerId)) {
     if (canActAsPricelistAdmin(actor)) return true
     if (actor.role === 'seller') {
-      return hasApprovedSellerAccess(actor.userId, PLATFORM_PRICELIST_OWNER_ID)
+      return hasApprovedSellerAccess(actor.userId, listOwnerId)
     }
     return false
   }
@@ -139,15 +139,15 @@ export async function canManagePricelistItems(
   actor: CatalogActor,
   listOwnerId: string
 ): Promise<boolean> {
-  if (isPlatformPricelistOwner(listOwnerId)) {
+  if (isCuratedSupplierPricelist(listOwnerId)) {
     return canActAsPricelistAdmin(actor)
   }
   return listOwnerId === actor.userId
 }
 
-/** Share password + link settings — list owner only (not sellers/admins filling prices). */
+/** Share password + link settings — super admin for curated pages. */
 export function isPricelistOwner(actor: CatalogActor, listOwnerId: string): boolean {
-  if (isPlatformPricelistOwner(listOwnerId)) {
+  if (isCuratedSupplierPricelist(listOwnerId)) {
     return actor.isSuperAdmin
   }
   return listOwnerId === actor.userId

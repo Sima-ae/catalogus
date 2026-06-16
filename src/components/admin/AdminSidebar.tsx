@@ -9,6 +9,8 @@ import BrandLogo from '@/components/brand/BrandLogo'
 import SidebarWelcomeTitle from '@/components/layout/SidebarWelcomeTitle'
 import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import { useI18n } from '@/lib/i18n-context'
+import { useAuth } from '@/lib/auth-local'
+import { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
 import {
   HomeIcon,
   CubeIcon,
@@ -27,7 +29,7 @@ import {
 
 const navigation = [
   { nameKey: 'admin.nav.dashboard', href: '/admin', icon: HomeIcon },
-  { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon, newTab: true },
+  { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon, newTab: true, dynamicOwner: true },
   { nameKey: 'admin.nav.products', href: '/admin/products', icon: CubeIcon },
   { nameKey: 'admin.nav.trash', href: '/admin/trash', icon: TrashIcon },
   { nameKey: 'admin.nav.orders', href: '/admin/orders', icon: ShoppingCartIcon },
@@ -37,7 +39,8 @@ const navigation = [
   { nameKey: 'admin.nav.import', href: '/admin/import', icon: ArrowDownTrayIcon },
   { nameKey: 'admin.nav.reviews', href: '/admin/reviews', icon: DocumentTextIcon },
   { nameKey: 'admin.nav.analytics', href: '/admin/analytics', icon: ChartBarIcon },
-  { nameKey: 'admin.nav.settings', href: '/admin/settings', icon: Cog6ToothIcon },
+  { nameKey: 'admin.nav.settings', href: '/admin/settings', icon: Cog6ToothIcon, superAdminOnly: true },
+  { nameKey: 'admin.nav.pricelistPages', href: '/admin/pricelist-pages', icon: DocumentTextIcon, superAdminOnly: true },
 ] as const
 
 export function AdminMobileMenuButton({ onClick }: { onClick: () => void }) {
@@ -67,6 +70,8 @@ export default function AdminSidebar({
   const pathname = usePathname()
   const { theme } = useTheme()
   const { t: tr } = useI18n()
+  const { isSuperAdmin } = useAuth()
+  const pricelistTarget = useAdminPricelistTargetSlug()
   const isDark = theme === 'dark'
 
   const shellClass = isDark
@@ -103,11 +108,16 @@ export default function AdminSidebar({
 
       <nav className="space-y-2 flex-1">
         {navigation.map((item) => {
+          if ('superAdminOnly' in item && item.superAdminOnly && !isSuperAdmin) return null
+          const href =
+            'dynamicOwner' in item && item.dynamicOwner
+              ? `${item.href}?owner=${encodeURIComponent(pricelistTarget)}`
+              : item.href
           const isActive = isAppPath(pathname, item.href)
           return (
             <Link
               key={item.nameKey}
-              href={appPath(item.href)}
+              href={appPath(href)}
               onClick={onMobileClose}
               {...('newTab' in item && item.newTab
                 ? { target: '_blank', rel: 'noopener noreferrer' }

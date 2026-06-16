@@ -44,6 +44,7 @@ import DuplicateProductsModal, {
 } from '@/components/admin/DuplicateProductsModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import CatalogPagination from '@/components/shop/CatalogPagination'
+import PricelistTargetSelector, { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
 import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
 import { parseBrandCompound, parseCategoryCompound, resolveCategoryOptionFromSegment } from '@/lib/product-taxonomy'
@@ -154,8 +155,9 @@ const adminProductsColgroup = (
     <col className="w-[9%]" />
     <col className="w-[8%]" />
     <col className="w-[6%]" />
+    <col className="w-[6%]" />
     <col className="w-[10%]" />
-    <col className="w-[8%]" />
+    <col className="w-[7%]" />
     <col className="w-[7%]" />
   </colgroup>
 )
@@ -189,6 +191,7 @@ export default function AdminProductsPage() {
   const [duplicateScanOpen, setDuplicateScanOpen] = useState(false)
   const [duplicateScanMode, setDuplicateScanMode] = useState<DuplicateScanMode>('image')
   const [duplicateScanLoading, setDuplicateScanLoading] = useState(false)
+  const pricelistTarget = useAdminPricelistTargetSlug()
   const [duplicateScanError, setDuplicateScanError] = useState('')
   const [duplicateScanResult, setDuplicateScanResult] = useState<
     ImageDuplicateScanResult | TitleDuplicateScanResult | null
@@ -403,6 +406,48 @@ export default function AdminProductsPage() {
       return
     }
     void runBulkDelete([id], true)
+  }
+
+  const runBulkPricelist = async (action: 'add' | 'remove', ids: string[]) => {
+    if (!user || !ids.length) return
+    setBulkWorking(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/pricelist-bulk'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          ownerId: pricelistTarget,
+          productIds: ids,
+        }),
+      })
+      const data = await parseJsonResponse<{
+        error?: string
+        inserted?: number
+        removed?: number
+        conflicts?: number
+      }>(res)
+      if (!res.ok) throw new Error(data.error || 'Pricelist update failed')
+      if (action === 'add') {
+        const conflicts = Number(data.conflicts ?? 0)
+        setSuccessMessage(
+          `Added ${data.inserted ?? 0} product(s) to pricelist${conflicts ? ` (${conflicts} already on another list)` : ''}.`
+        )
+      } else {
+        setSuccessMessage(`Removed ${data.removed ?? 0} product(s) from pricelist.`)
+      }
+      setSelected(new Set())
+      loadProducts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Pricelist update failed')
+    } finally {
+      setBulkWorking(false)
+    }
   }
 
   const runBulkDelete = async (ids: string[], skipConfirm = false) => {
@@ -759,8 +804,9 @@ export default function AdminProductsPage() {
       )}
 
       <div className="card mb-4 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-          <label className="flex-1 space-y-1">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+          {isAdmin ? <PricelistTargetSelector compact className="sm:min-w-[12rem]" /> : null}
+          <label className="flex-1 space-y-1 min-w-[12rem]">
             <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.search')}</span>
             <input
               type="search"
@@ -853,6 +899,22 @@ export default function AdminProductsPage() {
             <span className={`text-sm font-medium ${t.heading}`}>
               {formatMessage(tr('admin.products.selected'), { count: selected.size })}
             </span>
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              disabled={bulkWorking}
+              onClick={() => runBulkPricelist('add', selectedIds)}
+            >
+              Add to pricelist
+            </button>
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              disabled={bulkWorking}
+              onClick={() => runBulkPricelist('remove', selectedIds)}
+            >
+              Remove from pricelist
+            </button>
             <button
               type="button"
               className="btn-primary text-sm"
@@ -973,6 +1035,7 @@ export default function AdminProductsPage() {
             <AdminTh className="px-2">{tr('adminProducts.col.sku')}</AdminTh>
             <AdminTh className="px-2">{tr('adminProducts.col.category')}</AdminTh>
             <AdminTh className="px-2">{tr('adminProducts.col.brand')}</AdminTh>
+            <AdminTh className="px-2">Pricelist</AdminTh>
             <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
               {tr('productForm.purchasePrice')}
             </AdminTh>
@@ -1056,6 +1119,10 @@ export default function AdminProductsPage() {
                   ) : (
                     '—'
                   )}
+                </AdminTd>
+                <AdminTd className="px-2 align-top text-xs">
+                  {(p as Product & { supplier_pricelist_label?: string }).supplier_pricelist_label ||
+                    '—'}
                 </AdminTd>
                 <AdminTd className={`${adminProductsMoneyCol} align-top`}>
                   {formatAdminPurchasePrice(p.purchase_price)}

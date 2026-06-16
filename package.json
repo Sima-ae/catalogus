@@ -32,6 +32,7 @@
     "db:investigate-pricelist-600": "tsx scripts/investigate-pricelist-price-600.ts",
     "db:undo-bulk-pricelist-600": "tsx scripts/undo-bulk-pricelist-600.ts",
     "db:sync-shipping-costs": "tsx scripts/sync-shipping-costs-from-pricelist.ts",
+    "db:migrate-supplier-pricelist-pages": "tsx scripts/migrate-supplier-pricelist-pages.ts",
     "db:restore-pricelist-prices-after-shipping": "tsx scripts/restore-pricelist-prices-after-shipping-bulk.ts",
     "db:set-ar-factory-shipping": "tsx scripts/set-ar-factory-shipping-cost.ts",
     "db:sync-category-translations": "tsx scripts/sync-category-translations.ts",

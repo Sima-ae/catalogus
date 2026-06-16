@@ -3,20 +3,26 @@ import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { createSellerAccess, listSellerAccess } from '@/lib/seller-pricelist-access-db'
 import {
-  isPlatformPricelistOwner,
-  PLATFORM_PRICELIST_OWNER_ID,
-  PRICELIST_OWNER_QUERY_PLATFORM,
-} from '@/lib/pricelist-constants'
+  ensurePricelistPagesCache,
+  getPricelistPageById,
+  isCuratedSupplierPricelist,
+  ownerIdToSlug,
+  resolvePricelistOwnerId,
+} from '@/lib/pricelist-pages-db'
 import { queryDb } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-function resolveListOwnerId(raw: string): string {
-  if (raw === PRICELIST_OWNER_QUERY_PLATFORM || raw === 'platform') {
-    return PLATFORM_PRICELIST_OWNER_ID
-  }
-  return raw
+async function resolveListOwnerId(raw: string): Promise<string | null> {
+  await ensurePricelistPagesCache()
+  return resolvePricelistOwnerId(raw)
+}
+
+async function labelForListOwner(listOwnerId: string): Promise<string> {
+  const page = await getPricelistPageById(listOwnerId)
+  if (page) return page.label
+  return listOwnerId
 }
 
 export async function GET(request: NextRequest) {
@@ -26,23 +32,22 @@ export async function GET(request: NextRequest) {
   }
 
   const sellerId = request.nextUrl.searchParams.get('sellerId')?.trim()
-  const listOwnerId = request.nextUrl.searchParams.get('listOwnerId')?.trim()
+  const listOwnerRaw = request.nextUrl.searchParams.get('listOwnerId')?.trim()
 
   try {
+    const listOwnerId = listOwnerRaw ? await resolveListOwnerId(listOwnerRaw) : undefined
     const rows = await listSellerAccess({
       sellerId: sellerId || undefined,
-      listOwnerId: listOwnerId ? resolveListOwnerId(listOwnerId) : undefined,
+      listOwnerId: listOwnerId || undefined,
     })
 
-    const enriched = rows.map((r) => ({
-      ...r,
-      list_owner_label: isPlatformPricelistOwner(r.list_owner_id)
-        ? 'Platform pricelist'
-        : r.list_owner_name || r.list_owner_email || r.list_owner_id,
-      list_owner_query: isPlatformPricelistOwner(r.list_owner_id)
-        ? PRICELIST_OWNER_QUERY_PLATFORM
-        : r.list_owner_id,
-    }))
+    const enriched = await Promise.all(
+      rows.map(async (r) => ({
+        ...r,
+        list_owner_label: await labelForListOwner(r.list_owner_id),
+        list_owner_query: ownerIdToSlug(r.list_owner_id),
+      }))
+    )
 
     return NextResponse.json(enriched)
   } catch (error) {
@@ -73,7 +78,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'sellerId and listOwnerId are required' }, { status: 400 })
   }
 
-  const listOwnerId = resolveListOwnerId(listOwnerRaw)
+  const listOwnerId = await resolveListOwnerId(listOwnerRaw)
+  if (!listOwnerId) {
+    return NextResponse.json({ error: 'Invalid listOwnerId' }, { status: 400 })
+  }
 
   try {
     const seller = await queryDb<{ role: string }[]>(
@@ -84,13 +92,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'sellerId must be a seller user' }, { status: 400 })
     }
 
-    if (!isPlatformPricelistOwner(listOwnerId)) {
+    if (!isCuratedSupplierPricelist(listOwnerId)) {
       const buyer = await queryDb<{ role: string }[]>(
         'SELECT role FROM users WHERE id = ? LIMIT 1',
         [listOwnerId]
       )
       if (!buyer[0] || buyer[0].role !== 'buyer') {
-        return NextResponse.json({ error: 'listOwnerId must be a buyer or platform' }, { status: 400 })
+        return NextResponse.json(
+          { error: 'listOwnerId must be a supplier pricelist page or buyer' },
+          { status: 400 }
+        )
       }
     }
 
@@ -98,9 +109,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         ...row,
-        list_owner_query: isPlatformPricelistOwner(row.list_owner_id)
-          ? PRICELIST_OWNER_QUERY_PLATFORM
-          : row.list_owner_id,
+        list_owner_query: ownerIdToSlug(row.list_owner_id),
+        list_owner_label: await labelForListOwner(row.list_owner_id),
       },
       { status: 201 }
     )

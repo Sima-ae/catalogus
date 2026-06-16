@@ -42,6 +42,9 @@ export interface Product {
   status: 'active' | 'inactive' | 'draft' | 'trash'
   featured?: boolean
   sold_out?: boolean
+  supplier_pricelist_id?: string | null
+  supplier_pricelist_label?: string | null
+  supplier_pricelist_slug?: string | null
   pre_order?: boolean
   created_at: string
   updated_at: string

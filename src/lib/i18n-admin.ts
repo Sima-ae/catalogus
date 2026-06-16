@@ -3,6 +3,7 @@ import type { Locale } from '@/lib/i18n-locale-registry'
 export type AdminMessageKey =
   | 'admin.nav.dashboard'
   | 'admin.nav.pricelist'
+  | 'admin.nav.pricelistPages'
   | 'admin.nav.products'
   | 'admin.nav.trash'
   | 'admin.nav.orders'
@@ -116,6 +117,7 @@ type AdminMessages = Record<AdminMessageKey, string>
 const EN: AdminMessages = {
   'admin.nav.dashboard': "Dashboard",
   'admin.nav.pricelist': "Pricelist",
+  'admin.nav.pricelistPages': "Pricelist pages",
   'admin.nav.products': "Products",
   'admin.nav.trash': "Trash",
   'admin.nav.orders': "Orders",

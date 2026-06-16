@@ -287,9 +287,12 @@ async function productSelectSql() {
       p.*,
       c.id AS resolved_category_id,
       c.name AS resolved_category_name,
-      c.slug AS resolved_category_slug${brandSelect}
+      c.slug AS resolved_category_slug,
+      pp.label AS supplier_pricelist_label,
+      pp.slug AS supplier_pricelist_slug${brandSelect}
     FROM products p
     ${categoryJoin}
+    LEFT JOIN pricelist_pages pp ON pp.id = p.supplier_pricelist_id
     ${brandJoin}
   `
   return g[SELECT_SQL_CACHE_KEY]

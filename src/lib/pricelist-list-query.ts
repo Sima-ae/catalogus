@@ -4,10 +4,8 @@ import {
   combineCategoryIdAndLegacyTextMatch,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
 } from '@/lib/catalog-products'
-import {
-  isPlatformPricelistOwner,
-  SELLER_PRICE_LATEST_ROW_ORDER_SQL,
-} from '@/lib/pricelist-constants'
+import { SELLER_PRICE_LATEST_ROW_ORDER_SQL } from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 import type { ShopCategoryFilterResult } from '@/lib/shop-category-tree'
 
 export type PricelistListFilterInput = {
@@ -31,66 +29,69 @@ export type PricelistSqlFragment = {
   params: unknown[]
 }
 
-const LATEST_PLATFORM_PRICE_JOIN = `
+function buildLatestListPriceJoin(listOwnerId: string): string {
+  return `
 LEFT JOIN (
   SELECT ranked.product_id, ranked.unit_price, ranked.stock_status, ranked.out_of_stock
   FROM (
     SELECT product_id, unit_price, stock_status, COALESCE(out_of_stock, 0) AS out_of_stock,
            ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
     FROM seller_product_prices
+    WHERE list_owner_id = '${listOwnerId.replace(/'/g, "''")}'
   ) ranked
   WHERE ranked.rn = 1
-) latest_platform_price ON latest_platform_price.product_id = p.id`
+) latest_list_price ON latest_list_price.product_id = p.id`
+}
 
-function platformMissingPriceSql(): string {
+function curatedMissingPriceSql(): string {
   return `(
-    latest_platform_price.product_id IS NULL
+    latest_list_price.product_id IS NULL
     OR (
-      COALESCE(latest_platform_price.stock_status, '') = ''
-      AND latest_platform_price.out_of_stock = 0
-      AND (latest_platform_price.unit_price IS NULL OR latest_platform_price.unit_price <= 0)
+      COALESCE(latest_list_price.stock_status, '') = ''
+      AND latest_list_price.out_of_stock = 0
+      AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
     )
   )`
 }
 
-function platformFilledPriceSql(): string {
+function curatedFilledPriceSql(): string {
   return `(
-    latest_platform_price.unit_price IS NOT NULL
-    AND latest_platform_price.unit_price > 0
-    AND COALESCE(latest_platform_price.stock_status, '') = ''
-    AND latest_platform_price.out_of_stock = 0
+    latest_list_price.unit_price IS NOT NULL
+    AND latest_list_price.unit_price > 0
+    AND COALESCE(latest_list_price.stock_status, '') = ''
+    AND latest_list_price.out_of_stock = 0
   )`
 }
 
-function platformOutOfStockSql(): string {
+function curatedOutOfStockSql(): string {
   return `(
-    latest_platform_price.stock_status IN ('out', 'temporary')
+    latest_list_price.stock_status IN ('out', 'temporary')
     OR (
-      COALESCE(latest_platform_price.stock_status, '') = ''
-      AND latest_platform_price.out_of_stock <> 0
-      AND (latest_platform_price.unit_price IS NULL OR latest_platform_price.unit_price <= 0)
+      COALESCE(latest_list_price.stock_status, '') = ''
+      AND latest_list_price.out_of_stock <> 0
+      AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
     )
   )`
 }
 
-function ensurePlatformPriceJoin(joins: { value: string }): void {
-  if (!joins.value.includes('latest_platform_price')) {
-    joins.value = `${joins.value}${LATEST_PLATFORM_PRICE_JOIN}`
+function ensureCuratedPriceJoin(joins: { value: string }, listOwnerId: string): void {
+  if (!joins.value.includes('latest_list_price')) {
+    joins.value = `${joins.value}${buildLatestListPriceJoin(listOwnerId)}`
   }
 }
 
-function sellerMissingPriceSql(sellerId: string): { sql: string; params: unknown[] } {
+function sellerMissingPriceSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
   return {
     sql: `NOT EXISTS (
       SELECT 1 FROM seller_product_prices spp
-      WHERE spp.seller_id = ? AND spp.product_id = p.id
+      WHERE spp.list_owner_id = ? AND spp.seller_id = ? AND spp.product_id = p.id
         AND (
           (spp.stock_status IS NOT NULL AND spp.stock_status <> '')
           OR COALESCE(spp.out_of_stock, 0) <> 0
           OR (spp.unit_price IS NOT NULL AND spp.unit_price > 0)
         )
     )`,
-    params: [sellerId],
+    params: [listOwnerId, sellerId],
   }
 }
 
@@ -159,24 +160,24 @@ function appendBrandFilter(where: string[], params: unknown[], brand?: string): 
   params.push(...brandFilter.params, lower)
 }
 
-function sellerFilledPriceSql(sellerId: string): { sql: string; params: unknown[] } {
+function sellerFilledPriceSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
   return {
     sql: `EXISTS (
       SELECT 1 FROM seller_product_prices spp
-      WHERE spp.seller_id = ? AND spp.product_id = p.id
+      WHERE spp.list_owner_id = ? AND spp.seller_id = ? AND spp.product_id = p.id
         AND spp.unit_price IS NOT NULL AND spp.unit_price > 0
         AND COALESCE(spp.stock_status, '') = ''
         AND COALESCE(spp.out_of_stock, 0) = 0
     )`,
-    params: [sellerId],
+    params: [listOwnerId, sellerId],
   }
 }
 
-function sellerOutOfStockSql(sellerId: string): { sql: string; params: unknown[] } {
+function sellerOutOfStockSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
   return {
     sql: `EXISTS (
       SELECT 1 FROM seller_product_prices spp
-      WHERE spp.seller_id = ? AND spp.product_id = p.id
+      WHERE spp.list_owner_id = ? AND spp.seller_id = ? AND spp.product_id = p.id
         AND (
           spp.stock_status IN ('out', 'temporary')
           OR (
@@ -186,7 +187,7 @@ function sellerOutOfStockSql(sellerId: string): { sql: string; params: unknown[]
           )
         )
     )`,
-    params: [sellerId],
+    params: [listOwnerId, sellerId],
   }
 }
 
@@ -200,17 +201,17 @@ function appendMissingPriceFilter(
 ): void {
   if (!missingPricesOnly) return
 
-  const isPlatform = isPlatformPricelistOwner(listOwnerId)
+  const isCurated = isCuratedSupplierPricelist(listOwnerId)
   if (viewer.role === 'seller') {
-    const sm = sellerMissingPriceSql(viewer.userId)
+    const sm = sellerMissingPriceSql(listOwnerId, viewer.userId)
     where.push(sm.sql)
     params.push(...sm.params)
     return
   }
 
-  if ((viewer.role === 'admin' || viewer.role === 'guest') && isPlatform) {
-    ensurePlatformPriceJoin(joins)
-    where.push(platformMissingPriceSql())
+  if ((viewer.role === 'admin' || viewer.role === 'guest') && isCurated) {
+    ensureCuratedPriceJoin(joins, listOwnerId)
+    where.push(curatedMissingPriceSql())
   }
 }
 
@@ -224,17 +225,17 @@ function appendFilledPriceFilter(
 ): void {
   if (!filledPricesOnly) return
 
-  const isPlatform = isPlatformPricelistOwner(listOwnerId)
+  const isCurated = isCuratedSupplierPricelist(listOwnerId)
   if (viewer.role === 'seller') {
-    const sf = sellerFilledPriceSql(viewer.userId)
+    const sf = sellerFilledPriceSql(listOwnerId, viewer.userId)
     where.push(sf.sql)
     params.push(...sf.params)
     return
   }
 
-  if ((viewer.role === 'admin' || viewer.role === 'guest') && isPlatform) {
-    ensurePlatformPriceJoin(joins)
-    where.push(platformFilledPriceSql())
+  if ((viewer.role === 'admin' || viewer.role === 'guest') && isCurated) {
+    ensureCuratedPriceJoin(joins, listOwnerId)
+    where.push(curatedFilledPriceSql())
   }
 }
 
@@ -248,17 +249,17 @@ function appendOutOfStockFilter(
 ): void {
   if (!outOfStockOnly) return
 
-  const isPlatform = isPlatformPricelistOwner(listOwnerId)
+  const isCurated = isCuratedSupplierPricelist(listOwnerId)
   if (viewer.role === 'seller') {
-    const so = sellerOutOfStockSql(viewer.userId)
+    const so = sellerOutOfStockSql(listOwnerId, viewer.userId)
     where.push(so.sql)
     params.push(...so.params)
     return
   }
 
-  if ((viewer.role === 'admin' || viewer.role === 'guest') && isPlatform) {
-    ensurePlatformPriceJoin(joins)
-    where.push(platformOutOfStockSql())
+  if ((viewer.role === 'admin' || viewer.role === 'guest') && isCurated) {
+    ensureCuratedPriceJoin(joins, listOwnerId)
+    where.push(curatedOutOfStockSql())
   }
 }
 
@@ -293,7 +294,7 @@ export function buildPricelistFilledPriceCountSql(
     'missingPricesOnly' | 'filledPricesOnly' | 'outOfStockOnly'
   >
 ): PricelistSqlFragment | null {
-  if (!isPlatformPricelistOwner(listOwnerId)) return null
+  if (!isCuratedSupplierPricelist(listOwnerId)) return null
   if (viewer.role !== 'admin' && viewer.role !== 'guest') return null
 
   const where: string[] = ['pi.owner_user_id = ?']
@@ -302,10 +303,10 @@ export function buildPricelistFilledPriceCountSql(
   appendCategoryFilter(where, params, filters.categoryFilter)
   appendBrandFilter(where, params, filters.brand)
   appendSearchFilter(where, params, filters.search)
-  where.push(platformFilledPriceSql())
+  where.push(curatedFilledPriceSql())
 
   return {
-    joins: LATEST_PLATFORM_PRICE_JOIN,
+    joins: buildLatestListPriceJoin(listOwnerId),
     whereSql: `WHERE ${where.join(' AND ')}`,
     params,
   }

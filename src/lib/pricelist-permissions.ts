@@ -1,4 +1,4 @@
-import { isPlatformPricelistOwner } from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 
 export type PricelistCuratorActor = {
   userId: string
@@ -10,13 +10,13 @@ function canActAsPricelistAdmin(actor: PricelistCuratorActor): boolean {
   return actor.role === 'admin' || actor.isSuperAdmin
 }
 
-/** Add/remove products via star (admin/super admin on platform, buyer on own list — not sellers). */
+/** Add/remove products via star (admin/super admin on curated lists, buyer on own list — not sellers). */
 export function canCuratePricelistWithStar(
   actor: PricelistCuratorActor,
   listOwnerId: string
 ): boolean {
   if (actor.role === 'seller') return false
-  if (isPlatformPricelistOwner(listOwnerId)) {
+  if (isCuratedSupplierPricelist(listOwnerId)) {
     return canActAsPricelistAdmin(actor)
   }
   return listOwnerId === actor.userId

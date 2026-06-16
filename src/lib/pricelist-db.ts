@@ -1,10 +1,16 @@
 import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
 import {
-  isPlatformPricelistOwner,
   PLATFORM_PRICELIST_OWNER_ID,
   SELLER_PRICE_LATEST_ROW_ORDER_SQL,
 } from '@/lib/pricelist-constants'
+import {
+  clearScopedPricesForProduct,
+  findConflictingCuratedPricelist,
+  isCuratedSupplierPricelist,
+  listPricelistPages,
+  setProductSupplierPricelistId,
+} from '@/lib/pricelist-pages-db'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
 import { listPendingEditRequestsForProducts } from '@/lib/seller-price-edit-db'
 import { parseProductJsonField, resolveProductBrandDisplay } from '@/lib/product-serialize'
@@ -86,12 +92,24 @@ export async function addPricelistItem(input: {
   )
   if (!product[0]) throw new Error('PRODUCT_NOT_FOUND')
 
+  if (isCuratedSupplierPricelist(input.ownerUserId)) {
+    const conflict = await findConflictingCuratedPricelist(
+      input.productId,
+      input.ownerUserId
+    )
+    if (conflict) throw new Error('PRICELIST_CONFLICT')
+  }
+
   const id = randomUUID()
   await queryDb(
     `INSERT INTO pricelist_items (id, owner_user_id, product_id, added_by_user_id)
      VALUES (?, ?, ?, ?)`,
     [id, input.ownerUserId, input.productId, input.addedByUserId]
   )
+
+  if (isCuratedSupplierPricelist(input.ownerUserId)) {
+    await setProductSupplierPricelistId(input.productId, input.ownerUserId)
+  }
 }
 
 const PRICELIST_BULK_INSERT_BATCH = 80
@@ -101,12 +119,15 @@ export async function bulkAddPricelistItems(input: {
   ownerUserId: string
   productIds: string[]
   addedByUserId: string
-}): Promise<{ inserted: number; skipped: number; total: number }> {
+}): Promise<{ inserted: number; skipped: number; total: number; conflicts: number }> {
   const unique = Array.from(new Set(input.productIds.map((id) => id.trim()).filter(Boolean)))
-  if (!unique.length) return { inserted: 0, skipped: 0, total: 0 }
+  if (!unique.length) return { inserted: 0, skipped: 0, total: 0, conflicts: 0 }
 
   let inserted = 0
   let activeEligible = 0
+  let conflicts = 0
+  const isCurated = isCuratedSupplierPricelist(input.ownerUserId)
+
   for (let i = 0; i < unique.length; i += PRICELIST_BULK_INSERT_BATCH) {
     const batch = unique.slice(i, i + PRICELIST_BULK_INSERT_BATCH)
     const placeholders = batch.map(() => '?').join(', ')
@@ -115,11 +136,24 @@ export async function bulkAddPricelistItems(input: {
       batch
     )
     if (!activeRows.length) continue
-    activeEligible += activeRows.length
+
+    const eligibleRows: { id: string }[] = []
+    for (const row of activeRows) {
+      if (isCurated) {
+        const conflict = await findConflictingCuratedPricelist(row.id, input.ownerUserId)
+        if (conflict) {
+          conflicts += 1
+          continue
+        }
+      }
+      eligibleRows.push(row)
+    }
+    if (!eligibleRows.length) continue
+    activeEligible += eligibleRows.length
 
     const tuples: unknown[] = []
     const valueSql: string[] = []
-    for (const row of activeRows) {
+    for (const row of eligibleRows) {
       valueSql.push('(?, ?, ?, ?)')
       tuples.push(randomUUID(), input.ownerUserId, row.id, input.addedByUserId)
     }
@@ -129,21 +163,30 @@ export async function bulkAddPricelistItems(input: {
        VALUES ${valueSql.join(', ')}`,
       tuples
     )
-    inserted += result?.affectedRows ?? 0
+    const batchInserted = result?.affectedRows ?? 0
+    inserted += batchInserted
+
+    if (isCurated && batchInserted > 0) {
+      for (const row of eligibleRows) {
+        await setProductSupplierPricelistId(row.id, input.ownerUserId)
+      }
+    }
   }
 
   return {
     inserted,
     skipped: Math.max(0, activeEligible - inserted),
     total: unique.length,
+    conflicts,
   }
 }
 
-/** Copy platform pricelist uitverkocht state onto products.sold_out (admin + shop). */
+/** Copy curated pricelist uitverkocht state onto products.sold_out (admin + shop). */
 export async function persistProductSoldOutFromPricelistQuote(
+  listOwnerId: string,
   productId: string
 ): Promise<boolean> {
-  const latest = await loadLatestProductPricesMap([productId])
+  const latest = await loadLatestProductPricesMap(listOwnerId, [productId])
   const row = latest.get(productId)
   const status = row?.stock_status ?? null
   if (status !== 'out' && status !== 'temporary') return false
@@ -152,16 +195,16 @@ export async function persistProductSoldOutFromPricelistQuote(
 }
 
 /**
- * Before a row leaves the platform pricelist: keep admin purchase_price (never cleared here)
+ * Before a row leaves a curated pricelist: keep admin purchase_price (never cleared here)
  * and persist uitverkocht / tijdelijk uitverkocht as products.sold_out.
  */
 async function preserveProductFieldsBeforePricelistRemoval(
   ownerUserId: string,
   productId: string
 ): Promise<void> {
-  if (!isPlatformPricelistOwner(ownerUserId)) return
+  if (!isCuratedSupplierPricelist(ownerUserId)) return
 
-  const purchasePrice = await resolveLatestNumericPricelistUnitPrice(productId)
+  const purchasePrice = await resolveLatestNumericPricelistUnitPrice(ownerUserId, productId)
   if (purchasePrice != null) {
     await queryDb(
       `UPDATE products
@@ -174,7 +217,7 @@ async function preserveProductFieldsBeforePricelistRemoval(
     )
   }
 
-  await persistProductSoldOutFromPricelistQuote(productId)
+  await persistProductSoldOutFromPricelistQuote(ownerUserId, productId)
 }
 
 export async function removePricelistItem(ownerUserId: string, productId: string): Promise<void> {
@@ -183,6 +226,10 @@ export async function removePricelistItem(ownerUserId: string, productId: string
     `DELETE FROM pricelist_items WHERE owner_user_id = ? AND product_id = ?`,
     [ownerUserId, productId]
   )
+  if (isCuratedSupplierPricelist(ownerUserId)) {
+    await setProductSupplierPricelistId(productId, null)
+    await clearScopedPricesForProduct(ownerUserId, productId)
+  }
 }
 
 export async function bulkRemovePricelistItems(
@@ -239,6 +286,7 @@ function mapSellerPriceRow(row: {
 }
 
 export async function getSellerProductPrice(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<SellerPriceRow | null> {
@@ -254,8 +302,8 @@ export async function getSellerProductPrice(
     `SELECT unit_price, currency, COALESCE(locked, 0) AS locked, COALESCE(out_of_stock, 0) AS out_of_stock,
             stock_status, shipping_cost
      FROM seller_product_prices
-     WHERE seller_id = ? AND product_id = ? LIMIT 1`,
-    [sellerId, productId]
+     WHERE list_owner_id = ? AND seller_id = ? AND product_id = ? LIMIT 1`,
+    [listOwnerId, sellerId, productId]
   )
   const row = rows[0]
   if (!row) return null
@@ -263,6 +311,7 @@ export async function getSellerProductPrice(
 }
 
 async function loadSellerProductPricesMap(
+  listOwnerId: string,
   sellerId: string,
   productIds: string[]
 ): Promise<Map<string, SellerPriceRow>> {
@@ -283,8 +332,8 @@ async function loadSellerProductPricesMap(
     `SELECT product_id, unit_price, currency, COALESCE(locked, 0) AS locked,
             COALESCE(out_of_stock, 0) AS out_of_stock, stock_status, shipping_cost
      FROM seller_product_prices
-     WHERE seller_id = ? AND product_id IN (${placeholders})`,
-    [sellerId, ...productIds]
+     WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${placeholders})`,
+    [listOwnerId, sellerId, ...productIds]
   )
 
   for (const row of rows) {
@@ -325,7 +374,9 @@ async function loadBuyerDisplayPricesMap(
               ROW_NUMBER() OVER (PARTITION BY spp.product_id ORDER BY spp.updated_at DESC) AS rn
        FROM seller_pricelist_access spa
        INNER JOIN seller_product_prices spp
-         ON spp.seller_id = spa.seller_id AND spp.product_id IN (${placeholders})
+         ON spp.seller_id = spa.seller_id
+        AND spp.list_owner_id = spa.list_owner_id
+        AND spp.product_id IN (${placeholders})
        WHERE spa.list_owner_id = ? AND spa.status = 'approved'
      ) ranked
      WHERE ranked.rn = 1`,
@@ -343,7 +394,10 @@ async function loadBuyerDisplayPricesMap(
   return map
 }
 
-async function loadLatestProductPricesMap(productIds: string[]): Promise<
+async function loadLatestProductPricesMap(
+  listOwnerId: string,
+  productIds: string[]
+): Promise<
   Map<
     string,
     {
@@ -386,10 +440,10 @@ async function loadLatestProductPricesMap(productIds: string[]): Promise<
               COALESCE(out_of_stock, 0) AS out_of_stock, stock_status, updated_at,
               ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
        FROM seller_product_prices
-       WHERE product_id IN (${placeholders})
+       WHERE list_owner_id = ? AND product_id IN (${placeholders})
      ) ranked
      WHERE ranked.rn = 1`,
-    productIds
+    [listOwnerId, ...productIds]
   )
 
   for (const row of rows) {
@@ -468,6 +522,7 @@ async function loadPendingEditRequestsMap(
 }
 
 export async function upsertSellerProductPrice(input: {
+  listOwnerId: string
   sellerId: string
   productId: string
   unitPrice: number
@@ -475,8 +530,8 @@ export async function upsertSellerProductPrice(input: {
   updatedBy: string
 }): Promise<void> {
   await queryDb(
-    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
-     VALUES (?, ?, ?, ?, ?, 0, NULL)
+    `INSERT INTO seller_product_prices (list_owner_id, seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, ?, ?, ?, ?, 0, NULL)
      ON DUPLICATE KEY UPDATE
        unit_price = VALUES(unit_price),
        currency = VALUES(currency),
@@ -484,11 +539,19 @@ export async function upsertSellerProductPrice(input: {
        out_of_stock = 0,
        stock_status = NULL,
        updated_at = CURRENT_TIMESTAMP`,
-    [input.sellerId, input.productId, input.unitPrice, input.currency, input.updatedBy]
+    [
+      input.listOwnerId,
+      input.sellerId,
+      input.productId,
+      input.unitPrice,
+      input.currency,
+      input.updatedBy,
+    ]
   )
 }
 
 export async function setSellerProductStockStatus(input: {
+  listOwnerId: string
   sellerId: string
   productId: string
   stockStatus: PricelistStockStatus
@@ -501,8 +564,8 @@ export async function setSellerProductStockStatus(input: {
     throw new Error('Invalid stock status')
   }
   await queryDb(
-    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
-     VALUES (?, ?, 0, ?, ?, 1, ?)
+    `INSERT INTO seller_product_prices (list_owner_id, seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, ?, 0, ?, ?, 1, ?)
      ON DUPLICATE KEY UPDATE
        unit_price = 0,
        out_of_stock = 1,
@@ -511,6 +574,7 @@ export async function setSellerProductStockStatus(input: {
        updated_by = VALUES(updated_by),
        updated_at = CURRENT_TIMESTAMP`,
     [
+      input.listOwnerId,
       input.sellerId,
       input.productId,
       input.currency,
@@ -524,28 +588,43 @@ export async function setSellerProductStockStatus(input: {
 }
 
 export async function upsertSellerProductShippingCost(input: {
+  listOwnerId: string
   sellerId: string
   productId: string
   shippingCost: number
   currency: string
   updatedBy: string
 }): Promise<void> {
-  const existing = await getSellerProductPrice(input.sellerId, input.productId)
+  const existing = await getSellerProductPrice(
+    input.listOwnerId,
+    input.sellerId,
+    input.productId
+  )
   if (existing) {
     await queryDb(
       `UPDATE seller_product_prices
        SET shipping_cost = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE seller_id = ? AND product_id = ?`,
-      [input.shippingCost, input.updatedBy, input.sellerId, input.productId]
+       WHERE list_owner_id = ? AND seller_id = ? AND product_id = ?`,
+      [
+        input.shippingCost,
+        input.updatedBy,
+        input.listOwnerId,
+        input.sellerId,
+        input.productId,
+      ]
     )
     return
   }
 
-  const fallbackUnitPrice = await resolveLatestNumericPricelistUnitPrice(input.productId)
+  const fallbackUnitPrice = await resolveLatestNumericPricelistUnitPrice(
+    input.listOwnerId,
+    input.productId
+  )
   await queryDb(
-    `INSERT INTO seller_product_prices (seller_id, product_id, unit_price, currency, shipping_cost, updated_by, out_of_stock, stock_status)
-     VALUES (?, ?, ?, ?, ?, ?, 0, NULL)`,
+    `INSERT INTO seller_product_prices (list_owner_id, seller_id, product_id, unit_price, currency, shipping_cost, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)`,
     [
+      input.listOwnerId,
       input.sellerId,
       input.productId,
       fallbackUnitPrice ?? 0,
@@ -557,13 +636,14 @@ export async function upsertSellerProductShippingCost(input: {
 }
 
 export async function clearSellerProductShippingCost(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<boolean> {
   const result = await queryDb<{ affectedRows?: number }>(
     `UPDATE seller_product_prices SET shipping_cost = NULL
-     WHERE seller_id = ? AND product_id = ? AND shipping_cost IS NOT NULL`,
-    [sellerId, productId]
+     WHERE list_owner_id = ? AND seller_id = ? AND product_id = ? AND shipping_cost IS NOT NULL`,
+    [listOwnerId, sellerId, productId]
   )
   const affected =
     typeof result === 'object' && result != null && 'affectedRows' in result
@@ -573,12 +653,13 @@ export async function clearSellerProductShippingCost(
 }
 
 export async function deleteSellerProductPrice(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<boolean> {
   const result = await queryDb<{ affectedRows?: number }>(
-    `DELETE FROM seller_product_prices WHERE seller_id = ? AND product_id = ?`,
-    [sellerId, productId]
+    `DELETE FROM seller_product_prices WHERE list_owner_id = ? AND seller_id = ? AND product_id = ?`,
+    [listOwnerId, sellerId, productId]
   )
   return (result?.affectedRows ?? 0) > 0
 }
@@ -602,7 +683,7 @@ export async function loadPlatformPricelistSoldOutProductIds(
   const onListIds = onListRows.map((r) => r.product_id)
   if (!onListIds.length) return new Set()
 
-  const latest = await loadLatestProductPricesMap(onListIds)
+  const latest = await loadLatestProductPricesMap(PLATFORM_PRICELIST_OWNER_ID, onListIds)
   const soldOut = new Set<string>()
   for (const id of onListIds) {
     const row = latest.get(id)
@@ -631,15 +712,16 @@ export async function applyStorefrontSoldOutFromPlatformPricelist<
  * Used to sync admin purchase_price without clearing when a seller marks uitverkocht.
  */
 export async function resolveLatestNumericPricelistUnitPrice(
+  listOwnerId: string,
   productId: string
 ): Promise<number | null> {
   const rows = await queryDb<{ unit_price: string }[]>(
     `SELECT unit_price
      FROM seller_product_prices
-     WHERE product_id = ? AND unit_price > 0
+     WHERE list_owner_id = ? AND product_id = ? AND unit_price > 0
      ORDER BY updated_at DESC
      LIMIT 1`,
-    [productId]
+    [listOwnerId, productId]
   )
   if (!rows[0]) return null
   const price = Number(rows[0].unit_price)
@@ -647,18 +729,18 @@ export async function resolveLatestNumericPricelistUnitPrice(
 }
 
 /**
- * Keep products.purchase_price in sync with platform pricelist seller prices
+ * Keep products.purchase_price in sync with curated pricelist seller prices
  * (admin products table “Purchase price” / Inkoopprijs column).
- * Never clears purchase_price — out-of-stock / temporarily out-of-stock leaves it unchanged
- * until a seller saves a new numeric price.
  */
-export async function syncProductPurchasePriceFromPlatformPricelist(
-  productId: string
+export async function syncProductPurchasePriceFromPricelist(
+  productId: string,
+  listOwnerId: string
 ): Promise<void> {
-  const onList = await isProductOnPricelist(PLATFORM_PRICELIST_OWNER_ID, productId)
+  if (!isCuratedSupplierPricelist(listOwnerId)) return
+  const onList = await isProductOnPricelist(listOwnerId, productId)
   if (!onList) return
 
-  const purchasePrice = await resolveLatestNumericPricelistUnitPrice(productId)
+  const purchasePrice = await resolveLatestNumericPricelistUnitPrice(listOwnerId, productId)
   if (purchasePrice == null) return
 
   await queryDb(`UPDATE products SET purchase_price = ? WHERE id = ?`, [
@@ -667,17 +749,25 @@ export async function syncProductPurchasePriceFromPlatformPricelist(
   ])
 }
 
-/** Most recent seller shipping cost for a product (by updated_at), including €0 = free shipping. */
+/** @deprecated Use syncProductPurchasePriceFromPricelist */
+export async function syncProductPurchasePriceFromPlatformPricelist(
+  productId: string
+): Promise<void> {
+  return syncProductPurchasePriceFromPricelist(productId, PLATFORM_PRICELIST_OWNER_ID)
+}
+
+/** Most recent seller shipping cost for a product on a list (by updated_at). */
 export async function resolveLatestNumericPricelistShippingCost(
+  listOwnerId: string,
   productId: string
 ): Promise<number | null> {
   const rows = await queryDb<{ shipping_cost: string }[]>(
     `SELECT shipping_cost
      FROM seller_product_prices
-     WHERE product_id = ? AND shipping_cost IS NOT NULL
+     WHERE list_owner_id = ? AND product_id = ? AND shipping_cost IS NOT NULL
      ORDER BY updated_at DESC
      LIMIT 1`,
-    [productId]
+    [listOwnerId, productId]
   )
   if (rows[0]?.shipping_cost == null || rows[0]?.shipping_cost === '') return null
   const cost = Number(rows[0].shipping_cost)
@@ -685,17 +775,17 @@ export async function resolveLatestNumericPricelistShippingCost(
 }
 
 /**
- * Keep products.shipping_cost in sync with platform pricelist seller shipping
- * (admin products table “Shipping costs” / Verzendkosten column).
- * Never clears shipping_cost — only updates when a seller saves a value (including €0 = free shipping).
+ * Keep products.shipping_cost in sync with curated pricelist seller shipping.
  */
-export async function syncProductShippingCostFromPlatformPricelist(
-  productId: string
+export async function syncProductShippingCostFromPricelist(
+  productId: string,
+  listOwnerId: string
 ): Promise<void> {
-  const onList = await isProductOnPricelist(PLATFORM_PRICELIST_OWNER_ID, productId)
+  if (!isCuratedSupplierPricelist(listOwnerId)) return
+  const onList = await isProductOnPricelist(listOwnerId, productId)
   if (!onList) return
 
-  const shippingCost = await resolveLatestNumericPricelistShippingCost(productId)
+  const shippingCost = await resolveLatestNumericPricelistShippingCost(listOwnerId, productId)
   if (shippingCost == null) return
 
   await queryDb(`UPDATE products SET shipping_cost = ? WHERE id = ?`, [
@@ -704,15 +794,42 @@ export async function syncProductShippingCostFromPlatformPricelist(
   ])
 }
 
-/** Backfill shipping_cost for every product on the platform pricelist (single SQL batch). */
-export async function syncAllPlatformPricelistShippingCosts(): Promise<{
+/** @deprecated Use syncProductShippingCostFromPricelist */
+export async function syncProductShippingCostFromPlatformPricelist(
+  productId: string
+): Promise<void> {
+  return syncProductShippingCostFromPricelist(productId, PLATFORM_PRICELIST_OWNER_ID)
+}
+
+/** Backfill shipping_cost for every product on curated pricelists. */
+export async function syncAllCuratedPricelistShippingCosts(): Promise<{
+  onPricelist: number
+  withSavedShipping: number
+  updated: number
+}> {
+  const pages = await listPricelistPages({ activeOnly: true })
+  let onPricelist = 0
+  let withSavedShipping = 0
+  let updated = 0
+
+  for (const page of pages) {
+    const result = await syncAllPricelistShippingCostsForOwner(page.id)
+    onPricelist += result.onPricelist
+    withSavedShipping += result.withSavedShipping
+    updated += result.updated
+  }
+
+  return { onPricelist, withSavedShipping, updated }
+}
+
+async function syncAllPricelistShippingCostsForOwner(listOwnerId: string): Promise<{
   onPricelist: number
   withSavedShipping: number
   updated: number
 }> {
   const onListRows = await queryDb<{ product_id: string }[]>(
     `SELECT DISTINCT product_id FROM pricelist_items WHERE owner_user_id = ?`,
-    [PLATFORM_PRICELIST_OWNER_ID]
+    [listOwnerId]
   )
   const onPricelist = onListRows.length
 
@@ -721,8 +838,8 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
      FROM seller_product_prices spp
      INNER JOIN pricelist_items pi
        ON pi.product_id = spp.product_id AND pi.owner_user_id = ?
-     WHERE spp.shipping_cost IS NOT NULL`,
-    [PLATFORM_PRICELIST_OWNER_ID]
+     WHERE spp.list_owner_id = ? AND spp.shipping_cost IS NOT NULL`,
+    [listOwnerId, listOwnerId]
   )
   const withSavedShipping = Number(savedRows[0]?.cnt ?? 0)
 
@@ -734,14 +851,14 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
          SELECT product_id, shipping_cost,
            ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
          FROM seller_product_prices
-         WHERE shipping_cost IS NOT NULL
+         WHERE list_owner_id = ? AND shipping_cost IS NOT NULL
        ) ranked
        WHERE rn = 1
      ) sp ON sp.product_id = p.id
      INNER JOIN pricelist_items pi
        ON pi.product_id = p.id AND pi.owner_user_id = ?
      SET p.shipping_cost = sp.shipping_cost`,
-    [PLATFORM_PRICELIST_OWNER_ID]
+    [listOwnerId, listOwnerId]
   )
   const updated =
     typeof result === 'object' && result != null && 'affectedRows' in result
@@ -749,6 +866,15 @@ export async function syncAllPlatformPricelistShippingCosts(): Promise<{
       : 0
 
   return { onPricelist, withSavedShipping, updated }
+}
+
+/** @deprecated Use syncAllCuratedPricelistShippingCosts */
+export async function syncAllPlatformPricelistShippingCosts(): Promise<{
+  onPricelist: number
+  withSavedShipping: number
+  updated: number
+}> {
+  return syncAllPricelistShippingCostsForOwner(PLATFORM_PRICELIST_OWNER_ID)
 }
 
 /**
@@ -762,13 +888,16 @@ export async function removeShippingOnlyStubPriceRows(): Promise<{ removed: numb
        ON pi.product_id = spp.product_id AND pi.owner_user_id = ?
      WHERE spp.unit_price <= 0
        AND spp.shipping_cost IS NOT NULL
+       AND spp.list_owner_id = ?
        AND COALESCE(spp.stock_status, '') = ''
        AND COALESCE(spp.out_of_stock, 0) = 0
        AND EXISTS (
          SELECT 1 FROM seller_product_prices other
-         WHERE other.product_id = spp.product_id AND other.unit_price > 0
+         WHERE other.list_owner_id = spp.list_owner_id
+           AND other.product_id = spp.product_id
+           AND other.unit_price > 0
        )`,
-    [PLATFORM_PRICELIST_OWNER_ID]
+    [PLATFORM_PRICELIST_OWNER_ID, PLATFORM_PRICELIST_OWNER_ID]
   )
   const removed =
     typeof result === 'object' && result != null && 'affectedRows' in result
@@ -777,16 +906,33 @@ export async function removeShippingOnlyStubPriceRows(): Promise<{ removed: numb
   return { removed }
 }
 
-/** Backfill purchase_price for every product on the platform pricelist. */
-export async function syncAllPlatformPricelistPurchasePrices(): Promise<{ updated: number }> {
+/** Backfill purchase_price for every product on curated pricelists. */
+export async function syncAllCuratedPricelistPurchasePrices(): Promise<{ updated: number }> {
+  const pages = await listPricelistPages({ activeOnly: true })
+  let updated = 0
+  for (const page of pages) {
+    const result = await syncAllPricelistPurchasePricesForOwner(page.id)
+    updated += result.updated
+  }
+  return { updated }
+}
+
+async function syncAllPricelistPurchasePricesForOwner(
+  listOwnerId: string
+): Promise<{ updated: number }> {
   const rows = await queryDb<{ product_id: string }[]>(
     `SELECT DISTINCT product_id FROM pricelist_items WHERE owner_user_id = ?`,
-    [PLATFORM_PRICELIST_OWNER_ID]
+    [listOwnerId]
   )
   for (const row of rows) {
-    await syncProductPurchasePriceFromPlatformPricelist(row.product_id)
+    await syncProductPurchasePriceFromPricelist(row.product_id, listOwnerId)
   }
   return { updated: rows.length }
+}
+
+/** @deprecated Use syncAllCuratedPricelistPurchasePrices */
+export async function syncAllPlatformPricelistPurchasePrices(): Promise<{ updated: number }> {
+  return syncAllPricelistPurchasePricesForOwner(PLATFORM_PRICELIST_OWNER_ID)
 }
 
 type PricelistProductItemRow = {
@@ -898,11 +1044,11 @@ async function hydratePricelistRows(
     sellerPendingEdits,
     adminOwnPrices,
   ] = await Promise.all([
-    viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
+    viewer.role === 'admin' && isCuratedSupplierPricelist(listOwnerId)
       ? listPendingEditRequestsForProducts(listOwnerId, productIds).then(groupPendingByProduct)
       : Promise.resolve(new Map<string, PricelistRow['pending_edit_requests']>()),
     viewer.role === 'seller' || (viewer.role === 'guest' && viewer.userId)
-      ? loadSellerProductPricesMap(viewer.userId, productIds)
+      ? loadSellerProductPricesMap(listOwnerId, viewer.userId, productIds)
       : Promise.resolve(new Map<string, SellerPriceRow>()),
     viewer.role === 'buyer' && listOwnerId === viewer.userId
       ? loadBuyerDisplayPricesMap(listOwnerId, productIds)
@@ -915,8 +1061,8 @@ async function hydratePricelistRows(
             >()
           ),
     (viewer.role === 'admin' || viewer.role === 'guest') &&
-    isPlatformPricelistOwner(listOwnerId)
-      ? loadLatestProductPricesMap(productIds)
+    isCuratedSupplierPricelist(listOwnerId)
+      ? loadLatestProductPricesMap(listOwnerId, productIds)
       : Promise.resolve(
           new Map<
             string,
@@ -932,8 +1078,8 @@ async function hydratePricelistRows(
     viewer.role === 'seller'
       ? loadPendingEditRequestsMap(viewer.userId, listOwnerId, productIds)
       : Promise.resolve(new Map<string, boolean>()),
-    viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)
-      ? loadSellerProductPricesMap(viewer.userId, productIds)
+    viewer.role === 'admin' && isCuratedSupplierPricelist(listOwnerId)
+      ? loadSellerProductPricesMap(listOwnerId, viewer.userId, productIds)
       : Promise.resolve(new Map<string, SellerPriceRow>()),
   ])
 
@@ -1037,7 +1183,7 @@ async function hydratePricelistRows(
         }
       }
 
-      if (isPlatformPricelistOwner(listOwnerId)) {
+      if (isCuratedSupplierPricelist(listOwnerId)) {
         const latest = latestPrices.get(item.product_id)
         if (latest) {
           applyResolvedPriceToRowFields(
@@ -1063,7 +1209,7 @@ async function hydratePricelistRows(
         canEditPrice = true
         canEditShipping = true
       }
-    } else if (viewer.role === 'admin' && isPlatformPricelistOwner(listOwnerId)) {
+    } else if (viewer.role === 'admin' && isCuratedSupplierPricelist(listOwnerId)) {
       canEditPrice = true
       canEditShipping = true
       const own = adminOwnPrices.get(item.product_id)
@@ -1279,13 +1425,16 @@ export async function getViewablePricelistOwnersForSeller(sellerId: string): Pro
     { id: sellerId, label: 'My pricelist', kind: 'self' },
   ]
 
-  const platformOk = await hasApprovedSellerAccess(sellerId, PLATFORM_PRICELIST_OWNER_ID)
-  if (platformOk) {
-    owners.push({
-      id: PLATFORM_PRICELIST_OWNER_ID,
-      label: 'Platform pricelist',
-      kind: 'platform',
-    })
+  const curatedPages = await listPricelistPages({ activeOnly: true })
+  for (const page of curatedPages) {
+    const ok = await hasApprovedSellerAccess(sellerId, page.id)
+    if (ok) {
+      owners.push({
+        id: page.id,
+        label: page.label,
+        kind: 'platform',
+      })
+    }
   }
 
   const buyers = await queryDb<{ id: string; email: string; name: string | null }[]>(
@@ -1297,7 +1446,10 @@ export async function getViewablePricelistOwnersForSeller(sellerId: string): Pro
     [sellerId]
   )
 
+  const curatedIds = new Set(curatedPages.map((p) => p.id))
+
   for (const b of buyers) {
+    if (curatedIds.has(b.id)) continue
     owners.push({
       id: b.id,
       label: b.name?.trim() || b.email,

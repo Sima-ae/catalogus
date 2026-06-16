@@ -16,13 +16,14 @@ export type SellerPriceEditRequestRow = {
 }
 
 export async function getSellerPriceLockState(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<{ hasPrice: boolean; locked: boolean }> {
   const rows = await queryDb<{ unit_price: string; locked: number | boolean }[]>(
     `SELECT unit_price, locked FROM seller_product_prices
-     WHERE seller_id = ? AND product_id = ? LIMIT 1`,
-    [sellerId, productId]
+     WHERE list_owner_id = ? AND seller_id = ? AND product_id = ? LIMIT 1`,
+    [listOwnerId, sellerId, productId]
   )
   const row = rows[0]
   if (!row) return { hasPrice: false, locked: false }
@@ -59,7 +60,11 @@ export async function createPriceEditRequest(input: {
   )
   if (existing) return existing
 
-  const lock = await getSellerPriceLockState(input.sellerId, input.productId)
+  const lock = await getSellerPriceLockState(
+    input.listOwnerId,
+    input.sellerId,
+    input.productId
+  )
   if (!lock.hasPrice || !lock.locked) {
     throw new Error('PRICE_NOT_LOCKED')
   }
@@ -126,21 +131,28 @@ export async function listPendingEditRequestsForProducts(
 }
 
 export async function assertSellerMayUpdatePrice(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<{ ok: true; isNew: boolean } | { ok: false; error: string }> {
-  const state = await getSellerPriceLockState(sellerId, productId)
+  const state = await getSellerPriceLockState(listOwnerId, sellerId, productId)
   if (!state.hasPrice) return { ok: true, isNew: true }
+  if (!state.locked) return { ok: true, isNew: false }
   return {
     ok: false,
     error: 'Price is locked. Contact an admin to change it.',
   }
 }
 
-export async function lockSellerPriceAfterSave(sellerId: string, productId: string): Promise<void> {
+export async function lockSellerPriceAfterSave(
+  listOwnerId: string,
+  sellerId: string,
+  productId: string
+): Promise<void> {
   await queryDb(
-    `UPDATE seller_product_prices SET locked = 1 WHERE seller_id = ? AND product_id = ?`,
-    [sellerId, productId]
+    `UPDATE seller_product_prices SET locked = 1
+     WHERE list_owner_id = ? AND seller_id = ? AND product_id = ?`,
+    [listOwnerId, sellerId, productId]
   )
 }
 
@@ -156,13 +168,14 @@ export async function clearPendingEditRequestsForPrice(
 }
 
 export async function getSellerShippingLockState(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<{ hasShipping: boolean }> {
   const rows = await queryDb<{ shipping_cost: string | null }[]>(
     `SELECT shipping_cost FROM seller_product_prices
-     WHERE seller_id = ? AND product_id = ? LIMIT 1`,
-    [sellerId, productId]
+     WHERE list_owner_id = ? AND seller_id = ? AND product_id = ? LIMIT 1`,
+    [listOwnerId, sellerId, productId]
   )
   const row = rows[0]
   if (row?.shipping_cost == null || row.shipping_cost === '') {
@@ -172,10 +185,11 @@ export async function getSellerShippingLockState(
 }
 
 export async function assertSellerMayUpdateShipping(
+  listOwnerId: string,
   sellerId: string,
   productId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const state = await getSellerShippingLockState(sellerId, productId)
+  const state = await getSellerShippingLockState(listOwnerId, sellerId, productId)
   if (!state.hasShipping) return { ok: true }
   return {
     ok: false,

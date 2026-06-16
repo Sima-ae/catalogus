@@ -3,7 +3,7 @@ import { tryVerifyCatalogActor } from '@/lib/catalog-user-auth'
 import { isPricelistOwner } from '@/lib/catalog-user-auth'
 import { resolvePricelistAccess, resolveOwnerIdFromParam } from '@/lib/pricelist-access'
 import { getPricelistShareSettings } from '@/lib/pricelist-share-db'
-import { parsePricelistOwnerParam } from '@/lib/pricelist-constants'
+import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
 
   let ownerId: string
   try {
-    ownerId = resolveOwnerIdFromParam(ownerParam, actor)
+    ownerId = await resolveOwnerIdFromParam(ownerParam, actor)
   } catch {
-    const parsed = parsePricelistOwnerParam(ownerParam)
+    const parsed = await resolvePricelistOwnerId(ownerParam)
     if (!parsed) {
       return NextResponse.json({
         allowed: false,

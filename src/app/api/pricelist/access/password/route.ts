@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyCatalogActor } from '@/lib/catalog-user-auth'
-import { isPricelistOwner } from '@/lib/catalog-user-auth'
+import { verifyCatalogActor, starTargetOwnerForActor, isPricelistOwner } from '@/lib/catalog-user-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { parsePricelistOwnerParam, isPlatformPricelistOwner } from '@/lib/pricelist-constants'
-import { starTargetOwnerForActor } from '@/lib/catalog-user-auth'
+import { resolvePricelistOwnerId, isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 import { setPricelistSharePassword, getPricelistShareSettings } from '@/lib/pricelist-share-db'
 
 export const dynamic = 'force-dynamic'
@@ -16,9 +14,8 @@ export async function GET(request: NextRequest) {
   }
 
   const ownerParam = request.nextUrl.searchParams.get('owner')
-  const listOwnerId = ownerParam
-    ? parsePricelistOwnerParam(ownerParam) ?? starTargetOwnerForActor(auth.actor)
-    : starTargetOwnerForActor(auth.actor)
+  const listOwnerId =
+    (await resolvePricelistOwnerId(ownerParam)) ?? starTargetOwnerForActor(auth.actor)
 
   if (!isPricelistOwner(auth.actor, listOwnerId)) {
     return NextResponse.json({ error: 'Only the list owner can manage share settings' }, { status: 403 })
@@ -29,7 +26,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ownerId: listOwnerId,
       hasPassword: settings.has_password,
-      isPlatform: isPlatformPricelistOwner(listOwnerId),
+      isCurated: isCuratedSupplierPricelist(listOwnerId),
     })
   } catch (error) {
     return NextResponse.json(
@@ -52,9 +49,8 @@ export async function PUT(request: NextRequest) {
 
   const raw = body as Record<string, unknown>
   const ownerParam = String(raw.ownerId ?? raw.owner ?? '').trim()
-  const listOwnerId = ownerParam
-    ? parsePricelistOwnerParam(ownerParam) ?? starTargetOwnerForActor(auth.actor)
-    : starTargetOwnerForActor(auth.actor)
+  const listOwnerId =
+    (await resolvePricelistOwnerId(ownerParam)) ?? starTargetOwnerForActor(auth.actor)
 
   if (!isPricelistOwner(auth.actor, listOwnerId)) {
     return NextResponse.json({ error: 'Only the list owner can manage share settings' }, { status: 403 })

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queryDb } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { isPlatformPricelistOwner } from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 import {
   parseUnitPrice,
   setSellerProductStockStatus,
-  syncProductPurchasePriceFromPlatformPricelist,
+  syncProductPurchasePriceFromPricelist,
   upsertSellerProductPrice,
   deleteSellerProductPrice,
 } from '@/lib/pricelist-db'
@@ -77,7 +77,11 @@ export async function PUT(request: NextRequest) {
   const isAdminActor = access.mode === 'full' && access.actor?.role === 'admin'
 
   if (isSellerActor) {
-    const mayUpdate = await assertSellerMayUpdatePrice(sellerId, productId)
+    const mayUpdate = await assertSellerMayUpdatePrice(
+      access.ownerId,
+      sellerId,
+      productId
+    )
     if (!mayUpdate.ok) {
       return NextResponse.json({ error: mayUpdate.error, code: 'PRICE_LOCKED' }, { status: 403 })
     }
@@ -92,15 +96,17 @@ export async function PUT(request: NextRequest) {
     const currency = await getShopCurrency()
     if (stockStatus) {
       await setSellerProductStockStatus({
+        listOwnerId: access.ownerId,
         sellerId: targetSellerId,
         productId,
         stockStatus,
         currency,
         updatedBy,
-        syncProductSoldOut: isPlatformPricelistOwner(access.ownerId),
+        syncProductSoldOut: isCuratedSupplierPricelist(access.ownerId),
       })
     } else {
       await upsertSellerProductPrice({
+        listOwnerId: access.ownerId,
         sellerId: targetSellerId,
         productId,
         unitPrice: unitPrice!,
@@ -109,14 +115,13 @@ export async function PUT(request: NextRequest) {
       })
     }
     if (isSellerActor) {
-      await lockSellerPriceAfterSave(sellerId, productId)
+      await lockSellerPriceAfterSave(access.ownerId, sellerId, productId)
     }
     if (isAdminActor && targetSellerId !== access.actor!.userId) {
       await clearPendingEditRequestsForPrice(targetSellerId, productId)
     }
-    // Sync purchase_price only when a numeric price is saved — not on uitverkocht / temporary OOS.
-    if (isPlatformPricelistOwner(access.ownerId) && !stockStatus) {
-      await syncProductPurchasePriceFromPlatformPricelist(productId)
+    if (isCuratedSupplierPricelist(access.ownerId) && !stockStatus) {
+      await syncProductPurchasePriceFromPricelist(productId, access.ownerId)
     }
     const res = NextResponse.json({
       ok: true,
@@ -165,13 +170,17 @@ export async function DELETE(request: NextRequest) {
   const targetSellerId = sellerIdParam || access.actor.userId
 
   try {
-    const removed = await deleteSellerProductPrice(targetSellerId, productId)
+    const removed = await deleteSellerProductPrice(
+      access.ownerId,
+      targetSellerId,
+      productId
+    )
     if (!removed) {
       return NextResponse.json({ error: 'Price not found' }, { status: 404 })
     }
     await clearPendingEditRequestsForPrice(targetSellerId, productId)
-    if (isPlatformPricelistOwner(access.ownerId)) {
-      await syncProductPurchasePriceFromPlatformPricelist(productId)
+    if (isCuratedSupplierPricelist(access.ownerId)) {
+      await syncProductPurchasePriceFromPricelist(productId, access.ownerId)
     }
     return NextResponse.json({ ok: true, productId, sellerId: targetSellerId })
   } catch (error) {

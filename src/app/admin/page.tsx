@@ -8,6 +8,7 @@ import {
   BanknotesIcon,
   ClipboardDocumentListIcon,
   CubeIcon,
+  DocumentTextIcon,
   PencilIcon,
   PlusIcon,
   ShoppingCartIcon,
@@ -30,6 +31,7 @@ import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice } from '@/lib/format-price'
 import { useShopCurrency } from '@/lib/shop-currency-context'
 import { appPath } from '@/lib/paths'
+import PricelistTargetSelector, { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
 import { isCatalogProductsPage, type ProductDashboardStats } from '@/lib/catalog-products'
 import { useAppTheme } from '@/lib/theme-classes'
 import type { Product } from '@/lib/types'
@@ -127,6 +129,7 @@ export default function AdminDashboard() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
   const { user } = useAuth()
+  const pricelistTarget = useAdminPricelistTargetSlug()
   const { symbol: currency } = useShopCurrency()
 
   const [products, setProducts] = useState<Product[]>([])
@@ -314,9 +317,12 @@ export default function AdminDashboard() {
           </div>
 
           <section className="mb-8">
-            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${t.muted}`}>
-              {tr('admin.quickActions')}
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-3">
+              <h2 className={`text-sm font-semibold uppercase tracking-wide ${t.muted}`}>
+                {tr('admin.quickActions')}
+              </h2>
+              <PricelistTargetSelector compact label="Target pricelist" />
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {quickLinks.map(({ href, labelKey, icon: Icon }) => (
                 <Link
@@ -328,6 +334,15 @@ export default function AdminDashboard() {
                   {tr(labelKey)}
                 </Link>
               ))}
+              <Link
+                href={appPath(`/pricelist?owner=${encodeURIComponent(pricelistTarget)}`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`card flex flex-col items-center justify-center gap-2 py-4 text-center text-sm font-medium transition-colors hover:ring-1 hover:ring-primary-500/40 ${t.tableCell}`}
+              >
+                <DocumentTextIcon className="w-6 h-6 text-primary-500" aria-hidden />
+                {tr('admin.nav.pricelist')}
+              </Link>
             </div>
           </section>
 

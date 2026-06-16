@@ -19,6 +19,8 @@ type Grant = {
 
 type UserOption = { id: string; email: string; name: string | null; role: string }
 
+type PricelistPageOption = { slug: string; label: string }
+
 type Props = {
   userId: string
   userRole: string
@@ -30,9 +32,11 @@ export default function SellerPricelistAccessPanel({ userId, userRole }: Props) 
   const [grants, setGrants] = useState<Grant[]>([])
   const [buyers, setBuyers] = useState<UserOption[]>([])
   const [sellers, setSellers] = useState<UserOption[]>([])
+  const [pricelistPages, setPricelistPages] = useState<PricelistPageOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedBuyerId, setSelectedBuyerId] = useState('')
+  const [selectedPricelistSlug, setSelectedPricelistSlug] = useState(PRICELIST_OWNER_QUERY_PLATFORM)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
@@ -41,7 +45,7 @@ export default function SellerPricelistAccessPanel({ userId, userRole }: Props) 
     setError(null)
     try {
       const headers = adminAuthHeaders(actor)
-      const [accessRes, usersRes] = await Promise.all([
+      const [accessRes, usersRes, pagesRes] = await Promise.all([
         fetch(
           appPath(
             userRole === 'seller'
@@ -51,15 +55,29 @@ export default function SellerPricelistAccessPanel({ userId, userRole }: Props) 
           { headers, cache: 'no-store' }
         ),
         fetch(appPath('/api/admin/users'), { headers, cache: 'no-store' }),
+        fetch(appPath('/api/admin/pricelist-pages/list'), { headers, cache: 'no-store' }),
       ])
       const accessData = await accessRes.json()
       const usersData = await usersRes.json()
+      const pagesData = await pagesRes.json()
       if (!accessRes.ok) throw new Error(accessData.error || 'Failed to load grants')
       if (!usersRes.ok) throw new Error(usersData.error || 'Failed to load users')
       setGrants(Array.isArray(accessData) ? accessData : [])
       const all = (usersData as UserOption[]) || []
       setBuyers(all.filter((u) => u.role === 'buyer'))
       setSellers(all.filter((u) => u.role === 'seller'))
+      if (pagesRes.ok && Array.isArray(pagesData)) {
+        setPricelistPages(
+          pagesData.map((p: { slug: string; label: string }) => ({
+            slug: p.slug,
+            label: p.label,
+          }))
+        )
+      } else {
+        setPricelistPages([
+          { slug: PRICELIST_OWNER_QUERY_PLATFORM, label: 'Platform pricelist' },
+        ])
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
@@ -136,8 +154,7 @@ export default function SellerPricelistAccessPanel({ userId, userRole }: Props) 
     <div className={`card p-6 mt-8 border ${t.border}`}>
       <h3 className={`text-lg font-semibold mb-2 ${t.heading}`}>Pricelist access</h3>
       <p className={`text-sm mb-4 ${t.muted}`}>
-        Approve which pricelists this seller can view and price. Platform access is separate from
-        buyer access.
+        Approve which supplier pricelist pages this seller can view and price.
       </p>
 
       {error ? <p className="text-red-500 text-sm mb-3">{error}</p> : null}
@@ -148,13 +165,24 @@ export default function SellerPricelistAccessPanel({ userId, userRole }: Props) 
         <>
           {userRole === 'seller' ? (
             <div className="flex flex-wrap gap-2 mb-4">
+              <select
+                value={selectedPricelistSlug}
+                onChange={(e) => setSelectedPricelistSlug(e.target.value)}
+                className={`input rounded-lg px-2 py-1.5 text-sm ${t.input}`}
+              >
+                {pricelistPages.map((p) => (
+                  <option key={p.slug} value={p.slug}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => createGrant(PRICELIST_OWNER_QUERY_PLATFORM)}
+                onClick={() => createGrant(selectedPricelistSlug)}
                 className="btn-secondary text-sm px-3 py-1.5"
               >
-                Grant platform pricelist access
+                Grant supplier pricelist access
               </button>
               <div className="flex gap-2 items-center">
                 <select
