@@ -98,7 +98,7 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     '.showalbumheader .text, .showalbumheader, .album_desc, .album-description, .showalbum__desc'
   ).each((_, el) => {
     const t = $(el).text().replace(/\s+/g, ' ').trim()
-    if (t && t.length > 10 && !descriptionParts.includes(t)) {
+    if (t && t.length > 10 && !descriptionParts.includes(t) && !isYupooShopTagline(t)) {
       descriptionParts.push(t)
     }
   })
@@ -106,11 +106,15 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
   if (!descriptionParts.length) {
     $('meta[name="description"]').each((_, el) => {
       const content = $(el).attr('content')?.trim()
-      if (content) descriptionParts.push(content)
+      if (content && !isYupooShopTagline(content)) {
+        descriptionParts.push(content)
+      }
     })
   }
 
-  const description = descriptionParts.join('\n\n').trim() || h1
+  const rawDescription = descriptionParts.join('\n\n').trim()
+  const description =
+    rawDescription && !isYupooShopTagline(rawDescription) ? rawDescription : h1
 
   const headerCode =
     $('.showalbumheader .sku, .showalbumheader .code, .album_code').first().text().trim() ||

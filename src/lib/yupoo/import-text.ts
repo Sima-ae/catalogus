@@ -25,7 +25,7 @@ const YUPOO_TITLE_SKU_LABEL_RE =
   /\s*(?:Style\s*(?:No\.?|#|code)?|Item\s*(?:No\.?|#)?|SKU\s*[：:#]?)\s*[：:]?\s*\S/i
 
 const YUPOO_SHOP_TAGLINE_RE =
-  /(?:厂家直销|批发|免费代发|南方\s*pk|又拍|yupoo|supplier\s+product\s+catalog|factory\s+direct|wholesale|free\s+shipping|dropship)/i
+  /(?:厂家直销|批发|免费代发|南方\s*pk|又拍|yupoo|supplier\s+product\s+catalog|factory\s+direct|wholesale|free\s+shipping|dropship|丽忆服饰|liyi\s+clothing)/i
 
 /** Yupoo store header / footer text — not a product name. */
 export function isYupooShopTagline(text: string): boolean {
@@ -35,6 +35,8 @@ export function isYupooShopTagline(text: string): boolean {
   if (/^southern\s+pk\b/i.test(t)) return true
   if (/^guanhui\s+foreign\s+trade$/i.test(t)) return true
   if (t === '冠汇外贸') return true
+  if (/^liyi\s+clothing$/i.test(t)) return true
+  if (t === '丽忆服饰') return true
   if (
     /^(wholesale|factory|free shipping|dropshipping)\b/i.test(t) &&
     !/\b(jordan|nike|adidas|dunk|yeezy|air max|kobe|samba|gazelle)\b/i.test(t)
@@ -399,6 +401,8 @@ function isSupplierOnlyLine(line: string): boolean {
   if (/^guangtai\b/i.test(t) && t.length < 120) return true
   if (/^guanhui\s+foreign\s+trade$/i.test(t)) return true
   if (/^冠汇外贸$/.test(t)) return true
+  if (/^liyi\s+clothing$/i.test(t)) return true
+  if (/^丽忆服饰$/.test(t)) return true
   if (/^(?:yangli|niuli|quanniuli|quanyangli)\b/i.test(t) && t.length < 80) return true
   return false
 }
@@ -409,7 +413,7 @@ function isSupplierParenLabel(inner: string, brandName?: string | null): boolean
   const brand = String(brandName ?? '').trim()
   if (brand && label.toLowerCase() === brand.toLowerCase()) return false
   if (/[\u4e00-\u9fff]/.test(label)) return true
-  if (/yangli|niuli|guangtai|keshi|guangzhou|quanyangli|quanniuli|gjiaquan|southern\s*pk/i.test(label)) return true
+  if (/yangli|niuli|guangtai|keshi|guangzhou|quanyangli|quanniuli|gjiaquan|southern\s*pk|liyi\s*clothing/i.test(label)) return true
   if (/official\s+website|1\s*:\s*1|high[- ]?end|high[- ]?quality/i.test(label)) return true
   return false
 }
@@ -572,6 +576,32 @@ export function stripGjiaquan(text: string): string {
   return result
 }
 
+/** Remove Yupoo supplier shop label "Liyi Clothing" / 丽忆服饰 from descriptions. */
+export function stripLiyiClothing(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/\bLiyi\s+Clothing\b/gi, ' ')
+  result = result.replace(/丽忆服饰/g, ' ')
+  result = result.replace(/\(\s*Liyi\s+Clothing\s*\)/gi, ' ')
+  result = result.replace(/\(\s*丽忆服饰\s*\)/g, ' ')
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^liyi\s+clothing$/i.test(line) && line !== '丽忆服饰')
+    .join('\n')
+
+  result = result
+    .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
 /** Remove supplier shop label from product titles (EN + CN). */
 export function sanitizeProductName(name: string): string {
   const original = String(name ?? '').trim()
@@ -604,6 +634,7 @@ export function cleanImportDescription(
   result = stripProductTrademarkBoilerplate(result, brandName)
   result = stripGjiaquan(result)
   result = stripXiaoAo(result)
+  result = stripLiyiClothing(result)
   result = stripImportedYangjingFabric(result)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripGuanhuiForeignTrade(result)
