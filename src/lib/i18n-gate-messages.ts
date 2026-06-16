@@ -20,7 +20,7 @@ type GateMessages = Record<GateMessageKey, string>
 const EN: GateMessages = {
   'siteAccess.intro': 'Enter the site password or your personal access code to continue.',
   'siteAccess.inactivityIntro':
-    'You have been inactive for 5 minutes. Enter your password to continue on this page.',
+    'You have been inactive for 10 minutes. Enter your password to continue on this page.',
   'siteAccess.passwordLabel': 'Site password or personal access code',
   'siteAccess.passwordPlaceholder': '0000',
   'siteAccess.remember': 'Remember on this device (30 days)',
@@ -37,7 +37,7 @@ const NL: GateMessages = {
   'siteAccess.intro':
     'Vul het site-wachtwoord of uw persoonlijke toegangscode in om door te gaan.',
   'siteAccess.inactivityIntro':
-    'U bent 5 minuten inactief geweest. Vul uw wachtwoord in om verder te gaan op deze pagina.',
+    'U bent 10 minuten inactief geweest. Vul uw wachtwoord in om verder te gaan op deze pagina.',
   'siteAccess.passwordLabel': 'Site-wachtwoord of persoonlijke toegangscode',
   'siteAccess.passwordPlaceholder': '0000',
   'siteAccess.remember': 'Onthouden op dit apparaat (30 dagen)',
@@ -474,7 +474,7 @@ const GATE_BY_LOCALE: Partial<Record<Locale, Partial<GateMessages>>> = {
 const AR: GateMessages = {
   'siteAccess.intro': 'أدخل كلمة مرور الوصول إلى الموقع للمتابعة.',
   'siteAccess.inactivityIntro':
-    'لقد كنت غير نشط لمدة 5 دقائق. أدخل كلمة المرور للمتابعة على هذه الصفحة.',
+    'لقد كنت غير نشط لمدة 10 دقائق. أدخل كلمة المرور للمتابعة على هذه الصفحة.',
   'siteAccess.passwordLabel': 'كلمة مرور الوصول إلى الموقع',
   'siteAccess.passwordPlaceholder': 'كلمة مرور الموقع',
   'siteAccess.remember': 'تذكّر على هذا الجهاز (30 يوماً)',
