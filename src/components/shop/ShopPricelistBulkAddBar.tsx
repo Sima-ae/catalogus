@@ -10,7 +10,9 @@ import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
-import { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
+import PricelistTargetSelector, {
+  useAdminPricelistTargetSlug,
+} from '@/components/admin/PricelistTargetSelector'
 import type { AuthUser } from '@/lib/auth-local'
 
 type Props = {
@@ -44,11 +46,12 @@ export default function ShopPricelistBulkAddBar({
 
   const showCategory = selectedCategory !== 'All'
   const showBrand = brandFilterActive && selectedBrand !== 'All'
+  const hasBulkActions = showCategory || showBrand
 
   useEffect(() => {
     setMessage(null)
     setError(null)
-  }, [selectedCategory, selectedSubcategory, selectedBrand])
+  }, [selectedCategory, selectedSubcategory, selectedBrand, pricelistTarget])
 
   const runBulkAdd = useCallback(
     async (scope: 'category' | 'brand') => {
@@ -92,8 +95,6 @@ export default function ShopPricelistBulkAddBar({
     [selectedBrand, selectedCategory, selectedSubcategory, t, user, pricelistTarget]
   )
 
-  if (!showCategory && !showBrand) return null
-
   const shell = dark
     ? 'border-dark-700 bg-dark-900/80'
     : 'border-gray-200 bg-white'
@@ -115,17 +116,26 @@ export default function ShopPricelistBulkAddBar({
         })
       : formatMessage(t('shop.pricelistBulk.addBrandShort'), { brand: selectedBrand })
 
+  const viewHref = appPath(
+    `/pricelist?owner=${encodeURIComponent(pricelistTarget || PRICELIST_OWNER_QUERY_PLATFORM)}`
+  )
+
   return (
-    <div className={`rounded-xl border px-3 py-3 sm:px-4 mb-4 ${shell}`}>
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+    <div className={`rounded-lg border px-3 py-2 sm:px-3 mb-4 ${shell}`}>
+      <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide ${
+          className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide shrink-0 ${
             dark ? 'text-gray-400' : 'text-gray-500'
           }`}
         >
-          <StarIcon className="w-4 h-4" aria-hidden />
+          <StarIcon className="w-3.5 h-3.5" aria-hidden />
           {t('shop.pricelistBulk.label')}
         </span>
+        <PricelistTargetSelector
+          inline
+          label={t('shop.pricelistBulk.label')}
+          className="shrink-0"
+        />
         {showCategory ? (
           <button
             type="button"
@@ -146,20 +156,25 @@ export default function ShopPricelistBulkAddBar({
             {busy === 'brand' ? t('shop.pricelistBulk.adding') : brandCountLabel}
           </button>
         ) : null}
+        {!hasBulkActions ? (
+          <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-500'}`}>
+            {t('shop.pricelistBulk.selectFilterHint')}
+          </span>
+        ) : null}
         <Link
-          href={appPath('/pricelist?owner=platform')}
-          className={`text-sm ml-auto hover:underline ${dark ? 'text-gray-300' : 'text-gray-700'}`}
+          href={viewHref}
+          className={`text-sm ml-auto hover:underline shrink-0 ${dark ? 'text-gray-300' : 'text-gray-700'}`}
         >
           {t('shop.pricelistBulk.viewPricelist')}
         </Link>
       </div>
       {message ? (
-        <p className={`mt-2 text-sm ${dark ? 'text-green-400' : 'text-green-700'}`} role="status">
+        <p className={`mt-1.5 text-xs ${dark ? 'text-green-400' : 'text-green-700'}`} role="status">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="mt-2 text-sm text-red-500" role="alert">
+        <p className="mt-1.5 text-xs text-red-500" role="alert">
           {error}
         </p>
       ) : null}

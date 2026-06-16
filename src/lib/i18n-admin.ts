@@ -55,6 +55,9 @@ export type AdminMessageKey =
   | 'admin.products.filterCategoryPrefix'
   | 'admin.products.filterBrandPrefix'
   | 'admin.products.selected'
+  | 'admin.products.pricelistTarget'
+  | 'admin.products.addToPricelist'
+  | 'admin.products.removeFromPricelist'
   | 'admin.products.bulkEdit'
   | 'admin.products.restoreToShop'
   | 'admin.products.publish'
@@ -169,6 +172,9 @@ const EN: AdminMessages = {
   'admin.products.filterCategoryPrefix': "category",
   'admin.products.filterBrandPrefix': "brand",
   'admin.products.selected': "{count} selected",
+  'admin.products.pricelistTarget': "Target pricelist",
+  'admin.products.addToPricelist': "Add to pricelist",
+  'admin.products.removeFromPricelist': "Remove from pricelist",
   'admin.products.bulkEdit': "Bulk edit",
   'admin.products.restoreToShop': "Restore to shop",
   'admin.products.publish': "Publish",
@@ -281,6 +287,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.filterCategoryPrefix': "categorie",
   'admin.products.filterBrandPrefix': "merk",
   'admin.products.selected': "{count} geselecteerd",
+  'admin.products.pricelistTarget': "Doelprijslijst",
+  'admin.products.addToPricelist': "Toevoegen aan prijslijst",
+  'admin.products.removeFromPricelist': "Verwijderen van prijslijst",
   'admin.products.bulkEdit': "Bulk bewerken",
   'admin.products.restoreToShop': "Herstellen in shop",
   'admin.products.publish': "Publiceren",

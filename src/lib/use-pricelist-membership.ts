@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
-import { readAdminPricelistTargetSlug } from '@/lib/admin-pricelist-target'
+import { readAdminPricelistTargetSlug, ADMIN_PRICELIST_TARGET_CHANGE_EVENT } from '@/lib/admin-pricelist-target'
 
 type Options = {
   /** Pricelist owner query (`platform` or user id) when not using the actor default list. */
@@ -60,6 +60,15 @@ export function usePricelistMembership(productId: string, options?: Options) {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!user || user.role !== 'admin' || ownerQuery) return
+    const onTargetChange = () => {
+      void load()
+    }
+    window.addEventListener(ADMIN_PRICELIST_TARGET_CHANGE_EVENT, onTargetChange)
+    return () => window.removeEventListener(ADMIN_PRICELIST_TARGET_CHANGE_EVENT, onTargetChange)
+  }, [user, ownerQuery, load])
 
   const toggle = async () => {
     if (!user || !productId) return { needsLogin: true as const }

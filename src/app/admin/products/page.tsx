@@ -805,7 +805,6 @@ export default function AdminProductsPage() {
 
       <div className="card mb-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
-          {isAdmin ? <PricelistTargetSelector compact className="sm:min-w-[12rem]" /> : null}
           <label className="flex-1 space-y-1 min-w-[12rem]">
             <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.search')}</span>
             <input
@@ -899,22 +898,49 @@ export default function AdminProductsPage() {
             <span className={`text-sm font-medium ${t.heading}`}>
               {formatMessage(tr('admin.products.selected'), { count: selected.size })}
             </span>
-            <button
-              type="button"
-              className="btn-secondary text-sm"
-              disabled={bulkWorking}
-              onClick={() => runBulkPricelist('add', selectedIds)}
-            >
-              Add to pricelist
-            </button>
-            <button
-              type="button"
-              className="btn-secondary text-sm"
-              disabled={bulkWorking}
-              onClick={() => runBulkPricelist('remove', selectedIds)}
-            >
-              Remove from pricelist
-            </button>
+            {isAdmin ? (
+              <div className="inline-flex flex-wrap items-center gap-1.5">
+                <PricelistTargetSelector
+                  inline
+                  label={tr('admin.products.pricelistTarget')}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  disabled={bulkWorking}
+                  onClick={() => runBulkPricelist('add', selectedIds)}
+                >
+                  {tr('admin.products.addToPricelist')}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  disabled={bulkWorking}
+                  onClick={() => runBulkPricelist('remove', selectedIds)}
+                >
+                  {tr('admin.products.removeFromPricelist')}
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  disabled={bulkWorking}
+                  onClick={() => runBulkPricelist('add', selectedIds)}
+                >
+                  {tr('admin.products.addToPricelist')}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  disabled={bulkWorking}
+                  onClick={() => runBulkPricelist('remove', selectedIds)}
+                >
+                  {tr('admin.products.removeFromPricelist')}
+                </button>
+              </>
+            )}
             <button
               type="button"
               className="btn-primary text-sm"
