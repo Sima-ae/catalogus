@@ -52,11 +52,13 @@ export async function verifyYupooStorePassword(
   }
 }
 
+/**
+ * Detect Yupoo **store homepage** password lock (主页加密).
+ * Do not match `passwordmodal__*` — that markup is always present as a hidden
+ * template for per-album encryption and appears on public stores too.
+ */
 export function isYupooPasswordGateHtml(html: string): boolean {
-  return (
-    html.includes('indexlock__main') ||
-    html.includes('passwordmodal__passwordWrap')
-  )
+  return html.includes('indexlock__main')
 }
 
 export const YUPOO_PASSWORD_REQUIRED_MSG =
