@@ -1,6 +1,6 @@
 import { resolveProductVersion } from '@/lib/brand'
 import { appPath, appUrl, shopBrandUrl, shopCategoryUrl } from '@/lib/paths'
-import { resolveProductDisplayImages } from '@/lib/product-image-url'
+import { buildProductGallery } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 import { parseProductOptions, type ProductOptions } from '@/lib/product-options'
 import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
@@ -43,6 +43,7 @@ export type ProductPageView = {
   requirements: string[]
   image_url: string
   gallery: string[]
+  source_url: string
   sold_out: boolean
   pre_order: boolean
   featured: boolean
@@ -77,14 +78,9 @@ function galleryFromApi(raw: Record<string, unknown>): string[] | null {
 export function toProductPageView(raw: Record<string, unknown>): ProductPageView {
   const category = String(raw.category || '').trim()
   const brandDisplay = String(raw.brand ?? '').trim()
-  const sourceUrl = raw.source_url != null ? String(raw.source_url) : null
+  const sourceUrl = raw.source_url != null ? String(raw.source_url) : ''
   const galleryRaw = galleryFromApi(raw)
-  const { main, gallery } = resolveProductDisplayImages(
-    String(raw.image_url || ''),
-    galleryRaw,
-    sourceUrl
-  )
-  const fullGallery = main ? [main, ...(gallery ?? [])] : [...(gallery ?? [])]
+  const gallery = buildProductGallery(String(raw.image_url || ''), galleryRaw)
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []
@@ -132,8 +128,9 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
     tags,
     features,
     requirements,
-    image_url: main,
-    gallery: fullGallery,
+    image_url: gallery[0] ?? '',
+    gallery,
+    source_url: sourceUrl,
     sold_out: raw.sold_out === 1 || raw.sold_out === true,
     pre_order: raw.pre_order === 1 || raw.pre_order === true,
     featured: raw.featured === 1 || raw.featured === true,

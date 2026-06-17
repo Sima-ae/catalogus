@@ -233,6 +233,34 @@ export function catalogCardImageSrc(
   return display
 }
 
+/**
+ * Product detail gallery — larger Yupoo variant than grid cards; same pipeline as catalogCardImageSrc.
+ */
+export function catalogDetailImageSrc(
+  url: string | null | undefined,
+  sourceUrl?: string | null
+): string {
+  const raw = String(url ?? '').trim()
+  if (!raw) return ''
+
+  if (raw.includes('/api/yupoo-image')) {
+    const normalized = normalizeProductImageUrl(raw)
+    if (!normalized) return ''
+    return normalized.startsWith('/') ? appPath(normalized) : normalized
+  }
+
+  const normalized = normalizeProductImageUrl(raw)
+  if (!normalized) return ''
+
+  const sized = isYupooImageUrl(normalized)
+    ? yupooImageUrlForDisplay(normalized)
+    : normalized
+  const display = toDisplayProductImageUrl(sized, sourceUrl)
+  if (!display) return ''
+  if (display.startsWith('/')) return appPath(display)
+  return display
+}
+
 function unwrapDisplayImageUrl(url: string): string {
   const raw = url.trim()
   if (!raw.includes('/api/yupoo-image')) return raw
@@ -284,7 +312,11 @@ export function dedupeProductImageUrls(urls: string[]): string[] {
     const trimmed = String(url ?? '').trim()
     if (!trimmed || isPlaceholderImageUrl(trimmed)) continue
 
-    const stored = isYupooImageUrl(trimmed) ? upgradeYupooImageUrl(trimmed) : trimmed
+    const stored = trimmed.includes('/api/yupoo-image')
+      ? trimmed
+      : isYupooImageUrl(trimmed)
+        ? upgradeYupooImageUrl(trimmed)
+        : trimmed
     const key = canonicalProductImageKey(stored)
     if (!key) continue
 
@@ -439,15 +471,12 @@ export function resolveProductDisplayImages(
   galleryRaw: string[] | null | undefined,
   sourceUrl?: string | null
 ): { main: string; gallery: string[] | null } {
-  const rawMain = String(mainImageRaw ?? '').trim()
-  const rawGallery = galleryRaw ?? []
-  const combined = buildProductGallery(rawMain, rawGallery)
+  const combined = buildProductGallery(mainImageRaw, galleryRaw)
   const main = combined[0] ? toDisplayProductImageUrl(combined[0], sourceUrl) : ''
   const gallery = combined.slice(1).map((u) => toDisplayProductImageUrl(u, sourceUrl))
-  const dedupedGallery = dedupeProductImageUrls(gallery)
   return {
     main,
-    gallery: dedupedGallery.length ? dedupedGallery : null,
+    gallery: gallery.length ? gallery : null,
   }
 }
 
