@@ -34,28 +34,32 @@ export function useSiteAccessInactivity(
     }
   }, [])
 
+  const scheduleTimerRef = useRef<() => void>(() => {})
+
   const lockSession = useCallback(async () => {
     if (lockingRef.current || lockedRef.current || !enabledRef.current) return
 
     const idleFor = Date.now() - lastActivityRef.current
-    if (idleFor < SITE_ACCESS_INACTIVITY_MS - 250) {
+    if (idleFor < SITE_ACCESS_INACTIVITY_MS - 500) {
+      scheduleTimerRef.current()
       return
     }
 
     lockingRef.current = true
     lockedRef.current = true
     setInactivityLocked(true)
-    onLockRef.current?.()
 
     try {
       await fetch(appPath('/api/site-access/lock'), {
         method: 'POST',
         credentials: 'include',
       })
+      onLockRef.current?.()
     } catch {
       lockedRef.current = false
       setInactivityLocked(false)
       lastActivityRef.current = Date.now()
+      scheduleTimerRef.current()
     } finally {
       lockingRef.current = false
     }
@@ -72,6 +76,8 @@ export function useSiteAccessInactivity(
       void lockSession()
     }, remaining)
   }, [clearTimer, lockSession])
+
+  scheduleTimerRef.current = scheduleTimer
 
   const recordActivity = useCallback(() => {
     if (!enabledRef.current || lockedRef.current) return

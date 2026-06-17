@@ -1727,6 +1727,7 @@ export async function bulkUpdateProductStatus(
     `UPDATE products SET status = ? WHERE id IN (${placeholders})`,
     [status, ...productIds]
   )
+  invalidateProductDashboardStatsCache()
   return result?.affectedRows ?? productIds.length
 }
 
@@ -1739,6 +1740,7 @@ export async function bulkUpdateProductStatusByFilter(
     `UPDATE products SET status = ? WHERE status = ?`,
     [toStatus, fromStatus]
   )
+  invalidateProductDashboardStatsCache()
   return result?.affectedRows ?? 0
 }
 

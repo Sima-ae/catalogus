@@ -48,6 +48,13 @@ async function fetchSiteAccessStatus(): Promise<Status> {
   }
 }
 
+function isInactivityFlow(
+  inactivityLocked: boolean,
+  inactivityModeRef: React.MutableRefObject<boolean>
+): boolean {
+  return inactivityLocked || inactivityModeRef.current
+}
+
 /**
  * Client-side backup: blocks UI until site access cookie is set (e.g. client navigations).
  * Middleware handles hard refreshes and API routes.
@@ -59,6 +66,8 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const { t } = useI18n()
   const [status, setStatus] = useState<Status | null>(initialStatus)
   const redirectingRef = useRef(false)
+  /** Sync flag — suppresses full gate redirect while the inactivity overlay handles re-auth. */
+  const inactivityModeRef = useRef(false)
 
   const gatePath = appPath('/site-access-gate')
   const onGate =
@@ -70,7 +79,9 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     Boolean(status?.required && status?.unlocked && !onGate && !pricelistShare)
 
   const handleInactivityLock = useCallback(() => {
-    setStatus((prev) => (prev ? { ...prev, unlocked: false } : prev))
+    // Cookie is cleared server-side; keep client status unlocked so we do not
+    // redirect to /site-access-gate — the inactivity overlay handles re-auth.
+    inactivityModeRef.current = true
   }, [])
 
   const { inactivityLocked, resumeAfterUnlock } = useSiteAccessInactivity(inactivityEnabled, {
@@ -95,6 +106,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (status === null) return
+    if (isInactivityFlow(inactivityLocked, inactivityModeRef)) return
 
     if (onGate) {
       if (status.unlocked) {
@@ -104,12 +116,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
       return
     }
 
-    if (
-      status.required &&
-      !status.unlocked &&
-      !pricelistShare &&
-      !inactivityLocked
-    ) {
+    if (status.required && !status.unlocked && !pricelistShare) {
       if (redirectingRef.current) return
       redirectingRef.current = true
       const from = pathname || '/'
@@ -120,12 +127,13 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   }, [status, onGate, pathname, router, gatePath, searchParams, pricelistShare, inactivityLocked])
 
   const handleInactivityUnlock = useCallback(async () => {
+    inactivityModeRef.current = false
     resumeAfterUnlock()
     try {
       const next = await fetchSiteAccessStatus()
       setStatus(next)
     } catch {
-      setStatus((prev) => (prev ? { ...prev, unlocked: true } : prev))
+      /* verify + waitForSiteAccessUnlock already refreshed the cookie */
     }
   }, [resumeAfterUnlock])
 
@@ -143,7 +151,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     !status.unlocked &&
     !onGate &&
     !pricelistShare &&
-    !inactivityLocked
+    !isInactivityFlow(inactivityLocked, inactivityModeRef)
   ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">

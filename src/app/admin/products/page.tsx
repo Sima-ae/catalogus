@@ -187,6 +187,7 @@ export default function AdminProductsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
+  const [publishDraftsWorking, setPublishDraftsWorking] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [duplicateScanOpen, setDuplicateScanOpen] = useState(false)
   const [duplicateScanMode, setDuplicateScanMode] = useState<DuplicateScanMode>('image')
@@ -259,8 +260,11 @@ export default function AdminProductsPage() {
     return match ? getCategoryPickerLabel(match, tr) : categoryFilter
   }, [categoryFilter, categories, tr])
 
-  const loadProducts = useCallback(() => {
-    if (!user) return
+  const loadProducts = useCallback(async () => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -276,43 +280,44 @@ export default function AdminProductsPage() {
         brand: brandFilter !== 'all' ? brandFilter : undefined,
       }) + '&scope=admin'
 
-    Promise.all([
-      fetch(listUrl, { headers, cache: 'no-store' }),
-      fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
-    ])
-      .then(async ([listRes, statsRes]) => {
-        const listData = await parseJsonResponse<
-          { error?: string; items?: Product[] } | Product[]
-        >(listRes)
-        if (!listRes.ok) {
-          throw new Error(
-            !Array.isArray(listData) && listData.error ? listData.error : 'Failed to load products'
-          )
-        }
-        if (!isCatalogProductsPage(listData)) throw new Error('Invalid response')
-        setProducts(listData.items)
-        setTotalItems(listData.total)
+    try {
+      const [listRes, statsRes] = await Promise.all([
+        fetch(listUrl, { headers, cache: 'no-store' }),
+        fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
+      ])
 
-        if (statsRes.ok) {
-          const statsData = await parseJsonResponse<
-            { error?: string; dashboardStats?: ProductDashboardStats } | Product[]
-          >(statsRes)
-          if (isCatalogProductsPage(statsData)) {
-            setProductStats(statsData.dashboardStats ?? null)
-          }
-        } else {
-          setProductStats(null)
-        }
+      const listData = await parseJsonResponse<
+        { error?: string; items?: Product[] } | Product[]
+      >(listRes)
+      if (!listRes.ok) {
+        throw new Error(
+          !Array.isArray(listData) && listData.error ? listData.error : 'Failed to load products'
+        )
+      }
+      if (!isCatalogProductsPage(listData)) throw new Error('Invalid response')
+      setProducts(listData.items)
+      setTotalItems(listData.total)
 
-        setSelected(new Set())
-      })
-      .catch((e) => {
-        setError(e instanceof Error ? e.message : 'Failed to load')
-        setProducts([])
-        setTotalItems(0)
+      if (statsRes.ok) {
+        const statsData = await parseJsonResponse<
+          { error?: string; dashboardStats?: ProductDashboardStats } | Product[]
+        >(statsRes)
+        if (isCatalogProductsPage(statsData)) {
+          setProductStats(statsData.dashboardStats ?? null)
+        }
+      } else {
         setProductStats(null)
-      })
-      .finally(() => setLoading(false))
+      }
+
+      setSelected(new Set())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load')
+      setProducts([])
+      setTotalItems(0)
+      setProductStats(null)
+    } finally {
+      setLoading(false)
+    }
   }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch])
 
   useEffect(() => {
@@ -528,11 +533,15 @@ export default function AdminProductsPage() {
   }
 
   const publishAllDrafts = async () => {
-    if (!user || stats.draft <= 0) return
-    if (!confirm(formatMessage(tr('admin.products.confirmPublishAll'), { count: stats.draft }))) return
+    if (!user || publishDraftsWorking) return
+    const draftCount = stats.draft
+    if (draftCount <= 0) return
+    if (!confirm(formatMessage(tr('admin.products.confirmPublishAll'), { count: draftCount }))) return
 
+    setPublishDraftsWorking(true)
     setBulkWorking(true)
     setError('')
+    setSuccessMessage('')
     try {
       const res = await fetch(appPath('/api/admin/products/bulk-status'), {
         method: 'POST',
@@ -542,12 +551,29 @@ export default function AdminProductsPage() {
         },
         body: JSON.stringify({ status: 'active', fromStatus: 'draft' }),
       })
-      const data = await parseJsonResponse<{ error?: string }>(res)
+      const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
       if (!res.ok) throw new Error(data.error || tr('admin.products.bulkPublishFailed'))
-      loadProducts()
+
+      const updated = Number(data.updated ?? 0)
+      if (updated <= 0) {
+        throw new Error(tr('admin.products.bulkPublishFailed'))
+      }
+
+      setProductStats((prev) =>
+        prev
+          ? {
+              ...prev,
+              draft: Math.max(0, prev.draft - updated),
+              active: prev.active + updated,
+            }
+          : prev
+      )
+      setSuccessMessage(formatMessage(tr('admin.products.bulkPublishDone'), { count: updated }))
+      await loadProducts()
     } catch (e) {
       setError(e instanceof Error ? e.message : tr('admin.products.bulkPublishFailed'))
     } finally {
+      setPublishDraftsWorking(false)
       setBulkWorking(false)
     }
   }
@@ -734,7 +760,7 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className="btn-secondary text-sm"
-                disabled={bulkWorking || loading}
+                disabled={bulkWorking || publishDraftsWorking}
                 onClick={zeroDraftPurchasePrices}
               >
                 {tr('admin.products.zeroDraftPurchasePrices')}
@@ -742,10 +768,12 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className="btn-secondary text-sm"
-                disabled={bulkWorking || loading}
-                onClick={publishAllDrafts}
+                disabled={bulkWorking || publishDraftsWorking}
+                onClick={() => void publishAllDrafts()}
               >
-                {formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
+                {publishDraftsWorking
+                  ? tr('loading.generic')
+                  : formatMessage(tr('admin.products.publishAllDrafts'), { count: stats.draft })}
               </button>
             </>
           )}

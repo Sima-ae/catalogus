@@ -74,6 +74,7 @@ export type AdminMessageKey =
   | 'admin.products.confirmMoveToTrash'
   | 'admin.products.bulkUpdateFailed'
   | 'admin.products.bulkPublishFailed'
+  | 'admin.products.bulkPublishDone'
   | 'admin.products.bulkEditFailed'
   | 'admin.products.duplicateScan'
   | 'admin.products.duplicateScanTitle'
@@ -191,6 +192,7 @@ const EN: AdminMessages = {
   'admin.products.confirmMoveToTrash': "Move this product to trash? You can restore it later from the trash filter.",
   'admin.products.bulkUpdateFailed': "Bulk update failed",
   'admin.products.bulkPublishFailed': "Bulk publish failed",
+  'admin.products.bulkPublishDone': "Published {count} draft product(s).",
   'admin.products.bulkEditFailed': "Bulk edit failed",
   'admin.products.duplicateScan': "Scan duplicate images",
   'admin.products.duplicateScanTitle': "Possible duplicate products",
@@ -306,6 +308,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.confirmMoveToTrash': "Dit product naar de prullenbak verplaatsen? Je kunt het later herstellen via het prullenbakfilter.",
   'admin.products.bulkUpdateFailed': "Bulkupdate mislukt",
   'admin.products.bulkPublishFailed': "Bulkpublicatie mislukt",
+  'admin.products.bulkPublishDone': "{count} conceptproduct(en) gepubliceerd.",
   'admin.products.bulkEditFailed': "Bulk bewerken mislukt",
   'admin.products.duplicateScan': "Duplicaten scannen (afbeelding)",
   'admin.products.duplicateScanTitle': "Mogelijke dubbele producten",
