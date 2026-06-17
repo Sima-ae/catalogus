@@ -25,7 +25,7 @@ const YUPOO_TITLE_SKU_LABEL_RE =
   /\s*(?:Style\s*(?:No\.?|#|code)?|Item\s*(?:No\.?|#)?|SKU\s*[：:#]?)\s*[：:]?\s*\S/i
 
 const YUPOO_SHOP_TAGLINE_RE =
-  /(?:厂家直销|批发|免费代发|南方\s*pk|又拍|yupoo|supplier\s+product\s+catalog|factory\s+direct|wholesale|free\s+shipping|dropship|丽忆服饰|liyi\s+clothing)/i
+  /(?:厂家直销|批发|免费代发|南方\s*pk|又拍|yupoo|supplier\s+product\s+catalog|factory\s+direct|wholesale|free\s+shipping|dropship|丽忆服饰|liyi\s+clothing|quanniuli|quanyangli|yangli|niuli)/i
 
 /** Yupoo store header / footer text — not a product name. */
 export function isYupooShopTagline(text: string): boolean {
@@ -602,6 +602,53 @@ export function stripLiyiClothing(text: string): string {
   return result
 }
 
+/** Remove Yupoo supplier labels Yangli / Niuli / Quanniuli / Quanyangli (EN + CN). */
+export function stripYangliNiuli(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/\bquanniuli'?s\b/gi, ' ')
+  result = result.replace(/\bquanyangli'?s\b/gi, ' ')
+
+  result = result.replace(
+    /\(\s*(?:high[- ]?(?:end|quality)\s+)?(?:mq\s+)?(?:quan)?(?:yangli|niuli)\s*\)/gi,
+    ' '
+  )
+  result = result.replace(/\(\s*(?:quan)?(?:yangli|niuli)\s*\)/gi, ' ')
+
+  result = result.replace(
+    /\bhigh[- ]?(?:end|quality)\s+(?:mq\s+)?(?:quan)?(?:yangli|niuli)\b/gi,
+    ' '
+  )
+  result = result.replace(/\b(?:mq\s+)?(?:quan)?(?:yangli|niuli)\b[,.!;:\s]*/gi, ' ')
+
+  result = result.replace(/\byangli'?s?\b/gi, ' ')
+  result = result.replace(/\bniuli\b/gi, ' ')
+
+  result = result.replace(/全牛力|全阳力|阳力|牛力/g, ' ')
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false
+      if (/^(?:quan)?yangli'?s?$/i.test(line)) return false
+      if (/^(?:quan)?niuli$/i.test(line)) return false
+      return true
+    })
+    .join('\n')
+
+  result = result.replace(/[【】\[\]]/g, ' ')
+  result = result
+    .replace(/\s+([,.!?;:])/g, '$1')
+    .replace(/^[|｜\-–—:：,，.!！\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
 /** Remove supplier shop label from product titles (EN + CN). */
 export function sanitizeProductName(name: string): string {
   const original = String(name ?? '').trim()
@@ -635,6 +682,7 @@ export function cleanImportDescription(
   result = stripGjiaquan(result)
   result = stripXiaoAo(result)
   result = stripLiyiClothing(result)
+  result = stripYangliNiuli(result)
   result = stripImportedYangjingFabric(result)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripGuanhuiForeignTrade(result)
