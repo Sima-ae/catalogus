@@ -47,7 +47,8 @@
     "test:product-image-duplicates": "tsx scripts/test-product-image-duplicates.ts",
     "test:product-title-duplicates": "tsx scripts/test-product-title-duplicates.ts",
     "db:mirror-woocommerce-images": "tsx scripts/mirror-woocommerce-images.ts",
-    "db:repair-import-images": "tsx scripts/repair-import-product-images.ts"
+    "db:repair-import-images": "tsx scripts/repair-import-product-images.ts",
+    "db:restore-images": "tsx scripts/restore-product-images.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

@@ -425,6 +425,15 @@ export function toDisplayProductImageList(
   return out.length ? out : null
 }
 
+/** True when a stored DB URL was corrupted (e.g. bare "/api/yupoo-image" with no ?url=). */
+export function isBrokenStoredProductImageUrl(url: string | null | undefined): boolean {
+  const raw = String(url ?? '').trim()
+  if (!raw) return true
+  if (/\/api\/yupoo-image\/?$/i.test(raw)) return true
+  if (raw.includes('/api/yupoo-image') && !raw.includes('url=')) return true
+  return false
+}
+
 export function isPlaceholderImageUrl(url: string | null | undefined): boolean {
   const u = String(url ?? '').trim().toLowerCase()
   if (!u) return true

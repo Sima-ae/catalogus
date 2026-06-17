@@ -3,6 +3,7 @@ import { findProductImageDuplicateGroups } from '../src/lib/product-image-duplic
 import {
   cleanProductGalleryUrls,
   dedupeProductImageUrls,
+  isBrokenStoredProductImageUrl,
   upgradeYupooImageUrl,
 } from '../src/lib/product-image-url'
 
@@ -88,7 +89,28 @@ function testKeepsLargestYupooVariant() {
   assert.equal(gallery[1], upgradeYupooImageUrl('https://photo.yupoo.com/shop/album/b/medium.jpg'))
 }
 
+function testBrokenStoredUrls() {
+  assert.equal(isBrokenStoredProductImageUrl(''), true)
+  assert.equal(isBrokenStoredProductImageUrl('/api/yupoo-image'), true)
+  assert.equal(
+    isBrokenStoredProductImageUrl(
+      '/api/yupoo-image?url=https%3A%2F%2Fphoto.yupoo.com%2Fx%2Flarge.jpg'
+    ),
+    false
+  )
+  assert.equal(isBrokenStoredProductImageUrl('https://photo.yupoo.com/x/small.jpg'), false)
+  assert.equal(isBrokenStoredProductImageUrl('/images/products/foo.jpg'), false)
+
+  const deduped = dedupeProductImageUrls([
+    '/api/yupoo-image?url=https%3A%2F%2Fphoto.yupoo.com%2Fa%2Fmedium.jpg',
+    '/api/yupoo-image?url=https%3A%2F%2Fphoto.yupoo.com%2Fb%2Fsmall.jpg',
+  ])
+  assert.equal(deduped.length, 2)
+  assert.ok(deduped[0]!.includes('url='))
+}
+
 testDuplicateGroups()
 testGalleryMatch()
 testKeepsLargestYupooVariant()
+testBrokenStoredUrls()
 console.log('product-image-duplicates tests passed')
