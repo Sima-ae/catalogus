@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { NO_INDEX_RESPONSE_HEADERS } from '@/lib/no-index'
+import { yupooImageUrlFallbackChain } from '@/lib/product-image-url'
 import { DEFAULT_FETCH_UA } from '@/lib/yupoo/client'
 
 export const dynamic = 'force-dynamic'
@@ -24,17 +25,10 @@ function isAllowedReferer(url: string): boolean {
   }
 }
 
-/** Stream Yupoo CDN images with the Referer header their CDN requires (no local copy). */
-export async function GET(request: NextRequest) {
-  const remoteUrl = request.nextUrl.searchParams.get('url')?.trim()
-  if (!remoteUrl || !isAllowedYupooImageUrl(remoteUrl)) {
-    return new NextResponse('Invalid image URL', { status: 400 })
-  }
-
-  const refParam = request.nextUrl.searchParams.get('ref')?.trim()
-  const referer =
-    refParam && isAllowedReferer(refParam) ? refParam : 'https://x.yupoo.com/'
-
+async function fetchYupooImage(
+  remoteUrl: string,
+  referer: string
+): Promise<Response | null> {
   try {
     const upstream = await fetch(remoteUrl, {
       headers: {
@@ -45,10 +39,7 @@ export async function GET(request: NextRequest) {
       redirect: 'follow',
       cache: 'force-cache',
     })
-
-    if (!upstream.ok) {
-      return new NextResponse('Image unavailable', { status: upstream.status === 404 ? 404 : 502 })
-    }
+    if (!upstream.ok) return null
 
     const contentType = upstream.headers.get('content-type') || 'image/jpeg'
     const body = await upstream.arrayBuffer()
@@ -62,6 +53,26 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch {
-    return new NextResponse('Failed to fetch image', { status: 502 })
+    return null
   }
+}
+
+/** Stream Yupoo CDN images with the Referer header their CDN requires (no local copy). */
+export async function GET(request: NextRequest) {
+  const remoteUrl = request.nextUrl.searchParams.get('url')?.trim()
+  if (!remoteUrl || !isAllowedYupooImageUrl(remoteUrl)) {
+    return new NextResponse('Invalid image URL', { status: 400 })
+  }
+
+  const refParam = request.nextUrl.searchParams.get('ref')?.trim()
+  const referer =
+    refParam && isAllowedReferer(refParam) ? refParam : 'https://x.yupoo.com/'
+
+  for (const candidate of yupooImageUrlFallbackChain(remoteUrl)) {
+    if (!isAllowedYupooImageUrl(candidate)) continue
+    const response = await fetchYupooImage(candidate, referer)
+    if (response) return response
+  }
+
+  return new NextResponse('Image unavailable', { status: 404 })
 }

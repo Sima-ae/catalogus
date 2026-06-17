@@ -17,7 +17,7 @@ import { getCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import { toProductPageView, type ProductPageView } from '@/lib/product-page'
-import { productImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
+import { productDetailImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import ProductRibbon from '@/components/shop/ProductRibbon'
 import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
@@ -136,7 +136,7 @@ export default function ProductPageClient() {
     if (!product?.gallery?.length) return
     const preloadAt = (index: number) => {
       if (index < 0 || index >= product.gallery.length) return
-      const src = productImageSrc(product.gallery[index])
+      const src = productDetailImageSrc(product.gallery[index])
       if (!src) return
       const img = new window.Image()
       img.decoding = 'async'
@@ -513,7 +513,7 @@ export default function ProductPageClient() {
                     className="product-gallery-thumb-btn"
                   >
                     <Image
-                      src={productImageSrc(image)}
+                      src={productDetailImageSrc(image)}
                       alt=""
                       fill
                       sizes="84px"
@@ -549,7 +549,7 @@ export default function ProductPageClient() {
                   aria-label={t('product.viewImageFullSize', { name: product.name })}
                 >
                   <Image
-                  src={productImageSrc(product.gallery[selectedImage])}
+                  src={productDetailImageSrc(product.gallery[selectedImage])}
                     alt={product.name}
                     fill
                     sizes="(max-width: 1024px) 85vw, 45vw"
@@ -632,7 +632,7 @@ export default function ProductPageClient() {
                 {/* eslint-disable-next-line @next/next/no-img-element -- full-resolution lightbox */}
                 <img
                   key={product.gallery[selectedImage]}
-                  src={productImageSrc(product.gallery[selectedImage])}
+                  src={productDetailImageSrc(product.gallery[selectedImage])}
                   alt={`${product.name} — image ${selectedImage + 1}`}
                   className="relative z-0 max-h-[92vh] max-w-full w-auto h-auto object-contain select-none pointer-events-none"
                   draggable={false}

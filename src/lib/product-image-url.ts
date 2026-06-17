@@ -308,6 +308,42 @@ export function cleanProductGalleryUrls(urls: string[]): string[] {
   return dedupeProductImageUrls(stripBrandingGalleryImageUrls(urls))
 }
 
+/** Prefer /large/ for product detail display — /original/ often 404 on Yupoo CDN. */
+export function yupooImageUrlForDisplay(url: string): string {
+  let u = unwrapDisplayImageUrl(url.trim()).split('?')[0]?.trim() ?? ''
+  if (!u) return ''
+  u = u.replace(/\/original\./gi, '/large.')
+  return u
+}
+
+/**
+ * Smaller Yupoo CDN variants to try when the requested size returns 404.
+ * Used by /api/yupoo-image.
+ */
+export function yupooImageUrlFallbackChain(url: string): string[] {
+  const base = unwrapDisplayImageUrl(url.trim()).split('?')[0]?.trim() ?? ''
+  if (!base || !isYupooImageUrl(base)) {
+    const trimmed = url.trim()
+    return trimmed ? [trimmed] : []
+  }
+
+  const candidates: string[] = []
+  const add = (candidate: string) => {
+    const trimmed = candidate.trim()
+    if (trimmed && !candidates.includes(trimmed)) candidates.push(trimmed)
+  }
+
+  add(base)
+  add(base.replace(/\/original\./gi, '/large.'))
+  add(base.replace(/\/original\./gi, '/medium.'))
+  add(base.replace(/\/large\./gi, '/medium.'))
+  add(base.replace(/\/medium\./gi, '/small.'))
+  add(base.replace(/\/small\./gi, '/thumb.'))
+  add(base.replace(/\/square\./gi, '/small.'))
+
+  return candidates
+}
+
 /**
  * Yupoo CDN blocks hotlinking — serve through our proxy using the album URL as Referer.
  * Raw Yupoo URLs stay in the database; this is for display only.
@@ -327,7 +363,9 @@ export function toDisplayProductImageUrl(
     return normalized
   }
 
-  const params = new URLSearchParams({ url: normalized })
+  const displayUrl = yupooImageUrlForDisplay(normalized)
+
+  const params = new URLSearchParams({ url: displayUrl })
   const ref = String(sourceUrl ?? '').trim()
   if (ref) {
     try {
@@ -428,6 +466,31 @@ export function isCatalogHostedImage(url: string | null | undefined): boolean {
   } catch {
     return normalized.includes('/images/')
   }
+}
+
+/** Browser src for product detail gallery — Yupoo via proxy at a reliable size. */
+export function productDetailImageSrc(
+  url: string | null | undefined,
+  sourceUrl?: string | null
+): string {
+  const raw = String(url ?? '').trim()
+  if (!raw) return ''
+
+  if (raw.includes('/api/yupoo-image')) {
+    const normalized = normalizeProductImageUrl(raw)
+    if (!normalized) return ''
+    return normalized.startsWith('/') ? appPath(normalized) : normalized
+  }
+
+  const normalized = normalizeProductImageUrl(raw)
+  if (!normalized) return ''
+
+  const sized = isYupooImageUrl(normalized)
+    ? yupooImageUrlForDisplay(normalized)
+    : normalized
+  const display = toDisplayProductImageUrl(sized, sourceUrl)
+  if (!display) return ''
+  return display.startsWith('/') ? appPath(display) : display
 }
 
 /** Browser src for admin/shop UI — Yupoo via proxy, catalog paths via basePath. */
