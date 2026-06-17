@@ -7,11 +7,18 @@ import {
 import {
   clearScopedPricesForProduct,
   findConflictingCuratedPricelist,
+  buildCuratedBulkEligibilitySql,
   isCuratedSupplierPricelist,
   listPricelistPages,
   setProductSupplierPricelistId,
+  syncSupplierPricelistIdForListOwner,
 } from '@/lib/pricelist-pages-db'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
+import {
+  countActiveProductsForCatalogQuery,
+  resolveActiveCatalogListSql,
+} from '@/lib/products-db'
+import type { CatalogProductsQuery } from '@/lib/catalog-products'
 import { listPendingEditRequestsForProducts } from '@/lib/seller-price-edit-db'
 import { parseProductJsonField, resolveProductBrandDisplay } from '@/lib/product-serialize'
 import { resolveProductDisplayImages } from '@/lib/product-image-url'
@@ -141,6 +148,66 @@ export async function addPricelistItem(input: {
 
 const PRICELIST_BULK_INSERT_BATCH = 80
 
+async function filterCuratedEligibleProductIds(
+  ownerUserId: string,
+  productIds: string[]
+): Promise<{ eligible: string[]; conflicts: number }> {
+  if (!isCuratedSupplierPricelist(ownerUserId) || !productIds.length) {
+    return { eligible: productIds, conflicts: 0 }
+  }
+
+  const eligibility = await buildCuratedBulkEligibilitySql(ownerUserId)
+  if (!eligibility.sql) {
+    return { eligible: productIds, conflicts: 0 }
+  }
+
+  const placeholders = productIds.map(() => '?').join(', ')
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT p.id FROM products p
+     WHERE p.id IN (${placeholders})
+       AND NOT (${eligibility.sql})`,
+    [...productIds, ...eligibility.params]
+  )
+  const excluded = new Set(rows.map((row) => String(row.id)))
+  const eligible = productIds.filter((id) => !excluded.has(id))
+  return { eligible, conflicts: excluded.size }
+}
+
+/** Fast path: insert all catalog-filtered active products in one SQL statement. */
+export async function bulkAddCatalogFilterToPricelist(input: {
+  ownerUserId: string
+  addedByUserId: string
+  filterQuery: Omit<CatalogProductsQuery, 'page' | 'limit'>
+}): Promise<{ inserted: number; skipped: number; matched: number }> {
+  const listSql = await resolveActiveCatalogListSql(input.filterQuery)
+  if (!listSql) return { inserted: 0, skipped: 0, matched: 0 }
+
+  const matched = await countActiveProductsForCatalogQuery(input.filterQuery)
+  if (!matched) return { inserted: 0, skipped: 0, matched: 0 }
+
+  const eligibility = await buildCuratedBulkEligibilitySql(input.ownerUserId)
+  const eligibilitySql = eligibility.sql ? ` AND ${eligibility.sql}` : ''
+
+  const result = await queryDb<{ affectedRows?: number }>(
+    `INSERT IGNORE INTO pricelist_items (id, owner_user_id, product_id, added_by_user_id)
+     SELECT UUID(), ?, p.id, ?
+     ${listSql.fromClause}
+     ${listSql.whereSql}${eligibilitySql}`,
+    [input.ownerUserId, input.addedByUserId, ...listSql.params, ...eligibility.params]
+  )
+
+  const inserted = Number(result?.affectedRows ?? 0)
+  if (inserted > 0) {
+    await syncSupplierPricelistIdForListOwner(input.ownerUserId)
+  }
+
+  return {
+    inserted,
+    skipped: Math.max(0, matched - inserted),
+    matched,
+  }
+}
+
 /** Add many products to a pricelist; skips duplicates and inactive products. */
 export async function bulkAddPricelistItems(input: {
   ownerUserId: string
@@ -151,7 +218,6 @@ export async function bulkAddPricelistItems(input: {
   if (!unique.length) return { inserted: 0, skipped: 0, total: 0, conflicts: 0 }
 
   let inserted = 0
-  let activeEligible = 0
   let conflicts = 0
   const isCurated = isCuratedSupplierPricelist(input.ownerUserId)
 
@@ -164,25 +230,19 @@ export async function bulkAddPricelistItems(input: {
     )
     if (!activeRows.length) continue
 
-    const eligibleRows: { id: string }[] = []
-    for (const row of activeRows) {
-      if (isCurated) {
-        const conflict = await findConflictingCuratedPricelist(row.id, input.ownerUserId)
-        if (conflict) {
-          conflicts += 1
-          continue
-        }
-      }
-      eligibleRows.push(row)
-    }
-    if (!eligibleRows.length) continue
-    activeEligible += eligibleRows.length
+    const activeIds = activeRows.map((row) => String(row.id))
+    const { eligible, conflicts: batchConflicts } = await filterCuratedEligibleProductIds(
+      input.ownerUserId,
+      activeIds
+    )
+    conflicts += batchConflicts
+    if (!eligible.length) continue
 
     const tuples: unknown[] = []
     const valueSql: string[] = []
-    for (const row of eligibleRows) {
+    for (const productId of eligible) {
       valueSql.push('(?, ?, ?, ?)')
-      tuples.push(randomUUID(), input.ownerUserId, row.id, input.addedByUserId)
+      tuples.push(randomUUID(), input.ownerUserId, productId, input.addedByUserId)
     }
 
     const result = await queryDb<{ affectedRows?: number }>(
@@ -190,16 +250,14 @@ export async function bulkAddPricelistItems(input: {
        VALUES ${valueSql.join(', ')}`,
       tuples
     )
-    const batchInserted = result?.affectedRows ?? 0
-    inserted += batchInserted
-
-    if (isCurated && batchInserted > 0) {
-      for (const row of eligibleRows) {
-        await setProductSupplierPricelistId(row.id, input.ownerUserId)
-      }
-    }
+    inserted += Number(result?.affectedRows ?? 0)
   }
 
+  if (isCurated && inserted > 0) {
+    await syncSupplierPricelistIdForListOwner(input.ownerUserId)
+  }
+
+  const activeEligible = unique.length - conflicts
   return {
     inserted,
     skipped: Math.max(0, activeEligible - inserted),

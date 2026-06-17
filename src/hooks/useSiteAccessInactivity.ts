@@ -7,17 +7,25 @@ import {
   SITE_ACCESS_INACTIVITY_MS,
 } from '@/lib/site-access-inactivity'
 
+const ACTIVITY_THROTTLE_MS = 1_000
+
 export function useSiteAccessInactivity(
   enabled: boolean,
   options?: { onLock?: () => void }
 ) {
   const [inactivityLocked, setInactivityLocked] = useState(false)
   const lastActivityRef = useRef(Date.now())
+  const lastRescheduleRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lockingRef = useRef(false)
+  const lockedRef = useRef(false)
+  const enabledRef = useRef(enabled)
 
   const onLockRef = useRef(options?.onLock)
   onLockRef.current = options?.onLock
+
+  enabledRef.current = enabled
+  lockedRef.current = inactivityLocked
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -26,44 +34,63 @@ export function useSiteAccessInactivity(
     }
   }, [])
 
+  const lockSession = useCallback(async () => {
+    if (lockingRef.current || lockedRef.current || !enabledRef.current) return
+
+    const idleFor = Date.now() - lastActivityRef.current
+    if (idleFor < SITE_ACCESS_INACTIVITY_MS - 250) {
+      return
+    }
+
+    lockingRef.current = true
+    lockedRef.current = true
+    setInactivityLocked(true)
+    onLockRef.current?.()
+
+    try {
+      await fetch(appPath('/api/site-access/lock'), {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch {
+      lockedRef.current = false
+      setInactivityLocked(false)
+      lastActivityRef.current = Date.now()
+    } finally {
+      lockingRef.current = false
+    }
+  }, [])
+
   const scheduleTimer = useCallback(() => {
     clearTimer()
-    if (!enabled || inactivityLocked) return
+    if (!enabledRef.current || lockedRef.current) return
+
+    const idleFor = Date.now() - lastActivityRef.current
+    const remaining = Math.max(250, SITE_ACCESS_INACTIVITY_MS - idleFor)
+
     timerRef.current = setTimeout(() => {
-      void (async () => {
-        if (lockingRef.current || inactivityLocked) return
-        const idleFor = Date.now() - lastActivityRef.current
-        if (idleFor < SITE_ACCESS_INACTIVITY_MS - 500) {
-          scheduleTimer()
-          return
-        }
-        lockingRef.current = true
-        try {
-          await fetch(appPath('/api/site-access/lock'), {
-            method: 'POST',
-            credentials: 'include',
-          })
-          setInactivityLocked(true)
-          onLockRef.current?.()
-        } catch {
-          scheduleTimer()
-        } finally {
-          lockingRef.current = false
-        }
-      })()
-    }, SITE_ACCESS_INACTIVITY_MS)
-  }, [clearTimer, enabled, inactivityLocked])
+      void lockSession()
+    }, remaining)
+  }, [clearTimer, lockSession])
 
   const recordActivity = useCallback(() => {
-    if (!enabled || inactivityLocked) return
-    lastActivityRef.current = Date.now()
+    if (!enabledRef.current || lockedRef.current) return
+
+    const now = Date.now()
+    lastActivityRef.current = now
+
+    if (now - lastRescheduleRef.current < ACTIVITY_THROTTLE_MS) return
+    lastRescheduleRef.current = now
     scheduleTimer()
-  }, [enabled, inactivityLocked, scheduleTimer])
+  }, [scheduleTimer])
 
   const resumeAfterUnlock = useCallback(() => {
+    lockedRef.current = false
     setInactivityLocked(false)
     lastActivityRef.current = Date.now()
-  }, [])
+    lastRescheduleRef.current = 0
+    scheduleTimer()
+  }, [scheduleTimer])
 
   useEffect(() => {
     if (!enabled) {
@@ -71,19 +98,36 @@ export function useSiteAccessInactivity(
       return
     }
 
+    lastActivityRef.current = Date.now()
     scheduleTimer()
 
     for (const evt of SITE_ACCESS_ACTIVITY_EVENTS) {
       window.addEventListener(evt, recordActivity, { passive: true })
     }
 
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        clearTimer()
+        return
+      }
+
+      const idleFor = Date.now() - lastActivityRef.current
+      if (idleFor >= SITE_ACCESS_INACTIVITY_MS) {
+        void lockSession()
+        return
+      }
+      scheduleTimer()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
     return () => {
       clearTimer()
       for (const evt of SITE_ACCESS_ACTIVITY_EVENTS) {
         window.removeEventListener(evt, recordActivity)
       }
+      document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [clearTimer, enabled, inactivityLocked, recordActivity, scheduleTimer])
+  }, [clearTimer, enabled, lockSession, recordActivity, scheduleTimer])
 
   useEffect(() => {
     if (!inactivityLocked) return

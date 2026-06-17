@@ -1019,10 +1019,9 @@ export async function listActiveProductsPaginated(
 }
 
 /** Active product ids matching shop catalog filters (optional chunk for bulk operations). */
-export async function listActiveProductIdsForCatalogQuery(
-  query: Omit<CatalogProductsQuery, 'page' | 'limit'>,
-  options?: { limit?: number; offset?: number }
-): Promise<string[]> {
+export async function resolveActiveCatalogListSql(
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>
+): Promise<{ fromClause: string; whereSql: string; params: unknown[] } | null> {
   const [fromClause, categories, hasBrandsTable] = await Promise.all([
     catalogListingFromSql(),
     loadActiveCategories(),
@@ -1034,7 +1033,7 @@ export async function listActiveProductIdsForCatalogQuery(
   })
 
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
-    return []
+    return null
   }
 
   const { whereSql, params } = buildActiveCatalogFilters(
@@ -1050,6 +1049,18 @@ export async function listActiveProductIdsForCatalogQuery(
     },
     { includeBrandJoin: hasBrandsTable }
   )
+
+  return { fromClause, whereSql, params }
+}
+
+export async function listActiveProductIdsForCatalogQuery(
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>,
+  options?: { limit?: number; offset?: number }
+): Promise<string[]> {
+  const listSql = await resolveActiveCatalogListSql(query)
+  if (!listSql) return []
+
+  const { fromClause, whereSql, params } = listSql
 
   const limitClause =
     options?.limit != null

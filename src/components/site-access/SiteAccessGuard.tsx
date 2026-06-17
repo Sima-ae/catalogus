@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import { isPricelistSharePath } from '@/lib/pricelist-share-path'
@@ -15,8 +15,8 @@ import SiteAccessInactivityModal from '@/components/site-access/SiteAccessInacti
 
 type Status = { required: boolean; unlocked: boolean }
 
-/** Only skip the guard spinner when site access is explicitly disabled. */
-function readSiteAccessHint(): Status | null {
+/** Site access disabled — safe to skip the status round-trip. */
+function readSiteAccessDisabledHint(): Status | null {
   if (typeof document === 'undefined') return null
 
   const cookies = document.cookie
@@ -32,7 +32,21 @@ function readSiteAccessHint(): Status | null {
   return null
 }
 
-const DEFAULT_STATUS: Status = { required: false, unlocked: true }
+function initialStatus(): Status | null {
+  return readSiteAccessDisabledHint()
+}
+
+async function fetchSiteAccessStatus(): Promise<Status> {
+  const res = await fetch(appPath('/api/site-access/status'), {
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  const data = await res.json()
+  return {
+    required: Boolean(data.required),
+    unlocked: Boolean(data.unlocked),
+  }
+}
 
 /**
  * Client-side backup: blocks UI until site access cookie is set (e.g. client navigations).
@@ -43,7 +57,8 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useI18n()
-  const [status, setStatus] = useState<Status>(() => readSiteAccessHint() ?? DEFAULT_STATUS)
+  const [status, setStatus] = useState<Status | null>(initialStatus)
+  const redirectingRef = useRef(false)
 
   const gatePath = appPath('/site-access-gate')
   const onGate =
@@ -64,10 +79,10 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
 
   useEffect(() => {
     let cancelled = false
-    fetch(appPath('/api/site-access/status'), { credentials: 'include', cache: 'no-store' })
-      .then(async (res) => {
-        const data = await res.json()
-        if (!cancelled) setStatus(data)
+
+    void fetchSiteAccessStatus()
+      .then((next) => {
+        if (!cancelled) setStatus(next)
       })
       .catch(() => {
         if (!cancelled) setStatus({ required: false, unlocked: true })
@@ -79,10 +94,9 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   }, [])
 
   useEffect(() => {
-    if (!status) return
+    if (status === null) return
 
     if (onGate) {
-      // Leave the gate only when the server confirms a valid unlock cookie.
       if (status.unlocked) {
         const target = resolveSiteAccessRedirect(searchParams.get('from'), pathname)
         navigateAfterSiteAccessUnlock(target)
@@ -90,18 +104,47 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
       return
     }
 
-    if (status.required && !status.unlocked && !pricelistShare && !inactivityLocked) {
+    if (
+      status.required &&
+      !status.unlocked &&
+      !pricelistShare &&
+      !inactivityLocked
+    ) {
+      if (redirectingRef.current) return
+      redirectingRef.current = true
       const from = pathname || '/'
       router.replace(`${gatePath}?from=${encodeURIComponent(from)}`)
+    } else {
+      redirectingRef.current = false
     }
   }, [status, onGate, pathname, router, gatePath, searchParams, pricelistShare, inactivityLocked])
 
-  const handleInactivityUnlock = useCallback(() => {
+  const handleInactivityUnlock = useCallback(async () => {
     resumeAfterUnlock()
-    setStatus((prev) => (prev ? { ...prev, unlocked: true } : prev))
+    try {
+      const next = await fetchSiteAccessStatus()
+      setStatus(next)
+    } catch {
+      setStatus((prev) => (prev ? { ...prev, unlocked: true } : prev))
+    }
   }, [resumeAfterUnlock])
 
-  if (status.required && !status.unlocked && !onGate && !pricelistShare && !inactivityLocked) {
+  if (onGate && status === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark-900">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
+      </div>
+    )
+  }
+
+  if (
+    status !== null &&
+    status.required &&
+    !status.unlocked &&
+    !onGate &&
+    !pricelistShare &&
+    !inactivityLocked
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
         {t('loading.generic')}

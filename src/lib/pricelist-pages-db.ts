@@ -320,6 +320,47 @@ export async function findConflictingCuratedPricelist(
   return assigned
 }
 
+/** SQL fragment for bulk catalog inserts — skip products on another curated list. */
+export async function buildCuratedBulkEligibilitySql(
+  targetOwnerId: string
+): Promise<{ sql: string; params: unknown[] }> {
+  if (!isCuratedSupplierPricelist(targetOwnerId)) {
+    return { sql: '', params: [] }
+  }
+
+  await ensurePricelistPagesCache()
+  const otherCurated = Array.from(curatedOwnerIds).filter((id) => id !== targetOwnerId)
+
+  const clauses: string[] = [
+    '(p.supplier_pricelist_id IS NULL OR p.supplier_pricelist_id = ?)',
+  ]
+  const params: unknown[] = [targetOwnerId]
+
+  if (otherCurated.length) {
+    const placeholders = otherCurated.map(() => '?').join(', ')
+    clauses.push(
+      `NOT EXISTS (
+        SELECT 1 FROM pricelist_items pi
+        WHERE pi.product_id = p.id AND pi.owner_user_id IN (${placeholders})
+      )`
+    )
+    params.push(...otherCurated)
+  }
+
+  return { sql: clauses.join(' AND '), params }
+}
+
+export async function syncSupplierPricelistIdForListOwner(listOwnerId: string): Promise<void> {
+  if (!isCuratedSupplierPricelist(listOwnerId)) return
+  await queryDb(
+    `UPDATE products p
+     INNER JOIN pricelist_items pi ON pi.product_id = p.id AND pi.owner_user_id = ?
+     SET p.supplier_pricelist_id = ?
+     WHERE p.supplier_pricelist_id IS NULL OR p.supplier_pricelist_id = ?`,
+    [listOwnerId, listOwnerId, listOwnerId]
+  )
+}
+
 export async function setProductSupplierPricelistId(
   productId: string,
   listOwnerId: string | null

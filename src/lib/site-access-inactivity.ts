@@ -7,4 +7,5 @@ export const SITE_ACCESS_ACTIVITY_EVENTS = [
   'touchstart',
   'scroll',
   'click',
+  'wheel',
 ] as const
