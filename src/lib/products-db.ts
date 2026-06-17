@@ -37,6 +37,7 @@ import {
 import { getBrandSkuPrefixes } from '@/lib/brand-sku-prefixes'
 import { catalogPositionJoin } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
+import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 import {
   DuplicateSkuError,
   MissingSkuError,
@@ -190,10 +191,21 @@ type ProductSchemaFlags = {
 
 const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
 const SELECT_SQL_CACHE_KEY = '__catalogusProductSelectSql'
+const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
+const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
+
+const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats'
+const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 30_000
+
+function invalidateProductDashboardStatsCache() {
+  invalidateCachedNamespace(PRODUCT_DASHBOARD_STATS_CACHE_NS)
+}
 
 type GlobalSchema = typeof globalThis & {
   [SCHEMA_CACHE_KEY]?: ProductSchemaFlags
   [SELECT_SQL_CACHE_KEY]?: string
+  [CATALOG_FROM_CACHE_KEY]?: string
+  [CATALOG_SELECT_CACHE_KEY]?: string
 }
 
 async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
@@ -252,14 +264,10 @@ function jsonCol(value: unknown) {
   return JSON.stringify(value)
 }
 
-async function productSelectSql() {
-  const g = globalThis as GlobalSchema
-  if (g[SELECT_SQL_CACHE_KEY]) return g[SELECT_SQL_CACHE_KEY]
-
+async function buildProductJoinFragments() {
   const hasCategoryId = await productsHaveCategoryIdColumn()
   const hasBrandsTable = await brandsTableExists()
   const hasBrandId = hasBrandsTable && (await productsHaveBrandIdColumn())
-  /** Prefer FK when set; name match only for legacy rows without category_id / brand_id. */
   const categoryJoin = hasCategoryId
     ? `LEFT JOIN categories c ON c.active = 1 AND (
          (p.category_id IS NOT NULL AND c.id = p.category_id)
@@ -274,13 +282,76 @@ async function productSelectSql() {
          )`
       : `LEFT JOIN brands b ON b.active = 1 AND b.name = p.brand`
     : ''
-
   const brandSelect = hasBrandsTable
     ? `,
       b.id AS resolved_brand_id,
       b.name AS resolved_brand_name,
       b.slug AS resolved_brand_slug`
     : ''
+  return { categoryJoin, brandJoin, brandSelect }
+}
+
+/** FROM + JOINs for catalog list/count queries (no column projection). */
+async function catalogListingFromSql() {
+  const g = globalThis as GlobalSchema
+  if (g[CATALOG_FROM_CACHE_KEY]) return g[CATALOG_FROM_CACHE_KEY]
+
+  const { categoryJoin, brandJoin } = await buildProductJoinFragments()
+  g[CATALOG_FROM_CACHE_KEY] = `
+    FROM products p
+    ${categoryJoin}
+    LEFT JOIN pricelist_pages pp ON pp.id = p.supplier_pricelist_id
+    ${brandJoin}
+  `
+  return g[CATALOG_FROM_CACHE_KEY]
+}
+
+/** Lightweight SELECT for shop grid rows — skips description, gallery, tags, etc. */
+async function catalogProductSelectSql() {
+  const g = globalThis as GlobalSchema
+  if (g[CATALOG_SELECT_CACHE_KEY]) return g[CATALOG_SELECT_CACHE_KEY]
+
+  const [fromClause, { brandSelect }] = await Promise.all([
+    catalogListingFromSql(),
+    buildProductJoinFragments(),
+  ])
+
+  g[CATALOG_SELECT_CACHE_KEY] = `
+    SELECT
+      p.id,
+      p.name,
+      p.short_description,
+      p.price,
+      p.original_price,
+      p.image_url,
+      p.category,
+      p.category_id,
+      p.brand,
+      p.brand_id,
+      p.product_options,
+      p.sold_out,
+      p.pre_order,
+      p.featured,
+      p.source_url,
+      p.author_id,
+      c.id AS resolved_category_id,
+      c.name AS resolved_category_name,
+      c.slug AS resolved_category_slug,
+      pp.label AS supplier_pricelist_label,
+      pp.slug AS supplier_pricelist_slug${brandSelect}
+    ${fromClause}
+  `
+  return g[CATALOG_SELECT_CACHE_KEY]
+}
+
+async function productSelectSql() {
+  const g = globalThis as GlobalSchema
+  if (g[SELECT_SQL_CACHE_KEY]) return g[SELECT_SQL_CACHE_KEY]
+
+  const [fromClause, { brandSelect }] = await Promise.all([
+    catalogListingFromSql(),
+    buildProductJoinFragments(),
+  ])
 
   g[SELECT_SQL_CACHE_KEY] = `
     SELECT
@@ -290,10 +361,7 @@ async function productSelectSql() {
       c.slug AS resolved_category_slug,
       pp.label AS supplier_pricelist_label,
       pp.slug AS supplier_pricelist_slug${brandSelect}
-    FROM products p
-    ${categoryJoin}
-    LEFT JOIN pricelist_pages pp ON pp.id = p.supplier_pricelist_id
-    ${brandJoin}
+    ${fromClause}
   `
   return g[SELECT_SQL_CACHE_KEY]
 }
@@ -323,9 +391,12 @@ async function serializeProductRows(
   )
 }
 
-async function fetchProductRowsByIds(ids: string[]): Promise<Record<string, unknown>[]> {
+async function fetchProductRowsByIds(
+  ids: string[],
+  options?: { catalog?: boolean }
+): Promise<Record<string, unknown>[]> {
   if (!ids.length) return []
-  const select = await productSelectSql()
+  const select = options?.catalog ? await catalogProductSelectSql() : await productSelectSql()
   const placeholders = ids.map(() => '?').join(', ')
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE p.id IN (${placeholders})`,
@@ -642,6 +713,7 @@ export async function insertProduct(input: ProductInput) {
     console.error('[tag-translations] sync after insert failed:', err)
   })
 
+  invalidateProductDashboardStatsCache()
   return fetchProductRow(id, { includePurchasePrice: true })
 }
 
@@ -858,6 +930,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     })
   }
 
+  invalidateProductDashboardStatsCache()
   return fetchProductRow(id, { includePurchasePrice: true })
 }
 
@@ -882,8 +955,8 @@ export async function listActiveProducts() {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  const [select, categories, hasBrandsTable] = await Promise.all([
-    productSelectSql(),
+  const [fromClause, categories, hasBrandsTable] = await Promise.all([
+    catalogListingFromSql(),
     loadActiveCategories(),
     brandsTableExists(),
   ])
@@ -915,8 +988,6 @@ export async function listActiveProductsPaginated(
     { includeBrandJoin: hasBrandsTable }
   )
   const offset = (query.page - 1) * limit
-  const fromIndex = select.search(/\bFROM\b/i)
-  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
   const sortScope = catalogSortScope(query)
   const { joinSql, orderSql, scopeParam } = await catalogPositionJoin(sortScope)
   const idParams = scopeParam ? [scopeParam, ...params] : params
@@ -933,7 +1004,7 @@ export async function listActiveProductsPaginated(
   ])
 
   const total = Number(countRows[0]?.total ?? 0)
-  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
+  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)), { catalog: true })
   const items = await applyStorefrontSoldOutFromPlatformPricelist(
     await serializeProductRows(rows, { catalog: true })
   )
@@ -947,12 +1018,13 @@ export async function listActiveProductsPaginated(
   }
 }
 
-/** All active product ids matching shop catalog filters (no pagination). */
+/** Active product ids matching shop catalog filters (optional chunk for bulk operations). */
 export async function listActiveProductIdsForCatalogQuery(
-  query: Omit<CatalogProductsQuery, 'page' | 'limit'>
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>,
+  options?: { limit?: number; offset?: number }
 ): Promise<string[]> {
-  const [select, categories, hasBrandsTable] = await Promise.all([
-    productSelectSql(),
+  const [fromClause, categories, hasBrandsTable] = await Promise.all([
+    catalogListingFromSql(),
     loadActiveCategories(),
     brandsTableExists(),
   ])
@@ -978,11 +1050,16 @@ export async function listActiveProductIdsForCatalogQuery(
     },
     { includeBrandJoin: hasBrandsTable }
   )
-  const fromIndex = select.search(/\bFROM\b/i)
-  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+
+  const limitClause =
+    options?.limit != null
+      ? ` LIMIT ${Math.max(1, Math.min(1000, Math.floor(options.limit)))}${
+          options.offset != null ? ` OFFSET ${Math.max(0, Math.floor(options.offset))}` : ''
+        }`
+      : ''
 
   const rows = await queryDb<{ id: string }[]>(
-    `SELECT DISTINCT p.id ${fromClause} ${whereSql}`,
+    `SELECT DISTINCT p.id ${fromClause} ${whereSql}${limitClause}`,
     params
   )
   return rows.map((r) => String(r.id))
@@ -991,8 +1068,39 @@ export async function listActiveProductIdsForCatalogQuery(
 export async function countActiveProductsForCatalogQuery(
   query: Omit<CatalogProductsQuery, 'page' | 'limit'>
 ): Promise<number> {
-  const ids = await listActiveProductIdsForCatalogQuery(query)
-  return ids.length
+  const [fromClause, categories, hasBrandsTable] = await Promise.all([
+    catalogListingFromSql(),
+    loadActiveCategories(),
+    brandsTableExists(),
+  ])
+  const categoryFilter = resolveShopCategoryFilter(categories, {
+    category: query.category,
+    subcategory: query.subcategory,
+  })
+
+  if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
+    return 0
+  }
+
+  const { whereSql, params } = buildActiveCatalogFilters(
+    {
+      ...query,
+      page: 1,
+      limit: 1,
+      categoryIds: categoryFilter?.categoryIds,
+      legacyCategoryNames: categoryFilter?.legacyNames,
+      strictCategoryIdOnly: categoryFilter?.strictIdOnly,
+      categoryStorageLabel: categoryFilter?.categoryStorageLabel,
+      excludeCategoryIds: categoryFilter?.excludeCategoryIds,
+    },
+    { includeBrandJoin: hasBrandsTable }
+  )
+
+  const countRows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+    params
+  )
+  return Number(countRows[0]?.total ?? 0)
 }
 
 /** Paginated all products (admin dashboard snippets). */
@@ -1105,6 +1213,15 @@ export async function listProductsPaginatedAdmin(
 
 /** Aggregate product counts for admin dashboard cards. */
 export async function getProductDashboardStats(): Promise<ProductDashboardStats> {
+  return getCachedValue(
+    PRODUCT_DASHBOARD_STATS_CACHE_NS,
+    'all',
+    PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS,
+    loadProductDashboardStatsFromDb
+  )
+}
+
+async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats> {
   const rows = await queryDb<{ status: string; count: number; import_drafts: number }[]>(
     `SELECT
        status,
@@ -1235,6 +1352,7 @@ export async function getProductById(
 
 export async function deleteProductById(id: string) {
   await queryDb('DELETE FROM products WHERE id = ?', [id])
+  invalidateProductDashboardStatsCache()
 }
 
 async function deleteProductRelatedRows(productIds: string[]): Promise<void> {

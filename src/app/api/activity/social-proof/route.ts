@@ -15,6 +15,8 @@ export const runtime = 'nodejs'
 
 const SOCIAL_PROOF_CACHE_NS = 'social-proof-pool'
 const SOCIAL_PROOF_CACHE_TTL_MS = 300_000
+const PER_CATEGORY_LIMIT = 10
+const POOL_TARGET = 80
 
 function socialProofLabel(name: string, sku: string | null): string | null {
   const n = name?.trim()
@@ -41,8 +43,6 @@ const PRODUCT_BASE_WHERE = `
   )
 `
 
-const PER_CATEGORY_LIMIT = 10
-
 type ProductRow = {
   id: string
   name: string
@@ -50,6 +50,7 @@ type ProductRow = {
   image_url: string | null
   category: string | null
   source_url: string | null
+  rn: number
 }
 
 function rowToProduct(row: ProductRow, seenLabels: Set<string>): SocialProofProduct | null {
@@ -71,37 +72,38 @@ function rowToProduct(row: ProductRow, seenLabels: Set<string>): SocialProofProd
 }
 
 async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
-  const categoryRows = await queryDb<{ category: string }[]>(
-    `SELECT DISTINCT TRIM(category) AS category FROM products
-     WHERE ${PRODUCT_BASE_WHERE}
-       AND category IS NOT NULL AND TRIM(category) <> ''`
-  )
-
-  const categories = shuffleRows(
-    categoryRows.map((r) => r.category).filter((c) => Boolean(c?.trim()))
+  const rows = await queryDb<ProductRow[]>(
+    `SELECT id, name, sku, image_url, category, source_url, rn FROM (
+       SELECT
+         id,
+         name,
+         sku,
+         image_url,
+         category,
+         source_url,
+         ROW_NUMBER() OVER (
+           PARTITION BY TRIM(COALESCE(category, 'Other'))
+           ORDER BY RAND()
+         ) AS rn
+       FROM products
+       WHERE ${PRODUCT_BASE_WHERE}
+     ) ranked
+     WHERE rn <= ?
+     ORDER BY RAND()
+     LIMIT ?`,
+    [PER_CATEGORY_LIMIT, POOL_TARGET * 2]
   )
 
   const byCategory = new Map<string, SocialProofProduct[]>()
-
-  await Promise.all(
-    categories.map(async (category) => {
-      const rows = await queryDb<ProductRow[]>(
-        `SELECT id, name, sku, image_url, category, source_url FROM products
-         WHERE ${PRODUCT_BASE_WHERE}
-           AND TRIM(category) = ?
-         ORDER BY RAND()
-         LIMIT ?`,
-        [category, PER_CATEGORY_LIMIT]
-      )
-      const bucket: SocialProofProduct[] = []
-      const localSeen = new Set<string>()
-      for (const row of rows) {
-        const product = rowToProduct(row, localSeen)
-        if (product) bucket.push(product)
-      }
-      if (bucket.length > 0) byCategory.set(category, bucket)
-    })
-  )
+  for (const row of rows) {
+    const category = row.category?.trim() || 'Other'
+    const bucket = byCategory.get(category) ?? []
+    if (bucket.length >= PER_CATEGORY_LIMIT) continue
+    const localSeen = new Set(bucket.map((p) => p.label.toLowerCase()))
+    const product = rowToProduct(row, localSeen)
+    if (product) bucket.push(product)
+    if (bucket.length) byCategory.set(category, bucket)
+  }
 
   const categoryOrder = shuffleRows(Array.from(byCategory.keys()))
   const pool: SocialProofProduct[] = []
@@ -113,7 +115,7 @@ async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
     }
   }
 
-  return shuffleRows(pool)
+  return shuffleRows(pool).slice(0, POOL_TARGET)
 }
 
 /** Published product labels + images for client-side daily social-proof. */
@@ -121,7 +123,7 @@ export async function GET() {
   try {
     const products = await getCachedValue(
       SOCIAL_PROOF_CACHE_NS,
-      'pool-v6',
+      'pool-v7',
       SOCIAL_PROOF_CACHE_TTL_MS,
       loadSocialProofProducts
     )

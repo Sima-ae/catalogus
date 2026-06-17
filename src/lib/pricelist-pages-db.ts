@@ -110,7 +110,10 @@ export async function refreshPricelistPagesCache(): Promise<PricelistPageRow[]> 
 export async function listPricelistPages(options?: {
   activeOnly?: boolean
 }): Promise<PricelistPageRow[]> {
-  const all = await refreshPricelistPagesCache()
+  await ensurePricelistPagesCache()
+  const all = Array.from(pagesById.values()).sort(
+    (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label)
+  )
   if (options?.activeOnly) return all.filter((p) => p.active)
   return all
 }

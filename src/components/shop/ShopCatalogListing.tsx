@@ -4,6 +4,7 @@ import CatalogProductCount from '@/components/shop/CatalogProductCount'
 import CatalogPagination, { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import SortableProductGrid from '@/components/shop/SortableProductGrid'
 import { isCatalogAdminUser, useAuth } from '@/lib/auth-local'
+import { PricelistMembershipBatchProvider } from '@/lib/pricelist-membership-batch-context'
 import type { Product } from '@/lib/types'
 
 type Props = {
@@ -53,13 +54,15 @@ export default function ShopCatalogListing({
         compact={centered}
       />
       <div aria-busy={loading || undefined}>
-        <SortableProductGrid
-          products={products}
-          reorderEnabled={canReorder}
-          saving={reorderSaving || loading}
-          onReorder={onReorder ?? (() => undefined)}
-          onProductDeleted={onProductDeleted}
-        />
+        <PricelistMembershipBatchProvider productIds={products.map((p) => p.id)}>
+          <SortableProductGrid
+            products={products}
+            reorderEnabled={canReorder}
+            saving={reorderSaving || loading}
+            onReorder={onReorder ?? (() => undefined)}
+            onProductDeleted={onProductDeleted}
+          />
+        </PricelistMembershipBatchProvider>
       </div>
       <CatalogPagination
         page={safePage}

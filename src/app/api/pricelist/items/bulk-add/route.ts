@@ -6,7 +6,7 @@ import {
 } from '@/lib/catalog-user-auth'
 import { bulkAddPricelistItems } from '@/lib/pricelist-db'
 import { assertManageItems, requirePricelistAccess } from '@/lib/pricelist-api'
-import { listActiveProductIdsForCatalogQuery } from '@/lib/products-db'
+import { listActiveProductIdsForCatalogQuery, countActiveProductsForCatalogQuery } from '@/lib/products-db'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
 
 export const dynamic = 'force-dynamic'
@@ -63,13 +63,14 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const productIds = await listActiveProductIdsForCatalogQuery({
+    const filterQuery = {
       category: category && category !== 'All' ? category : undefined,
       subcategory: subcategory && subcategory !== 'All' ? subcategory : undefined,
       brand: scope === 'brand' ? brand : undefined,
-    })
+    }
 
-    if (!productIds.length) {
+    const matched = await countActiveProductsForCatalogQuery(filterQuery)
+    if (!matched) {
       return NextResponse.json({
         ok: true,
         inserted: 0,
@@ -79,16 +80,35 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const result = await bulkAddPricelistItems({
-      ownerUserId: ownerId,
-      productIds,
-      addedByUserId: auth.actor.userId,
-    })
+    const CHUNK = 400
+    let offset = 0
+    let inserted = 0
+    let skipped = 0
+
+    while (true) {
+      const productIds = await listActiveProductIdsForCatalogQuery(filterQuery, {
+        limit: CHUNK,
+        offset,
+      })
+      if (!productIds.length) break
+
+      const result = await bulkAddPricelistItems({
+        ownerUserId: ownerId,
+        productIds,
+        addedByUserId: auth.actor.userId,
+      })
+      inserted += result.inserted
+      skipped += result.skipped
+      offset += CHUNK
+      if (productIds.length < CHUNK) break
+    }
 
     return NextResponse.json({
       ok: true,
-      matched: productIds.length,
-      ...result,
+      matched,
+      inserted,
+      skipped,
+      total: inserted,
     })
   } catch (error) {
     console.error('Pricelist items bulk-add POST:', error)

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import { readAdminPricelistTargetSlug, ADMIN_PRICELIST_TARGET_CHANGE_EVENT } from '@/lib/admin-pricelist-target'
+import { usePricelistMembershipBatchOptional } from '@/lib/pricelist-membership-batch-context'
 
 type Options = {
   /** Pricelist owner query (`platform` or user id) when not using the actor default list. */
@@ -14,6 +15,7 @@ type Options = {
 }
 
 export function usePricelistMembership(productId: string, options?: Options) {
+  const batch = usePricelistMembershipBatchOptional()
   const { user, loading: authLoading } = useAuth()
   const ownerQuery = options?.ownerQuery
   const assumedOnList = options?.assumedOnList ?? false
@@ -26,6 +28,8 @@ export function usePricelistMembership(productId: string, options?: Options) {
     Boolean(user) &&
     (user?.role === 'admin' || user?.role === 'buyer')
 
+  const useBatch = Boolean(batch) && !ownerQuery && !assumedOnList
+
   const membershipOwnerQuery = (): string => {
     if (ownerQuery) return ownerQuery
     if (user?.role === 'admin') return readAdminPricelistTargetSlug()
@@ -33,6 +37,7 @@ export function usePricelistMembership(productId: string, options?: Options) {
   }
 
   const load = useCallback(async () => {
+    if (useBatch) return
     if (!user || !productId || !canUse) {
       setOnList(false)
       return
@@ -55,27 +60,32 @@ export function usePricelistMembership(productId: string, options?: Options) {
     } finally {
       setLoading(false)
     }
-  }, [user, productId, canUse, assumedOnList, ownerQuery])
+  }, [user, productId, canUse, assumedOnList, ownerQuery, useBatch])
 
   useEffect(() => {
+    if (useBatch) {
+      setOnList(batch!.isOnList(productId))
+      return
+    }
     load()
-  }, [load])
+  }, [load, useBatch, batch, productId])
 
   useEffect(() => {
-    if (!user || user.role !== 'admin' || ownerQuery) return
+    if (useBatch || !user || user.role !== 'admin' || ownerQuery) return
     const onTargetChange = () => {
       void load()
     }
     window.addEventListener(ADMIN_PRICELIST_TARGET_CHANGE_EVENT, onTargetChange)
     return () => window.removeEventListener(ADMIN_PRICELIST_TARGET_CHANGE_EVENT, onTargetChange)
-  }, [user, ownerQuery, load])
+  }, [user, ownerQuery, load, useBatch])
 
   const toggle = async () => {
     if (!user || !productId) return { needsLogin: true as const }
     setBusy(true)
     try {
       const owner = membershipOwnerQuery()
-      if (onList) {
+      const currentlyOnList = useBatch ? batch!.isOnList(productId) : onList
+      if (currentlyOnList) {
         const params = new URLSearchParams({ productId })
         if (owner) params.set('owner', owner)
         const res = await fetch(appPath(`/api/pricelist/items?${params}`), {
@@ -84,7 +94,8 @@ export function usePricelistMembership(productId: string, options?: Options) {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to remove')
-        setOnList(false)
+        if (useBatch) batch!.setOnList(productId, false)
+        else setOnList(false)
       } else {
         const body: Record<string, string> = { productId }
         if (owner) body.ownerId = owner
@@ -95,7 +106,8 @@ export function usePricelistMembership(productId: string, options?: Options) {
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to add')
-        setOnList(true)
+        if (useBatch) batch!.setOnList(productId, true)
+        else setOnList(true)
       }
       return { needsLogin: false as const, ok: true as const }
     } catch (e) {
@@ -109,5 +121,8 @@ export function usePricelistMembership(productId: string, options?: Options) {
     }
   }
 
-  return { onList, loading, busy, canUse, toggle, reload: load }
+  const resolvedOnList = useBatch ? batch!.isOnList(productId) : onList
+  const resolvedLoading = useBatch ? batch!.loading : loading
+
+  return { onList: resolvedOnList, loading: resolvedLoading, busy, canUse, toggle, reload: load }
 }

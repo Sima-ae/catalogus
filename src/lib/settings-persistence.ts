@@ -3,6 +3,7 @@ import {
   upsertSettings as upsertSettingsToDb,
   type SiteSettings,
 } from '@/lib/settings-db'
+import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 
 export type SettingsStorage = 'database'
 
@@ -23,5 +24,6 @@ export async function saveSiteSettings(
   updates: Partial<SiteSettings>
 ): Promise<SettingsSaveResult> {
   const settings = await upsertSettingsToDb(updates)
+  invalidateCachedNamespace('shop-bootstrap')
   return { settings, storage: 'database' }
 }

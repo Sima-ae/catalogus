@@ -32,6 +32,8 @@ function readSiteAccessHint(): Status | null {
   return null
 }
 
+const DEFAULT_STATUS: Status = { required: false, unlocked: true }
+
 /**
  * Client-side backup: blocks UI until site access cookie is set (e.g. client navigations).
  * Middleware handles hard refreshes and API routes.
@@ -41,7 +43,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useI18n()
-  const [status, setStatus] = useState<Status | null>(() => readSiteAccessHint())
+  const [status, setStatus] = useState<Status>(() => readSiteAccessHint() ?? DEFAULT_STATUS)
 
   const gatePath = appPath('/site-access-gate')
   const onGate =
@@ -98,14 +100,6 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     resumeAfterUnlock()
     setStatus((prev) => (prev ? { ...prev, unlocked: true } : prev))
   }, [resumeAfterUnlock])
-
-  if (!status) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-900">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
-      </div>
-    )
-  }
 
   if (status.required && !status.unlocked && !onGate && !pricelistShare && !inactivityLocked) {
     return (

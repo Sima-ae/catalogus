@@ -81,6 +81,33 @@ export async function isProductOnPricelist(
   return rows.length > 0
 }
 
+const MEMBERSHIP_LOOKUP_CHUNK = 200
+
+/** Batch membership check for catalog grids (one query per chunk). */
+export async function listPricelistMemberProductIds(
+  ownerUserId: string,
+  productIds: string[]
+): Promise<Set<string>> {
+  const unique = Array.from(new Set(productIds.map((id) => id.trim()).filter(Boolean)))
+  if (!unique.length) return new Set()
+
+  const onList = new Set<string>()
+  for (let i = 0; i < unique.length; i += MEMBERSHIP_LOOKUP_CHUNK) {
+    const chunk = unique.slice(i, i + MEMBERSHIP_LOOKUP_CHUNK)
+    const placeholders = chunk.map(() => '?').join(', ')
+    const rows = await queryDb<{ product_id: string }[]>(
+      `SELECT product_id FROM pricelist_items
+       WHERE owner_user_id = ? AND product_id IN (${placeholders})`,
+      [ownerUserId, ...chunk]
+    )
+    for (const row of rows) {
+      const id = String(row.product_id ?? '').trim()
+      if (id) onList.add(id)
+    }
+  }
+  return onList
+}
+
 export async function addPricelistItem(input: {
   ownerUserId: string
   productId: string
