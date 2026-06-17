@@ -20,7 +20,7 @@ export default function SiteAccessGateForm({
 }: SiteAccessGateFormProps) {
   const { t } = useI18n()
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(false)
+  const [remember, setRemember] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -46,7 +46,9 @@ export default function SiteAccessGateForm({
       }
       ok = true
       setSuccess(t('siteAccess.accessGranted'))
-      await waitForSiteAccessUnlock()
+      await waitForSiteAccessUnlock(10, {
+        requireSession: introKey === 'siteAccess.inactivityIntro',
+      })
       await onSuccess()
     } catch {
       setError(t('siteAccess.verifyFailed'))

@@ -1,6 +1,9 @@
 /** HttpOnly unlock token (signed). */
 export const SITE_ACCESS_COOKIE = 'rcc_site_unlock'
 
+/** HttpOnly active session — cleared after inactivity; unlock cookie is kept. */
+export const SITE_ACCESS_ACTIVE_COOKIE = 'rcc_site_active'
+
 /** Non-secret hints for Edge middleware (synced from DB on verify/status/check). */
 export const SITE_ACCESS_META_REQUIRED = 'rcc_sa_required'
 export const SITE_ACCESS_META_VERSION = 'rcc_sa_ver'
@@ -150,6 +153,51 @@ export async function verifyUnlockToken(
   return true
 }
 
+export async function createActiveSessionToken(
+  version: number
+): Promise<{ token: string; maxAge: number } | null> {
+  const maxAge = SESSION_MAX_AGE_SEC
+  const exp = Math.floor(Date.now() / 1000) + maxAge
+  const payload = `v1sa.${version}.${exp}`
+  const sig = await signPayload(payload)
+  if (!sig) return null
+  return { token: `${stringToBase64Url(payload)}.${sig}`, maxAge }
+}
+
+export async function verifyActiveSessionToken(
+  token: string | undefined,
+  currentVersion: number
+): Promise<boolean> {
+  if (!token) return false
+  if (!getCookieSecret()) return false
+
+  const dot = token.indexOf('.')
+  if (dot === -1) return false
+  const payloadB64 = token.slice(0, dot)
+  const sig = token.slice(dot + 1)
+  if (!payloadB64 || !sig) return false
+
+  let payload: string
+  try {
+    payload = base64UrlToString(payloadB64)
+  } catch {
+    return false
+  }
+
+  const expectedSig = await signPayload(payload)
+  if (!expectedSig || !timingSafeEqualString(sig, expectedSig)) return false
+
+  const parts = payload.split('.')
+  if (parts.length !== 3 || parts[0] !== 'v1sa') return false
+
+  const version = Number.parseInt(parts[1], 10)
+  const exp = Number.parseInt(parts[2], 10)
+  if (version !== currentVersion) return false
+  if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false
+
+  return true
+}
+
 export function readUnlockCookie(cookieHeader: string | null): string | undefined {
   if (!cookieHeader) return undefined
   for (const part of cookieHeader.split(';')) {
@@ -158,6 +206,24 @@ export function readUnlockCookie(cookieHeader: string | null): string | undefine
     if (eq === -1) continue
     const name = trimmed.slice(0, eq)
     if (name !== SITE_ACCESS_COOKIE) continue
+    const raw = trimmed.slice(eq + 1)
+    try {
+      return decodeURIComponent(raw)
+    } catch {
+      return raw
+    }
+  }
+  return undefined
+}
+
+export function readActiveSessionCookie(cookieHeader: string | null): string | undefined {
+  if (!cookieHeader) return undefined
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim()
+    const eq = trimmed.indexOf('=')
+    if (eq === -1) continue
+    const name = trimmed.slice(0, eq)
+    if (name !== SITE_ACCESS_ACTIVE_COOKIE) continue
     const raw = trimmed.slice(eq + 1)
     try {
       return decodeURIComponent(raw)
@@ -216,7 +282,28 @@ export function applySiteAccessCookies(
   }
 }
 
-/** Clear the HttpOnly unlock cookie (e.g. after inactivity timeout). */
+export function applySiteAccessActiveCookie(
+  res: { cookies: { set: (name: string, value: string, options?: object) => void } },
+  active: { token: string; maxAge: number }
+) {
+  res.cookies.set(
+    SITE_ACCESS_ACTIVE_COOKIE,
+    active.token,
+    getSiteAccessCookieOptions(active.maxAge)
+  )
+}
+
+/** Clear only the active session (inactivity lock). Keeps long-lived unlock cookie. */
+export function clearSiteAccessActiveCookie(
+  res: { cookies: { set: (name: string, value: string, options?: object) => void } }
+) {
+  res.cookies.set(SITE_ACCESS_ACTIVE_COOKIE, '', {
+    ...getSiteAccessCookieOptions(0),
+    maxAge: 0,
+  })
+}
+
+/** Clear the HttpOnly unlock cookie (logout / password rotation). */
 export function clearSiteAccessUnlockCookie(
   res: { cookies: { set: (name: string, value: string, options?: object) => void } }
 ) {

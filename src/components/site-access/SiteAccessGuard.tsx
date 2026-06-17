@@ -13,7 +13,7 @@ import { SITE_ACCESS_META_REQUIRED } from '@/lib/site-access-cookie'
 import { useSiteAccessInactivity } from '@/hooks/useSiteAccessInactivity'
 import SiteAccessInactivityModal from '@/components/site-access/SiteAccessInactivityModal'
 
-type Status = { required: boolean; unlocked: boolean }
+type Status = { required: boolean; unlocked: boolean; sessionActive: boolean }
 
 /** Site access disabled — safe to skip the status round-trip. */
 function readSiteAccessDisabledHint(): Status | null {
@@ -26,7 +26,7 @@ function readSiteAccessDisabledHint(): Status | null {
   const requiredFlag = requiredMatch?.[1]
 
   if (requiredFlag === '0') {
-    return { required: false, unlocked: true }
+    return { required: false, unlocked: true, sessionActive: true }
   }
 
   return null
@@ -45,14 +45,15 @@ async function fetchSiteAccessStatus(): Promise<Status> {
   return {
     required: Boolean(data.required),
     unlocked: Boolean(data.unlocked),
+    sessionActive: Boolean(data.sessionActive),
   }
 }
 
 function isInactivityFlow(
-  inactivityLocked: boolean,
+  showInactivityModal: boolean,
   inactivityModeRef: React.MutableRefObject<boolean>
 ): boolean {
-  return inactivityLocked || inactivityModeRef.current
+  return showInactivityModal || inactivityModeRef.current
 }
 
 /**
@@ -65,8 +66,9 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   const searchParams = useSearchParams()
   const { t } = useI18n()
   const [status, setStatus] = useState<Status | null>(initialStatus)
+  const [sessionReauthRequired, setSessionReauthRequired] = useState(false)
   const redirectingRef = useRef(false)
-  /** Sync flag — suppresses full gate redirect while the inactivity overlay handles re-auth. */
+  /** Suppresses full gate redirect while the inactivity overlay handles re-auth. */
   const inactivityModeRef = useRef(false)
 
   const gatePath = appPath('/site-access-gate')
@@ -75,18 +77,37 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
 
   const pricelistShare = isPricelistSharePath(pathname || '', searchParams.get('owner'))
 
-  const inactivityEnabled =
-    Boolean(status?.required && status?.unlocked && !onGate && !pricelistShare)
+  const inactivityEnabled = Boolean(
+    status?.required &&
+      status?.unlocked &&
+      status?.sessionActive &&
+      !onGate &&
+      !pricelistShare
+  )
 
   const handleInactivityLock = useCallback(() => {
-    // Cookie is cleared server-side; keep client status unlocked so we do not
-    // redirect to /site-access-gate — the inactivity overlay handles re-auth.
     inactivityModeRef.current = true
+    setSessionReauthRequired(true)
   }, [])
 
   const { inactivityLocked, resumeAfterUnlock } = useSiteAccessInactivity(inactivityEnabled, {
     onLock: handleInactivityLock,
   })
+
+  const showInactivityModal = sessionReauthRequired || inactivityLocked
+
+  useEffect(() => {
+    if (!status) return
+    if (status.required && status.unlocked && !status.sessionActive) {
+      inactivityModeRef.current = true
+      setSessionReauthRequired(true)
+    } else if (status.sessionActive) {
+      setSessionReauthRequired(false)
+      if (!inactivityLocked) {
+        inactivityModeRef.current = false
+      }
+    }
+  }, [status, inactivityLocked])
 
   useEffect(() => {
     let cancelled = false
@@ -96,7 +117,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
         if (!cancelled) setStatus(next)
       })
       .catch(() => {
-        if (!cancelled) setStatus({ required: false, unlocked: true })
+        if (!cancelled) setStatus({ required: false, unlocked: true, sessionActive: true })
       })
 
     return () => {
@@ -106,7 +127,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (status === null) return
-    if (isInactivityFlow(inactivityLocked, inactivityModeRef)) return
+    if (isInactivityFlow(showInactivityModal, inactivityModeRef)) return
 
     if (onGate) {
       if (status.unlocked) {
@@ -116,6 +137,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
       return
     }
 
+    // Full gate only when the device has never unlocked (or remember expired).
     if (status.required && !status.unlocked && !pricelistShare) {
       if (redirectingRef.current) return
       redirectingRef.current = true
@@ -124,18 +146,52 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     } else {
       redirectingRef.current = false
     }
-  }, [status, onGate, pathname, router, gatePath, searchParams, pricelistShare, inactivityLocked])
+  }, [
+    status,
+    onGate,
+    pathname,
+    router,
+    gatePath,
+    searchParams,
+    pricelistShare,
+    showInactivityModal,
+  ])
 
   const handleInactivityUnlock = useCallback(async () => {
     inactivityModeRef.current = false
+    setSessionReauthRequired(false)
     resumeAfterUnlock()
     try {
       const next = await fetchSiteAccessStatus()
       setStatus(next)
     } catch {
-      /* verify + waitForSiteAccessUnlock already refreshed the cookie */
+      /* verify + waitForSiteAccessUnlock already refreshed cookies */
     }
   }, [resumeAfterUnlock])
+
+  useEffect(() => {
+    if (!showInactivityModal) return
+
+    const scrollY = window.scrollY
+    const { style } = document.body
+    const prevPosition = style.position
+    const prevTop = style.top
+    const prevWidth = style.width
+    const prevOverflow = style.overflow
+
+    style.position = 'fixed'
+    style.top = `-${scrollY}px`
+    style.width = '100%'
+    style.overflow = 'hidden'
+
+    return () => {
+      style.position = prevPosition
+      style.top = prevTop
+      style.width = prevWidth
+      style.overflow = prevOverflow
+      window.scrollTo(0, scrollY)
+    }
+  }, [showInactivityModal])
 
   if (onGate && status === null) {
     return (
@@ -151,7 +207,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     !status.unlocked &&
     !onGate &&
     !pricelistShare &&
-    !isInactivityFlow(inactivityLocked, inactivityModeRef)
+    !isInactivityFlow(showInactivityModal, inactivityModeRef)
   ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-dark-900 text-gray-400">
@@ -163,7 +219,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
   return (
     <>
       {children}
-      {inactivityLocked ? (
+      {showInactivityModal ? (
         <SiteAccessInactivityModal onUnlock={handleInactivityUnlock} />
       ) : null}
     </>

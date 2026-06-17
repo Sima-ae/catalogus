@@ -2,20 +2,20 @@ import { NextResponse } from 'next/server'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import {
   applySiteAccessCookies,
-  clearSiteAccessUnlockCookie,
+  clearSiteAccessActiveCookie,
 } from '@/lib/site-access-cookie'
 import { getSiteAccessConfig } from '@/lib/site-access'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/** Clear site unlock session (client inactivity timeout). */
+/** Clear active session after client inactivity timeout (unlock cookie is kept). */
 export async function POST() {
   ensureEnvLoaded()
   try {
     const config = await getSiteAccessConfig()
     const res = NextResponse.json({ locked: true })
-    clearSiteAccessUnlockCookie(res)
+    clearSiteAccessActiveCookie(res)
     applySiteAccessCookies(res, {
       required: config.required,
       version: config.version,

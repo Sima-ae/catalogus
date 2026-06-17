@@ -135,29 +135,5 @@ export function useSiteAccessInactivity(
     }
   }, [clearTimer, enabled, lockSession, recordActivity, scheduleTimer])
 
-  useEffect(() => {
-    if (!inactivityLocked) return
-
-    const scrollY = window.scrollY
-    const { style } = document.body
-    const prevPosition = style.position
-    const prevTop = style.top
-    const prevWidth = style.width
-    const prevOverflow = style.overflow
-
-    style.position = 'fixed'
-    style.top = `-${scrollY}px`
-    style.width = '100%'
-    style.overflow = 'hidden'
-
-    return () => {
-      style.position = prevPosition
-      style.top = prevTop
-      style.width = prevWidth
-      style.overflow = prevOverflow
-      window.scrollTo(0, scrollY)
-    }
-  }, [inactivityLocked])
-
   return { inactivityLocked, resumeAfterUnlock }
 }

@@ -22,7 +22,11 @@ export function resolveSiteAccessRedirect(
   return appPath(destination)
 }
 
-export async function waitForSiteAccessUnlock(maxAttempts = 10): Promise<boolean> {
+export async function waitForSiteAccessUnlock(
+  maxAttempts = 10,
+  options?: { requireSession?: boolean }
+): Promise<boolean> {
+  const requireSession = options?.requireSession ?? false
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const res = await fetch(appPath('/api/site-access/status'), {
@@ -30,8 +34,17 @@ export async function waitForSiteAccessUnlock(maxAttempts = 10): Promise<boolean
         cache: 'no-store',
       })
       if (res.ok) {
-        const data = (await res.json()) as { required?: boolean; unlocked?: boolean }
-        if (!data.required || data.unlocked) return true
+        const data = (await res.json()) as {
+          required?: boolean
+          unlocked?: boolean
+          sessionActive?: boolean
+        }
+        if (!data.required || !data.unlocked) {
+          if (!data.required) return true
+          continue
+        }
+        if (requireSession && !data.sessionActive) continue
+        return true
       }
     } catch {
       /* retry */

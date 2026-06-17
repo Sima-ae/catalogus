@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import {
+  applySiteAccessActiveCookie,
   applySiteAccessCookies,
+  createActiveSessionToken,
   createUnlockToken,
+  readUnlockCookie,
   siteAccessSecretDiagnostics,
+  verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 import { getSiteAccessConfig, verifySiteAccessCredential } from '@/lib/site-access'
 import { checkSiteAccessVerifyRateLimit } from '@/lib/site-access-verify-rate-limit'
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const config = await getSiteAccessConfig()
     if (!config.required) {
-      const res = NextResponse.json({ unlocked: true })
+      const res = NextResponse.json({ unlocked: true, sessionActive: true })
       applySiteAccessCookies(res, { required: false, version: config.version })
       return res
     }
@@ -52,19 +56,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: secretDiag.reason }, { status: 503 })
     }
 
-    const unlock = await createUnlockToken(config.version, remember)
-    if (!unlock) {
+    const cookieHeader = request.headers.get('cookie')
+    const existingUnlock = readUnlockCookie(cookieHeader)
+    const hasValidUnlock = Boolean(
+      existingUnlock && (await verifyUnlockToken(existingUnlock, config.version))
+    )
+
+    // Inactivity re-auth: refresh active session only — do not shorten a remembered unlock.
+    const refreshActiveOnly = hasValidUnlock && !remember
+    let unlock: { token: string; maxAge: number } | null = null
+    if (!refreshActiveOnly) {
+      unlock = await createUnlockToken(config.version, remember || hasValidUnlock)
+      if (!unlock) {
+        return NextResponse.json(
+          { error: 'Could not create site access session. Restart the app after updating .env.' },
+          { status: 503 }
+        )
+      }
+    }
+
+    const active = await createActiveSessionToken(config.version)
+    if (!active) {
       return NextResponse.json(
         { error: 'Could not create site access session. Restart the app after updating .env.' },
         { status: 503 }
       )
     }
-    const res = NextResponse.json({ unlocked: true })
+
+    const res = NextResponse.json({ unlocked: true, sessionActive: true })
     applySiteAccessCookies(
       res,
       { required: true, version: config.version },
-      unlock
+      unlock ?? undefined
     )
+    applySiteAccessActiveCookie(res, active)
     return res
   } catch (error) {
     console.error('Site access verify error:', error)
