@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
 import { findProductImageDuplicateGroups } from '../src/lib/product-image-duplicates'
+import {
+  cleanProductGalleryUrls,
+  dedupeProductImageUrls,
+  upgradeYupooImageUrl,
+} from '../src/lib/product-image-url'
 
 function testDuplicateGroups() {
   const result = findProductImageDuplicateGroups([
@@ -63,6 +68,27 @@ function testGalleryMatch() {
   assert.equal(result.groups[0]?.products.length, 2)
 }
 
+function testKeepsLargestYupooVariant() {
+  const urls = [
+    'https://photo.yupoo.com/shop/album/photo123/small.jpg',
+    'https://photo.yupoo.com/shop/album/photo123/medium.jpg',
+    'https://photo.yupoo.com/shop/album/photo123/original.jpg',
+  ]
+  const deduped = dedupeProductImageUrls(urls)
+  assert.equal(deduped.length, 1)
+  assert.equal(deduped[0], upgradeYupooImageUrl(urls[2]!))
+
+  const gallery = cleanProductGalleryUrls([
+    'https://photo.yupoo.com/shop/album/a/small.jpg',
+    'https://photo.yupoo.com/shop/album/a/original.jpg',
+    'https://photo.yupoo.com/shop/album/b/medium.jpg',
+  ])
+  assert.equal(gallery.length, 2)
+  assert.equal(gallery[0], upgradeYupooImageUrl('https://photo.yupoo.com/shop/album/a/original.jpg'))
+  assert.equal(gallery[1], upgradeYupooImageUrl('https://photo.yupoo.com/shop/album/b/medium.jpg'))
+}
+
 testDuplicateGroups()
 testGalleryMatch()
+testKeepsLargestYupooVariant()
 console.log('product-image-duplicates tests passed')

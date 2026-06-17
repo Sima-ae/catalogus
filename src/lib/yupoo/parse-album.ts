@@ -6,6 +6,7 @@ import { parseAttributes } from '@/lib/yupoo/parse-attributes'
 import {
   cleanProductGalleryUrls,
   isBrandingGalleryImageUrl,
+  productImageQualityRank,
   upgradeYupooImageUrl,
 } from '@/lib/product-image-url'
 import {
@@ -41,6 +42,32 @@ function isBrandingImageElement($: cheerio.CheerioAPI, el: Element): boolean {
   if (/weibo\.com|sinaweibo|weibo/i.test(link)) return true
 
   return false
+}
+
+function bestImageUrlFromElement(
+  $: cheerio.CheerioAPI,
+  el: Element,
+  pageUrl: string
+): string | null {
+  const candidates = [
+    $(el).attr('data-origin-src'),
+    $(el).attr('data-original'),
+    $(el).attr('data-src'),
+    $(el).attr('src'),
+  ].filter((value): value is string => Boolean(value?.trim()))
+
+  let best: string | null = null
+  let bestRank = -1
+  for (const src of candidates) {
+    const normalized = normalizeImageUrl(src, pageUrl)
+    if (!normalized) continue
+    const rank = productImageQualityRank(normalized)
+    if (rank > bestRank) {
+      bestRank = rank
+      best = normalized
+    }
+  }
+  return best
 }
 
 function collectFromHtml(html: string, pageUrl: string): string[] {
@@ -131,14 +158,7 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
 
   $(imageSelectors).each((_, el) => {
     if (isBrandingImageElement($, el)) return
-    const src =
-      $(el).attr('data-origin-src') ||
-      $(el).attr('data-origin') ||
-      $(el).attr('data-src') ||
-      $(el).attr('data-original') ||
-      $(el).attr('src')
-    if (!src) return
-    const normalized = normalizeImageUrl(src, albumUrl)
+    const normalized = bestImageUrlFromElement($, el, albumUrl)
     if (normalized) imageCandidates.push(normalized)
   })
 
@@ -146,7 +166,15 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     const href = $(el).attr('href')
     if (!href) return
     const normalized = normalizeImageUrl(href, albumUrl)
-    if (normalized) imageCandidates.push(normalized)
+    if (!normalized) return
+    const img = $(el).find('img').first()
+    if (img.length) {
+      const fromImg = bestImageUrlFromElement($, img.get(0)!, albumUrl)
+      if (fromImg && productImageQualityRank(fromImg) >= productImageQualityRank(normalized)) {
+        return
+      }
+    }
+    imageCandidates.push(normalized)
   })
 
   const images = cleanProductGalleryUrls(imageCandidates)

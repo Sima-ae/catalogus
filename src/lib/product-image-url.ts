@@ -150,14 +150,47 @@ export function stripBrandingGalleryImageUrls(urls: string[]): string[] {
   })
 }
 
-/** Prefer medium/original over small/thumb Yupoo CDN paths. */
+/** Prefer original/large over small/thumb Yupoo CDN paths (for storage and dedupe). */
 export function upgradeYupooImageUrl(url: string): string {
   let u = url.trim()
-  u = u.replace(/\/small\./gi, '/medium.')
-  u = u.replace(/\/thumb\./gi, '/medium.')
-  u = u.replace(/\/square\./gi, '/medium.')
-  u = u.replace(/\/original\./gi, '/medium.')
-  return u.split('?')[0] || u
+  u = (u.split('?')[0] || u).trim()
+  u = u.replace(/\/small\./gi, '/original.')
+  u = u.replace(/\/thumb\./gi, '/original.')
+  u = u.replace(/\/square\./gi, '/original.')
+  u = u.replace(/\/medium\./gi, '/original.')
+  u = u.replace(/\/large\./gi, '/original.')
+  return u
+}
+
+/** Relative quality score for picking one URL per logical photo (higher = larger). */
+export function productImageQualityRank(url: string | null | undefined): number {
+  const raw = unwrapDisplayImageUrl(String(url ?? '').trim())
+  if (!raw) return 0
+
+  const lower = raw.toLowerCase()
+  if (/\/original\./i.test(lower)) return 100
+  if (/\/large\./i.test(lower)) return 90
+  if (/\/medium\./i.test(lower)) return 60
+  if (/\/square\./i.test(lower)) return 40
+  if (/\/small\./i.test(lower)) return 30
+  if (/\/thumb\./i.test(lower)) return 20
+
+  const dimMatch = lower.match(/(\d{2,4})x(\d{2,4})/i)
+  if (dimMatch) {
+    const w = Number.parseInt(dimMatch[1] ?? '0', 10)
+    const h = Number.parseInt(dimMatch[2] ?? '0', 10)
+    if (w > 0 && h > 0) return Math.min(85, Math.floor((w * h) / 25_000))
+  }
+
+  return 50
+}
+
+function normalizeYupooCanonicalPath(path: string): string {
+  let p = path.replace(/\/+$/, '')
+  p = p.replace(/\/(small|thumb|square|medium|large|original)\.[^/]+$/i, '')
+  p = p.replace(/_(\d{2,4})x(\d{2,4})(\.[a-z0-9]+)$/i, '$3')
+  p = p.replace(/-(\d{2,4})x(\d{2,4})(\.[a-z0-9]+)$/i, '$3')
+  return p.toLowerCase()
 }
 
 /** Lighter Yupoo CDN path for catalog grid cards (faster mobile loads). */
@@ -232,26 +265,42 @@ export function canonicalProductImageKey(url: string | null | undefined): string
     const u = new URL(raw)
     const host = u.hostname.toLowerCase()
     let path = u.pathname.replace(/\/+$/, '')
-    path = path.replace(/\/(small|thumb|square|original)\./gi, '/medium.')
+    if (isYupooImageUrl(raw)) {
+      path = normalizeYupooCanonicalPath(path)
+    }
     return `${host}${path}`
   } catch {
-    return raw.toLowerCase().split('?')[0] || ''
+    const base = raw.toLowerCase().split('?')[0] || ''
+    return isYupooImageUrl(base) ? normalizeYupooCanonicalPath(base) : base
   }
 }
 
-/** Keep first occurrence of each unique image (order preserved). Duplicates only — does not drop product photos. */
+/** Keep one URL per unique image — prefer the largest Yupoo variant (order preserved). */
 export function dedupeProductImageUrls(urls: string[]): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
+  const bestByKey = new Map<string, { url: string; rank: number }>()
+  const order: string[] = []
+
   for (const url of urls) {
     const trimmed = String(url ?? '').trim()
     if (!trimmed || isPlaceholderImageUrl(trimmed)) continue
-    const key = canonicalProductImageKey(trimmed)
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    out.push(trimmed)
+
+    const stored = isYupooImageUrl(trimmed) ? upgradeYupooImageUrl(trimmed) : trimmed
+    const key = canonicalProductImageKey(stored)
+    if (!key) continue
+
+    const rank = productImageQualityRank(stored)
+    const existing = bestByKey.get(key)
+    if (!existing) {
+      bestByKey.set(key, { url: stored, rank })
+      order.push(key)
+      continue
+    }
+    if (rank > existing.rank) {
+      bestByKey.set(key, { url: stored, rank })
+    }
   }
-  return out
+
+  return order.map((key) => bestByKey.get(key)!.url)
 }
 
 /** Strip platform icons, then dedupe same-photo variants (small/medium/thumb). */
