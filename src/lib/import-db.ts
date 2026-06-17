@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { queryDb } from '@/lib/db'
+import { IMPORT_SOURCES_PAGE_SIZE } from '@/lib/import-sources-constants'
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
 import { cleanProductGalleryUrls } from '@/lib/product-image-url'
@@ -431,7 +432,43 @@ export type ImportJobItemRow = {
 
 export async function listImportSources(): Promise<ImportSourceRow[]> {
   return queryDb<ImportSourceRow[]>(
-    `SELECT s.*,
+    `${importSourcesSelectSql()}
+     ORDER BY s.created_at DESC`
+  )
+}
+
+export const IMPORT_SOURCES_DEFAULT_PAGE_SIZE = IMPORT_SOURCES_PAGE_SIZE
+
+export async function countImportSources(): Promise<number> {
+  const rows = await queryDb<{ count: number }[]>(
+    `SELECT COUNT(*) AS count FROM import_sources`
+  )
+  return Number(rows[0]?.count ?? 0)
+}
+
+export async function listImportSourcesPaginated(options: {
+  page: number
+  limit: number
+}): Promise<{ items: ImportSourceRow[]; total: number }> {
+  const limit = Math.min(100, Math.max(1, options.limit))
+  const page = Math.max(1, options.page)
+  const offset = (page - 1) * limit
+
+  const [items, total] = await Promise.all([
+    queryDb<ImportSourceRow[]>(
+      `${importSourcesSelectSql()}
+       ORDER BY s.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    ),
+    countImportSources(),
+  ])
+
+  return { items, total }
+}
+
+function importSourcesSelectSql(): string {
+  return `SELECT s.*,
             c.name AS category_name,
             b.name AS brand_name,
             (
@@ -448,9 +485,7 @@ export async function listImportSources(): Promise<ImportSourceRow[]> {
             ) AS skipped_items
      FROM import_sources s
      LEFT JOIN categories c ON c.id = s.catalog_category_id
-     LEFT JOIN brands b ON b.id = s.catalog_brand_id
-     ORDER BY s.created_at DESC`
-  )
+     LEFT JOIN brands b ON b.id = s.catalog_brand_id`
 }
 
 export async function getImportSource(id: string): Promise<ImportSourceRow | null> {

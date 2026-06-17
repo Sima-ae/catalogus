@@ -27,6 +27,8 @@ import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import type { ImportSourcePublic } from '@/lib/import-db'
+import { IMPORT_SOURCES_PAGE_SIZE } from '@/lib/import-sources-constants'
+import CatalogPagination from '@/components/shop/CatalogPagination'
 import {
   buildCategoryPickerOptions,
   formatCategoryDisplayName,
@@ -34,6 +36,13 @@ import {
 } from '@/lib/category-picker'
 
 type BrandOption = { id: string; name: string }
+
+type ImportSourcesResponse = {
+  items: ImportSourcePublic[]
+  total: number
+  page: number
+  limit: number
+}
 
 type SyncResult = {
   kind: 'sync' | 'retry-skipped' | 'refresh-all' | 'import-product' | 'import-facebook-post'
@@ -112,6 +121,8 @@ export default function AdminImportPage() {
   const t = useAppTheme()
   const { user, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const [sources, setSources] = useState<ImportSourcePublic[]>([])
+  const [totalItems, setTotalItems] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [categoryLabels, setCategoryLabels] = useState<Map<string, string>>(new Map())
   const [brands, setBrands] = useState<BrandOption[]>([])
@@ -131,29 +142,57 @@ export default function AdminImportPage() {
   const [productUrlBySource, setProductUrlBySource] = useState<Record<string, string>>({})
   const [importingUrlId, setImportingUrlId] = useState<string | null>(null)
 
-  const loadSources = useCallback(() => {
-    if (!user || !isAdmin) return
+  const loadSources = useCallback(
+    (opts?: { silent?: boolean; page?: number }) => {
+      if (!user || !isAdmin) return
 
-    setLoading(true)
-    setError('')
+      const page = opts?.page ?? currentPage
+      if (!opts?.silent) setLoading(true)
+      setError('')
 
-    fetch(appPath('/api/admin/import/sources'), {
-      headers: adminAuthHeaders(user),
-      cache: 'no-store',
-    })
-      .then(async (r) => {
-        const data = await parseJsonResponse<{ error?: string } | ImportSourcePublic[]>(r)
-        if (!r.ok) {
-          throw new Error(!Array.isArray(data) && data.error ? data.error : 'Failed to load sources')
+      fetch(
+        appPath(
+          `/api/admin/import/sources?page=${page}&limit=${IMPORT_SOURCES_PAGE_SIZE}`
+        ),
+        {
+          headers: adminAuthHeaders(user),
+          cache: 'no-store',
         }
-        if (!Array.isArray(data)) throw new Error('Invalid response')
-        setSources(data)
-      })
-      .catch((e) => {
-        setError(e instanceof Error ? e.message : 'Failed to load')
-      })
-      .finally(() => setLoading(false))
-  }, [user, isAdmin])
+      )
+        .then(async (r) => {
+          const data = await parseJsonResponse<{ error?: string } | ImportSourcesResponse>(r)
+          if (!r.ok) {
+            throw new Error(
+              'error' in data && data.error ? data.error : 'Failed to load sources'
+            )
+          }
+          if (!('items' in data) || !Array.isArray(data.items)) {
+            throw new Error('Invalid response')
+          }
+          setSources(data.items)
+          setTotalItems(data.total)
+        })
+        .catch((e) => {
+          setError(e instanceof Error ? e.message : 'Failed to load')
+          setSources([])
+          setTotalItems(0)
+        })
+        .finally(() => {
+          if (!opts?.silent) setLoading(false)
+        })
+    },
+    [user, isAdmin, currentPage]
+  )
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalItems / IMPORT_SOURCES_PAGE_SIZE) || 1
+  )
+  const safePage = Math.min(Math.max(1, currentPage), totalPages)
+
+  useEffect(() => {
+    if (currentPage !== safePage) setCurrentPage(safePage)
+  }, [currentPage, safePage])
 
   useEffect(() => {
     if (authLoading || !isAdmin || !user) return
@@ -193,9 +232,12 @@ export default function AdminImportPage() {
         }
       })
       .catch(() => {})
+  }, [authLoading, isAdmin, user])
 
+  useEffect(() => {
+    if (authLoading || !isAdmin || !user) return
     loadSources()
-  }, [authLoading, isAdmin, user, loadSources])
+  }, [authLoading, isAdmin, user, currentPage, loadSources])
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
@@ -264,7 +306,11 @@ export default function AdminImportPage() {
       if (!res.ok) throw new Error(data.error || 'Create failed')
 
       setForm(emptyForm)
-      loadSources()
+      if (currentPage !== 1) {
+        setCurrentPage(1)
+      } else {
+        loadSources({ page: 1 })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Create failed')
     } finally {
@@ -303,7 +349,7 @@ export default function AdminImportPage() {
       if (!res.ok) throw new Error(data.error || 'Update failed')
 
       cancelEdit()
-      loadSources()
+      loadSources({ silent: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Update failed')
     } finally {
@@ -333,7 +379,17 @@ export default function AdminImportPage() {
       if (!res.ok) throw new Error(data.error || 'Delete failed')
 
       if (editingId === source.id) cancelEdit()
-      loadSources()
+
+      const remaining = totalItems - 1
+      const maxPage = Math.max(
+        1,
+        Math.ceil(remaining / IMPORT_SOURCES_PAGE_SIZE) || 1
+      )
+      if (currentPage > maxPage) {
+        setCurrentPage(maxPage)
+      } else {
+        loadSources({ silent: true })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Delete failed')
     } finally {
@@ -366,7 +422,7 @@ export default function AdminImportPage() {
       const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'Refresh failed')
       setSyncInfo(data)
-      loadSources()
+      loadSources({ silent: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Refresh failed')
     } finally {
@@ -391,7 +447,7 @@ export default function AdminImportPage() {
       const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'Retry failed')
       setSyncInfo(data)
-      loadSources()
+      loadSources({ silent: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Retry failed')
     } finally {
@@ -416,7 +472,7 @@ export default function AdminImportPage() {
       const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'Sync failed')
       setSyncInfo(data)
-      loadSources()
+      loadSources({ silent: true })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sync failed')
     } finally {
@@ -451,7 +507,7 @@ export default function AdminImportPage() {
       const data = await parseJsonResponse<SyncResult & { error?: string }>(res)
       if (!res.ok) throw new Error(data.error || 'Import failed')
       setSyncInfo(data)
-      loadSources()
+      loadSources({ silent: true })
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Import failed'
       setError(
@@ -612,11 +668,21 @@ export default function AdminImportPage() {
 
       <section>
         <h2 className="card-section-title mb-4">Import sources</h2>
+        {totalItems > 0 ? (
+          <CatalogPagination
+            page={safePage}
+            totalItems={totalItems}
+            pageSize={IMPORT_SOURCES_PAGE_SIZE}
+            onPageChange={setCurrentPage}
+            compact
+          />
+        ) : null}
         {loading ? (
           <p className={t.muted}>Loading...</p>
         ) : sources.length === 0 ? (
           <p className={t.muted}>No import sources yet.</p>
         ) : (
+          <>
           <AdminTable>
             <AdminTableHead>
               <AdminTh>Name</AdminTh>
@@ -732,7 +798,7 @@ export default function AdminImportPage() {
                             workerCommand: info.workerCommand,
                             postUrl: info.postUrl,
                           })
-                          loadSources()
+                          loadSources({ silent: true })
                           if (typeof window !== 'undefined') {
                             window.scrollTo({ top: 0, behavior: 'smooth' })
                           }
@@ -839,6 +905,14 @@ export default function AdminImportPage() {
               ))}
             </AdminTableBody>
           </AdminTable>
+          <CatalogPagination
+            page={safePage}
+            totalItems={totalItems}
+            pageSize={IMPORT_SOURCES_PAGE_SIZE}
+            onPageChange={setCurrentPage}
+            compact
+          />
+          </>
         )}
       </section>
     </AdminPageShell>

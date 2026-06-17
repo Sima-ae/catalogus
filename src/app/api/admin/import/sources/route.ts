@@ -4,9 +4,10 @@ import { parseImportSourceBody, validateImportSourceInput } from '@/lib/admin-im
 import { getDbErrorMessage } from '@/lib/db-errors'
 import {
   createImportSource,
-  listImportSources,
+  listImportSourcesPaginated,
   toImportSourcePublic,
 } from '@/lib/import-db'
+import { IMPORT_SOURCES_PAGE_SIZE } from '@/lib/import-sources-constants'
 import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
 
 export const dynamic = 'force-dynamic'
@@ -19,8 +20,28 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const sources = await listImportSources()
-    return NextResponse.json(sources.map(toImportSourcePublic))
+    const page = Math.max(
+      1,
+      Number.parseInt(request.nextUrl.searchParams.get('page') ?? '1', 10) || 1
+    )
+    const limit = Math.min(
+      100,
+      Math.max(
+        1,
+        Number.parseInt(
+          request.nextUrl.searchParams.get('limit') ?? String(IMPORT_SOURCES_PAGE_SIZE),
+          10
+        ) || IMPORT_SOURCES_PAGE_SIZE
+      )
+    )
+
+    const { items, total } = await listImportSourcesPaginated({ page, limit })
+    return NextResponse.json({
+      items: items.map(toImportSourcePublic),
+      total,
+      page,
+      limit,
+    })
   } catch (error) {
     console.error('Import sources fetch error:', error)
     return NextResponse.json(
