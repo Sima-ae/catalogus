@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PencilIcon } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import {
   AdminTable,
@@ -40,6 +41,10 @@ export default function AdminPricelistPagesPage() {
   const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [passwordPage, setPasswordPage] = useState<PricelistPageRow | null>(null)
+  const [editingPage, setEditingPage] = useState<PricelistPageRow | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [editSlug, setEditSlug] = useState('')
+  const [editSortOrder, setEditSortOrder] = useState('0')
 
   const load = useCallback(async () => {
     if (!user) return
@@ -66,7 +71,7 @@ export default function AdminPricelistPagesPage() {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!user || !isSuperAdmin) return
     setBusy(true)
     setError(null)
     try {
@@ -88,7 +93,7 @@ export default function AdminPricelistPagesPage() {
   }
 
   const toggleActive = async (page: PricelistPageRow) => {
-    if (!user) return
+    if (!user || !isSuperAdmin) return
     if (page.slug === PRICELIST_OWNER_QUERY_PLATFORM && page.active) return
     setBusy(true)
     try {
@@ -102,6 +107,83 @@ export default function AdminPricelistPagesPage() {
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const startEdit = (page: PricelistPageRow) => {
+    if (!isSuperAdmin) return
+    setEditingPage(page)
+    setEditLabel(page.label)
+    setEditSlug(page.slug)
+    setEditSortOrder(String(page.sort_order ?? 0))
+    setPasswordPage(null)
+    setError(null)
+  }
+
+  const cancelEdit = () => {
+    setEditingPage(null)
+    setEditLabel('')
+    setEditSlug('')
+    setEditSortOrder('0')
+  }
+
+  const handleSaveEdit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!user || !isSuperAdmin || !editingPage) return
+    setBusy(true)
+    setError(null)
+    try {
+      const isPlatform = editingPage.slug === PRICELIST_OWNER_QUERY_PLATFORM
+      const res = await fetch(appPath(`/api/admin/pricelist-pages/${editingPage.id}`), {
+        method: 'PATCH',
+        headers: { ...adminAuthHeaders(user), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: editLabel,
+          slug: isPlatform ? undefined : editSlug,
+          sortOrder: Number(editSortOrder),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to update')
+      cancelEdit()
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDelete = async (page: PricelistPageRow) => {
+    if (!user || !isSuperAdmin) return
+    if (page.slug === PRICELIST_OWNER_QUERY_PLATFORM) return
+    if (page.itemCount > 0) {
+      setError('Cannot delete a pricelist page that still has products. Remove all products first.')
+      return
+    }
+    if (
+      !window.confirm(
+        `Delete pricelist page "${page.label}" (${page.slug})? This cannot be undone.`
+      )
+    ) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(appPath(`/api/admin/pricelist-pages/${page.id}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to delete')
+      if (passwordPage?.id === page.id) setPasswordPage(null)
+      if (editingPage?.id === page.id) cancelEdit()
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete')
     } finally {
       setBusy(false)
     }
@@ -154,6 +236,64 @@ export default function AdminPricelistPagesPage() {
         </button>
       </form>
 
+      {editingPage ? (
+        <form onSubmit={handleSaveEdit} className={`card mb-6 space-y-3 ${t.border}`}>
+          <h2 className={`text-lg font-semibold ${t.heading}`}>Edit page</h2>
+          <p className={`text-sm ${t.muted}`}>
+            Editing <strong>{editingPage.label}</strong>
+            {editingPage.slug === PRICELIST_OWNER_QUERY_PLATFORM
+              ? ' — platform slug cannot be changed'
+              : null}
+          </p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <label className="space-y-1">
+              <span className={`text-sm ${t.muted}`}>Label</span>
+              <input
+                className="input w-full"
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                required
+              />
+            </label>
+            <label className="space-y-1">
+              <span className={`text-sm ${t.muted}`}>Slug (URL)</span>
+              <input
+                className="input w-full"
+                value={editSlug}
+                onChange={(e) => setEditSlug(e.target.value)}
+                required
+                disabled={editingPage.slug === PRICELIST_OWNER_QUERY_PLATFORM}
+                pattern="[a-z][a-z0-9_-]*"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className={`text-sm ${t.muted}`}>Sort order</span>
+              <input
+                type="number"
+                className="input w-full"
+                value={editSortOrder}
+                onChange={(e) => setEditSortOrder(e.target.value)}
+                min={0}
+                step={1}
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" className="btn-primary text-sm" disabled={busy}>
+              Save changes
+            </button>
+            <button
+              type="button"
+              className="btn-secondary text-sm"
+              disabled={busy}
+              onClick={cancelEdit}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
+
       {loading ? (
         <p className={t.muted}>Loading…</p>
       ) : (
@@ -189,20 +329,48 @@ export default function AdminPricelistPagesPage() {
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
                       type="button"
+                      className="btn-secondary text-xs inline-flex items-center gap-1"
+                      disabled={busy}
+                      onClick={() => startEdit(page)}
+                      title="Edit label, slug, and sort order"
+                    >
+                      <PencilIcon className="w-3.5 h-3.5" aria-hidden />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
                       className="btn-secondary text-xs"
-                      onClick={() => setPasswordPage(page)}
+                      onClick={() => {
+                        setEditingPage(null)
+                        setPasswordPage(page)
+                      }}
                     >
                       Password
                     </button>
                     {page.slug !== PRICELIST_OWNER_QUERY_PLATFORM ? (
-                      <button
-                        type="button"
-                        className="btn-secondary text-xs"
-                        disabled={busy}
-                        onClick={() => toggleActive(page)}
-                      >
-                        {page.active ? 'Deactivate' : 'Activate'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn-secondary text-xs"
+                          disabled={busy}
+                          onClick={() => toggleActive(page)}
+                        >
+                          {page.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
+                          disabled={busy || page.itemCount > 0}
+                          title={
+                            page.itemCount > 0
+                              ? 'Remove all products from this list before deleting'
+                              : 'Delete pricelist page'
+                          }
+                          onClick={() => void handleDelete(page)}
+                        >
+                          Delete
+                        </button>
+                      </>
                     ) : null}
                   </div>
                 </AdminTd>
