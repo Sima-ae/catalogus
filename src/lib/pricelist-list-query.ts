@@ -49,7 +49,7 @@ function curatedFilledPriceSql(): string {
     latest_list_price.unit_price IS NOT NULL
     AND latest_list_price.unit_price > 0
     AND COALESCE(latest_list_price.stock_status, '') = ''
-    AND latest_list_price.out_of_stock = 0
+    AND COALESCE(latest_list_price.out_of_stock, 0) = 0
   )`
 }
 
@@ -59,26 +59,46 @@ function curatedCompleteSql(): string {
     latest_list_price.unit_price IS NOT NULL
     AND latest_list_price.unit_price > 0
     AND COALESCE(latest_list_price.stock_status, '') = ''
-    AND latest_list_price.out_of_stock = 0
+    AND COALESCE(latest_list_price.out_of_stock, 0) = 0
     AND latest_list_price.shipping_cost IS NOT NULL
     AND latest_list_price.shipping_cost > 0
   )`
 }
 
 function curatedMissingPriceSql(): string {
-  return `(
+  const hasPrice = `(
+    latest_list_price.unit_price IS NOT NULL
+    AND latest_list_price.unit_price > 0
+    AND COALESCE(latest_list_price.stock_status, '') = ''
+    AND COALESCE(latest_list_price.out_of_stock, 0) = 0
+  )`
+  const missingShipping = `(
+    ${hasPrice}
+    AND (
+      latest_list_price.shipping_cost IS NULL
+      OR latest_list_price.shipping_cost <= 0
+    )
+  )`
+  const missingPrice = `(
     latest_list_price.product_id IS NULL
-    OR NOT (${curatedCompleteSql().slice(1, -1)})
-  )
-  AND NOT (${curatedOutOfStockSql().slice(1, -1)})`
+    OR (
+      COALESCE(latest_list_price.stock_status, '') = ''
+      AND COALESCE(latest_list_price.out_of_stock, 0) = 0
+      AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
+    )
+  )`
+  return `(
+    NOT (${curatedOutOfStockSql().slice(1, -1)})
+    AND (${missingPrice} OR ${missingShipping})
+  )`
 }
 
 function curatedOutOfStockSql(): string {
   return `(
-    latest_list_price.stock_status IN ('out', 'temporary')
+    COALESCE(latest_list_price.stock_status, '') IN ('out', 'temporary')
     OR (
       COALESCE(latest_list_price.stock_status, '') = ''
-      AND latest_list_price.out_of_stock <> 0
+      AND COALESCE(latest_list_price.out_of_stock, 0) <> 0
       AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
     )
   )`

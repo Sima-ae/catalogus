@@ -6,6 +6,7 @@ import {
 } from '@/lib/pricelist-constants'
 import {
   clearScopedPricesForProduct,
+  ensurePricelistPagesCache,
   findConflictingCuratedPricelist,
   buildCuratedBulkEligibilitySql,
   isCuratedSupplierPricelist,
@@ -1099,6 +1100,8 @@ export async function listPricelistProductIds(
   filters: PricelistListFilterInput,
   maxIds: number
 ): Promise<string[]> {
+  await ensurePricelistPagesCache()
+
   const limit = Math.max(1, Math.floor(maxIds))
   const sqlFragment = buildPricelistListSql(listOwnerId, viewer, filters)
   const rows = await queryDb<{ product_id: string }[]>(
@@ -1401,6 +1404,8 @@ export async function listPricelistPage(
     filters?: PricelistListFilterInput
   }
 ): Promise<PricelistPageResult> {
+  await ensurePricelistPagesCache()
+
   const pageSize = Math.min(
     MAX_PRICELIST_PAGE_SIZE,
     Math.max(1, Math.floor(options.limit ?? PRICELIST_PAGE_SIZE))
