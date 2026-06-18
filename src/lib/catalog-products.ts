@@ -430,6 +430,74 @@ export function buildAdminProductFilters(
   }
 }
 
+export type BulkArchiveProductFilterOptions = {
+  categoryIds?: string[]
+  legacyCategoryNames?: string[]
+  excludeCategoryIds?: string[]
+  strictCategoryIdOnly?: boolean
+  brands?: string[]
+  createdBefore: string
+  includeBrandJoin?: boolean
+}
+
+/** Products to archive: active/draft only, created before cutoff, optional category + brand filters. */
+export function buildBulkArchiveProductFilters(
+  options: BulkArchiveProductFilterOptions
+): CatalogSqlFilters {
+  const where: string[] = ["p.status IN ('active', 'draft')"]
+  const params: unknown[] = [`${options.createdBefore.trim()} 00:00:00`]
+  where.push('p.created_at < ?')
+
+  const includeBrand = options.includeBrandJoin === true
+  const categoryIds = options.categoryIds?.filter(Boolean)
+
+  if (categoryIds?.length) {
+    const idPlaceholders = categoryIds.map(() => '?').join(', ')
+    const idClause = `p.category_id IN (${idPlaceholders})`
+
+    if (options.legacyCategoryNames?.length) {
+      const legacy = buildQualifiedCategoryTextMatch(options.legacyCategoryNames.filter(Boolean))
+      const combined = combineCategoryIdAndLegacyTextMatch(idClause, categoryIds, legacy)
+      where.push(combined.sql)
+      params.push(...combined.params)
+    } else {
+      where.push(idClause)
+      params.push(...categoryIds)
+    }
+  } else if (categoryIds && categoryIds.length === 0) {
+    where.push('1 = 0')
+  }
+
+  const excludeCategoryIds = options.excludeCategoryIds?.filter(Boolean)
+  if (excludeCategoryIds?.length) {
+    const excludePlaceholders = excludeCategoryIds.map(() => '?').join(', ')
+    where.push(
+      `(${PRODUCT_CATEGORY_ID_UNSET_SQL} OR p.category_id NOT IN (${excludePlaceholders}))`
+    )
+    params.push(...excludeCategoryIds)
+  }
+
+  const brands = options.brands?.map((b) => b.trim()).filter(Boolean) ?? []
+  if (brands.length === 1) {
+    const brandFilter = buildProductBrandSegmentFilter(brands[0]!, {
+      includeBrandJoin: includeBrand,
+    })
+    where.push(brandFilter.sql)
+    params.push(...brandFilter.params)
+  } else if (brands.length > 1) {
+    const parts = brands.map((brand) =>
+      buildProductBrandSegmentFilter(brand, { includeBrandJoin: includeBrand })
+    )
+    where.push(`(${parts.map((part) => part.sql).join(' OR ')})`)
+    for (const part of parts) params.push(...part.params)
+  }
+
+  return {
+    whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params,
+  }
+}
+
 export function buildAdminProductsUrl(
   basePath: string,
   query: AdminProductsQuery

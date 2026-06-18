@@ -14,6 +14,7 @@ export type AdminMessageKey =
   | 'admin.nav.reviews'
   | 'admin.nav.analytics'
   | 'admin.nav.settings'
+  | 'admin.nav.catalogCleanup'
   | 'admin.quickActions'
   | 'admin.addProduct'
   | 'admin.addCategory'
@@ -34,6 +35,7 @@ export type AdminMessageKey =
   | 'admin.page.addCategory'
   | 'admin.page.editProduct'
   | 'admin.page.addProduct'
+  | 'admin.page.catalogCleanup'
   | 'admin.products.publishAllDrafts'
   | 'admin.products.addProduct'
   | 'admin.products.statTotal'
@@ -115,6 +117,23 @@ export type AdminMessageKey =
   | 'adminProducts.selectProduct'
   | 'adminProducts.edit'
   | 'adminProducts.delete'
+  | 'admin.catalogCleanup.intro'
+  | 'admin.catalogCleanup.categories'
+  | 'admin.catalogCleanup.brands'
+  | 'admin.catalogCleanup.createdBefore'
+  | 'admin.catalogCleanup.createdBeforeHelp'
+  | 'admin.catalogCleanup.preview'
+  | 'admin.catalogCleanup.previewCount'
+  | 'admin.catalogCleanup.setInactive'
+  | 'admin.catalogCleanup.moveToTrash'
+  | 'admin.catalogCleanup.confirmInactive'
+  | 'admin.catalogCleanup.confirmTrash'
+  | 'admin.catalogCleanup.needSelection'
+  | 'admin.catalogCleanup.doneInactive'
+  | 'admin.catalogCleanup.doneTrash'
+  | 'admin.catalogCleanup.failed'
+  | 'admin.catalogCleanup.searchCategories'
+  | 'admin.catalogCleanup.searchBrands'
 
 type AdminMessages = Record<AdminMessageKey, string>
 
@@ -132,6 +151,7 @@ const EN: AdminMessages = {
   'admin.nav.reviews': "Reviews",
   'admin.nav.analytics': "Analytics",
   'admin.nav.settings': "Settings",
+  'admin.nav.catalogCleanup': "Catalog cleanup",
   'admin.quickActions': "Quick Actions",
   'admin.addProduct': "Add Product",
   'admin.addCategory': "Add Category",
@@ -152,6 +172,7 @@ const EN: AdminMessages = {
   'admin.page.addCategory': "Add category",
   'admin.page.editProduct': "Edit product",
   'admin.page.addProduct': "Add product",
+  'admin.page.catalogCleanup': "Catalog cleanup",
   'admin.products.publishAllDrafts': "Publish all drafts ({count})",
   'admin.products.addProduct': "Add product",
   'admin.products.statTotal': "Total products",
@@ -235,6 +256,27 @@ const EN: AdminMessages = {
   'adminProducts.selectProduct': "Select {name}",
   'adminProducts.edit': "Edit",
   'adminProducts.delete': "Delete",
+  'admin.catalogCleanup.intro':
+    "Select categories and/or brands, then archive active or draft products imported before the cutoff date. Products are hidden from the shop but remain in the database.",
+  'admin.catalogCleanup.categories': "Categories",
+  'admin.catalogCleanup.brands': "Brands",
+  'admin.catalogCleanup.createdBefore': "Imported before",
+  'admin.catalogCleanup.createdBeforeHelp':
+    "Only products created before this date are affected (active and draft only).",
+  'admin.catalogCleanup.preview': "Preview count",
+  'admin.catalogCleanup.previewCount': "{count} matching products",
+  'admin.catalogCleanup.setInactive': "Set inactive",
+  'admin.catalogCleanup.moveToTrash': "Move to trash",
+  'admin.catalogCleanup.confirmInactive':
+    "Set {count} products to inactive? They will be hidden from the shop.",
+  'admin.catalogCleanup.confirmTrash':
+    "Move {count} products to trash? You can restore them from the trash page.",
+  'admin.catalogCleanup.needSelection': "Select at least one category or brand.",
+  'admin.catalogCleanup.doneInactive': "Set {count} products to inactive.",
+  'admin.catalogCleanup.doneTrash': "Moved {count} products to trash.",
+  'admin.catalogCleanup.failed': "Archive failed",
+  'admin.catalogCleanup.searchCategories': "Search categories…",
+  'admin.catalogCleanup.searchBrands': "Search brands…",
 }
 
 const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
@@ -251,6 +293,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.nav.reviews': "Beoordelingen",
   'admin.nav.analytics': "Analyses",
   'admin.nav.settings': "Instellingen",
+  'admin.nav.catalogCleanup': "Catalogus opschonen",
   'admin.quickActions': "Snelle acties",
   'admin.addProduct': "Product toevoegen",
   'admin.addCategory': "Categorie toevoegen",
@@ -348,6 +391,28 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'adminProducts.selectProduct': "{name} selecteren",
   'adminProducts.edit': "Bewerken",
   'adminProducts.delete': "Verwijderen",
+  'admin.page.catalogCleanup': "Catalogus opschonen",
+  'admin.catalogCleanup.intro':
+    "Selecteer categorieën en/of merken en archiveer actieve of conceptproducten die vóór de grensdatum zijn geïmporteerd. Producten verdwijnen uit de shop maar blijven in de database.",
+  'admin.catalogCleanup.categories': "Categorieën",
+  'admin.catalogCleanup.brands': "Merken",
+  'admin.catalogCleanup.createdBefore': "Geïmporteerd vóór",
+  'admin.catalogCleanup.createdBeforeHelp':
+    "Alleen producten die vóór deze datum zijn aangemaakt (actief en concept).",
+  'admin.catalogCleanup.preview': "Aantal bekijken",
+  'admin.catalogCleanup.previewCount': "{count} overeenkomende producten",
+  'admin.catalogCleanup.setInactive': "Inactief maken",
+  'admin.catalogCleanup.moveToTrash': "Naar prullenbak",
+  'admin.catalogCleanup.confirmInactive':
+    "{count} producten inactief maken? Ze worden verborgen in de shop.",
+  'admin.catalogCleanup.confirmTrash':
+    "{count} producten naar de prullenbak verplaatsen? Je kunt ze herstellen via de prullenbak.",
+  'admin.catalogCleanup.needSelection': "Selecteer minstens één categorie of merk.",
+  'admin.catalogCleanup.doneInactive': "{count} producten inactief gemaakt.",
+  'admin.catalogCleanup.doneTrash': "{count} producten naar de prullenbak verplaatst.",
+  'admin.catalogCleanup.failed': "Archiveren mislukt",
+  'admin.catalogCleanup.searchCategories': "Zoek categorieën…",
+  'admin.catalogCleanup.searchBrands': "Zoek merken…",
   },
   de: {
   'admin.nav.pricelist': "Preisliste",

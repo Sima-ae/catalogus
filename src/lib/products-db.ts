@@ -4,6 +4,7 @@ import { slugifyCategory } from '@/lib/category-slug'
 import {
   buildActiveCatalogFilters,
   buildAdminProductFilters,
+  buildBulkArchiveProductFilters,
   buildProductBrandSegmentFilter,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
@@ -1742,6 +1743,96 @@ export async function bulkUpdateProductStatusByFilter(
   )
   invalidateProductDashboardStatsCache()
   return result?.affectedRows ?? 0
+}
+
+export type BulkArchiveProductsInput = {
+  categoryIds?: string[]
+  brands?: string[]
+  /** Products with created_at strictly before this calendar date (YYYY-MM-DD). */
+  createdBefore: string
+  status: 'inactive' | 'trash'
+}
+
+async function resolveUnionCategoryFilter(
+  selectedCategoryIds: string[]
+): Promise<
+  Pick<AdminProductFilterOptions, 'categoryIds' | 'legacyCategoryNames' | 'excludeCategoryIds'>
+> {
+  if (!selectedCategoryIds.length) return {}
+
+  const allIds = new Set<string>()
+  const allLegacy = new Set<string>()
+  const allExclude = new Set<string>()
+
+  for (const id of selectedCategoryIds) {
+    const opts = await resolveAdminCategoryFilterOptions(id)
+    for (const cid of opts.categoryIds ?? []) allIds.add(cid)
+    for (const name of opts.legacyCategoryNames ?? []) allLegacy.add(name)
+    for (const eid of opts.excludeCategoryIds ?? []) allExclude.add(eid)
+  }
+
+  if (!allIds.size && !allLegacy.size) {
+    return { categoryIds: [] }
+  }
+
+  return {
+    categoryIds: Array.from(allIds),
+    legacyCategoryNames: Array.from(allLegacy),
+    excludeCategoryIds: Array.from(allExclude),
+  }
+}
+
+async function bulkArchiveFromClause(): Promise<{
+  fromClause: string
+  hasBrandsTable: boolean
+}> {
+  const [select, hasBrandsTable] = await Promise.all([productSelectSql(), brandsTableExists()])
+  const fromIndex = select.search(/\bFROM\b/i)
+  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+  return { fromClause, hasBrandsTable }
+}
+
+async function buildBulkArchiveQuery(input: {
+  categoryIds?: string[]
+  brands?: string[]
+  createdBefore: string
+}) {
+  const categoryOpts = input.categoryIds?.length
+    ? await resolveUnionCategoryFilter(input.categoryIds)
+    : {}
+
+  const { fromClause, hasBrandsTable } = await bulkArchiveFromClause()
+  const { whereSql, params } = buildBulkArchiveProductFilters({
+    ...categoryOpts,
+    brands: input.brands,
+    createdBefore: input.createdBefore,
+    includeBrandJoin: hasBrandsTable,
+  })
+
+  return { fromClause, whereSql, params }
+}
+
+export async function countBulkArchiveProducts(
+  input: Omit<BulkArchiveProductsInput, 'status'>
+): Promise<number> {
+  const { fromClause, whereSql, params } = await buildBulkArchiveQuery(input)
+  const rows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+    params
+  )
+  return Number(rows[0]?.total ?? 0)
+}
+
+/** Set matching active/draft products to inactive or trash (by category, brand, created date). */
+export async function bulkArchiveProducts(input: BulkArchiveProductsInput): Promise<number> {
+  const { fromClause, whereSql, params } = await buildBulkArchiveQuery(input)
+  const idRows = await queryDb<{ id: string }[]>(
+    `SELECT DISTINCT p.id ${fromClause} ${whereSql}`,
+    params
+  )
+  const ids = idRows.map((row) => String(row.id)).filter(Boolean)
+  if (!ids.length) return 0
+  return bulkUpdateProductStatus(ids, input.status)
 }
 
 /** Distinct vendor names on products (for analytics). */

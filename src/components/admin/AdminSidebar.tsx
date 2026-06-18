@@ -25,6 +25,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   TrashIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline'
 
 const navigation = [
@@ -32,6 +33,7 @@ const navigation = [
   { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon, newTab: true, dynamicOwner: true },
   { nameKey: 'admin.nav.products', href: '/admin/products', icon: CubeIcon },
   { nameKey: 'admin.nav.trash', href: '/admin/trash', icon: TrashIcon },
+  { nameKey: 'admin.nav.catalogCleanup', href: '/admin/catalog-cleanup', icon: ArchiveBoxIcon },
   { nameKey: 'admin.nav.orders', href: '/admin/orders', icon: ShoppingCartIcon },
   { nameKey: 'admin.nav.users', href: '/admin/users', icon: UsersIcon },
   { nameKey: 'admin.nav.categories', href: '/admin/categories', icon: TagIcon },
