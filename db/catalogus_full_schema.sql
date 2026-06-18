@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS products (
   product_options LONGTEXT NULL,
   source_url TEXT NULL,
   source_album_id VARCHAR(64) NULL,
+  source_album_date DATE NULL,
   category VARCHAR(255) NOT NULL,
   category_id VARCHAR(36) NULL,
   brand VARCHAR(255) NULL,
@@ -153,6 +154,7 @@ CREATE TABLE IF NOT EXISTS products (
   KEY idx_products_brand_subcategory_id (brand_subcategory_id),
   KEY idx_products_status_created (status, created_at),
   KEY idx_products_status_category (status, category_id),
+  KEY idx_products_source_album_date (source_album_date),
   KEY idx_products_supplier_pricelist (supplier_pricelist_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

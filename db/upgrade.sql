@@ -547,5 +547,12 @@ ALTER TABLE products
   ADD COLUMN IF NOT EXISTS pre_order TINYINT(1) NOT NULL DEFAULT 0 AFTER sold_out;
 
 -- Product variant options (Mechanism tiers, etc.) — see db/product_options.sql
+
+-- Yupoo album datePublished (shown on Yupoo under each album title)
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS source_album_date DATE NULL AFTER source_album_id;
+
+ALTER TABLE products
+  ADD INDEX IF NOT EXISTS idx_products_source_album_date (source_album_date);
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS product_options LONGTEXT NULL AFTER available_colors;

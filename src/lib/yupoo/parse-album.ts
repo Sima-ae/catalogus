@@ -14,6 +14,7 @@ import {
   isYupooShopTagline,
   sanitizeYupooAlbumTitle,
 } from '@/lib/yupoo/import-text'
+import { parseYupooAlbumDateFromHtml } from '@/lib/yupoo/parse-album-date'
 
 function extractSkuHint(title: string): string | null {
   return extractYupooStyleCode(title)
@@ -186,6 +187,7 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
     description,
     images,
     skuHint: extractSkuHint(h1) || extractSkuHint(headerCode),
+    albumDate: parseYupooAlbumDateFromHtml(html),
   }
 }
 
@@ -211,6 +213,7 @@ export function buildSkuFromAlbumId(
       description: '',
       images: [],
       skuHint: skuHint ?? null,
+      albumDate: null,
     },
     brandName
   )

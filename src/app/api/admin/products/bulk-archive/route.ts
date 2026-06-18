@@ -24,15 +24,17 @@ function parseBody(body: Record<string, unknown>): {
   const brands = Array.isArray(body.brands)
     ? body.brands.map(String).map((b) => b.trim()).filter(Boolean)
     : []
-  const createdBefore = String(body.createdBefore ?? '').trim()
+  const albumDateBefore = String(
+    body.albumDateBefore ?? body.createdBefore ?? ''
+  ).trim()
   const status = String(body.status ?? 'inactive').trim() as BulkArchiveProductsInput['status']
   const dryRun = body.dryRun === true
 
   if (!categoryIds.length && !brands.length) {
     return { ok: false, error: 'Select at least one category or brand' }
   }
-  if (!DATE_RE.test(createdBefore)) {
-    return { ok: false, error: 'createdBefore must be YYYY-MM-DD' }
+  if (!DATE_RE.test(albumDateBefore)) {
+    return { ok: false, error: 'albumDateBefore must be YYYY-MM-DD' }
   }
   if (!VALID_STATUSES.includes(status)) {
     return { ok: false, error: 'status must be inactive or trash' }
@@ -44,7 +46,7 @@ function parseBody(body: Record<string, unknown>): {
     input: {
       categoryIds: categoryIds.length ? categoryIds : undefined,
       brands: brands.length ? brands : undefined,
-      createdBefore,
+      albumDateBefore,
       status,
     },
   }

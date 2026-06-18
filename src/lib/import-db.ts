@@ -115,6 +115,7 @@ export async function buildProductInputFromImport(
     available_colors: attrs.colors,
     source_url: album.albumUrl,
     source_album_id: album.albumId,
+    source_album_date: album.albumDate,
     author: APP_DEFAULT_AUTHOR,
     author_icon: APP_DEFAULT_AUTHOR_ICON,
     sku,

@@ -436,17 +436,18 @@ export type BulkArchiveProductFilterOptions = {
   excludeCategoryIds?: string[]
   strictCategoryIdOnly?: boolean
   brands?: string[]
-  createdBefore: string
+  /** Yupoo album datePublished — products with source_album_date strictly before this date. */
+  albumDateBefore: string
   includeBrandJoin?: boolean
 }
 
-/** Products to archive: active/draft only, created before cutoff, optional category + brand filters. */
+/** Products to archive: active/draft only, Yupoo album date before cutoff, optional category + brand filters. */
 export function buildBulkArchiveProductFilters(
   options: BulkArchiveProductFilterOptions
 ): CatalogSqlFilters {
-  const where: string[] = ["p.status IN ('active', 'draft')"]
-  const params: unknown[] = [`${options.createdBefore.trim()} 00:00:00`]
-  where.push('p.created_at < ?')
+  const where: string[] = ["p.status IN ('active', 'draft')", 'p.source_album_date IS NOT NULL']
+  const params: unknown[] = [`${options.albumDateBefore.trim()} 00:00:00`]
+  where.push('p.source_album_date < ?')
 
   const includeBrand = options.includeBrandJoin === true
   const categoryIds = options.categoryIds?.filter(Boolean)

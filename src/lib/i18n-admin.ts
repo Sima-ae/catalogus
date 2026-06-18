@@ -122,6 +122,7 @@ export type AdminMessageKey =
   | 'admin.catalogCleanup.brands'
   | 'admin.catalogCleanup.createdBefore'
   | 'admin.catalogCleanup.createdBeforeHelp'
+  | 'admin.catalogCleanup.backfillHint'
   | 'admin.catalogCleanup.preview'
   | 'admin.catalogCleanup.previewCount'
   | 'admin.catalogCleanup.setInactive'
@@ -260,9 +261,11 @@ const EN: AdminMessages = {
     "Select categories and/or brands, then archive active or draft products imported before the cutoff date. Products are hidden from the shop but remain in the database.",
   'admin.catalogCleanup.categories': "Categories",
   'admin.catalogCleanup.brands': "Brands",
-  'admin.catalogCleanup.createdBefore': "Imported before",
+  'admin.catalogCleanup.createdBefore': "Yupoo album date before",
   'admin.catalogCleanup.createdBeforeHelp':
-    "Only products created before this date are affected (active and draft only).",
+    "Uses the date shown on Yupoo under each album (datePublished), not when it was imported here. Products without a stored Yupoo date are skipped — run npm run db:backfill-yupoo-dates on the server first.",
+  'admin.catalogCleanup.backfillHint':
+    "No matches? Existing imports may need Yupoo dates backfilled (db:backfill-yupoo-dates).",
   'admin.catalogCleanup.preview': "Preview count",
   'admin.catalogCleanup.previewCount': "{count} matching products",
   'admin.catalogCleanup.setInactive': "Set inactive",
@@ -396,9 +399,11 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
     "Selecteer categorieën en/of merken en archiveer actieve of conceptproducten die vóór de grensdatum zijn geïmporteerd. Producten verdwijnen uit de shop maar blijven in de database.",
   'admin.catalogCleanup.categories': "Categorieën",
   'admin.catalogCleanup.brands': "Merken",
-  'admin.catalogCleanup.createdBefore': "Geïmporteerd vóór",
+  'admin.catalogCleanup.createdBefore': "Yupoo-albumdatum vóór",
   'admin.catalogCleanup.createdBeforeHelp':
-    "Alleen producten die vóór deze datum zijn aangemaakt (actief en concept).",
+    "Gebruikt de datum op Yupoo onder elk album (datePublished), niet wanneer het hier is geïmporteerd. Producten zonder opgeslagen Yupoo-datum worden overgeslagen — voer eerst npm run db:backfill-yupoo-dates uit op de server.",
+  'admin.catalogCleanup.backfillHint':
+    "Geen resultaten? Bestaande imports hebben mogelijk een Yupoo-datum-backfill nodig (db:backfill-yupoo-dates).",
   'admin.catalogCleanup.preview': "Aantal bekijken",
   'admin.catalogCleanup.previewCount': "{count} overeenkomende producten",
   'admin.catalogCleanup.setInactive': "Inactief maken",

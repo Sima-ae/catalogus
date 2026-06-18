@@ -11,6 +11,8 @@ export type YupooAlbumData = {
   description: string
   images: string[]
   skuHint: string | null
+  /** Yupoo album datePublished (YYYY-MM-DD), shown on the album page. */
+  albumDate: string | null
 }
 
 export type ParsedAttributes = {

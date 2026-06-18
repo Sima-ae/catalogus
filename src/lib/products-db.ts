@@ -91,6 +91,7 @@ export type ProductInput = {
   product_options?: ProductOptions | null
   source_url?: string | null
   source_album_id?: string | null
+  source_album_date?: string | null
 }
 
 export class UnknownCategoryError extends Error {
@@ -188,6 +189,7 @@ type ProductSchemaFlags = {
   product_options: boolean
   source_url: boolean
   source_album_id: boolean
+  source_album_date: boolean
 }
 
 const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
@@ -219,7 +221,8 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
          AND COLUMN_NAME IN (
            'category_id', 'author_id', 'compatibility', 'support_url',
-           'available_sizes', 'available_colors', 'product_options', 'source_url', 'source_album_id'
+           'available_sizes', 'available_colors', 'product_options', 'source_url', 'source_album_id',
+           'source_album_date'
          )`
     )
     const names = new Set(rows.map((r) => r.COLUMN_NAME))
@@ -233,6 +236,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       product_options: names.has('product_options'),
       source_url: names.has('source_url'),
       source_album_id: names.has('source_album_id'),
+      source_album_date: names.has('source_album_date'),
     }
   } catch {
     g[SCHEMA_CACHE_KEY] = {
@@ -245,6 +249,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       product_options: false,
       source_url: false,
       source_album_id: false,
+      source_album_date: false,
     }
   }
   return g[SCHEMA_CACHE_KEY]
@@ -701,6 +706,9 @@ export async function insertProduct(input: ProductInput) {
     ...(schema.source_album_id && input.source_album_id !== undefined
       ? { source_album_id: input.source_album_id || null }
       : {}),
+    ...(schema.source_album_date && input.source_album_date !== undefined
+      ? { source_album_date: input.source_album_date || null }
+      : {}),
   }
 
   const columns = Object.keys(insertMap)
@@ -811,6 +819,10 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     source_album_id:
       schema.source_album_id && input.source_album_id !== undefined
         ? input.source_album_id || null
+        : undefined,
+    source_album_date:
+      schema.source_album_date && input.source_album_date !== undefined
+        ? input.source_album_date || null
         : undefined,
   }
 
@@ -1748,8 +1760,8 @@ export async function bulkUpdateProductStatusByFilter(
 export type BulkArchiveProductsInput = {
   categoryIds?: string[]
   brands?: string[]
-  /** Products with created_at strictly before this calendar date (YYYY-MM-DD). */
-  createdBefore: string
+  /** Products with Yupoo source_album_date strictly before this calendar date (YYYY-MM-DD). */
+  albumDateBefore: string
   status: 'inactive' | 'trash'
 }
 
@@ -1795,7 +1807,7 @@ async function bulkArchiveFromClause(): Promise<{
 async function buildBulkArchiveQuery(input: {
   categoryIds?: string[]
   brands?: string[]
-  createdBefore: string
+  albumDateBefore: string
 }) {
   const categoryOpts = input.categoryIds?.length
     ? await resolveUnionCategoryFilter(input.categoryIds)
@@ -1805,7 +1817,7 @@ async function buildBulkArchiveQuery(input: {
   const { whereSql, params } = buildBulkArchiveProductFilters({
     ...categoryOpts,
     brands: input.brands,
-    createdBefore: input.createdBefore,
+    albumDateBefore: input.albumDateBefore,
     includeBrandJoin: hasBrandsTable,
   })
 

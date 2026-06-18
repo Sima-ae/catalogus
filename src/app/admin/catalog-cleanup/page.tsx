@@ -108,7 +108,7 @@ export default function AdminCatalogCleanupPage() {
     (dryRun: boolean, status: 'inactive' | 'trash') => ({
       categoryIds: selectedCategoryIds,
       brands: selectedBrandNames,
-      createdBefore,
+      albumDateBefore: createdBefore,
       status,
       dryRun,
     }),
@@ -366,6 +366,7 @@ export default function AdminCatalogCleanupPage() {
             {tr('admin.catalogCleanup.previewCount').replace('{count}', String(previewCount))}
           </p>
         ) : null}
+        <p className={`mt-3 text-xs ${t.muted}`}>{tr('admin.catalogCleanup.backfillHint')}</p>
       </section>
     </AdminPageShell>
   )
