@@ -11,6 +11,7 @@ import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing, {
   CATALOG_PAGE_SIZE,
 } from '@/components/shop/ShopCatalogListing'
+import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
@@ -444,11 +445,8 @@ function ShopCatalogPageContent({
               />
             ) : null}
 
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
-                <p className={`text-lg ${muted}`}>{tr('loading.products')}</p>
-              </div>
+            {loading || resultsLoading ? (
+              <CatalogLoadingIndicator />
             ) : error ? (
               <div className="text-center py-12">
                 <div className="text-red-500 mb-4">
@@ -525,7 +523,6 @@ function ShopCatalogPageContent({
                 reorderScope={isAdmin ? reorderScope : null}
                 reorderSaving={reorderSaving}
                 centered={config.centerCatalog}
-                loading={resultsLoading}
               />
             )}
           </div>

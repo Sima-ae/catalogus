@@ -18,6 +18,7 @@ import PricelistTable from '@/components/pricelist/PricelistTable'
 import PricelistGrid from '@/components/pricelist/PricelistGrid'
 import PricelistProductLightbox from '@/components/pricelist/PricelistProductLightbox'
 import PricelistSharePasswordSettings from '@/components/pricelist/PricelistSharePasswordSettings'
+import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import AppFooter from '@/components/layout/AppFooter'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
@@ -678,10 +679,7 @@ export default function PricelistPageClient() {
       ) : null}
 
       {loading ? (
-        <div className="text-center py-16">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500 mx-auto" />
-          <p className={`mt-4 text-sm ${muted}`}>{t('loading.pricelist')}</p>
-        </div>
+        <CatalogLoadingIndicator compact message={t('loading.pricelist')} isDark={isDark} />
       ) : totalOnPricelist === 0 ? (
         <div
           className={`text-center py-16 rounded-xl border ${
@@ -731,6 +729,8 @@ export default function PricelistPageClient() {
             </button>
           ) : null}
         </div>
+      ) : pageLoading ? (
+        <CatalogLoadingIndicator message={t('loading.products')} isDark={isDark} />
       ) : viewMode === 'table' ? (
         <>
           <CatalogPagination {...paginationProps} />
@@ -755,7 +755,6 @@ export default function PricelistPageClient() {
               onDelete={() => void runBulkRemove()}
             />
           ) : null}
-          <div className={pageLoading ? 'opacity-60 pointer-events-none' : ''}>
           <PricelistTable
             items={items}
             enableBulkSelect={enableBulkSelect}
@@ -782,16 +781,13 @@ export default function PricelistPageClient() {
             onRemove={removeItem}
             onOpenGallery={openGallery}
           />
-          </div>
           <CatalogPagination {...paginationProps} />
           <AppFooter />
         </>
       ) : (
         <>
           <CatalogPagination {...paginationProps} />
-          <div className={pageLoading ? 'opacity-60 pointer-events-none' : ''}>
           <PricelistGrid items={items} isDark={isDark} onOpenGallery={openGallery} />
-          </div>
           <CatalogPagination {...paginationProps} />
           <AppFooter />
         </>

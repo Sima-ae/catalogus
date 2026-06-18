@@ -18,7 +18,6 @@ type Props = {
   reorderScope?: string | null
   reorderSaving?: boolean
   centered?: boolean
-  loading?: boolean
 }
 
 /** Shared product grid with server-backed pagination. */
@@ -33,7 +32,6 @@ export default function ShopCatalogListing({
   reorderScope = null,
   reorderSaving = false,
   centered = false,
-  loading = false,
 }: Props) {
   const { user, loading: authLoading } = useAuth()
   const isCatalogAdmin = isCatalogAdminUser(user)
@@ -53,17 +51,15 @@ export default function ShopCatalogListing({
         centered={centered}
         compact={centered}
       />
-      <div aria-busy={loading || undefined}>
-        <PricelistMembershipBatchProvider productIds={products.map((p) => p.id)}>
-          <SortableProductGrid
-            products={products}
-            reorderEnabled={canReorder}
-            saving={reorderSaving || loading}
-            onReorder={onReorder ?? (() => undefined)}
-            onProductDeleted={onProductDeleted}
-          />
-        </PricelistMembershipBatchProvider>
-      </div>
+      <PricelistMembershipBatchProvider productIds={products.map((p) => p.id)}>
+        <SortableProductGrid
+          products={products}
+          reorderEnabled={canReorder}
+          saving={reorderSaving}
+          onReorder={onReorder ?? (() => undefined)}
+          onProductDeleted={onProductDeleted}
+        />
+      </PricelistMembershipBatchProvider>
       <CatalogPagination
         page={safePage}
         totalItems={totalItems}
