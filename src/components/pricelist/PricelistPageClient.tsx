@@ -203,13 +203,13 @@ export default function PricelistPageClient() {
   const showOutOfStockFilter =
     showMissingPricesButton && (showAdminPriceFilters || (isGuest && isCuratedList))
 
-  const exportOwnerLabel =
-    isCuratedList
-      ? t('pricelist.owner.platform')
-      : translatePricelistOwnerLabel(
-          owners.find((o) => o.id === ownerId) ?? { label: currentOwnerLabel },
-          t
-        )
+  const exportOwnerLabel = translatePricelistOwnerLabel(
+    owners.find((o) => o.id === ownerId) ?? {
+      label: currentOwnerLabel,
+      kind: currentOwner?.kind,
+    },
+    t
+  )
 
   const safePage = Math.min(Math.max(1, currentPage), totalPages)
 
