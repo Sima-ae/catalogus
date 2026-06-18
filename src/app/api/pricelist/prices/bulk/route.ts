@@ -7,9 +7,9 @@ import {
   parseUnitPrice,
   setSellerProductStockStatus,
   syncProductPurchasePriceFromPricelist,
-  syncProductShippingCostFromPricelist,
+  syncProductShippingCostsFromPricelist,
   upsertSellerProductPrice,
-  upsertSellerProductShippingCost,
+  bulkUpsertSellerProductShippingCosts,
   listPricelistProductIds,
 } from '@/lib/pricelist-db'
 import {
@@ -30,6 +30,8 @@ import {
 } from '@/lib/seller-price-edit-db'
 import {
   buildPricelistFiltersFromClient,
+  parsePricelistClientFilterInput,
+  restrictAdminOnlyPricelistFilters,
   type PricelistClientFilterInput,
 } from '@/lib/pricelist-api-query'
 
@@ -69,20 +71,7 @@ function parseBulkItems(raw: unknown): BulkItem[] {
 }
 
 function parseApplyToFilters(raw: unknown): PricelistClientFilterInput | null {
-  if (!raw || typeof raw !== 'object') return null
-  const row = raw as Record<string, unknown>
-  return {
-    search: row.search != null ? String(row.search) : undefined,
-    category: row.category != null ? String(row.category) : undefined,
-    subcategory: row.subcategory != null ? String(row.subcategory) : undefined,
-    brand: row.brand != null ? String(row.brand) : undefined,
-    missingPricesOnly:
-      row.missingPricesOnly === false || row.missingPricesOnly === 'false'
-        ? false
-        : row.missingPricesOnly === true || row.missingPricesOnly === 'true'
-          ? true
-          : undefined,
-  }
+  return parsePricelistClientFilterInput(raw)
 }
 
 function viewerFromAccess(request: NextRequest, access: BulkAccess) {
@@ -107,7 +96,8 @@ async function resolveBulkItemList(
   if (applyToFilters) {
     const viewer = viewerFromAccess(request, access)
     if (!viewer) return []
-    const filters = await buildPricelistFiltersFromClient(applyToFilters)
+    const built = await buildPricelistFiltersFromClient(applyToFilters)
+    const filters = restrictAdminOnlyPricelistFilters(built, viewer)
     const productIds = await listPricelistProductIds(
       access.ownerId,
       viewer,
@@ -146,6 +136,25 @@ async function processBulkItems(
   let updated = 0
   let skipped = 0
   const errors: string[] = []
+
+  if (action === 'shipping' && shippingCost !== null) {
+    const productIds = items.map((item) => item.productId)
+    const { updated, skipped } = await bulkUpsertSellerProductShippingCosts({
+      listOwnerId: access.ownerId,
+      sellerId: actorSellerId,
+      productIds,
+      shippingCost,
+      currency,
+      updatedBy,
+      skipSellerLocked: isSellerActor,
+    })
+
+    if (isCuratedSupplierPricelist(access.ownerId)) {
+      await syncProductShippingCostsFromPricelist(productIds, access.ownerId)
+    }
+
+    return { updated, skipped, failed: 0, errors }
+  }
 
   for (let offset = 0; offset < items.length; offset += INTERNAL_BATCH_SIZE) {
     const batch = items.slice(offset, offset + INTERNAL_BATCH_SIZE)
@@ -194,18 +203,6 @@ async function processBulkItems(
           })
           if (isCuratedSupplierPricelist(access.ownerId)) {
             await syncProductPurchasePriceFromPricelist(item.productId, access.ownerId)
-          }
-        } else if (action === 'shipping' && shippingCost !== null) {
-          await upsertSellerProductShippingCost({
-            listOwnerId: access.ownerId,
-            sellerId: targetSellerId,
-            productId: item.productId,
-            shippingCost,
-            currency,
-            updatedBy,
-          })
-          if (isCuratedSupplierPricelist(access.ownerId)) {
-            await syncProductShippingCostFromPricelist(item.productId, access.ownerId)
           }
         }
 

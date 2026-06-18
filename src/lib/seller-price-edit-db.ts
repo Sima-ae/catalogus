@@ -181,6 +181,10 @@ export async function getSellerShippingLockState(
   if (row?.shipping_cost == null || row.shipping_cost === '') {
     return { hasShipping: false }
   }
+  const n = Number(row.shipping_cost)
+  if (!Number.isFinite(n) || n <= 0) {
+    return { hasShipping: false }
+  }
   return { hasShipping: true }
 }
 

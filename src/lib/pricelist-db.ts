@@ -673,6 +673,75 @@ export async function setSellerProductStockStatus(input: {
   }
 }
 
+const BULK_SHIPPING_CHUNK_SIZE = 500
+
+/** Batch shipping updates — avoids per-row round trips on large “select all missing” runs. */
+export async function bulkUpsertSellerProductShippingCosts(input: {
+  listOwnerId: string
+  sellerId: string
+  productIds: string[]
+  shippingCost: number
+  currency: string
+  updatedBy: string
+  /** When true, skip rows where this seller already saved shipping > 0. */
+  skipSellerLocked?: boolean
+}): Promise<{ updated: number; skipped: number }> {
+  const uniqueIds = Array.from(new Set(input.productIds.map((id) => id.trim()).filter(Boolean)))
+  if (!uniqueIds.length) return { updated: 0, skipped: 0 }
+
+  let updated = 0
+  let skipped = 0
+
+  for (let offset = 0; offset < uniqueIds.length; offset += BULK_SHIPPING_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(offset, offset + BULK_SHIPPING_CHUNK_SIZE)
+    const placeholders = chunk.map(() => '?').join(', ')
+
+    let targetIds = chunk
+    if (input.skipSellerLocked) {
+      const locked = await queryDb<{ product_id: string }[]>(
+        `SELECT product_id FROM seller_product_prices
+         WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${placeholders})
+           AND shipping_cost IS NOT NULL AND shipping_cost > 0`,
+        [input.listOwnerId, input.sellerId, ...chunk]
+      )
+      const lockedSet = new Set(locked.map((r) => r.product_id))
+      skipped += lockedSet.size
+      targetIds = chunk.filter((id) => !lockedSet.has(id))
+      if (!targetIds.length) continue
+    }
+
+    const targetPlaceholders = targetIds.map(() => '?').join(', ')
+    const updateResult = await queryDb<{ affectedRows?: number }>(
+      `UPDATE seller_product_prices
+       SET shipping_cost = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${targetPlaceholders})`,
+      [input.shippingCost, input.updatedBy, input.listOwnerId, input.sellerId, ...targetIds]
+    )
+    updated += Number(updateResult?.affectedRows ?? 0)
+
+    const existing = await queryDb<{ product_id: string }[]>(
+      `SELECT product_id FROM seller_product_prices
+       WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${targetPlaceholders})`,
+      [input.listOwnerId, input.sellerId, ...targetIds]
+    )
+    const existingSet = new Set(existing.map((r) => r.product_id))
+    for (const productId of targetIds) {
+      if (existingSet.has(productId)) continue
+      await upsertSellerProductShippingCost({
+        listOwnerId: input.listOwnerId,
+        sellerId: input.sellerId,
+        productId,
+        shippingCost: input.shippingCost,
+        currency: input.currency,
+        updatedBy: input.updatedBy,
+      })
+      updated += 1
+    }
+  }
+
+  return { updated, skipped }
+}
+
 export async function upsertSellerProductShippingCost(input: {
   listOwnerId: string
   sellerId: string
@@ -867,17 +936,38 @@ export async function syncProductShippingCostFromPricelist(
   productId: string,
   listOwnerId: string
 ): Promise<void> {
+  return syncProductShippingCostsFromPricelist([productId], listOwnerId)
+}
+
+/** Batch copy seller shipping onto products.shipping_cost after bulk pricelist edits. */
+export async function syncProductShippingCostsFromPricelist(
+  productIds: string[],
+  listOwnerId: string
+): Promise<void> {
   if (!isCuratedSupplierPricelist(listOwnerId)) return
-  const onList = await isProductOnPricelist(listOwnerId, productId)
-  if (!onList) return
+  const uniqueIds = Array.from(new Set(productIds.map((id) => id.trim()).filter(Boolean)))
+  if (!uniqueIds.length) return
 
-  const shippingCost = await resolveLatestNumericPricelistShippingCost(listOwnerId, productId)
-  if (shippingCost == null) return
-
-  await queryDb(`UPDATE products SET shipping_cost = ? WHERE id = ?`, [
-    shippingCost,
-    productId,
-  ])
+  for (let offset = 0; offset < uniqueIds.length; offset += BULK_SHIPPING_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(offset, offset + BULK_SHIPPING_CHUNK_SIZE)
+    const placeholders = chunk.map(() => '?').join(', ')
+    await queryDb(
+      `UPDATE products p
+       INNER JOIN (
+         SELECT product_id, shipping_cost
+         FROM (
+           SELECT product_id, shipping_cost,
+             ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
+           FROM seller_product_prices
+           WHERE list_owner_id = ? AND product_id IN (${placeholders})
+             AND shipping_cost IS NOT NULL
+         ) ranked
+         WHERE rn = 1
+       ) sp ON sp.product_id = p.id
+       SET p.shipping_cost = sp.shipping_cost`,
+      [listOwnerId, ...chunk]
+    )
+  }
 }
 
 /** @deprecated Use syncProductShippingCostFromPricelist */

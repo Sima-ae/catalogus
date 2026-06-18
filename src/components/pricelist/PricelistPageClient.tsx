@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
@@ -43,6 +43,7 @@ import type { PricelistListQuery } from '@/lib/use-pricelist'
 import { appPath } from '@/lib/paths'
 
 type PricelistQuickFilter = 'missing' | 'all' | 'filled' | 'outOfStock'
+type BulkSelectionScope = 'explicit' | 'filtered' | 'allMissing'
 
 export default function PricelistPageClient() {
   const searchParams = useSearchParams()
@@ -166,6 +167,8 @@ export default function PricelistPageClient() {
   const [bulkMessage, setBulkMessage] = useState<string | null>(null)
   const [bulkPriceOpen, setBulkPriceOpen] = useState(false)
   const [bulkShippingOpen, setBulkShippingOpen] = useState(false)
+  const preserveSelectionRef = useRef(false)
+  const [bulkSelectionScope, setBulkSelectionScope] = useState<BulkSelectionScope>('explicit')
 
   const openGallery = useCallback((row: PricelistRow) => {
     const images = row.gallery_urls?.length ? row.gallery_urls : row.image_url ? [row.image_url] : []
@@ -224,7 +227,12 @@ export default function PricelistPageClient() {
   ])
 
   useEffect(() => {
+    if (preserveSelectionRef.current) {
+      preserveSelectionRef.current = false
+      return
+    }
     setSelectedIds(new Set())
+    setBulkSelectionScope('explicit')
     setBulkMessage(null)
   }, [
     ownerId,
@@ -292,6 +300,16 @@ export default function PricelistPageClient() {
     }
   }, [allFilteredSelected, listQuery])
 
+  const resolveBulkApplyToFilters = useCallback((): PricelistBulkFilterScope | undefined => {
+    if (bulkSelectionScope === 'allMissing') {
+      return { missingPricesOnly: true }
+    }
+    if (bulkSelectionScope === 'filtered' && bulkFilterScope) {
+      return bulkFilterScope
+    }
+    return undefined
+  }, [bulkSelectionScope, bulkFilterScope])
+
   const toBulkItems = (productIds: Iterable<string>): PricelistBulkItem[] =>
     Array.from(productIds).map((productId) => ({ productId }))
 
@@ -319,6 +337,7 @@ export default function PricelistPageClient() {
     : Array.from(selectedIds)
 
   const toggleSelect = (productId: string) => {
+    setBulkSelectionScope('explicit')
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(productId)) next.delete(productId)
@@ -328,6 +347,7 @@ export default function PricelistPageClient() {
   }
 
   const toggleSelectAllPage = () => {
+    setBulkSelectionScope('explicit')
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (allOnPageSelected) {
@@ -344,6 +364,7 @@ export default function PricelistPageClient() {
     setBulkMessage(null)
     try {
       const productIds = await fetchSelectionProductIds('filtered')
+      setBulkSelectionScope('filtered')
       setSelectedIds(new Set(productIds))
     } catch (e) {
       setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
@@ -357,6 +378,8 @@ export default function PricelistPageClient() {
     setBulkMessage(null)
     try {
       const productIds = await fetchSelectionProductIds('allMissing')
+      setBulkSelectionScope('allMissing')
+      preserveSelectionRef.current = true
       setSelectedIds(new Set(productIds))
       if (quickFilter !== 'missing' && productIds.length > 0) {
         setQuickFilter('missing')
@@ -369,14 +392,15 @@ export default function PricelistPageClient() {
   }
 
   const runBulkStockStatus = async (stockStatus: 'out' | 'temporary') => {
-    if (!selectedIds.size && !bulkFilterScope) return
+    const applyToFilters = resolveBulkApplyToFilters()
+    if (!selectedIds.size && !applyToFilters) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
       const result = await bulkUpdate(
         'stockStatus',
-        bulkFilterScope ? [] : toBulkItems(selectedIds),
-        { stockStatus, applyToFilters: bulkFilterScope }
+        applyToFilters ? [] : toBulkItems(selectedIds),
+        { stockStatus, applyToFilters }
       )
       setSelectedIds(new Set())
       if (result.skipped > 0) {
@@ -397,14 +421,15 @@ export default function PricelistPageClient() {
   }
 
   const runBulkPrice = async (unitPrice: number) => {
-    if (!bulkPriceTargetIds.length && !bulkFilterScope) return
+    const applyToFilters = resolveBulkApplyToFilters()
+    if (!bulkPriceTargetIds.length && !applyToFilters) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
       const result = await bulkUpdate(
         'price',
-        bulkFilterScope ? [] : toBulkItems(bulkPriceTargetIds),
-        { unitPrice, applyToFilters: bulkFilterScope }
+        applyToFilters ? [] : toBulkItems(bulkPriceTargetIds),
+        { unitPrice, applyToFilters }
       )
       setBulkPriceOpen(false)
       setSelectedIds(new Set())
@@ -426,14 +451,15 @@ export default function PricelistPageClient() {
   }
 
   const runBulkShipping = async (shippingCost: number) => {
-    if (!bulkShippingTargetIds.length && !bulkFilterScope) return
+    const applyToFilters = resolveBulkApplyToFilters()
+    if (!bulkShippingTargetIds.length && !applyToFilters) return
     setBulkWorking(true)
     setBulkMessage(null)
     try {
       const result = await bulkUpdate(
         'shipping',
-        bulkFilterScope ? [] : toBulkItems(bulkShippingTargetIds),
-        { shippingCost, applyToFilters: bulkFilterScope }
+        applyToFilters ? [] : toBulkItems(bulkShippingTargetIds),
+        { shippingCost, applyToFilters }
       )
       setBulkShippingOpen(false)
       setSelectedIds(new Set())
@@ -455,7 +481,12 @@ export default function PricelistPageClient() {
   }
 
   const runBulkRemove = async () => {
-    const count = bulkFilterScope ? total : selectedIds.size
+    const applyToFilters = resolveBulkApplyToFilters()
+    const count = applyToFilters
+      ? bulkSelectionScope === 'allMissing'
+        ? missingPriceCount
+        : total
+      : selectedIds.size
     if (!count) return
     if (
       !window.confirm(formatMessage(t('pricelist.bulk.deleteConfirm'), { count }))
@@ -466,8 +497,8 @@ export default function PricelistPageClient() {
     setBulkMessage(null)
     try {
       const result = await bulkRemove(
-        bulkFilterScope ? [] : toBulkItems(selectedIds),
-        bulkFilterScope
+        applyToFilters ? [] : toBulkItems(selectedIds),
+        applyToFilters
       )
       setSelectedIds(new Set())
       if (result.failed > 0) {
@@ -768,7 +799,7 @@ export default function PricelistPageClient() {
 
       <PricelistBulkPriceModal
         open={bulkPriceOpen}
-        count={bulkFilterScope ? total : bulkPriceTargetIds.length}
+        count={resolveBulkApplyToFilters() ? (bulkSelectionScope === 'allMissing' ? missingPriceCount : total) : bulkPriceTargetIds.length}
         busy={bulkWorking}
         onClose={() => setBulkPriceOpen(false)}
         onApply={runBulkPrice}
@@ -777,7 +808,7 @@ export default function PricelistPageClient() {
       <PricelistBulkPriceModal
         open={bulkShippingOpen}
         variant="shipping"
-        count={bulkFilterScope ? total : bulkShippingTargetIds.length}
+        count={resolveBulkApplyToFilters() ? (bulkSelectionScope === 'allMissing' ? missingPriceCount : total) : bulkShippingTargetIds.length}
         busy={bulkWorking}
         onClose={() => setBulkShippingOpen(false)}
         onApply={runBulkShipping}
