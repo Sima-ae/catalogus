@@ -50,6 +50,7 @@
     "db:repair-import-images": "tsx scripts/repair-import-product-images.ts",
     "db:restore-images": "tsx scripts/restore-product-images.ts",
     "db:backfill-yupoo-dates": "tsx scripts/backfill-yupoo-album-dates.ts",
+    "db:sync-inactive-pricelist-stock": "tsx scripts/sync-inactive-pricelist-stock.ts",
     "test:parse-album-date": "tsx scripts/test-parse-album-date.ts"
   },
   "dependencies": {

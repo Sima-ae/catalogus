@@ -22,6 +22,7 @@ import {
   resolveShopCategoryFilter,
 } from '@/lib/shop-category-tree'
 import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
+import { markPricelistOutOfStockForProducts } from '@/lib/pricelist-catalog-status-sync'
 import { serializeCatalogProductRow,
   serializeProductRow,
   parseProductJsonField,
@@ -943,8 +944,24 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     })
   }
 
+  syncPricelistAfterCatalogStatusChange([id], input.status)
+
   invalidateProductDashboardStatsCache()
   return fetchProductRow(id, { includePurchasePrice: true })
+}
+
+function shouldSyncPricelistOutOfStock(status: string | undefined): boolean {
+  return status === 'inactive' || status === 'draft'
+}
+
+function syncPricelistAfterCatalogStatusChange(
+  productIds: string[],
+  status: string | undefined
+): void {
+  if (!shouldSyncPricelistOutOfStock(status) || !productIds.length) return
+  void markPricelistOutOfStockForProducts(productIds).catch((err) => {
+    console.error('[pricelist-catalog-status-sync] failed:', err)
+  })
 }
 
 export async function listProducts() {
@@ -1740,6 +1757,7 @@ export async function bulkUpdateProductStatus(
     `UPDATE products SET status = ? WHERE id IN (${placeholders})`,
     [status, ...productIds]
   )
+  syncPricelistAfterCatalogStatusChange(productIds, status)
   invalidateProductDashboardStatsCache()
   return result?.affectedRows ?? productIds.length
 }
@@ -1753,6 +1771,16 @@ export async function bulkUpdateProductStatusByFilter(
     `UPDATE products SET status = ? WHERE status = ?`,
     [toStatus, fromStatus]
   )
+  if (shouldSyncPricelistOutOfStock(toStatus)) {
+    const rows = await queryDb<{ id: string }[]>(
+      `SELECT id FROM products WHERE status = ?`,
+      [toStatus]
+    )
+    syncPricelistAfterCatalogStatusChange(
+      rows.map((r) => String(r.id)),
+      toStatus
+    )
+  }
   invalidateProductDashboardStatsCache()
   return result?.affectedRows ?? 0
 }
