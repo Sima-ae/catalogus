@@ -18,6 +18,7 @@ dist/
 
 # Local dev persistence (settings when DB offline)
 .data/
+.cache/
 
 # Misc
 .DS_Store
