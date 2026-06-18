@@ -61,7 +61,6 @@ function curatedCompleteSql(): string {
     AND COALESCE(latest_list_price.stock_status, '') = ''
     AND COALESCE(latest_list_price.out_of_stock, 0) = 0
     AND latest_list_price.shipping_cost IS NOT NULL
-    AND latest_list_price.shipping_cost > 0
   )`
 }
 
@@ -74,10 +73,7 @@ function curatedMissingPriceSql(): string {
   )`
   const missingShipping = `(
     ${hasPrice}
-    AND (
-      latest_list_price.shipping_cost IS NULL
-      OR latest_list_price.shipping_cost <= 0
-    )
+    AND latest_list_price.shipping_cost IS NULL
   )`
   const missingPrice = `(
     latest_list_price.product_id IS NULL
@@ -132,7 +128,6 @@ function sellerCompleteSql(listOwnerId: string, sellerId: string): { sql: string
         AND COALESCE(spp.stock_status, '') = ''
         AND COALESCE(spp.out_of_stock, 0) = 0
         AND spp.shipping_cost IS NOT NULL
-        AND spp.shipping_cost > 0
     )`,
     params: [listOwnerId, sellerId],
   }

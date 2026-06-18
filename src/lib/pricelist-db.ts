@@ -548,6 +548,34 @@ async function loadLatestProductPricesMap(
           : null,
     })
   }
+
+  const needsShipping = Array.from(map.entries())
+    .filter(([, value]) => value.shipping_cost == null)
+    .map(([productId]) => productId)
+  if (needsShipping.length) {
+    const shipPlaceholders = needsShipping.map(() => '?').join(', ')
+    const shippingRows = await queryDb<{ product_id: string; shipping_cost: string }[]>(
+      `SELECT product_id, shipping_cost
+       FROM (
+         SELECT product_id, shipping_cost,
+           ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY updated_at DESC) AS rn
+         FROM seller_product_prices
+         WHERE list_owner_id = ? AND product_id IN (${shipPlaceholders})
+           AND shipping_cost IS NOT NULL
+       ) ranked
+       WHERE rn = 1`,
+      [listOwnerId, ...needsShipping]
+    )
+    for (const row of shippingRows) {
+      const entry = map.get(row.product_id)
+      if (!entry) continue
+      const cost = Number(row.shipping_cost)
+      if (Number.isFinite(cost) && cost >= 0) {
+        entry.shipping_cost = cost
+      }
+    }
+  }
+
   return map
 }
 
@@ -675,6 +703,28 @@ export async function setSellerProductStockStatus(input: {
 
 const BULK_SHIPPING_CHUNK_SIZE = 500
 
+/** Seller row that owns the displayed purchase price (same ROW_NUMBER order as list queries). */
+async function resolveEffectivePriceRowSellerId(
+  listOwnerId: string,
+  productId: string,
+  fallbackSellerId: string
+): Promise<string> {
+  const rows = await queryDb<{ seller_id: string }[]>(
+    `SELECT seller_id
+     FROM (
+       SELECT seller_id,
+         ROW_NUMBER() OVER (ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
+       FROM seller_product_prices
+       WHERE list_owner_id = ? AND product_id = ?
+     ) ranked
+     WHERE rn = 1
+     LIMIT 1`,
+    [listOwnerId, productId]
+  )
+  const id = rows[0]?.seller_id?.trim()
+  return id || fallbackSellerId
+}
+
 /** Batch shipping updates — avoids per-row round trips on large “select all missing” runs. */
 export async function bulkUpsertSellerProductShippingCosts(input: {
   listOwnerId: string
@@ -683,7 +733,7 @@ export async function bulkUpsertSellerProductShippingCosts(input: {
   shippingCost: number
   currency: string
   updatedBy: string
-  /** When true, skip rows where this seller already saved shipping > 0. */
+  /** When true, skip rows where this seller already saved shipping (any value, including €0). */
   skipSellerLocked?: boolean
 }): Promise<{ updated: number; skipped: number }> {
   const uniqueIds = Array.from(new Set(input.productIds.map((id) => id.trim()).filter(Boolean)))
@@ -701,7 +751,7 @@ export async function bulkUpsertSellerProductShippingCosts(input: {
       const locked = await queryDb<{ product_id: string }[]>(
         `SELECT product_id FROM seller_product_prices
          WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${placeholders})
-           AND shipping_cost IS NOT NULL AND shipping_cost > 0`,
+           AND shipping_cost IS NOT NULL`,
         [input.listOwnerId, input.sellerId, ...chunk]
       )
       const lockedSet = new Set(locked.map((r) => r.product_id))
@@ -712,21 +762,30 @@ export async function bulkUpsertSellerProductShippingCosts(input: {
 
     const targetPlaceholders = targetIds.map(() => '?').join(', ')
     const updateResult = await queryDb<{ affectedRows?: number }>(
-      `UPDATE seller_product_prices
-       SET shipping_cost = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${targetPlaceholders})`,
-      [input.shippingCost, input.updatedBy, input.listOwnerId, input.sellerId, ...targetIds]
+      `UPDATE seller_product_prices spp
+       INNER JOIN (
+         SELECT product_id, seller_id
+         FROM (
+           SELECT product_id, seller_id,
+             ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
+           FROM seller_product_prices
+           WHERE list_owner_id = ? AND product_id IN (${targetPlaceholders})
+         ) ranked
+         WHERE rn = 1
+       ) eff ON spp.list_owner_id = ? AND spp.product_id = eff.product_id AND spp.seller_id = eff.seller_id
+       SET spp.shipping_cost = ?, spp.updated_by = ?, spp.updated_at = CURRENT_TIMESTAMP`,
+      [input.listOwnerId, ...targetIds, input.listOwnerId, input.shippingCost, input.updatedBy]
     )
     updated += Number(updateResult?.affectedRows ?? 0)
 
-    const existing = await queryDb<{ product_id: string }[]>(
-      `SELECT product_id FROM seller_product_prices
-       WHERE list_owner_id = ? AND seller_id = ? AND product_id IN (${targetPlaceholders})`,
-      [input.listOwnerId, input.sellerId, ...targetIds]
+    const withRow = await queryDb<{ product_id: string }[]>(
+      `SELECT DISTINCT product_id FROM seller_product_prices
+       WHERE list_owner_id = ? AND product_id IN (${targetPlaceholders})`,
+      [input.listOwnerId, ...targetIds]
     )
-    const existingSet = new Set(existing.map((r) => r.product_id))
+    const withRowSet = new Set(withRow.map((r) => r.product_id))
     for (const productId of targetIds) {
-      if (existingSet.has(productId)) continue
+      if (withRowSet.has(productId)) continue
       await upsertSellerProductShippingCost({
         listOwnerId: input.listOwnerId,
         sellerId: input.sellerId,
@@ -750,9 +809,14 @@ export async function upsertSellerProductShippingCost(input: {
   currency: string
   updatedBy: string
 }): Promise<void> {
+  const targetSellerId = await resolveEffectivePriceRowSellerId(
+    input.listOwnerId,
+    input.productId,
+    input.sellerId
+  )
   const existing = await getSellerProductPrice(
     input.listOwnerId,
-    input.sellerId,
+    targetSellerId,
     input.productId
   )
   if (existing) {
@@ -764,7 +828,7 @@ export async function upsertSellerProductShippingCost(input: {
         input.shippingCost,
         input.updatedBy,
         input.listOwnerId,
-        input.sellerId,
+        targetSellerId,
         input.productId,
       ]
     )
@@ -780,7 +844,7 @@ export async function upsertSellerProductShippingCost(input: {
      VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL)`,
     [
       input.listOwnerId,
-      input.sellerId,
+      targetSellerId,
       input.productId,
       fallbackUnitPrice ?? 0,
       input.currency,

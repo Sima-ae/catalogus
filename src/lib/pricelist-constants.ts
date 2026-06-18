@@ -25,5 +25,5 @@ export const SELLER_PRICE_LATEST_ROW_ORDER_SQL = `CASE
     ELSE 2
   END, updated_at DESC`
 
-/** Saved shipping on a seller_product_prices row (NULL and €0 are still "missing"). */
-export const PRICELIST_SAVED_SHIPPING_SQL = 'shipping_cost IS NOT NULL AND shipping_cost > 0'
+/** Saved shipping on a seller_product_prices row (NULL = still missing on Ontbrekend). */
+export const PRICELIST_SAVED_SHIPPING_SQL = 'shipping_cost IS NOT NULL'
