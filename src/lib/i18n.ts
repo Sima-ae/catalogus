@@ -166,6 +166,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.soccer': 'Soccer',
     'category.watches': 'Watches',
     'category.glasses': 'Glasses',
+    'category.perfumes': 'Perfumes',
     'category.bags-and-wallets': 'Bags and wallets',
     'category.tassen-en-portemonnees': 'Bags and wallets',
 
@@ -404,6 +405,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.soccer': 'Voetbal',
     'category.watches': 'Horloges',
     'category.glasses': 'Brillen',
+    'category.perfumes': 'Parfums',
     'category.bags-and-wallets': 'Tassen en portemonnees',
     'category.tassen-en-portemonnees': 'Tassen en portemonnees',
 
