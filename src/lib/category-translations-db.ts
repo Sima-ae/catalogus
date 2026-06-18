@@ -1,5 +1,6 @@
 import { queryDb } from '@/lib/db'
 import { categoryI18nKey, formatCategoryTranslatedLabel } from '@/lib/category-i18n-key'
+import { getCategoryManualTranslation } from '@/lib/category-manual-translations'
 import { getCategoryById, listCategories } from '@/lib/products-db'
 import { translateFromEnglish } from '@/lib/translate-text'
 import {
@@ -60,8 +61,9 @@ export async function syncCategoryTranslations(categoryId: string): Promise<void
     const batch = locales.slice(i, i + batchSize)
     await Promise.all(
       batch.map(async (locale) => {
-        let label = sourceName
-        if (locale !== 'en') {
+        const manual = getCategoryManualTranslation(sourceName, locale)
+        let label = manual ?? sourceName
+        if (!manual && locale !== 'en') {
           const translated = await translateFromEnglish(sourceName, locale)
           label = formatCategoryTranslatedLabel(sourceName, translated)
         }

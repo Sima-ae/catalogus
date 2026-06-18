@@ -99,6 +99,34 @@ export function isPricelistRowBulkSelectable(
   )
 }
 
+export function pricelistRowIsOutOfStock(row: PricelistRow): boolean {
+  if (row.seller_stock_status === 'out' || row.seller_stock_status === 'temporary') return true
+  if (row.display_stock_status === 'out' || row.display_stock_status === 'temporary') return true
+  return false
+}
+
+export function pricelistRowHasFilledShipping(
+  row: PricelistRow,
+  opts?: { isSeller?: boolean }
+): boolean {
+  if (row.can_edit_shipping === false && row.display_shipping_cost == null) return false
+  const raw = opts?.isSeller
+    ? row.seller_shipping_cost ?? row.display_shipping_cost
+    : row.display_shipping_cost ?? row.seller_shipping_cost
+  return raw != null && Number.isFinite(Number(raw))
+}
+
+/** Row still needs work: missing purchase price and/or missing shipping. */
+export function pricelistRowIncomplete(
+  row: PricelistRow,
+  opts?: { guestShareLink?: boolean; isSeller?: boolean }
+): boolean {
+  if (pricelistRowIsOutOfStock(row)) return false
+  if (pricelistRowNeedsPrice(row, opts)) return true
+  if (pricelistRowHasFilledPrice(row) && !pricelistRowHasFilledShipping(row, opts)) return true
+  return false
+}
+
 export function pricelistRowNeedsPrice(
   row: PricelistRow,
   opts?: { guestShareLink?: boolean }
@@ -134,7 +162,7 @@ export function countPricelistRowsNeedingPrice(
 ): number {
   let n = 0
   for (const row of items) {
-    if (pricelistRowNeedsPrice(row, opts)) n++
+    if (pricelistRowIncomplete(row, opts)) n++
   }
   return n
 }
@@ -178,7 +206,7 @@ export function filterPricelistRows(
   }
   if (opts.missingPricesOnly) {
     const needOpts = opts.guestShareLink ? { guestShareLink: true as const } : undefined
-    list = list.filter((row) => pricelistRowNeedsPrice(row, needOpts))
+    list = list.filter((row) => pricelistRowIncomplete(row, needOpts))
   }
   const q = opts.searchQuery?.trim().toLowerCase()
   if (q) {

@@ -32,9 +32,9 @@ export type PricelistSqlFragment = {
 function buildLatestListPriceJoin(listOwnerId: string): string {
   return `
 LEFT JOIN (
-  SELECT ranked.product_id, ranked.unit_price, ranked.stock_status, ranked.out_of_stock
+  SELECT ranked.product_id, ranked.unit_price, ranked.stock_status, ranked.out_of_stock, ranked.shipping_cost
   FROM (
-    SELECT product_id, unit_price, stock_status, COALESCE(out_of_stock, 0) AS out_of_stock,
+    SELECT product_id, unit_price, stock_status, COALESCE(out_of_stock, 0) AS out_of_stock, shipping_cost,
            ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
     FROM seller_product_prices
     WHERE list_owner_id = '${listOwnerId.replace(/'/g, "''")}'
@@ -43,17 +43,7 @@ LEFT JOIN (
 ) latest_list_price ON latest_list_price.product_id = p.id`
 }
 
-function curatedMissingPriceSql(): string {
-  return `(
-    latest_list_price.product_id IS NULL
-    OR (
-      COALESCE(latest_list_price.stock_status, '') = ''
-      AND latest_list_price.out_of_stock = 0
-      AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
-    )
-  )`
-}
-
+/** Purchase price set and not uitverkocht (used for "Met prijs" filter). */
 function curatedFilledPriceSql(): string {
   return `(
     latest_list_price.unit_price IS NOT NULL
@@ -61,6 +51,25 @@ function curatedFilledPriceSql(): string {
     AND COALESCE(latest_list_price.stock_status, '') = ''
     AND latest_list_price.out_of_stock = 0
   )`
+}
+
+/** Both purchase price and shipping saved — hidden from "Ontbrekend" list. */
+function curatedCompleteSql(): string {
+  return `(
+    latest_list_price.unit_price IS NOT NULL
+    AND latest_list_price.unit_price > 0
+    AND COALESCE(latest_list_price.stock_status, '') = ''
+    AND latest_list_price.out_of_stock = 0
+    AND latest_list_price.shipping_cost IS NOT NULL
+  )`
+}
+
+function curatedMissingPriceSql(): string {
+  return `(
+    latest_list_price.product_id IS NULL
+    OR NOT (${curatedCompleteSql().slice(1, -1)})
+  )
+  AND NOT (${curatedOutOfStockSql().slice(1, -1)})`
 }
 
 function curatedOutOfStockSql(): string {
@@ -80,18 +89,39 @@ function ensureCuratedPriceJoin(joins: { value: string }, listOwnerId: string): 
   }
 }
 
-function sellerMissingPriceSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
+function sellerFilledPriceSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
   return {
-    sql: `NOT EXISTS (
+    sql: `EXISTS (
       SELECT 1 FROM seller_product_prices spp
       WHERE spp.list_owner_id = ? AND spp.seller_id = ? AND spp.product_id = p.id
-        AND (
-          (spp.stock_status IS NOT NULL AND spp.stock_status <> '')
-          OR COALESCE(spp.out_of_stock, 0) <> 0
-          OR (spp.unit_price IS NOT NULL AND spp.unit_price > 0)
-        )
+        AND spp.unit_price IS NOT NULL AND spp.unit_price > 0
+        AND COALESCE(spp.stock_status, '') = ''
+        AND COALESCE(spp.out_of_stock, 0) = 0
     )`,
     params: [listOwnerId, sellerId],
+  }
+}
+
+function sellerCompleteSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
+  return {
+    sql: `EXISTS (
+      SELECT 1 FROM seller_product_prices spp
+      WHERE spp.list_owner_id = ? AND spp.seller_id = ? AND spp.product_id = p.id
+        AND spp.unit_price IS NOT NULL AND spp.unit_price > 0
+        AND COALESCE(spp.stock_status, '') = ''
+        AND COALESCE(spp.out_of_stock, 0) = 0
+        AND spp.shipping_cost IS NOT NULL
+    )`,
+    params: [listOwnerId, sellerId],
+  }
+}
+
+function sellerMissingPriceSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
+  const complete = sellerCompleteSql(listOwnerId, sellerId)
+  const oos = sellerOutOfStockSql(listOwnerId, sellerId)
+  return {
+    sql: `NOT (${complete.sql}) AND NOT (${oos.sql})`,
+    params: [...complete.params, ...oos.params],
   }
 }
 
@@ -158,19 +188,6 @@ function appendBrandFilter(where: string[], params: unknown[], brand?: string): 
     ))`
   )
   params.push(...brandFilter.params, lower)
-}
-
-function sellerFilledPriceSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {
-  return {
-    sql: `EXISTS (
-      SELECT 1 FROM seller_product_prices spp
-      WHERE spp.list_owner_id = ? AND spp.seller_id = ? AND spp.product_id = p.id
-        AND spp.unit_price IS NOT NULL AND spp.unit_price > 0
-        AND COALESCE(spp.stock_status, '') = ''
-        AND COALESCE(spp.out_of_stock, 0) = 0
-    )`,
-    params: [listOwnerId, sellerId],
-  }
 }
 
 function sellerOutOfStockSql(listOwnerId: string, sellerId: string): { sql: string; params: unknown[] } {

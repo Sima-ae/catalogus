@@ -1,3 +1,4 @@
+import { getCategoryManualI18nExtras } from '@/lib/category-manual-translations'
 import type { Locale } from '@/lib/i18n-locale-registry'
 
 const EN = {"category.bags-and-wallets":"Bags and wallets","category.tassen-en-portemonnees":"Bags and wallets"}
@@ -44,6 +45,9 @@ const BY_LOCALE: Partial<Record<Locale, typeof EN>> = {
   zh: {"category.bags-and-wallets":"包和钱包","category.tassen-en-portemonnees":"包和钱包"},
 }
 
-export function getCategoryExtraMessages(locale: Locale): typeof EN {
-  return BY_LOCALE[locale] ?? EN
+export function getCategoryExtraMessages(locale: Locale): Record<string, string> {
+  return {
+    ...(BY_LOCALE[locale] ?? EN),
+    ...getCategoryManualI18nExtras(locale),
+  }
 }

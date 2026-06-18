@@ -165,6 +165,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.sneakers': 'Sneakers',
     'category.soccer': 'Soccer',
     'category.watches': 'Watches',
+    'category.glasses': 'Glasses',
     'category.bags-and-wallets': 'Bags and wallets',
     'category.tassen-en-portemonnees': 'Bags and wallets',
 
@@ -245,7 +246,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.export.exporting': 'Exporting…',
     'pricelist.export.sheetName': 'Pricelist',
     'pricelist.export.pdfTitle': 'Pricelist — {owner}',
-    'pricelist.empty.missingPrices': 'All products on this list already have a price.',
+    'pricelist.empty.missingPrices': 'All products on this list already have a price and shipping cost.',
     'pricelist.col.image': 'Image',
     'pricelist.col.title': 'Title',
     'pricelist.col.sku': 'SKU',
@@ -402,6 +403,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.sneakers': 'Sneakers',
     'category.soccer': 'Voetbal',
     'category.watches': 'Horloges',
+    'category.glasses': 'Brillen',
     'category.bags-and-wallets': 'Tassen en portemonnees',
     'category.tassen-en-portemonnees': 'Tassen en portemonnees',
 
@@ -482,7 +484,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.export.exporting': 'Exporteren…',
     'pricelist.export.sheetName': 'Prijslijst',
     'pricelist.export.pdfTitle': 'Prijslijst — {owner}',
-    'pricelist.empty.missingPrices': 'Alle producten op deze lijst hebben al een prijs.',
+    'pricelist.empty.missingPrices': 'Alle producten op deze lijst hebben al een prijs en verzendkosten.',
     'pricelist.col.image': 'Afbeelding',
     'pricelist.col.title': 'Titel',
     'pricelist.col.sku': 'SKU',
