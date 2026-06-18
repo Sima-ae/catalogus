@@ -42,6 +42,7 @@ import { getAccessOverlay } from '@/lib/i18n-access-overlay'
 import { getProductTrashMessages } from '@/lib/i18n-product-trash'
 import { getProductFormMessages } from '@/lib/i18n-product-form'
 import { getAdminMessages } from '@/lib/i18n-admin'
+import { getAdminPricelistPagesMessages } from '@/lib/i18n-admin-pricelist-pages'
 import { getAdminUsersMessages } from '@/lib/i18n-admin-users'
 import { getPricelistOutOfStockMessages } from '@/lib/i18n-pricelist-out-of-stock'
 import { getPricelistBulkMessages } from '@/lib/i18n-pricelist-bulk'
@@ -601,6 +602,7 @@ export function getMessages(locale: Locale): Messages {
     ...getProductTrashMessages(locale),
     ...getProductFormMessages(locale),
     ...getAdminMessages(locale),
+    ...getAdminPricelistPagesMessages(locale),
     ...getAdminUsersMessages(locale),
     ...getPricelistOutOfStockMessages(locale),
     ...getPricelistBulkMessages(locale),

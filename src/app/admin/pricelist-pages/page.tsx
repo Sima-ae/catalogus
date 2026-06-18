@@ -17,6 +17,8 @@ import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
+import { useI18n } from '@/lib/i18n-context'
+import { formatMessage } from '@/lib/i18n'
 import { PRICELIST_OWNER_QUERY_PLATFORM } from '@/lib/pricelist-constants'
 
 type PricelistPageRow = {
@@ -33,6 +35,7 @@ type PricelistPageRow = {
 
 export default function AdminPricelistPagesPage() {
   const t = useAppTheme()
+  const { t: tr } = useI18n()
   const { user, isSuperAdmin } = useAuth()
   const [pages, setPages] = useState<PricelistPageRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,14 +59,14 @@ export default function AdminPricelistPagesPage() {
         cache: 'no-store',
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to load')
+      if (!res.ok) throw new Error(data.error || tr('admin.pricelistPages.errorLoad'))
       setPages(Array.isArray(data) ? data : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(e instanceof Error ? e.message : tr('admin.pricelistPages.errorLoad'))
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, tr])
 
   useEffect(() => {
     load()
@@ -81,12 +84,12 @@ export default function AdminPricelistPagesPage() {
         body: JSON.stringify({ slug, label }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create')
+      if (!res.ok) throw new Error(data.error || tr('admin.pricelistPages.errorCreate'))
       setSlug('')
       setLabel('')
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create')
+      setError(err instanceof Error ? err.message : tr('admin.pricelistPages.errorCreate'))
     } finally {
       setBusy(false)
     }
@@ -103,10 +106,10 @@ export default function AdminPricelistPagesPage() {
         body: JSON.stringify({ active: !page.active }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to update')
+      if (!res.ok) throw new Error(data.error || tr('admin.pricelistPages.errorUpdate'))
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update')
+      setError(err instanceof Error ? err.message : tr('admin.pricelistPages.errorUpdate'))
     } finally {
       setBusy(false)
     }
@@ -146,11 +149,11 @@ export default function AdminPricelistPagesPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to update')
+      if (!res.ok) throw new Error(data.error || tr('admin.pricelistPages.errorUpdate'))
       cancelEdit()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update')
+      setError(err instanceof Error ? err.message : tr('admin.pricelistPages.errorUpdate'))
     } finally {
       setBusy(false)
     }
@@ -160,12 +163,15 @@ export default function AdminPricelistPagesPage() {
     if (!user || !isSuperAdmin) return
     if (page.slug === PRICELIST_OWNER_QUERY_PLATFORM) return
     if (page.itemCount > 0) {
-      setError('Cannot delete a pricelist page that still has products. Remove all products first.')
+      setError(tr('admin.pricelistPages.errorDeleteHasProducts'))
       return
     }
     if (
       !window.confirm(
-        `Delete pricelist page "${page.label}" (${page.slug})? This cannot be undone.`
+        formatMessage(tr('admin.pricelistPages.confirmDelete'), {
+          label: page.label,
+          slug: page.slug,
+        })
       )
     ) {
       return
@@ -178,12 +184,12 @@ export default function AdminPricelistPagesPage() {
         headers: adminAuthHeaders(user),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to delete')
+      if (!res.ok) throw new Error(data.error || tr('admin.pricelistPages.errorDelete'))
       if (passwordPage?.id === page.id) setPasswordPage(null)
       if (editingPage?.id === page.id) cancelEdit()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete')
+      setError(err instanceof Error ? err.message : tr('admin.pricelistPages.errorDelete'))
     } finally {
       setBusy(false)
     }
@@ -191,63 +197,64 @@ export default function AdminPricelistPagesPage() {
 
   if (!isSuperAdmin) {
     return (
-      <AdminPageShell title="Pricelist pages">
-        <p className={t.muted}>Super admin access required.</p>
+      <AdminPageShell titleKey="admin.nav.pricelistPages">
+        <p className={t.muted}>{tr('admin.pricelistPages.superAdminRequired')}</p>
       </AdminPageShell>
     )
   }
 
   return (
-    <AdminPageShell title="Pricelist pages">
-      <p className={`text-sm mb-6 ${t.muted}`}>
-        Create separate supplier pricelist pages (e.g. platform2, platform3). Each page has its
-        own share link, product list, and synced purchase prices in admin products.
-      </p>
+    <AdminPageShell titleKey="admin.nav.pricelistPages">
+      <p className={`text-sm mb-6 ${t.muted}`}>{tr('admin.pricelistPages.intro')}</p>
 
       {error ? <p className="text-red-500 text-sm mb-4">{error}</p> : null}
 
       <form onSubmit={handleCreate} className={`card mb-6 space-y-3 ${t.border}`}>
-        <h2 className={`text-lg font-semibold ${t.heading}`}>Create page</h2>
+        <h2 className={`text-lg font-semibold ${t.heading}`}>
+          {tr('admin.pricelistPages.createSection')}
+        </h2>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="space-y-1">
-            <span className={`text-sm ${t.muted}`}>Slug (URL)</span>
+            <span className={`text-sm ${t.muted}`}>{tr('admin.pricelistPages.slugLabel')}</span>
             <input
               className="input w-full"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="platform2"
+              placeholder={tr('admin.pricelistPages.slugPlaceholder')}
               required
               pattern="[a-z][a-z0-9_-]*"
             />
           </label>
           <label className="space-y-1">
-            <span className={`text-sm ${t.muted}`}>Label</span>
+            <span className={`text-sm ${t.muted}`}>{tr('admin.pricelistPages.labelLabel')}</span>
             <input
               className="input w-full"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Supplier A"
+              placeholder={tr('admin.pricelistPages.labelPlaceholder')}
               required
             />
           </label>
         </div>
         <button type="submit" className="btn-primary text-sm" disabled={busy}>
-          Create pricelist page
+          {tr('admin.pricelistPages.createButton')}
         </button>
       </form>
 
       {editingPage ? (
         <form onSubmit={handleSaveEdit} className={`card mb-6 space-y-3 ${t.border}`}>
-          <h2 className={`text-lg font-semibold ${t.heading}`}>Edit page</h2>
+          <h2 className={`text-lg font-semibold ${t.heading}`}>
+            {tr('admin.pricelistPages.editSection')}
+          </h2>
           <p className={`text-sm ${t.muted}`}>
-            Editing <strong>{editingPage.label}</strong>
+            {formatMessage(tr('admin.pricelistPages.editing'), { label: editingPage.label })}
             {editingPage.slug === PRICELIST_OWNER_QUERY_PLATFORM
-              ? ' — platform slug cannot be changed'
+              ? tr('admin.pricelistPages.platformSlugLocked')
               : null}
           </p>
           <div className="grid sm:grid-cols-3 gap-3">
             <label className="space-y-1">
-              <span className={`text-sm ${t.muted}`}>Label</span>
+              <span className={`text-sm ${t.muted}`}>{tr('admin.pricelistPages.labelLabel')}</span>
               <input
                 className="input w-full"
                 value={editLabel}
@@ -256,7 +263,7 @@ export default function AdminPricelistPagesPage() {
               />
             </label>
             <label className="space-y-1">
-              <span className={`text-sm ${t.muted}`}>Slug (URL)</span>
+              <span className={`text-sm ${t.muted}`}>{tr('admin.pricelistPages.slugLabel')}</span>
               <input
                 className="input w-full"
                 value={editSlug}
@@ -267,7 +274,7 @@ export default function AdminPricelistPagesPage() {
               />
             </label>
             <label className="space-y-1">
-              <span className={`text-sm ${t.muted}`}>Sort order</span>
+              <span className={`text-sm ${t.muted}`}>{tr('admin.pricelistPages.sortOrder')}</span>
               <input
                 type="number"
                 className="input w-full"
@@ -280,7 +287,7 @@ export default function AdminPricelistPagesPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="submit" className="btn-primary text-sm" disabled={busy}>
-              Save changes
+              {tr('admin.pricelistPages.saveChanges')}
             </button>
             <button
               type="button"
@@ -288,23 +295,23 @@ export default function AdminPricelistPagesPage() {
               disabled={busy}
               onClick={cancelEdit}
             >
-              Cancel
+              {tr('admin.pricelistPages.cancel')}
             </button>
           </div>
         </form>
       ) : null}
 
       {loading ? (
-        <p className={t.muted}>Loading…</p>
+        <p className={t.muted}>{tr('admin.pricelistPages.loading')}</p>
       ) : (
         <AdminTable>
           <AdminTableHead>
-            <AdminTh>Label</AdminTh>
-            <AdminTh>Slug</AdminTh>
-            <AdminTh>Products</AdminTh>
-            <AdminTh>Share link</AdminTh>
-            <AdminTh>Active</AdminTh>
-            <AdminTh align="right">Actions</AdminTh>
+            <AdminTh>{tr('admin.pricelistPages.colLabel')}</AdminTh>
+            <AdminTh>{tr('admin.pricelistPages.colSlug')}</AdminTh>
+            <AdminTh>{tr('admin.pricelistPages.colProducts')}</AdminTh>
+            <AdminTh>{tr('admin.pricelistPages.colShareLink')}</AdminTh>
+            <AdminTh>{tr('admin.pricelistPages.colActive')}</AdminTh>
+            <AdminTh align="right">{tr('admin.pricelistPages.colActions')}</AdminTh>
           </AdminTableHead>
           <AdminTableBody>
             {pages.map((page) => (
@@ -324,7 +331,7 @@ export default function AdminPricelistPagesPage() {
                     ?{page.shareQuery}
                   </Link>
                 </AdminTd>
-                <AdminTd>{page.active ? 'Yes' : 'No'}</AdminTd>
+                <AdminTd>{page.active ? tr('admin.pricelistPages.yes') : tr('admin.pricelistPages.no')}</AdminTd>
                 <AdminTd align="right">
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
@@ -332,10 +339,10 @@ export default function AdminPricelistPagesPage() {
                       className="btn-secondary text-xs inline-flex items-center gap-1"
                       disabled={busy}
                       onClick={() => startEdit(page)}
-                      title="Edit label, slug, and sort order"
+                      title={tr('admin.pricelistPages.editTitle')}
                     >
                       <PencilIcon className="w-3.5 h-3.5" aria-hidden />
-                      Edit
+                      {tr('admin.pricelistPages.edit')}
                     </button>
                     <button
                       type="button"
@@ -345,7 +352,7 @@ export default function AdminPricelistPagesPage() {
                         setPasswordPage(page)
                       }}
                     >
-                      Password
+                      {tr('admin.pricelistPages.password')}
                     </button>
                     {page.slug !== PRICELIST_OWNER_QUERY_PLATFORM ? (
                       <>
@@ -355,7 +362,9 @@ export default function AdminPricelistPagesPage() {
                           disabled={busy}
                           onClick={() => toggleActive(page)}
                         >
-                          {page.active ? 'Deactivate' : 'Activate'}
+                          {page.active
+                            ? tr('admin.pricelistPages.deactivate')
+                            : tr('admin.pricelistPages.activate')}
                         </button>
                         <button
                           type="button"
@@ -363,12 +372,12 @@ export default function AdminPricelistPagesPage() {
                           disabled={busy || page.itemCount > 0}
                           title={
                             page.itemCount > 0
-                              ? 'Remove all products from this list before deleting'
-                              : 'Delete pricelist page'
+                              ? tr('admin.pricelistPages.deleteDisabledTitle')
+                              : tr('admin.pricelistPages.deleteTitle')
                           }
                           onClick={() => void handleDelete(page)}
                         >
-                          Delete
+                          {tr('admin.pricelistPages.delete')}
                         </button>
                       </>
                     ) : null}
@@ -384,14 +393,16 @@ export default function AdminPricelistPagesPage() {
         <div className="mt-8 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className={`text-lg font-semibold ${t.heading}`}>
-              Share password — {passwordPage.label}
+              {formatMessage(tr('admin.pricelistPages.sharePasswordSection'), {
+                label: passwordPage.label,
+              })}
             </h2>
             <button
               type="button"
               className="btn-secondary text-sm"
               onClick={() => setPasswordPage(null)}
             >
-              Close
+              {tr('admin.pricelistPages.close')}
             </button>
           </div>
           <PricelistSharePasswordSettings

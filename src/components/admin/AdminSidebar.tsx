@@ -31,6 +31,7 @@ import {
 const navigation = [
   { nameKey: 'admin.nav.dashboard', href: '/admin', icon: HomeIcon },
   { nameKey: 'admin.nav.pricelist', href: '/pricelist', icon: DocumentTextIcon, newTab: true, dynamicOwner: true },
+  { nameKey: 'admin.nav.pricelistPages', href: '/admin/pricelist-pages', icon: DocumentTextIcon, superAdminOnly: true },
   { nameKey: 'admin.nav.products', href: '/admin/products', icon: CubeIcon },
   { nameKey: 'admin.nav.trash', href: '/admin/trash', icon: TrashIcon },
   { nameKey: 'admin.nav.catalogCleanup', href: '/admin/catalog-cleanup', icon: ArchiveBoxIcon },
@@ -42,7 +43,6 @@ const navigation = [
   { nameKey: 'admin.nav.reviews', href: '/admin/reviews', icon: DocumentTextIcon },
   { nameKey: 'admin.nav.analytics', href: '/admin/analytics', icon: ChartBarIcon },
   { nameKey: 'admin.nav.settings', href: '/admin/settings', icon: Cog6ToothIcon, superAdminOnly: true },
-  { nameKey: 'admin.nav.pricelistPages', href: '/admin/pricelist-pages', icon: DocumentTextIcon, superAdminOnly: true },
 ] as const
 
 export function AdminMobileMenuButton({ onClick }: { onClick: () => void }) {
