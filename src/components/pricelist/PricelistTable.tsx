@@ -77,6 +77,8 @@ function parsePriceInput(value: string): number | null {
 function editableShippingSeed(row: PricelistRow): string {
   const raw = row.seller_shipping_cost ?? row.display_shipping_cost
   if (raw == null || !Number.isFinite(Number(raw))) return ''
+  const n = Number(raw)
+  if (n <= 0) return ''
   return String(raw)
 }
 
@@ -302,7 +304,11 @@ function PricelistTableRow({
   const showSellerShippingInput =
     isSeller && canEditPrices && row.can_edit_shipping !== false
   const showLockedSellerShipping =
-    isSeller && canEditPrices && row.seller_shipping_cost != null && !showSellerShippingInput
+    isSeller &&
+    canEditPrices &&
+    row.seller_shipping_cost != null &&
+    Number(row.seller_shipping_cost) > 0 &&
+    !showSellerShippingInput
   const showLockedSellerPrice =
     isSeller && canEditPrices && row.seller_unit_price != null && !showSellerPriceInput
   const sellerPriceDisplay =

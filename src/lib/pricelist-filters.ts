@@ -84,7 +84,9 @@ export function isPricelistRowBulkEditableShipping(
   opts?: { isSeller?: boolean }
 ): boolean {
   if (row.can_edit_shipping === false) return false
-  if (opts?.isSeller && row.seller_shipping_cost != null) return false
+  if (opts?.isSeller && row.seller_shipping_cost != null && Number(row.seller_shipping_cost) > 0) {
+    return false
+  }
   return true
 }
 
@@ -113,7 +115,8 @@ export function pricelistRowHasFilledShipping(
   const raw = opts?.isSeller
     ? row.seller_shipping_cost ?? row.display_shipping_cost
     : row.display_shipping_cost ?? row.seller_shipping_cost
-  return raw != null && Number.isFinite(Number(raw))
+  if (raw == null || !Number.isFinite(Number(raw))) return false
+  return Number(raw) > 0
 }
 
 /** Row still needs work: missing purchase price and/or missing shipping. */

@@ -1416,7 +1416,11 @@ export async function listPricelistPage(
     categoryFilter: filters.categoryFilter,
     brand: filters.brand,
   })
-  const missingCountSql = buildPricelistMissingCountSql(listOwnerId, viewer)
+  const missingCountSql = buildPricelistMissingCountSql(listOwnerId, viewer, {
+    search: filters.search,
+    categoryFilter: filters.categoryFilter,
+    brand: filters.brand,
+  })
   const outOfStockCountSql = buildPricelistOutOfStockCountSql(listOwnerId, viewer)
 
   const baseSql = buildPricelistListSql(listOwnerId, viewer, {})

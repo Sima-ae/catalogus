@@ -24,3 +24,6 @@ export const SELLER_PRICE_LATEST_ROW_ORDER_SQL = `CASE
     WHEN COALESCE(out_of_stock, 0) <> 0 THEN 1
     ELSE 2
   END, updated_at DESC`
+
+/** Saved shipping on a seller_product_prices row (NULL and €0 are still "missing"). */
+export const PRICELIST_SAVED_SHIPPING_SQL = 'shipping_cost IS NOT NULL AND shipping_cost > 0'
