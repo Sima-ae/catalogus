@@ -87,8 +87,23 @@ export async function saveBrand(
     return { ok: true, row: row as BrandRecord }
   } catch (error) {
     const code = (error as { code?: string })?.code
+    const message = String((error as { message?: string })?.message ?? '').toLowerCase()
     if (code === 'ER_DUP_ENTRY') {
-      return { ok: false, status: 409, error: 'A brand with this slug already exists' }
+      if (message.includes('uq_brands_slug') || message.includes("key 'slug'")) {
+        return { ok: false, status: 409, error: 'A brand with this slug already exists' }
+      }
+      if (
+        message.includes('uq_products_source_album_brand') ||
+        message.includes('source_album_brand')
+      ) {
+        return {
+          ok: false,
+          status: 409,
+          error:
+            'Could not sync the brand name on imported products (duplicate album entries). Try renaming only, or fix conflicting products first.',
+        }
+      }
+      return { ok: false, status: 409, error: 'A conflicting record already exists' }
     }
     throw error
   }

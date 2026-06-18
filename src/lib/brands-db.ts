@@ -256,6 +256,10 @@ export async function updateBrandById(
 ) {
   const prev = await getBrandById(id)
 
+  const prevName = prev?.name != null ? String(prev.name).trim() : ''
+  const nextName = input.name.trim()
+  const nameChanged = Boolean(prevName && nextName && prevName !== nextName)
+
   await queryDb(
     'UPDATE brands SET name = ?, slug = ?, description = ?, active = ? WHERE id = ?',
     [
@@ -268,10 +272,19 @@ export async function updateBrandById(
   )
 
   const hasBrandId = await productsHaveBrandIdColumn()
-  if (hasBrandId && prev?.name) {
-    await queryDb('UPDATE products SET brand = ? WHERE brand_id = ?', [input.name, id])
-  } else if (prev?.name) {
-    await queryDb('UPDATE products SET brand = ? WHERE brand = ?', [input.name, prev.name])
+  if (nameChanged) {
+    if (hasBrandId) {
+      await queryDb(
+        `UPDATE products SET brand = ? WHERE brand_id = ?
+         AND (
+           TRIM(COALESCE(brand, '')) = ''
+           OR LOWER(TRIM(brand)) = LOWER(TRIM(?))
+         )`,
+        [input.name, id, prevName]
+      )
+    } else {
+      await queryDb('UPDATE products SET brand = ? WHERE brand = ?', [input.name, prevName])
+    }
   }
 
   if (input.categoryIds !== undefined) {
