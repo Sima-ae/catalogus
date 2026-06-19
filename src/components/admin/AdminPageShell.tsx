@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import AdminSidebar, { AdminMobileMenuButton } from '@/components/admin/AdminSidebar'
+import type { ReactNode } from 'react'
+import AdminSidebar, {
+  AdminSidebarMenuButton,
+  useAdminSidebar,
+} from '@/components/admin/AdminSidebar'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import AdminHeaderActions from '@/components/admin/AdminHeaderActions'
 import RecentPurchaseActivity from '@/components/shop/RecentPurchaseActivity'
@@ -21,7 +24,7 @@ export default function AdminPageShell({
   actions?: ReactNode
   children: React.ReactNode
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const { open: sidebarOpen, openSidebar, closeSidebar } = useAdminSidebar()
   const { theme } = useTheme()
   const { t: tr } = useI18n()
   const isDark = theme === 'dark'
@@ -33,15 +36,15 @@ export default function AdminPageShell({
         isDark ? 'bg-dark-950' : 'bg-gray-50'
       }`}
     >
-      <AdminSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0 w-full lg:ml-0">
+      <AdminSidebar open={sidebarOpen} onClose={closeSidebar} />
+      <div className="flex-1 flex flex-col min-w-0 w-full">
         <AppStickyHeader
           title=""
           showSearch={false}
           leftContent={
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 w-full">
-              <div className="flex items-center shrink-0 lg:hidden">
-                <AdminMobileMenuButton onClick={() => setMobileOpen(true)} />
+              <div className="flex items-center shrink-0">
+                <AdminSidebarMenuButton open={sidebarOpen} onOpen={openSidebar} />
               </div>
               <div className="min-w-0 flex-1">
                 <RecentPurchaseActivity variant="header" />
