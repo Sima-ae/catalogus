@@ -11,33 +11,42 @@ import {
 
 export { stripTitleDecorations } from '@/lib/yupoo/import-text'
 
-const HAN_SEGMENT_RE = /[\u4e00-\u9fff]+/
+const CJK_SEGMENT_RE = /[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]+/
 
-/** Title still has Chinese or decorative symbols — needs cleanup. */
+/** Title still has Chinese, Japanese kana, or decorative symbols — needs cleanup. */
 export function titleNeedsEnglishCleanup(text: string): boolean {
-  const t = String(text ?? '').trim()
-  if (!t) return false
-  if (HAN_SEGMENT_RE.test(t)) return true
-  return t !== stripTitleDecorations(t)
+  return titleNeedsCjkCleanup(text) || String(text ?? '').trim() !== stripTitleDecorations(text)
 }
 
-/** Translate Chinese runs in a title; leave Latin model names / color codes unchanged. */
-export async function translateChineseSegmentsInTitle(text: string): Promise<string> {
-  const trimmed = String(text ?? '').trim()
-  if (!trimmed || !HAN_SEGMENT_RE.test(trimmed)) return trimmed
+/** Title contains Chinese or Japanese characters. */
+export function titleNeedsCjkCleanup(text: string): boolean {
+  const t = String(text ?? '').trim()
+  if (!t) return false
+  return CJK_SEGMENT_RE.test(t)
+}
 
-  const parts = trimmed.split(/([\u4e00-\u9fff]+)/)
+/** Translate Chinese / Japanese runs in a title; leave Latin model names unchanged. */
+export async function translateChineseSegmentsInTitle(text: string): Promise<string> {
+  return translateCjkSegmentsInTitle(text)
+}
+
+/** Translate CJK runs in a title to English. */
+export async function translateCjkSegmentsInTitle(text: string): Promise<string> {
+  const trimmed = String(text ?? '').trim()
+  if (!trimmed || !CJK_SEGMENT_RE.test(trimmed)) return trimmed
+
+  const parts = trimmed.split(/([\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]+)/)
   const out: string[] = []
 
   for (const part of parts) {
     if (!part) continue
-    if (HAN_SEGMENT_RE.test(part)) {
+    if (CJK_SEGMENT_RE.test(part)) {
       try {
-        const en = await translateText(part, 'zh-CN', 'en')
+        const en = await translateText(part, 'auto', 'en')
         if (en.trim()) out.push(en.trim())
         await sleep(350)
       } catch {
-        /* drop untranslatable han */
+        /* drop untranslatable segment */
       }
     } else {
       out.push(part)
@@ -54,9 +63,9 @@ export async function finalizeYupooProductTitle(raw: string): Promise<string> {
 
   t = stripTitleDecorations(t, { preserveHan: true })
   t = stripChineseMarketingFromTitle(t)
-  t = await translateChineseSegmentsInTitle(t)
+  t = await translateCjkSegmentsInTitle(t)
   t = stripTitleDecorations(t)
-  t = t.replace(/[\u4e00-\u9fff]+/g, ' ').replace(/\s+/g, ' ').trim()
+  t = t.replace(/[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]+/g, ' ').replace(/\s+/g, ' ').trim()
   t = sanitizeProductName(t)
 
   return t.length > 120 ? t.slice(0, 120).trim() : t
@@ -71,6 +80,6 @@ export async function resolveYupooProductTitleAsync(options: {
 }): Promise<string> {
   const base = resolveYupooProductTitle(options)
   if (isPlaceholderProductTitle(base) || isYupooShopTagline(base)) return base
-  if (!HAN_SEGMENT_RE.test(base) && base === stripTitleDecorations(base)) return base
+  if (!CJK_SEGMENT_RE.test(base) && base === stripTitleDecorations(base)) return base
   return finalizeYupooProductTitle(base)
 }

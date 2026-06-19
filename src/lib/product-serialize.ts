@@ -3,7 +3,7 @@ import {
   resolveProductDisplayImages,
 } from '@/lib/product-image-url'
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
-import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
+import { polishProductDisplayText } from '@/lib/product-brand-text'
 import {
   parseProductOptions,
   stripProductOptionsInternalPricing,
@@ -44,6 +44,8 @@ export function parseProductJsonField(value: unknown): string[] | null {
 export type SerializeProductRowOptions = {
   /** Known brand SKU slugs (server-loaded); omit on client-safe code paths. */
   brandSkuPrefixes?: string[]
+  /** Canonical brand names for title/description cleanup. */
+  brandNames?: string[]
   /** Internal cost — only for authenticated admin API responses. */
   includePurchasePrice?: boolean
 }
@@ -90,18 +92,22 @@ export function serializeProductRow(
     ? stripAllBrandPrefixesFromSku(rawSku, prefixes)
     : rawSku
 
-  const name = sanitizeProductName(String(row.name ?? '').trim())
   const rawDescription = row.description != null ? String(row.description) : ''
   const rawShort =
     row.short_description != null && row.short_description !== ''
       ? String(row.short_description)
       : ''
-  const description = rawDescription
-    ? cleanImportDescription(rawDescription, name, brand || null)
-    : rawDescription
-  const short_description = rawShort
-    ? cleanImportDescription(rawShort, name, brand || null)
-    : rawShort || undefined
+
+  const polished = polishProductDisplayText({
+    name: String(row.name ?? '').trim(),
+    description: rawDescription,
+    short_description: rawShort,
+    brand,
+    brandNames: options?.brandNames ?? [],
+  })
+  const description = polished.description
+  const short_description = polished.short_description || undefined
+  const displayName = polished.name
 
   const purchasePrice =
     row.purchase_price != null && row.purchase_price !== ''
@@ -116,7 +122,7 @@ export function serializeProductRow(
     ...rest,
     sku,
     id: String(row.id ?? ''),
-    name,
+    name: displayName,
     description,
     short_description,
     image_url: main,

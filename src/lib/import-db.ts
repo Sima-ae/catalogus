@@ -47,6 +47,8 @@ import { mirrorLkxoxProductImages } from '@/lib/lkxox/mirror-images'
 import type { LkxoxProductData } from '@/lib/lkxox/types'
 import { normalizeLkxoxListUrl } from '@/lib/lkxox/client'
 import { resolveOrCreateImportBrand } from '@/lib/woocommerce/resolve-catalog'
+import { getAllBrandNames } from '@/lib/brand-sku-prefixes'
+import { fixBrandNamesInText } from '@/lib/product-brand-text'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook' | 'lkxox'
 
@@ -84,9 +86,10 @@ export async function buildProductInputFromImport(
   const gallery = uniqueImages.slice(1)
   const sku = buildSku(album, brandName)
 
+  const brandNames = await getAllBrandNames()
   const rawTitle = translated.rawTitle || album.title
   const rawDescription = translated.enDescription || album.description
-  const name = sanitizeProductName(
+  let name = sanitizeProductName(
     await resolveYupooProductTitleAsync({
       albumTitle: rawTitle,
       description: album.description,
@@ -95,7 +98,12 @@ export async function buildProductInputFromImport(
       fallbackAlbumId: album.albumId,
     })
   )
-  const description = cleanImportDescription(rawDescription, name, brandName)
+  name = fixBrandNamesInText(name, brandNames, brandName)
+  const description = fixBrandNamesInText(
+    cleanImportDescription(rawDescription, name, brandName),
+    brandNames,
+    brandName
+  )
   const short_description =
     catalogCardDescription(name, description, undefined, brandName).slice(0, 280) ||
     undefined

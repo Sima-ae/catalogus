@@ -15,7 +15,6 @@ import {
 import { loadActiveCategories } from '@/lib/categories-persistence'
 import { formatCategoryDisplayName } from '@/lib/category-picker'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
-import { sanitizeProductDescriptions, sanitizeProductName } from '@/lib/yupoo/import-text'
 import {
   getDirectChildCategories,
   isQualifiedSiblingCategory,
@@ -26,6 +25,7 @@ import { markPricelistOutOfStockForProducts } from '@/lib/pricelist-catalog-stat
 import { serializeCatalogProductRow,
   serializeProductRow,
   parseProductJsonField,
+  resolveProductBrandDisplay,
   type SerializeProductRowOptions,
 } from '@/lib/product-serialize'
 import { joinBrandNames, parseBrandCompound } from '@/lib/product-taxonomy'
@@ -36,7 +36,9 @@ import {
   resolveProductBrandInput,
   UnknownBrandError,
 } from '@/lib/brands-db'
-import { getBrandSkuPrefixes } from '@/lib/brand-sku-prefixes'
+import { getBrandSkuPrefixes, getAllBrandNames } from '@/lib/brand-sku-prefixes'
+import { polishProductTextForStorage, polishProductTitleForStorage } from '@/lib/product-brand-text'
+import { titleNeedsCjkCleanup } from '@/lib/yupoo/product-title'
 import { catalogPositionJoin } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
@@ -392,9 +394,32 @@ async function serializeProductRows(
 ) {
   const brandSkuPrefixes =
     options?.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
+  const brandNames = options?.brandNames ?? (await getAllBrandNames())
   const serialize = options?.catalog ? serializeCatalogProductRow : serializeProductRow
-  return dedupeProductRows(rows).map((row) =>
-    serialize(row, { brandSkuPrefixes, ...options })
+  const cjkTitleCache = new Map<string, string>()
+
+  const deduped = dedupeProductRows(rows)
+
+  return Promise.all(
+    deduped.map(async (row) => {
+      let rowToSerialize = row
+      const rawName = String(row.name ?? '').trim()
+      if (rawName && titleNeedsCjkCleanup(rawName)) {
+        let polished = cjkTitleCache.get(rawName)
+        if (!polished) {
+          const brand = resolveProductBrandDisplay(row)
+          polished = await polishProductTitleForStorage(rawName, brandNames, brand)
+          cjkTitleCache.set(rawName, polished)
+        }
+        rowToSerialize = { ...row, name: polished }
+      }
+
+      return serialize(rowToSerialize, {
+        brandSkuPrefixes,
+        brandNames,
+        ...options,
+      })
+    })
   )
 }
 
@@ -638,6 +663,7 @@ export async function insertProduct(input: ProductInput) {
   const brand =
     (await brandsTableExists()) ? await resolveBrandForStorage(input.brand) : { name: null, id: undefined }
   const brandPrefixes = await getBrandSkuPrefixes()
+  const brandNames = await getAllBrandNames()
   const sku = requireProductSku(input.sku, brandPrefixes)
   await assertSkuIsUnique(sku)
 
@@ -647,13 +673,18 @@ export async function insertProduct(input: ProductInput) {
   const hasBrandCol = await productsHaveBrandColumn()
   const hasBrandId = await productsHaveBrandIdColumn()
   const contentCols = await productsContentColumns()
-  const productName = sanitizeProductName(String(input.name ?? '').trim())
-  const { description, short_description } = sanitizeProductDescriptions(
-    productName,
-    input.description,
-    input.short_description,
-    brand.name
-  )
+  const polishedText = await polishProductTextForStorage({
+    name: String(input.name ?? '').trim(),
+    description: input.description,
+    short_description: input.short_description,
+    brand: brand.name,
+    brandNames,
+  })
+  const productName = polishedText.name
+  const { description, short_description } = {
+    description: polishedText.description,
+    short_description: polishedText.short_description || null,
+  }
   const images = normalizeProductImagesForStorage(input)
 
   const insertMap: Record<string, unknown> = {
@@ -757,9 +788,10 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   const hasBrandCol = await productsHaveBrandColumn()
   const hasBrandId = await productsHaveBrandIdColumn()
   const brandPrefixes = await getBrandSkuPrefixes()
+  const brandNames = await getAllBrandNames()
 
   const map: Record<string, unknown> = {
-    name: input.name !== undefined ? sanitizeProductName(String(input.name).trim()) : undefined,
+    name: undefined as string | undefined,
     description: input.description,
     short_description: input.short_description,
     price: input.price,
@@ -827,43 +859,39 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
         : undefined,
   }
 
-  if (input.description !== undefined || input.short_description !== undefined) {
-    let nameForClean =
-      input.name !== undefined
-        ? sanitizeProductName(String(input.name).trim())
-        : ''
-    if (!nameForClean) {
-      const nameRows = await queryDb<{ name: string }[]>(
-        `SELECT name FROM products WHERE id = ? LIMIT 1`,
-        [id]
-      )
-      nameForClean = String(nameRows[0]?.name ?? '').trim()
-    }
+  if (
+    input.name !== undefined ||
+    input.description !== undefined ||
+    input.short_description !== undefined
+  ) {
+    const existing = await queryDb<
+      { name: string; description: string | null; short_description: string | null; brand: string | null }[]
+    >(`SELECT name, description, short_description, brand FROM products WHERE id = ? LIMIT 1`, [id])
+    const row = existing[0]
+    const brandForClean =
+      brandName !== undefined ? brandName : row?.brand?.trim() || null
 
-    let brandForClean: string | null | undefined = brandName
-    if (brandForClean === undefined) {
-      const brandRows = await queryDb<{ brand: string | null }[]>(
-        `SELECT brand FROM products WHERE id = ? LIMIT 1`,
-        [id]
-      )
-      brandForClean = brandRows[0]?.brand?.trim() || null
-    }
+    const polished = await polishProductTextForStorage({
+      name:
+        input.name !== undefined
+          ? String(input.name).trim()
+          : String(row?.name ?? '').trim(),
+      description:
+        input.description !== undefined
+          ? String(input.description)
+          : String(row?.description ?? ''),
+      short_description:
+        input.short_description !== undefined
+          ? input.short_description
+          : row?.short_description,
+      brand: brandForClean,
+      brandNames,
+    })
 
-    if (input.description !== undefined) {
-      map.description = sanitizeProductDescriptions(
-        nameForClean,
-        String(input.description),
-        null,
-        brandForClean
-      ).description
-    }
+    if (input.name !== undefined) map.name = polished.name
+    if (input.description !== undefined) map.description = polished.description
     if (input.short_description !== undefined) {
-      map.short_description = sanitizeProductDescriptions(
-        nameForClean,
-        '',
-        input.short_description,
-        brandForClean
-      ).short_description
+      map.short_description = polished.short_description || null
     }
   }
 
