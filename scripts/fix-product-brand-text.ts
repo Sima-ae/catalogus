@@ -73,6 +73,11 @@ async function main() {
 
     if (!anyChanged) continue
 
+    const originalDesc = String(row.description ?? '').trim()
+    const originalShort = String(row.short_description ?? '').trim()
+    const descriptionToSave = finalDescription.trim() || originalDesc || finalName
+    const shortToSave = finalShort.trim() || originalShort || null
+
     if (preview.length < 10) {
       preview.push({ id: row.id, before: row.name, after: finalName })
     }
@@ -82,7 +87,7 @@ async function main() {
 
     await queryDb(
       `UPDATE products SET name = ?, description = ?, short_description = ? WHERE id = ?`,
-      [finalName, finalDescription || null, finalShort || null, row.id]
+      [finalName, descriptionToSave, shortToSave, row.id]
     )
 
     if (updated % 100 === 0) console.log(`Updated ${updated}…`)
