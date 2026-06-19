@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { fixBrandNamesInText, lettersOnlyBrandKey, polishProductDisplayText } from '../src/lib/product-brand-text'
 
-const BRANDS = ['VERSACE', 'LOUIS VUITTON', 'GUCCI', 'ROLEX']
+const BRANDS = ['VERSACE', 'LOUIS VUITTON', 'GUCCI', 'ROLEX', 'PHILIPP PLEIN']
 
 assert.equal(lettersOnlyBrandKey('VERSAC*E'), 'versace')
 
@@ -35,6 +35,16 @@ assert.equal(
     brandNames: BRANDS,
   }).description.includes('VERSACE'),
   true
+)
+
+assert.equal(
+  fixBrandNamesInText('PHILIPP PLIEN - 004M', BRANDS, 'PHILIPP PLEIN'),
+  'PHILIPP PLEIN - 004M'
+)
+
+assert.equal(
+  fixBrandNamesInText('415 L0UIS VUITT0N bag', BRANDS),
+  '415 LOUIS VUITTON bag'
 )
 
 console.log('test-product-brand-text: ok')

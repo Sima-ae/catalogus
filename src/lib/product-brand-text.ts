@@ -1,4 +1,8 @@
 import {
+  canonicalBrandForTypoKey,
+  normalizeBrandMatchKey,
+} from '@/lib/brand-match'
+import {
   cleanImportDescription,
   sanitizeProductName,
   stripTitleDecorations,
@@ -10,9 +14,7 @@ import {
 
 /** Letters and digits only — for obfuscated brand matching (VERSAC*E → versace). */
 export function lettersOnlyBrandKey(text: string): string {
-  return String(text ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
+  return normalizeBrandMatchKey(text)
 }
 
 function uniqueBrandNames(brandNames: string[], priorityBrand?: string | null): string[] {
@@ -43,12 +45,45 @@ function tokenizeForBrandMatch(text: string): string[] {
 }
 
 function lettersFromTokens(tokens: string[]): string {
-  return lettersOnlyBrandKey(tokens.filter((t) => !isSeparatorToken(t)).join(''))
+  return normalizeBrandMatchKey(tokens.filter((t) => !isSeparatorToken(t)).join(''))
 }
 
-function maxBrandTokenSpan(canonical: string): number {
-  const words = canonical.trim().split(/\s+/).filter(Boolean).length
-  return Math.max(words + 3, 4)
+function brandWordCount(canonical: string): number {
+  return canonical.trim().split(/\s+/).filter(Boolean).length
+}
+
+function resolveBrandReplacement(
+  chunk: string[],
+  _chunkKey: string,
+  canonical: string
+): string {
+  if (chunk.join(' ').toUpperCase() === canonical.toUpperCase()) {
+    return chunk.join(' ')
+  }
+  return canonical
+}
+
+function matchBrandInChunk(
+  chunk: string[],
+  chunkKey: string,
+  brands: string[],
+  priorityBrand?: string | null
+): string | null {
+  for (const canonical of brands) {
+    const key = lettersOnlyBrandKey(canonical)
+    if (key.length < 3) continue
+    if (chunkKey === key) {
+      if (chunk.length > brandWordCount(canonical) + 2) continue
+      return resolveBrandReplacement(chunk, chunkKey, canonical)
+    }
+  }
+
+  const typoCanonical = canonicalBrandForTypoKey(chunkKey, brands, priorityBrand)
+  if (typoCanonical && chunk.length <= brandWordCount(typoCanonical)) {
+    return resolveBrandReplacement(chunk, chunkKey, typoCanonical)
+  }
+
+  return null
 }
 
 /**
@@ -71,27 +106,22 @@ export function fixBrandNamesInText(text: string, brandNames: string[], priority
 
   while (i < tokens.length) {
     let matched = false
+    const maxSpan = Math.min(tokens.length - i, 6)
 
-    for (const canonical of brands) {
-      const key = lettersOnlyBrandKey(canonical)
-      if (key.length < 3) continue
+    for (let span = maxSpan; span >= 1; span--) {
+      const chunk = tokens.slice(i, i + span)
+      if (chunk.some(isSeparatorToken)) continue
+      const chunkKey = lettersFromTokens(chunk)
+      if (chunkKey.length < 3) continue
 
-      const maxSpan = Math.min(tokens.length - i, maxBrandTokenSpan(canonical))
-      for (let span = maxSpan; span >= 1; span--) {
-        const chunk = tokens.slice(i, i + span)
-        if (chunk.some(isSeparatorToken)) continue
-        if (lettersFromTokens(chunk) !== key) continue
-        if (chunk.join(' ').toUpperCase() === canonical.toUpperCase()) {
-          out.push(...chunk)
-        } else {
-          out.push(canonical)
-          changed = true
-        }
-        i += span
-        matched = true
-        break
-      }
-      if (matched) break
+      const replacement = matchBrandInChunk(chunk, chunkKey, brands, priorityBrand)
+      if (!replacement) continue
+
+      if (replacement !== chunk.join(' ')) changed = true
+      out.push(replacement)
+      i += span
+      matched = true
+      break
     }
 
     if (!matched) {
