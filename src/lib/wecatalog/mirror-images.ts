@@ -1,3 +1,4 @@
+import { runPool } from '@/lib/async-pool'
 import { assertCatalogImagesVpsWrite } from '@/lib/catalog-images-root'
 import {
   catalogImagePublicPath,
@@ -13,6 +14,7 @@ import { fetchWecatalogRemoteUrl } from '@/lib/wecatalog/client'
 
 const MAX_BYTES = 12 * 1024 * 1024
 const MIRROR_SUBDIR = 'imports/wecatalog'
+const IMAGE_DOWNLOAD_CONCURRENCY = 4
 
 const CONTENT_TYPE_EXT = new Map<string, string>([
   ['image/jpeg', 'jpg'],
@@ -113,17 +115,20 @@ export async function mirrorWecatalogProductImages(
     await clearCatalogImageDirectory(productDir)
   }
 
-  const mirrored: string[] = []
+  const mirrored: string[] = new Array(cleaned.length)
+  const downloadJobs: { index: number; url: string; downloadIndex: number }[] = []
   let downloadIndex = 0
 
-  for (const url of cleaned) {
+  for (let index = 0; index < cleaned.length; index++) {
+    const url = cleaned[index]!
+
     if (isWecatalogImportMirrorPath(url)) {
-      mirrored.push(normalizeProductImageUrl(url))
+      mirrored[index] = normalizeProductImageUrl(url)
       continue
     }
 
     if (isCatalogHostedImage(url) && !isRemoteHttpUrl(url)) {
-      mirrored.push(normalizeProductImageUrl(url))
+      mirrored[index] = normalizeProductImageUrl(url)
       continue
     }
 
@@ -132,14 +137,18 @@ export async function mirrorWecatalogProductImages(
     }
 
     downloadIndex++
-    const { buffer, contentType } = await downloadRemoteImage(url)
-    const ext = resolveImageExtension(contentType, url)
-    const relativeFile = `${productDir}/${padIndex(downloadIndex)}.${ext}`
-    const localUrl = await writeCatalogImageFile(relativeFile, buffer)
-    mirrored.push(localUrl)
+    downloadJobs.push({ index, url, downloadIndex })
   }
 
-  return mirrored
+  await runPool(downloadJobs, IMAGE_DOWNLOAD_CONCURRENCY, async (job) => {
+    const { buffer, contentType } = await downloadRemoteImage(job.url)
+    const ext = resolveImageExtension(contentType, job.url)
+    const relativeFile = `${productDir}/${padIndex(job.downloadIndex)}.${ext}`
+    const localUrl = await writeCatalogImageFile(relativeFile, buffer)
+    mirrored[job.index] = localUrl
+  })
+
+  return mirrored.filter((url): url is string => Boolean(url))
 }
 
 export function wecatalogImportMirrorPathForIndex(

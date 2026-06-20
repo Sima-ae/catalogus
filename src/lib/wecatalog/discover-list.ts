@@ -43,7 +43,7 @@ export async function discoverAllWecatalogListItems(
 
   while (true) {
     page++
-    if (page > 1) await sleep(400)
+    if (page > 1) await sleep(200)
 
     const response = await activeSession.postAlbumList({
       currTab: context.currTab,

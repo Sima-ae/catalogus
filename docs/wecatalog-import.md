@@ -25,13 +25,24 @@ Import draft products from [WeCatalog](https://wecatalog.cn) category list URLs 
 
    ```bash
    npm run import:worker -- --job=<uuid>
+   npm run import:worker -- --job=<uuid> --concurrency=6
+   npm run import:worker -- --job=<uuid> --fast
    ```
 
    WeCatalog images are written directly to `public_html/images/imports/wecatalog/` on the VPS (`CATALOGUS_PUBLIC_HTML` in `.env`). Do **not** run the worker on your Mac — local runs are blocked and must not use `public/images` + git deploy.
 
 3. Discovery paginates the list API until `isLoadMore` is false and creates job items.
-4. The worker imports each product: translated title, description, **price = 0** (Price on request), gallery images mirrored on the VPS.
+4. The worker imports products in parallel (default **6 at a time**): translated title, description, **price = 0** (Price on request), gallery images mirrored on the VPS.
 5. Admin → Import → **Review import queue** → publish.
+
+For large catalogs (thousands of products), use higher concurrency or `--fast`:
+
+```bash
+npm run import:worker -- --job=<uuid> --concurrency=8
+npm run import:worker -- --job=<uuid> --fast
+```
+
+`--fast` runs 8 workers, skips Google title translation (keeps supplier Chinese text), and downloads gallery images in parallel. Re-run without `--fast` later if you need English titles on specific products.
 
 ## Field mapping
 

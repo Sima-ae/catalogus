@@ -10,7 +10,11 @@ import {
   cleanImportDescription,
   sanitizeProductName,
 } from '@/lib/yupoo/import-text'
-import { resolveYupooProductTitleAsync } from '@/lib/yupoo/product-title'
+import {
+  resolveYupooProductTitleAsync,
+  stripTitleDecorations,
+} from '@/lib/yupoo/product-title'
+import { resolveYupooProductTitle } from '@/lib/yupoo/import-text'
 import type { YupooAlbumData } from '@/lib/yupoo/types'
 import type { TranslatedProductText } from '@/lib/translate'
 import { mapWooStoreProduct, collectWooProductImageUrls } from '@/lib/woocommerce/map-product'
@@ -392,25 +396,44 @@ export async function buildProductInputFromLkxoxProduct(
   return buildProductInputFromLkxoxImport(lkxoxWithLocalImages, catalog)
 }
 
+export type WecatalogImportOptions = {
+  /** When false, keep supplier title text (no Google Translate) — much faster for bulk jobs. */
+  translateTitle?: boolean
+}
+
 export async function buildProductInputFromWecatalogImport(
   wecatalog: WecatalogProductData,
   catalog: {
     categoryName: string
     categoryId: string | null
     brandName: string | null
-  }
+  },
+  options: WecatalogImportOptions = {}
 ): Promise<ProductInput> {
   const brandNames = await getAllBrandNames()
   const rawTitle = wecatalog.name
-  let name = sanitizeProductName(
-    await resolveYupooProductTitleAsync({
-      albumTitle: rawTitle,
-      description: wecatalog.description,
-      thumbTitle: rawTitle,
-      fallbackSku: wecatalog.sku,
-      fallbackAlbumId: wecatalog.goodsId,
-    })
-  )
+  const translateTitle = options.translateTitle !== false
+  let name = translateTitle
+    ? sanitizeProductName(
+        await resolveYupooProductTitleAsync({
+          albumTitle: rawTitle,
+          description: wecatalog.description,
+          thumbTitle: rawTitle,
+          fallbackSku: wecatalog.sku,
+          fallbackAlbumId: wecatalog.goodsId,
+        })
+      )
+    : sanitizeProductName(
+        stripTitleDecorations(
+          resolveYupooProductTitle({
+            albumTitle: rawTitle,
+            description: wecatalog.description,
+            thumbTitle: rawTitle,
+            fallbackSku: wecatalog.sku,
+            fallbackAlbumId: wecatalog.goodsId,
+          })
+        )
+      )
   name = fixBrandNamesInText(name, brandNames, catalog.brandName)
   const description = fixBrandNamesInText(
     cleanImportDescription(wecatalog.description || rawTitle, name, catalog.brandName),
@@ -465,12 +488,13 @@ async function resolveWecatalogImportCatalog(
 
 export async function buildProductInputFromWecatalogProduct(
   wecatalog: WecatalogProductData,
-  source: ImportSourceRow
+  source: ImportSourceRow,
+  options: WecatalogImportOptions = {}
 ): Promise<ProductInput> {
   const mirroredUrls = await mirrorWecatalogProductImages(wecatalog.externalId, wecatalog.imageUrls)
   const wecatalogWithLocalImages = { ...wecatalog, imageUrls: mirroredUrls }
   const catalog = await resolveWecatalogImportCatalog(wecatalogWithLocalImages, source)
-  return buildProductInputFromWecatalogImport(wecatalogWithLocalImages, catalog)
+  return buildProductInputFromWecatalogImport(wecatalogWithLocalImages, catalog, options)
 }
 
 export type ImportSourceRow = {

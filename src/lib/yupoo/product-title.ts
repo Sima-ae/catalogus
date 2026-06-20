@@ -12,6 +12,18 @@ import {
 export { stripTitleDecorations } from '@/lib/yupoo/import-text'
 
 const CJK_SEGMENT_RE = /[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]+/
+const DEFAULT_CJK_TRANSLATE_DELAY_MS = 350
+
+let cjkTranslateDelayMs = DEFAULT_CJK_TRANSLATE_DELAY_MS
+
+/** Lower delay during bulk import workers (default restored after job). */
+export function setCjkTranslateDelayMs(ms: number): void {
+  cjkTranslateDelayMs = Math.max(0, Math.floor(ms))
+}
+
+export function resetCjkTranslateDelayMs(): void {
+  cjkTranslateDelayMs = DEFAULT_CJK_TRANSLATE_DELAY_MS
+}
 
 /** Title still has Chinese, Japanese kana, or decorative symbols — needs cleanup. */
 export function titleNeedsEnglishCleanup(text: string): boolean {
@@ -44,7 +56,7 @@ export async function translateCjkSegmentsInTitle(text: string): Promise<string>
       try {
         const en = await translateText(part, 'auto', 'en')
         if (en.trim()) out.push(en.trim())
-        await sleep(350)
+        await sleep(cjkTranslateDelayMs)
       } catch {
         /* drop untranslatable segment */
       }

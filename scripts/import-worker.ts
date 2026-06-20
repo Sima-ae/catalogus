@@ -7,13 +7,18 @@
  *   npm run import:worker -- --job=<uuid> --password=<yupoo-store-access-code>
  *   npm run import:worker -- --job=<uuid> --refresh
  *   npm run import:worker -- --job=<uuid> --refresh --retry-all
+ *   npm run import:worker -- --job=<uuid> --concurrency=6
+ *   npm run import:worker -- --job=<uuid> --fast
  *
  * --refresh  re-fetch source data and update existing products (status unchanged).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
  * --password  overrides Yupoo access password for this run.
+ * --concurrency=N  parallel products (WeCatalog default 6).
+ * --fast  WeCatalog: concurrency 8, skip title translation, minimal translate delays.
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
+import { AsyncMutex, runPool } from '@/lib/async-pool'
 import { fetchHtml, sleep as yupooSleep } from '@/lib/yupoo/client'
 import { parseCategoryAlbums } from '@/lib/yupoo/parse-category'
 import { parseAlbumPage } from '@/lib/yupoo/parse-album'
@@ -69,10 +74,11 @@ import { sleep as wooSleep, fetchWooStoreProductForJobItem } from '@/lib/woocomm
 import { wooExternalId } from '@/lib/woocommerce/types'
 import { fetchLkxoxHtml, sleep as lkxoxSleep } from '@/lib/lkxox/client'
 import { parseLkxoxProductPage } from '@/lib/lkxox/parse-product'
-import { createWecatalogSession, sleep as wecatalogSleep } from '@/lib/wecatalog/client'
+import { createWecatalogSession } from '@/lib/wecatalog/client'
 import { fetchWecatalogProduct } from '@/lib/wecatalog/fetch-product'
 import { parseWecatalogExternalId } from '@/lib/wecatalog/types'
 import { getAllBrandNames } from '@/lib/brand-sku-prefixes'
+import { resetCjkTranslateDelayMs, setCjkTranslateDelayMs } from '@/lib/yupoo/product-title'
 import {
   findProductByAlbumSku,
   findProductBySku,
@@ -102,11 +108,21 @@ function loadDotEnv() {
   }
 }
 
+function parseArgInt(name: string, defaultValue: number): number {
+  const arg = process.argv.find((a) => a.startsWith(`${name}=`))
+  if (!arg) return defaultValue
+  const parsed = Number.parseInt(arg.split('=').slice(1).join('='), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue
+}
+
 function workerFlags() {
+  const fast = process.argv.includes('--fast')
   return {
     refresh: process.argv.includes('--refresh'),
     retryAll: process.argv.includes('--retry-all'),
     retrySkipped: process.argv.includes('--retry-skipped'),
+    fast,
+    concurrency: fast ? 8 : parseArgInt('--concurrency', 0),
   }
 }
 
@@ -179,11 +195,17 @@ async function buildYupooImportInput(
   return { input, album, translated }
 }
 
+type ImportWorkerSync = {
+  counterMutex?: AsyncMutex
+  scheduleJobProgress?: () => void
+}
+
 async function importExistingOrSkip(
   item: ImportJobItemRow,
   input: ProductInput,
   flags: ReturnType<typeof workerFlags>,
-  counters: { processed: number; imported: number; skipped: number; failed: number; refreshed: number }
+  counters: { processed: number; imported: number; skipped: number; failed: number; refreshed: number },
+  sync?: ImportWorkerSync
 ) {
   let existing = await findProductByAlbumSku(item.album_id)
 
@@ -199,15 +221,27 @@ async function importExistingOrSkip(
     existing = await getProductBySourceAlbumId(item.album_id)
   }
 
+  const markSkipped = async (message: string, productId: string) => {
+    console.log(message)
+    const apply = async () => {
+      await updateJobItem(item.id, {
+        status: 'skipped',
+        product_id: productId,
+        error_message: null,
+      })
+      counters.skipped++
+      counters.processed++
+    }
+    if (sync?.counterMutex) await sync.counterMutex.run(apply)
+    else await apply()
+    sync?.scheduleJobProgress?.()
+  }
+
   if (existing && !flags.refresh) {
-    console.log(`==> ${item.album_id} (skip — product with same external id already exists)`)
-    await updateJobItem(item.id, {
-      status: 'skipped',
-      product_id: existing.id,
-      error_message: null,
-    })
-    counters.skipped++
-    counters.processed++
+    await markSkipped(
+      `==> ${item.album_id} (skip — product with same external id already exists)`,
+      existing.id
+    )
     return { done: true as const }
   }
 
@@ -216,14 +250,7 @@ async function importExistingOrSkip(
   }
 
   if (existing && !flags.refresh) {
-    console.log(`==> ${item.album_id} (skip — SKU ${input.sku} already exists)`)
-    await updateJobItem(item.id, {
-      status: 'skipped',
-      product_id: existing.id,
-      error_message: null,
-    })
-    counters.skipped++
-    counters.processed++
+    await markSkipped(`==> ${item.album_id} (skip — SKU ${input.sku} already exists)`, existing.id)
     return { done: true as const }
   }
 
@@ -238,7 +265,8 @@ async function saveImportedProduct(
   flags: ReturnType<typeof workerFlags>,
   rawJson: unknown,
   counters: { processed: number; imported: number; skipped: number; failed: number; refreshed: number },
-  translationFailed?: boolean
+  translationFailed?: boolean,
+  sync?: ImportWorkerSync
 ) {
   if (existing && flags.refresh) {
     const current = await getProductById(existing.id, { includePurchasePrice: true })
@@ -252,8 +280,12 @@ async function saveImportedProduct(
       raw_json: JSON.stringify(rawJson),
       error_message: translationFailed ? 'Translation failed — kept raw text' : null,
     })
-    counters.refreshed++
-    counters.processed++
+    const apply = async () => {
+      counters.refreshed++
+      counters.processed++
+    }
+    if (sync?.counterMutex) await sync.counterMutex.run(apply)
+    else await apply()
   } else {
     const product = await insertProduct(input)
     const productId = product ? String((product as { id?: string }).id || '') : ''
@@ -263,16 +295,23 @@ async function saveImportedProduct(
       raw_json: JSON.stringify(rawJson),
       error_message: translationFailed ? 'Translation failed — kept raw text' : null,
     })
-    counters.imported++
-    counters.processed++
+    const apply = async () => {
+      counters.imported++
+      counters.processed++
+    }
+    if (sync?.counterMutex) await sync.counterMutex.run(apply)
+    else await apply()
   }
 
-  await updateImportJob(jobId, {
-    processed: counters.processed,
-    imported: counters.imported,
-    skipped: counters.skipped,
-    failed: counters.failed,
-  })
+  if (sync?.scheduleJobProgress) sync.scheduleJobProgress()
+  else {
+    await updateImportJob(jobId, {
+      processed: counters.processed,
+      imported: counters.imported,
+      skipped: counters.skipped,
+      failed: counters.failed,
+    })
+  }
 }
 
 async function processYupooJob(
@@ -593,13 +632,59 @@ async function processWecatalogJob(
   let refreshed = 0
   const counters = { processed, imported, skipped, failed, refreshed }
 
+  const concurrency = flags.concurrency || 6
+  const translateTitle = !flags.fast
+  if (flags.fast) {
+    setCjkTranslateDelayMs(0)
+  } else if (concurrency > 1) {
+    setCjkTranslateDelayMs(100)
+  }
+
+  console.log(
+    `==> WeCatalog import: ${items.length} pending, concurrency=${concurrency}, translateTitle=${translateTitle}`
+  )
+
   const session = createWecatalogSession(listUrl)
   const brandNames = await getAllBrandNames()
+  const counterMutex = new AsyncMutex()
+  let jobProgressTimer: ReturnType<typeof setTimeout> | null = null
 
-  for (const item of items) {
+  const scheduleJobProgress = () => {
+    if (jobProgressTimer) return
+    jobProgressTimer = setTimeout(() => {
+      jobProgressTimer = null
+      void counterMutex.run(async () => {
+        await updateImportJob(jobId, {
+          processed: counters.processed,
+          imported: counters.imported,
+          skipped: counters.skipped,
+          failed: counters.failed,
+        })
+      })
+    }, 750)
+  }
+
+  const flushJobProgress = async () => {
+    if (jobProgressTimer) {
+      clearTimeout(jobProgressTimer)
+      jobProgressTimer = null
+    }
+    await counterMutex.run(async () => {
+      await updateImportJob(jobId, {
+        processed: counters.processed,
+        imported: counters.imported,
+        skipped: counters.skipped,
+        failed: counters.failed,
+      })
+    })
+  }
+
+  const sync: ImportWorkerSync = { counterMutex, scheduleJobProgress }
+  const wecatalogOptions = { translateTitle }
+
+  await runPool(items, concurrency, async (item) => {
     try {
       console.log(`==> ${item.album_id}`)
-      await wecatalogSleep(400)
 
       const goodsId = parseWecatalogExternalId(item.album_id)
       if (!goodsId) {
@@ -615,28 +700,23 @@ async function processWecatalogJob(
         itemForDedup,
         { sku: wecatalog.sku } as ProductInput,
         flags,
-        counters
+        counters,
+        sync
       )
-      if (skipCheck.done) {
-        await updateImportJob(jobId, counters)
-        continue
-      }
+      if (skipCheck.done) return
 
       console.log(
         `==> Product ${externalId}${skipCheck.existing && flags.refresh ? ' (refresh)' : ''}`
       )
 
-      const input = await buildProductInputFromWecatalogProduct(wecatalog, source)
+      const input = await buildProductInputFromWecatalogProduct(wecatalog, source, wecatalogOptions)
 
       if (!input.image_url) {
         throw new Error('No images found on WeCatalog product')
       }
 
-      const secondCheck = await importExistingOrSkip(itemForDedup, input, flags, counters)
-      if (secondCheck.done) {
-        await updateImportJob(jobId, counters)
-        continue
-      }
+      const secondCheck = await importExistingOrSkip(itemForDedup, input, flags, counters, sync)
+      if (secondCheck.done) return
 
       await saveImportedProduct(
         itemForDedup,
@@ -645,7 +725,9 @@ async function processWecatalogJob(
         secondCheck.existing,
         flags,
         { wecatalog, refreshed: Boolean(secondCheck.existing && flags.refresh) },
-        counters
+        counters,
+        undefined,
+        sync
       )
 
       if (item.album_id !== externalId) {
@@ -656,12 +738,15 @@ async function processWecatalogJob(
       console.error('FAIL:', item.album_id, message)
       await updateJobItem(item.id, { status: 'failed', error_message: message })
       await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
-      counters.failed++
-      counters.processed++
-      await updateImportJob(jobId, counters)
+      await counterMutex.run(async () => {
+        counters.failed++
+        counters.processed++
+      })
+      scheduleJobProgress()
     }
-  }
+  })
 
+  await flushJobProgress()
   return counters
 }
 
@@ -817,20 +902,24 @@ async function main() {
   loadDotEnv()
   ensureEnvLoaded()
 
-  console.log(`==> Image storage: ${describeCatalogImagesWriteTarget()}`)
-  if (!isCatalogImagesVpsWrite()) {
-    console.log(
-      '      Images save under public/images/ — commit and push public/images/ to deploy.'
-    )
-  }
+  try {
+    console.log(`==> Image storage: ${describeCatalogImagesWriteTarget()}`)
+    if (!isCatalogImagesVpsWrite()) {
+      console.log(
+        '      Images save under public/images/ — commit and push public/images/ to deploy.'
+      )
+    }
 
-  const jobId = await resolveJobId()
-  if (!jobId) {
-    console.error('No queued job. Pass --job=<uuid> or create a sync job in admin.')
-    process.exit(1)
-  }
+    const jobId = await resolveJobId()
+    if (!jobId) {
+      console.error('No queued job. Pass --job=<uuid> or create a sync job in admin.')
+      process.exit(1)
+    }
 
-  await processJob(jobId)
+    await processJob(jobId)
+  } finally {
+    resetCjkTranslateDelayMs()
+  }
 }
 
 main().catch((err) => {
