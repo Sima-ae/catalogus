@@ -54,6 +54,7 @@ import { getActivityOrderMessages } from '@/lib/i18n-activity-order'
 import { getDashboardMessages } from '@/lib/i18n-dashboard'
 import { getContactMessages } from '@/lib/i18n-contact'
 import { getCategoryExtraMessages } from '@/lib/i18n-category-extra'
+import { getChatMessages } from '@/lib/i18n-chat'
 
 export {
   SUPPORTED_LOCALES,
@@ -314,24 +315,6 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.verifyFailed': 'Unable to verify. Try again.',
     'pricelist.access.incorrectPassword': 'Incorrect pricelist password',
     'pricelist.access.checkAccessFailed': 'Unable to check access',
-
-    // Chat (self-hosted)
-    'chat.title': 'Live chat',
-    'chat.subtitle': 'Ask a question or request a quote.',
-    'chat.loading': 'Connecting…',
-    'chat.ready': 'Connected. Send a message or request a quote.',
-    'chat.notAvailable': 'Chat is not available for this account.',
-    'chat.v1Hint': 'Tip: Click “Ask a price” on products to add them to your quote request in live chat.',
-    'chat.placeholder': 'Type a message…',
-    'chat.send': 'Send',
-    'chat.sendingQuote': 'Sending quote request…',
-    'chat.sendingQuotes': 'Sending quote requests ({count} remaining)…',
-    'chat.close': 'Close',
-    'chat.yourPrice': 'Your price',
-    'chat.supplierTitle': 'Supplier chat',
-    'chat.supplierSubtitle': 'Quote requests from admin',
-    'chat.noSupplierThreads': 'No quote requests yet.',
-    'chat.selectThread': 'Select a request',
   },
   nl: {
     // Shop / nav
@@ -573,24 +556,6 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.verifyFailed': 'Verificatie mislukt. Probeer opnieuw.',
     'pricelist.access.incorrectPassword': 'Onjuist prijslijstwachtwoord',
     'pricelist.access.checkAccessFailed': 'Toegang kan niet worden gecontroleerd',
-
-    // Chat (self-hosted)
-    'chat.title': 'Live chat',
-    'chat.subtitle': 'Stel een vraag of vraag een offerte aan.',
-    'chat.loading': 'Verbinden…',
-    'chat.ready': 'Verbonden. Stuur een bericht of vraag een offerte aan.',
-    'chat.notAvailable': 'Chat is niet beschikbaar voor dit account.',
-    'chat.v1Hint': 'Tip: Klik op “Prijs aanvragen” bij producten om ze toe te voegen aan je offerteaanvraag in de chat.',
-    'chat.placeholder': 'Typ een bericht…',
-    'chat.send': 'Verstuur',
-    'chat.sendingQuote': 'Offerteaanvraag versturen…',
-    'chat.sendingQuotes': 'Offerteaanvragen versturen ({count} resterend)…',
-    'chat.close': 'Sluiten',
-    'chat.yourPrice': 'Jouw prijs',
-    'chat.supplierTitle': 'Leverancierschat',
-    'chat.supplierSubtitle': 'Offerteaanvragen van admin',
-    'chat.noSupplierThreads': 'Nog geen offerteaanvragen.',
-    'chat.selectThread': 'Selecteer een aanvraag',
   },
   es: MESSAGES_ES,
   fr: MESSAGES_FR,
@@ -654,6 +619,7 @@ export function getMessages(locale: Locale): Messages {
     ...getDashboardMessages(locale),
     ...getContactMessages(locale),
     ...getCategoryExtraMessages(locale),
+    ...getChatMessages(locale),
   }
 }
 

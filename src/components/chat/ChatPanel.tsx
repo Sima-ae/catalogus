@@ -6,6 +6,7 @@ import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuo
 import ChatSupplierPanel from '@/components/chat/ChatSupplierPanel'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
 import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
 import {
   createOptimisticMessage,
   replaceOptimisticMessage,
@@ -36,6 +37,7 @@ function quotedProductIds(messages: MessageItem[]): Set<string> {
 
 export default function ChatPanel() {
   const { t } = useI18n()
+  const { localizeMessageBody } = useChatMessageText()
   const { user } = useAuth()
   const { open, loading, error, bootstrap, quoteQueue, dequeueQuote } = useChat()
   const [quoteError, setQuoteError] = useState('')
@@ -165,7 +167,7 @@ export default function ChatPanel() {
               {m.message_type === 'quote' && m.quote ? (
                 <ChatQuoteCard quote={m.quote} compact />
               ) : (
-                <div className="whitespace-pre-wrap">{m.body}</div>
+                <div className="whitespace-pre-wrap">{localizeMessageBody(m.body)}</div>
               )}
             </div>
           </div>

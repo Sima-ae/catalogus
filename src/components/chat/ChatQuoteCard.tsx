@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
 
 export type ChatQuoteCardData = {
   id: string
@@ -28,16 +29,10 @@ const STATUS_STYLES: Record<string, string> = {
   closed: 'bg-gray-100 text-gray-600',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  with_supplier: 'With supplier',
-  answered: 'Answered',
-  closed: 'Closed',
-}
-
 export default function ChatQuoteCard({ quote, compact, actions, onClick }: ChatQuoteCardProps) {
+  const { t, quoteStatusLabel } = useChatMessageText()
   const statusClass = STATUS_STYLES[quote.status] ?? STATUS_STYLES.pending
-  const statusLabel = STATUS_LABELS[quote.status] ?? quote.status
+  const statusLabel = quoteStatusLabel(quote.status)
 
   return (
     <div
@@ -62,14 +57,16 @@ export default function ChatQuoteCard({ quote, compact, actions, onClick }: Chat
             />
           ) : (
             <div className="h-full w-full flex items-center justify-center text-gray-400 text-[10px]">
-              No img
+              {t('chat.noImg')}
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-medium text-gray-900 truncate">{quote.product_name}</div>
           {quote.product_sku ? (
-            <div className="text-gray-500 truncate">SKU {quote.product_sku}</div>
+            <div className="text-gray-500 truncate">
+              {t('chat.sku', { sku: quote.product_sku })}
+            </div>
           ) : null}
           {(quote.product_brand || quote.product_category) && (
             <div className="text-gray-500 truncate">
@@ -81,7 +78,7 @@ export default function ChatQuoteCard({ quote, compact, actions, onClick }: Chat
               {statusLabel}
             </span>
             {quote.supplier_conversation_id ? (
-              <span className="text-[10px] text-gray-500">Supplier thread linked</span>
+              <span className="text-[10px] text-gray-500">{t('chat.supplierThreadLinked')}</span>
             ) : null}
           </div>
         </div>

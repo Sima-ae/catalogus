@@ -14,7 +14,7 @@ import {
   replaceOptimisticMessage,
   rowToMessageItem,
 } from '@/lib/chat-realtime'
-import { useI18n } from '@/lib/i18n-context'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
 
 type MessageItem = {
   id: string
@@ -41,7 +41,7 @@ function formatTime(iso: string) {
 }
 
 export default function BuyerChatInbox() {
-  const { t } = useI18n()
+  const { t, localizeMessageBody } = useChatMessageText()
   const { user } = useAuth()
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [loadingBootstrap, setLoadingBootstrap] = useState(true)
@@ -186,7 +186,7 @@ export default function BuyerChatInbox() {
                       {m.message_type === 'quote' && m.quote ? (
                         <ChatQuoteCard quote={m.quote} compact />
                       ) : (
-                        <div className="text-sm whitespace-pre-wrap">{m.body}</div>
+                        <div className="text-sm whitespace-pre-wrap">{localizeMessageBody(m.body)}</div>
                       )}
                       <div
                         className={`mt-1 text-[10px] ${

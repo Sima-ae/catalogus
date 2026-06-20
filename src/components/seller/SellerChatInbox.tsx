@@ -7,6 +7,7 @@ import { appPath } from '@/lib/paths'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
 import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
 import {
   CHAT_INBOX_POLL_MS,
   createOptimisticMessage,
@@ -53,6 +54,7 @@ function formatTime(iso: string) {
 
 export default function SellerChatInbox() {
   const { user } = useAuth()
+  const { t, localizeMessageBody } = useChatMessageText()
   const [threads, setThreads] = useState<ThreadItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loadingInbox, setLoadingInbox] = useState(true)
@@ -171,9 +173,7 @@ export default function SellerChatInbox() {
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <p className="text-sm text-gray-600">
-          Reply to admin about quote requests. You never see buyer chats — only product context shared by admin.
-        </p>
+        <p className="text-sm text-gray-600">{t('chat.seller.hint')}</p>
       </div>
 
       {error ? (
@@ -183,11 +183,11 @@ export default function SellerChatInbox() {
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] min-h-[520px]">
         <aside className="border-b lg:border-b-0 lg:border-r border-gray-200">
           <div className="px-4 py-3 text-sm font-medium text-gray-900 border-b border-gray-100">
-            Supplier threads ({threads.length})
+            {t('chat.seller.threads', { count: threads.length })}
           </div>
           <div className="overflow-y-auto max-h-[460px]">
             {loadingInbox ? (
-              <div className="p-4 text-sm text-gray-500">Loading…</div>
+              <div className="p-4 text-sm text-gray-500">{t('chat.admin.loading')}</div>
             ) : threads.length ? (
               <ul>
                 {threads.map((thread) => (
@@ -200,13 +200,15 @@ export default function SellerChatInbox() {
                       }`}
                     >
                       <div className="font-medium text-gray-900 truncate">
-                        {thread.productName ?? 'Quote request'}
+                        {thread.productName ?? t('chat.seller.quoteRequest')}
                       </div>
                       {thread.pricelistLabel ? (
                         <div className="text-[11px] text-emerald-700 truncate">{thread.pricelistLabel}</div>
                       ) : null}
                       {thread.productSku ? (
-                        <div className="text-xs text-gray-500 truncate">SKU {thread.productSku}</div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {t('chat.sku', { sku: thread.productSku })}
+                        </div>
                       ) : null}
                       <div className="mt-1 text-[11px] text-gray-400">{formatTime(thread.updated_at)}</div>
                     </button>
@@ -214,7 +216,7 @@ export default function SellerChatInbox() {
                 ))}
               </ul>
             ) : (
-              <div className="p-4 text-sm text-gray-500">No supplier threads yet.</div>
+              <div className="p-4 text-sm text-gray-500">{t('chat.seller.noThreads')}</div>
             )}
           </div>
         </aside>
@@ -230,7 +232,7 @@ export default function SellerChatInbox() {
 
               <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[380px]">
                 {loadingMessages && !messages.length ? (
-                  <div className="text-sm text-gray-500">Loading messages…</div>
+                  <div className="text-sm text-gray-500">{t('chat.seller.loadingMessages')}</div>
                 ) : messages.length ? (
                   messages.map((m) => (
                     <div
@@ -249,7 +251,7 @@ export default function SellerChatInbox() {
                         {m.message_type === 'quote' && m.quote ? (
                           <ChatQuoteCard quote={m.quote} compact />
                         ) : (
-                          <div className="text-sm whitespace-pre-wrap">{m.body}</div>
+                          <div className="text-sm whitespace-pre-wrap">{localizeMessageBody(m.body)}</div>
                         )}
                         <div
                           className={`mt-1 text-[10px] ${
@@ -262,7 +264,7 @@ export default function SellerChatInbox() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-gray-500">No messages yet.</div>
+                  <div className="text-sm text-gray-500">{t('chat.admin.noMessages')}</div>
                 )}
               </div>
 
@@ -277,7 +279,7 @@ export default function SellerChatInbox() {
                       void sendReply()
                     }
                   }}
-                  placeholder="Reply to admin…"
+                  placeholder={t('chat.seller.replyPlaceholder')}
                   className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <button
@@ -286,13 +288,13 @@ export default function SellerChatInbox() {
                   disabled={sending || !reply.trim()}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  Send
+                  {t('chat.send')}
                 </button>
               </div>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-gray-500 p-8">
-              Select a thread to reply to admin.
+              {t('chat.seller.selectThread')}
             </div>
           )}
         </section>

@@ -10,6 +10,7 @@ import {
   getChatQuoteById,
   updateChatQuoteRequest,
 } from '@/lib/chat-db'
+import { encodeChatI18nBody } from '@/lib/chat-message-i18n'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -86,9 +87,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     senderSessionId: resolved.ctx.session.id,
     senderRole: 'system',
     messageType: 'system',
-    body: `Admin forwarded a quote request for ${quote.product_name}${
-      quote.product_sku ? ` (SKU ${quote.product_sku})` : ''
-    }. Reply with your price.`,
+    body: encodeChatI18nBody('chat.system.forwardQuote', {
+      productName: quote.product_name,
+      sku: quote.product_sku ?? '',
+    }),
   })
 
   return NextResponse.json({

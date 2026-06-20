@@ -8,6 +8,8 @@ import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuo
 import AdminChatTrash from '@/components/admin/AdminChatTrash'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
 import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
+import { useI18n } from '@/lib/i18n-context'
 import {
   CHAT_INBOX_POLL_MS,
   createOptimisticMessage,
@@ -66,6 +68,8 @@ function formatTime(iso: string) {
 
 export default function AdminChatInbox() {
   const { user, isSuperAdmin } = useAuth()
+  const { t } = useI18n()
+  const { localizeMessageBody, quoteStatusLabel } = useChatMessageText()
   const [tab, setTab] = useState<'threads' | 'quotes' | 'trash'>('threads')
   const [threads, setThreads] = useState<ThreadItem[]>([])
   const [quotes, setQuotes] = useState<QuoteItem[]>([])
@@ -127,7 +131,7 @@ export default function AdminChatInbox() {
     if (selectedQuote?.buyerLabel) return selectedQuote.buyerLabel
     if (selectedThread?.buyerLabel) return selectedThread.buyerLabel
     const fromQuote = quotes.find((q) => q.conversation_id === selectedId)
-    return fromQuote?.buyerLabel ?? 'Conversation'
+    return fromQuote?.buyerLabel ?? t('chat.admin.conversation')
   }, [selectedQuote, selectedThread, quotes, selectedId])
 
   const fetchBuyerMessages = useCallback(
@@ -322,7 +326,7 @@ export default function AdminChatInbox() {
   }
 
   const deleteThread = async (threadId: string) => {
-    if (!isSuperAdmin || !window.confirm('Move this thread to trash?')) return
+    if (!isSuperAdmin || !window.confirm(t('chat.admin.confirmTrashThread'))) return
     try {
       await fetchJson(appPath(`/api/admin/chat/conversations/${threadId}`), {
         method: 'DELETE',
@@ -336,7 +340,7 @@ export default function AdminChatInbox() {
   }
 
   const deleteMessage = async (messageId: string) => {
-    if (!isSuperAdmin || !window.confirm('Move this message to trash?')) return
+    if (!isSuperAdmin || !window.confirm(t('chat.admin.confirmTrashMessage'))) return
     try {
       await fetchJson(appPath(`/api/admin/chat/messages/${messageId}`), {
         method: 'DELETE',
@@ -350,7 +354,7 @@ export default function AdminChatInbox() {
   }
 
   const deleteQuote = async (quoteId: string) => {
-    if (!isSuperAdmin || !window.confirm('Move this quote to trash?')) return
+    if (!isSuperAdmin || !window.confirm(t('chat.admin.confirmTrashQuote'))) return
     try {
       await fetchJson(appPath(`/api/admin/chat/quotes/${quoteId}`), {
         method: 'DELETE',
@@ -380,7 +384,7 @@ export default function AdminChatInbox() {
           disabled={escalatingId === quote.id}
           className="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {escalatingId === quote.id ? 'Forwarding…' : 'Ask supplier'}
+          {escalatingId === quote.id ? t('chat.admin.forwarding') : t('chat.admin.askSupplier')}
         </button>
       ) : null}
       {quote.supplier_conversation_id ? (
@@ -389,7 +393,7 @@ export default function AdminChatInbox() {
           onClick={() => openSupplierThread(quote.supplier_conversation_id!)}
           className="rounded-md border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
         >
-          Supplier thread
+          {t('chat.admin.supplierThread')}
         </button>
       ) : null}
       {quote.status !== 'answered' && quote.status !== 'closed' ? (
@@ -398,7 +402,7 @@ export default function AdminChatInbox() {
           onClick={() => void markAnswered(quote.id)}
           className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
         >
-          Mark answered
+          {t('chat.admin.markAnswered')}
         </button>
       ) : null}
       {isSuperAdmin ? (
@@ -407,7 +411,7 @@ export default function AdminChatInbox() {
           onClick={() => void deleteQuote(quote.id)}
           className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
         >
-          Trash
+          {t('chat.admin.trashItem')}
         </button>
       ) : null}
     </>
@@ -442,10 +446,10 @@ export default function AdminChatInbox() {
       <>
         {m.message_type === 'supplier_reply' ? (
           <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 mb-1">
-            Supplier reply
+            {t('chat.supplierReply')}
           </div>
         ) : null}
-        <div className="text-sm whitespace-pre-wrap">{m.body}</div>
+        <div className="text-sm whitespace-pre-wrap">{localizeMessageBody(m.body)}</div>
       </>
     )
   }
@@ -459,7 +463,7 @@ export default function AdminChatInbox() {
             onClick={() => setTab('threads')}
             className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900"
           >
-            ← Back to inbox
+            {t('chat.admin.backToInbox')}
           </button>
         </div>
         <AdminChatTrash />
@@ -483,7 +487,7 @@ export default function AdminChatInbox() {
                 tab === 'threads' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-600'
               }`}
             >
-              Threads ({threads.length})
+              {t('chat.admin.threads', { count: threads.length })}
             </button>
             <button
               type="button"
@@ -495,7 +499,7 @@ export default function AdminChatInbox() {
                 tab === 'quotes' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-600'
               }`}
             >
-              Quotes ({quotes.length})
+              {t('chat.admin.quotes', { count: quotes.length })}
             </button>
             {isSuperAdmin ? (
               <button
@@ -503,14 +507,14 @@ export default function AdminChatInbox() {
                 onClick={() => setTab('trash')}
                 className="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:text-red-700"
               >
-                Trash
+                {t('chat.admin.trash')}
               </button>
             ) : null}
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-[520px]">
             {loadingInbox ? (
-              <div className="p-4 text-sm text-gray-500">Loading…</div>
+              <div className="p-4 text-sm text-gray-500">{t('chat.admin.loading')}</div>
             ) : tab === 'threads' ? (
               threads.length ? (
                 <ul>
@@ -525,13 +529,19 @@ export default function AdminChatInbox() {
                       >
                         <div className="font-medium text-gray-900 truncate">{thread.buyerLabel}</div>
                         <div className="text-xs text-gray-500 truncate">
-                          {thread.lastMessagePreview || 'No messages yet'}
+                          {thread.lastMessagePreview || t('chat.admin.noMessagesPreview')}
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-400">
                           <span>{formatTime(thread.updated_at)}</span>
                           {thread.pendingQuoteCount > 0 ? (
                             <span className="rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.5">
-                              {thread.pendingQuoteCount} quote{thread.pendingQuoteCount > 1 ? 's' : ''}
+                              {thread.pendingQuoteCount > 1
+                                ? t('chat.admin.pendingQuotesPlural', {
+                                    count: thread.pendingQuoteCount,
+                                  })
+                                : t('chat.admin.pendingQuotes', {
+                                    count: thread.pendingQuoteCount,
+                                  })}
                             </span>
                           ) : null}
                         </div>
@@ -540,7 +550,7 @@ export default function AdminChatInbox() {
                   ))}
                 </ul>
               ) : (
-                <div className="p-4 text-sm text-gray-500">No buyer threads yet.</div>
+                <div className="p-4 text-sm text-gray-500">{t('chat.admin.noThreads')}</div>
               )
             ) : tab === 'quotes' ? (
               quotes.length ? (
@@ -558,7 +568,7 @@ export default function AdminChatInbox() {
                           className="flex-1 text-left px-4 py-3 hover:bg-gray-50"
                         >
                           <div className="font-medium text-gray-900 truncate">
-                            {quote.product_name || 'Unnamed product'}
+                            {quote.product_name || t('chat.admin.unnamedProduct')}
                           </div>
                           <div className="text-xs text-gray-500 truncate">{quote.buyerLabel}</div>
                           <div className="mt-1 flex items-center gap-2 text-[11px]">
@@ -571,10 +581,12 @@ export default function AdminChatInbox() {
                                     : 'bg-gray-100 text-gray-600'
                               }`}
                             >
-                              {quote.status}
+                              {quoteStatusLabel(quote.status)}
                             </span>
                             {quote.product_sku ? (
-                              <span className="text-gray-400 truncate">SKU {quote.product_sku}</span>
+                              <span className="text-gray-400 truncate">
+                                {t('chat.sku', { sku: quote.product_sku })}
+                              </span>
                             ) : null}
                           </div>
                         </button>
@@ -584,7 +596,7 @@ export default function AdminChatInbox() {
                             onClick={() => void deleteQuote(quote.id)}
                             className="px-3 text-xs text-red-600 hover:bg-red-50"
                           >
-                            Trash
+                            {t('chat.admin.trashItem')}
                           </button>
                         ) : null}
                       </div>
@@ -592,10 +604,10 @@ export default function AdminChatInbox() {
                   ))}
                 </ul>
               ) : (
-                <div className="p-4 text-sm text-gray-500">No quote requests in the database.</div>
+                <div className="p-4 text-sm text-gray-500">{t('chat.admin.noQuotesInDb')}</div>
               )
             ) : (
-              <div className="p-4 text-sm text-gray-500">Select a tab.</div>
+              <div className="p-4 text-sm text-gray-500">{t('chat.admin.selectTab')}</div>
             )}
           </div>
         </aside>
@@ -610,7 +622,9 @@ export default function AdminChatInbox() {
                       <div className="font-semibold text-gray-900">{selectedQuote.product_name}</div>
                       <div className="text-xs text-gray-500">
                         {selectedQuote.buyerLabel}
-                        {selectedQuote.product_sku ? ` · SKU ${selectedQuote.product_sku}` : ''}
+                        {selectedQuote.product_sku
+                          ? ` · ${t('chat.sku', { sku: selectedQuote.product_sku })}`
+                          : ''}
                       </div>
                     </>
                   ) : (
@@ -618,11 +632,13 @@ export default function AdminChatInbox() {
                       <div className="font-semibold text-gray-900">{activeBuyerLabel}</div>
                       {(selectedThread?.accessCode ?? selectedQuote?.accessCode) ? (
                         <div className="text-xs text-gray-500">
-                          Access code: {selectedThread?.accessCode ?? selectedQuote?.accessCode}
+                          {t('chat.admin.accessCode', {
+                            code: selectedThread?.accessCode ?? selectedQuote?.accessCode ?? '',
+                          })}
                         </div>
                       ) : selectedThread?.visitorIp ? (
                         <div className="text-xs text-gray-500">
-                          Visitor IP: {selectedThread.visitorIp}
+                          {t('chat.admin.visitorIp', { ip: selectedThread.visitorIp })}
                         </div>
                       ) : null}
                     </>
@@ -634,7 +650,7 @@ export default function AdminChatInbox() {
                     onClick={() => void deleteThread(selectedId)}
                     className="shrink-0 rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
                   >
-                    Trash thread
+                    {t('chat.admin.trashThread')}
                   </button>
                 ) : null}
               </div>
@@ -647,7 +663,7 @@ export default function AdminChatInbox() {
 
               <div ref={buyerScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
                 {loadingMessages && !messages.length ? (
-                  <div className="text-sm text-gray-500">Loading messages…</div>
+                  <div className="text-sm text-gray-500">{t('chat.seller.loadingMessages')}</div>
                 ) : messages.length ? (
                   messages.map((m) => (
                     <div
@@ -661,9 +677,9 @@ export default function AdminChatInbox() {
                           className={`opacity-0 group-hover:opacity-100 text-[10px] text-red-600 px-1 ${
                             m.sender_role === 'admin' ? 'order-first' : ''
                           }`}
-                          title="Move to trash"
+                          title={t('chat.admin.confirmTrashMessage')}
                         >
-                          Trash
+                          {t('chat.admin.trashItem')}
                         </button>
                       ) : null}
                       <div
@@ -681,7 +697,7 @@ export default function AdminChatInbox() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-gray-500">No messages in this thread yet.</div>
+                  <div className="text-sm text-gray-500">{t('chat.admin.noMessagesInThread')}</div>
                 )}
               </div>
 
@@ -696,7 +712,7 @@ export default function AdminChatInbox() {
                       void sendReply()
                     }
                   }}
-                  placeholder="Reply to buyer…"
+                  placeholder={t('chat.admin.replyPlaceholder')}
                   className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
@@ -705,15 +721,15 @@ export default function AdminChatInbox() {
                   disabled={sending || !reply.trim()}
                   className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Send
+                  {t('chat.send')}
                 </button>
               </div>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-gray-500 p-8">
               {tab === 'quotes'
-                ? 'Select a quote to view the buyer thread and take action.'
-                : 'Select a thread to view messages and reply.'}
+                ? t('chat.admin.selectQuoteAction')
+                : t('chat.admin.selectThread')}
             </div>
           )}
         </section>
@@ -722,10 +738,8 @@ export default function AdminChatInbox() {
       {pickPricelistForQuote ? (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="font-semibold text-gray-900">Forward to pricelist</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Choose which supplier pricelist page should receive this product quote request.
-            </p>
+            <h3 className="font-semibold text-gray-900">{t('chat.admin.forwardPricelistTitle')}</h3>
+            <p className="mt-1 text-sm text-gray-600">{t('chat.admin.forwardPricelistHintLong')}</p>
             <select
               value={pickPricelistId}
               onChange={(e) => setPickPricelistId(e.target.value)}
@@ -743,7 +757,7 @@ export default function AdminChatInbox() {
                 onClick={() => setPickPricelistForQuote(null)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
-                Cancel
+                {t('chat.admin.pickPricelistCancel')}
               </button>
               <button
                 type="button"
@@ -751,7 +765,7 @@ export default function AdminChatInbox() {
                 onClick={() => void escalateQuote(pickPricelistForQuote, pickPricelistId)}
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                Forward to supplier
+                {t('chat.admin.forwardToSupplier')}
               </button>
             </div>
           </div>
@@ -763,15 +777,15 @@ export default function AdminChatInbox() {
           <div className="w-full max-w-lg rounded-xl bg-white shadow-xl flex flex-col max-h-[80vh]">
             <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900">Supplier thread</h3>
-                <p className="text-xs text-gray-500">Chat with seller — buyer is not visible here.</p>
+                <h3 className="font-semibold text-gray-900">{t('chat.admin.supplierThread')}</h3>
+                <p className="text-xs text-gray-500">{t('chat.admin.supplierThreadModalHint')}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSupplierConvId(null)}
                 className="text-gray-500 hover:text-gray-800 text-sm"
               >
-                Close
+                {t('chat.close')}
               </button>
             </div>
             <div ref={supplierScrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -796,7 +810,7 @@ export default function AdminChatInbox() {
                   </div>
                 ))
               ) : (
-                <div className="text-sm text-gray-500">No messages yet.</div>
+                <div className="text-sm text-gray-500">{t('chat.admin.noMessages')}</div>
               )}
             </div>
             <div className="border-t border-gray-200 p-3 flex gap-2">
@@ -810,7 +824,7 @@ export default function AdminChatInbox() {
                     void sendSupplierReply()
                   }
                 }}
-                placeholder="Message supplier…"
+                placeholder={t('chat.admin.messageSupplierPlaceholder')}
                 className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
               <button
@@ -819,7 +833,7 @@ export default function AdminChatInbox() {
                 disabled={supplierSending || !supplierReply.trim()}
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                Send
+                {t('chat.send')}
               </button>
             </div>
           </div>

@@ -8,6 +8,8 @@ import { appPath } from '@/lib/paths'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { useAuth } from '@/lib/auth-local'
 import { useI18n } from '@/lib/i18n-context'
+import { encodeChatI18nBody } from '@/lib/chat-message-i18n'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
 
 type Props = {
   open: boolean
@@ -25,6 +27,7 @@ export default function ChatQuoteProductModal({
   sending,
 }: Props) {
   const { t } = useI18n()
+  const { productLabel } = useChatMessageText()
   const { user } = useAuth()
   const [gallery, setGallery] = useState<string[]>([])
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -71,10 +74,13 @@ export default function ChatQuoteProductModal({
   const sendPrice = () => {
     const trimmed = price.trim()
     if (!trimmed || !onSendPrice) return
-    const label = quote.product_sku
-      ? `${quote.product_name} (SKU ${quote.product_sku})`
-      : quote.product_name
-    onSendPrice(`Price for ${label}: ${trimmed}`)
+    const label = productLabel({ name: quote.product_name, sku: quote.product_sku })
+    onSendPrice(
+      encodeChatI18nBody('chat.priceReply', {
+        label,
+        price: trimmed,
+      })
+    )
     setPrice('')
     onClose()
   }
@@ -87,7 +93,9 @@ export default function ChatQuoteProductModal({
             <div className="min-w-0">
               <div className="font-semibold text-gray-900 truncate">{quote.product_name}</div>
               {quote.product_sku ? (
-                <div className="text-sm text-gray-500">SKU {quote.product_sku}</div>
+                <div className="text-sm text-gray-500">
+                  {t('chat.sku', { sku: quote.product_sku })}
+                </div>
               ) : null}
             </div>
             <button
@@ -119,7 +127,7 @@ export default function ChatQuoteProductModal({
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-                  No image
+                  {t('chat.noImage')}
                 </div>
               )}
             </button>
@@ -155,7 +163,7 @@ export default function ChatQuoteProductModal({
                     type="text"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    placeholder="€ 0,00"
+                    placeholder={t('chat.pricePlaceholder')}
                     className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
                   />
                   <button

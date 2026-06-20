@@ -6,6 +6,7 @@ import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuo
 import ChatQuoteProductModal from '@/components/chat/ChatQuoteProductModal'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
 import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
+import { useChatMessageText } from '@/hooks/useChatMessageText'
 import {
   createOptimisticMessage,
   replaceOptimisticMessage,
@@ -27,6 +28,7 @@ type MessageItem = {
 
 export default function ChatSupplierPanel() {
   const { t } = useI18n()
+  const { localizeMessageBody } = useChatMessageText()
   const { user } = useAuth()
   const {
     bootstrap,
@@ -144,7 +146,7 @@ export default function ChatSupplierPanel() {
               {m.message_type === 'quote' && m.quote ? (
                 <ChatQuoteCard quote={m.quote} compact onClick={() => setActiveQuote(m.quote)} />
               ) : (
-                <div className="whitespace-pre-wrap px-1">{m.body}</div>
+                <div className="whitespace-pre-wrap px-1">{localizeMessageBody(m.body)}</div>
               )}
             </div>
           </div>
