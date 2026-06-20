@@ -45,16 +45,16 @@ type ChatContextValue = {
   open: boolean
   setOpen: (open: boolean) => void
   bootstrap: ChatBootstrap | null
+  /** True only on first connect — background refreshes stay silent. */
   loading: boolean
   error: string
   requestQuote: (quote: ChatQuoteAttach) => void
-  /** Product IDs waiting to be sent as quote requests (FIFO). */
   quoteQueue: string[]
   dequeueQuote: (productId: string) => void
   pricelistOwnerParam: string | null
   selectedSupplierThreadId: string | null
   setSelectedSupplierThreadId: (id: string | null) => void
-  refreshBootstrap: () => Promise<void>
+  refreshBootstrap: (options?: { silent?: boolean }) => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -74,6 +74,26 @@ async function fetchJson(url: string, init?: RequestInit): Promise<any> {
   return data
 }
 
+function bootstrapSnapshotEqual(a: ChatBootstrap | null, b: ChatBootstrap): boolean {
+  if (!a) return false
+  if (
+    a.sessionId !== b.sessionId ||
+    a.conversationId !== b.conversationId ||
+    a.chatRole !== b.chatRole ||
+    a.displayLabel !== b.displayLabel ||
+    a.participantType !== b.participantType
+  ) {
+    return false
+  }
+  if (a.supplierThreads.length !== b.supplierThreads.length) return false
+  for (let i = 0; i < a.supplierThreads.length; i++) {
+    const left = a.supplierThreads[i]
+    const right = b.supplierThreads[i]
+    if (!left || !right || left.id !== right.id || left.quoteId !== right.quoteId) return false
+  }
+  return true
+}
+
 export default function ChatProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const pathname = usePathname()
@@ -84,56 +104,65 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
   const [error, setError] = useState('')
   const [quoteQueue, setQuoteQueue] = useState<string[]>([])
   const [selectedSupplierThreadId, setSelectedSupplierThreadId] = useState<string | null>(null)
-  const startedRef = useRef(false)
+  const bootstrapRef = useRef<ChatBootstrap | null>(null)
+  bootstrapRef.current = bootstrap
 
   const pricelistOwnerParam = useMemo(() => {
     if (!pathname?.includes('/pricelist')) return null
     return searchParams.get('owner')?.trim() || null
   }, [pathname, searchParams])
 
-  const loadBootstrap = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const params = new URLSearchParams()
-      if (pricelistOwnerParam) params.set('owner', pricelistOwnerParam)
-      const suffix = params.toString() ? `?${params.toString()}` : ''
-      const data = (await fetchJson(appPath(`/api/chat/bootstrap${suffix}`), {
-        headers: catalogAuthHeaders(user),
-      })) as ChatBootstrap
-      setBootstrap(data)
-      if (data.chatRole === 'pricelist_supplier') {
-        setSelectedSupplierThreadId(
-          (prev) => prev ?? data.selectedThreadId ?? data.supplierThreads[0]?.id ?? null
-        )
+  const loadBootstrap = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false
+      if (!silent) {
+        setLoading(true)
+        setError('')
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      setBootstrap(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [user, pricelistOwnerParam])
+      try {
+        const params = new URLSearchParams()
+        if (pricelistOwnerParam) params.set('owner', pricelistOwnerParam)
+        const suffix = params.toString() ? `?${params.toString()}` : ''
+        const data = (await fetchJson(appPath(`/api/chat/bootstrap${suffix}`), {
+          headers: catalogAuthHeaders(user),
+        })) as ChatBootstrap
+        if (!silent || !bootstrapSnapshotEqual(bootstrapRef.current, data)) {
+          setBootstrap(data)
+          if (data.chatRole === 'pricelist_supplier') {
+            setSelectedSupplierThreadId(
+              (prev) => prev ?? data.selectedThreadId ?? data.supplierThreads[0]?.id ?? null
+            )
+          }
+        }
+        setError('')
+      } catch (e) {
+        if (!silent) {
+          setError(e instanceof Error ? e.message : String(e))
+          setBootstrap(null)
+        }
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    },
+    [user, pricelistOwnerParam]
+  )
+
+  useEffect(() => {
+    void loadBootstrap({ silent: true })
+  }, [loadBootstrap])
 
   useEffect(() => {
     if (!open) return
-    startedRef.current = false
-    void loadBootstrap()
-  }, [pricelistOwnerParam, open, loadBootstrap])
-
-  useEffect(() => {
-    if (!open) {
-      startedRef.current = false
-      return
-    }
-    if (startedRef.current) return
-    startedRef.current = true
-    void loadBootstrap()
-  }, [open, loadBootstrap])
+    void loadBootstrap({ silent: Boolean(bootstrapRef.current) })
+  }, [open, pricelistOwnerParam, loadBootstrap])
 
   useEffect(() => {
     if (!open) return
-    const timer = setInterval(() => void loadBootstrap(), CHAT_INBOX_POLL_MS)
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void loadBootstrap({ silent: true })
+    }
+    const timer = setInterval(tick, CHAT_INBOX_POLL_MS)
     return () => clearInterval(timer)
   }, [open, loadBootstrap])
 

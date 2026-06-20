@@ -11,6 +11,8 @@ import {
 } from '@/lib/chat-session-cookie'
 import {
   createChatParticipantSession,
+  findChatSessionBySiteAccessCode,
+  findChatSessionByVisitorIp,
   findChatSessionForPricelistSupplier,
   findChatSessionForUser,
   findPricelistGuestSession,
@@ -21,6 +23,7 @@ import {
 import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getPricelistPageById, resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 import { queryDb } from '@/lib/db'
+import { clientIp } from '@/lib/request-client-ip'
 
 export type ChatViewerContext = {
   session: ChatParticipantSessionRow
@@ -70,6 +73,105 @@ function isPricelistSupplierActor(
   if (actor?.role === 'seller' && pricelistAccess.mode === 'full') return true
   if (pricelistAccess.mode === 'guest') return true
   return false
+}
+
+function buyerSessionMatchesContext(
+  session: ChatParticipantSessionRow,
+  ctx: { actor: CatalogActor | null; siteAccessCodeId: string | null }
+): boolean {
+  if (ctx.actor && ctx.actor.role !== 'admin' && ctx.actor.role !== 'seller') {
+    return session.participant_type === 'buyer_user' && session.user_id === ctx.actor.userId
+  }
+  if (ctx.siteAccessCodeId) {
+    return (
+      session.participant_type === 'site_code' &&
+      session.site_access_code_id === ctx.siteAccessCodeId
+    )
+  }
+  return session.participant_type === 'site_password'
+}
+
+async function resolveBuyerChatSession(input: {
+  request: NextRequest
+  actor: CatalogActor | null
+  siteAccessCodeId: string | null
+  configVersion: number
+}): Promise<ChatParticipantSessionRow> {
+  const { request, actor, siteAccessCodeId, configVersion } = input
+  const visitorIp = clientIp(request)
+  const chatToken = readChatSessionCookie(request.headers.get('cookie'))
+  const cookieSessionId = await verifyChatSessionToken(chatToken, configVersion)
+
+  if (actor && actor.role !== 'admin' && actor.role !== 'seller') {
+    const existingUserSession = await findChatSessionForUser(actor.userId, 'buyer_user')
+    if (existingUserSession) {
+      await touchChatParticipantSessionLastSeen(existingUserSession.id)
+      return existingUserSession
+    }
+  }
+
+  if (siteAccessCodeId && !actor) {
+    const existingCodeSession = await findChatSessionBySiteAccessCode(siteAccessCodeId)
+    if (existingCodeSession) {
+      const codeRow = await findSiteAccessCodeById(siteAccessCodeId)
+      const label = codeRow?.code ?? existingCodeSession.display_label
+      if (label && existingCodeSession.display_label !== label) {
+        await queryDb(`UPDATE chat_participant_sessions SET display_label = ? WHERE id = ?`, [
+          label,
+          existingCodeSession.id,
+        ])
+        existingCodeSession.display_label = label
+      }
+      await touchChatParticipantSessionLastSeen(existingCodeSession.id)
+      return existingCodeSession
+    }
+  }
+
+  if (cookieSessionId) {
+    const cookieSession = await getChatParticipantSessionById(cookieSessionId)
+    if (
+      cookieSession &&
+      buyerSessionMatchesContext(cookieSession, { actor, siteAccessCodeId })
+    ) {
+      await touchChatParticipantSessionLastSeen(cookieSession.id)
+      return cookieSession
+    }
+  }
+
+  if (!siteAccessCodeId && !actor) {
+    const ipSession = await findChatSessionByVisitorIp(visitorIp)
+    if (ipSession) {
+      await touchChatParticipantSessionLastSeen(ipSession.id)
+      return ipSession
+    }
+  }
+
+  let displayLabel: string | null = null
+  if (siteAccessCodeId) {
+    const codeRow = await findSiteAccessCodeById(siteAccessCodeId)
+    displayLabel = codeRow?.code ?? null
+  }
+
+  const participantType = actor
+    ? actor.role === 'admin'
+      ? 'admin_user'
+      : actor.role === 'buyer'
+        ? 'buyer_user'
+        : actor.role === 'seller'
+          ? 'seller_user'
+          : 'site_password'
+    : siteAccessCodeId
+      ? 'site_code'
+      : 'site_password'
+
+  return createChatParticipantSession({
+    participantType,
+    siteAccessCodeId,
+    userId: actor?.userId ?? null,
+    pricelistOwnerId: null,
+    displayLabel: participantType === 'site_code' ? displayLabel : null,
+    visitorIp: participantType === 'site_password' ? visitorIp : null,
+  })
 }
 
 export async function resolveChatViewer(
@@ -146,21 +248,6 @@ export async function resolveChatViewer(
             configVersion: unlock.configVersion,
           }
         }
-      } else if (!onPricelistSupplier) {
-        await touchChatParticipantSessionLastSeen(existing.id)
-        return {
-          ok: true,
-          viewer: {
-            session: existing,
-            actor,
-            siteAccessCodeId,
-            mode,
-            pricelistOwnerId,
-            pricelistLabel,
-            chatRole,
-          },
-          configVersion: unlock.configVersion,
-        }
       }
     }
   }
@@ -230,51 +317,11 @@ export async function resolveChatViewer(
     }
   }
 
-  if (actor && actor.role !== 'admin' && actor.role !== 'seller') {
-    const participantType = actor.role === 'buyer' ? 'buyer_user' : 'buyer_user'
-    const existingUserSession = await findChatSessionForUser(actor.userId, participantType)
-    if (existingUserSession) {
-      await touchChatParticipantSessionLastSeen(existingUserSession.id)
-      return {
-        ok: true,
-        viewer: {
-          session: existingUserSession,
-          actor,
-          siteAccessCodeId,
-          mode,
-          pricelistOwnerId,
-          pricelistLabel,
-          chatRole: 'buyer',
-        },
-        configVersion: unlock.configVersion,
-      }
-    }
-  }
-
-  let displayLabel: string | null = null
-  if (siteAccessCodeId) {
-    const codeRow = await findSiteAccessCodeById(siteAccessCodeId)
-    displayLabel = codeRow?.code ?? null
-  }
-
-  const participantType = actor
-    ? actor.role === 'admin'
-      ? 'admin_user'
-      : actor.role === 'buyer'
-        ? 'buyer_user'
-        : actor.role === 'seller'
-          ? 'seller_user'
-          : 'site_password'
-    : siteAccessCodeId
-      ? 'site_code'
-      : 'site_password'
-
-  const session = await createChatParticipantSession({
-    participantType,
+  const session = await resolveBuyerChatSession({
+    request,
+    actor,
     siteAccessCodeId,
-    userId: actor?.userId ?? null,
-    pricelistOwnerId: null,
-    displayLabel: participantType === 'site_code' ? displayLabel : null,
+    configVersion: unlock.configVersion,
   })
 
   return {
@@ -341,6 +388,32 @@ export async function resolveSupplierChatViewer(
 
   if (!isPricelistSupplierActor(actor, ownerId, pricelistAccess)) {
     return { ok: false, status: 403, error: 'Supplier chat access required' }
+  }
+
+  const chatToken = readChatSessionCookie(request.headers.get('cookie'))
+  const cookieSessionId = await verifyChatSessionToken(chatToken, unlock.configVersion)
+  if (cookieSessionId) {
+    const cookieSession = await getChatParticipantSessionById(cookieSessionId)
+    if (
+      cookieSession &&
+      cookieSession.pricelist_owner_id === ownerId &&
+      (cookieSession.participant_type === 'pricelist_guest' ||
+        cookieSession.participant_type === 'seller_user' ||
+        cookieSession.participant_type === 'admin_user')
+    ) {
+      if (pricelistLabel && cookieSession.display_label !== pricelistLabel) {
+        await queryDb(`UPDATE chat_participant_sessions SET display_label = ? WHERE id = ?`, [
+          pricelistLabel,
+          cookieSession.id,
+        ])
+        cookieSession.display_label = pricelistLabel
+      }
+      await touchChatParticipantSessionLastSeen(cookieSession.id)
+      return {
+        ok: true,
+        viewer: { session: cookieSession, actor, pricelistOwnerId: ownerId, pricelistLabel },
+      }
+    }
   }
 
   const participantType =

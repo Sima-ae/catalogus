@@ -22,6 +22,7 @@ export type ChatParticipantSessionRow = {
   user_id: string | null
   pricelist_owner_id: string | null
   display_label: string | null
+  visitor_ip: string | null
   created_at: string
   last_seen_at: string | null
 }
@@ -96,12 +97,13 @@ export async function createChatParticipantSession(input: {
   userId?: string | null
   pricelistOwnerId?: string | null
   displayLabel?: string | null
+  visitorIp?: string | null
 }): Promise<ChatParticipantSessionRow> {
   const id = randomUUID()
   await queryDb(
     `INSERT INTO chat_participant_sessions
-      (id, participant_type, site_access_code_id, user_id, pricelist_owner_id, display_label)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+      (id, participant_type, site_access_code_id, user_id, pricelist_owner_id, display_label, visitor_ip)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.participantType,
@@ -109,6 +111,7 @@ export async function createChatParticipantSession(input: {
       input.userId ?? null,
       input.pricelistOwnerId ?? null,
       input.displayLabel ?? null,
+      input.visitorIp ?? null,
     ]
   )
   const row = await getChatParticipantSessionById(id)
@@ -299,6 +302,7 @@ export type BuyerThreadInboxItem = {
   status: ChatConversationStatus
   buyerLabel: string
   accessCode: string | null
+  visitorIp?: string | null
   lastMessagePreview: string | null
   pendingQuoteCount: number
   updated_at: string
@@ -341,6 +345,34 @@ export async function findChatSessionForUser(
   return rows[0] ?? null
 }
 
+export async function findChatSessionBySiteAccessCode(
+  siteAccessCodeId: string
+): Promise<ChatParticipantSessionRow | null> {
+  const rows = await queryDb<ChatParticipantSessionRow[]>(
+    `SELECT * FROM chat_participant_sessions
+     WHERE site_access_code_id = ? AND participant_type = 'site_code'
+     ORDER BY COALESCE(last_seen_at, created_at) DESC, created_at DESC
+     LIMIT 1`,
+    [siteAccessCodeId]
+  )
+  return rows[0] ?? null
+}
+
+export async function findChatSessionByVisitorIp(
+  visitorIp: string
+): Promise<ChatParticipantSessionRow | null> {
+  const ip = visitorIp.trim()
+  if (!ip || ip === 'unknown') return null
+  const rows = await queryDb<ChatParticipantSessionRow[]>(
+    `SELECT * FROM chat_participant_sessions
+     WHERE participant_type = 'site_password' AND visitor_ip = ?
+     ORDER BY COALESCE(last_seen_at, created_at) DESC, created_at DESC
+     LIMIT 1`,
+    [ip]
+  )
+  return rows[0] ?? null
+}
+
 export async function findPricelistGuestSession(
   pricelistOwnerId: string
 ): Promise<ChatParticipantSessionRow | null> {
@@ -378,9 +410,14 @@ function formatBuyerLabel(input: {
   access_code: string | null
   user_name: string | null
   user_email: string | null
+  visitor_ip?: string | null
 }): string {
   if (input.participant_type === 'site_code' && input.access_code) return input.access_code
-  if (input.participant_type === 'site_password') return 'Site visitor'
+  if (input.participant_type === 'site_password') {
+    const ip = input.visitor_ip?.trim()
+    if (ip && ip !== 'unknown') return `Site visitor (${ip})`
+    return 'Site visitor'
+  }
   const name = input.user_name?.trim()
   if (name) return name
   const email = input.user_email?.trim()
@@ -402,6 +439,7 @@ export async function listBuyerThreadsForAdmin(limit = 100): Promise<BuyerThread
       access_code: string | null
       user_name: string | null
       user_email: string | null
+      visitor_ip: string | null
       pending_quote_count: number
       last_body: string | null
       last_type: string | null
@@ -416,6 +454,7 @@ export async function listBuyerThreadsForAdmin(limit = 100): Promise<BuyerThread
        sac.code AS access_code,
        u.name AS user_name,
        u.email AS user_email,
+       s.visitor_ip,
        (
          SELECT COUNT(*)
          FROM chat_quote_requests q
@@ -452,6 +491,7 @@ export async function listBuyerThreadsForAdmin(limit = 100): Promise<BuyerThread
     status: row.status,
     buyerLabel: formatBuyerLabel(row),
     accessCode: row.access_code,
+    visitorIp: row.visitor_ip,
     lastMessagePreview:
       row.last_type === 'quote'
         ? '[Quote request]'
@@ -482,6 +522,7 @@ export async function listQuotesForAdmin(options?: {
       access_code: string | null
       user_name: string | null
       user_email: string | null
+      visitor_ip: string | null
     })[]
   >(
     `SELECT
@@ -490,7 +531,8 @@ export async function listQuotesForAdmin(options?: {
        s.display_label,
        sac.code AS access_code,
        u.name AS user_name,
-       u.email AS user_email
+       u.email AS user_email,
+       s.visitor_ip
      FROM chat_quote_requests q
      INNER JOIN chat_conversations c ON c.id = q.conversation_id AND c.deleted_at IS NULL
      LEFT JOIN chat_participant_sessions s ON s.id = c.buyer_session_id
@@ -503,7 +545,7 @@ export async function listQuotesForAdmin(options?: {
   )
 
   return rows.map((row) => {
-    const { participant_type, display_label, access_code, user_name, user_email, ...quote } = row
+    const { participant_type, display_label, access_code, user_name, user_email, visitor_ip, ...quote } = row
     return {
       ...quote,
       conversation_id: quote.conversation_id,
@@ -514,6 +556,7 @@ export async function listQuotesForAdmin(options?: {
         access_code,
         user_name,
         user_email,
+        visitor_ip,
       }),
       accessCode: access_code,
     }

@@ -23,14 +23,16 @@ export function useChatMessagePoll<T extends ChatMessageListItem>({
   conversationKey = null,
 }: UseChatMessagePollOptions<T>) {
   const [messages, setMessages] = useState<T[]>([])
-  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(false)
   const lastTsRef = useRef<string | null>(null)
   const fetchRef = useRef(fetchMessages)
+  const hasLoadedRef = useRef(false)
   fetchRef.current = fetchMessages
 
   const loadMessages = useCallback(async (reset = false) => {
     if (!enabled) return
-    if (reset) setLoading(true)
+    const showSpinner = reset && !hasLoadedRef.current
+    if (showSpinner) setInitialLoading(true)
     try {
       const since = reset ? null : lastTsRef.current
       const items = await fetchRef.current(since)
@@ -38,21 +40,24 @@ export function useChatMessagePoll<T extends ChatMessageListItem>({
       const ts = latestMessageTimestamp(items)
       if (ts) lastTsRef.current = ts
       else if (reset) lastTsRef.current = null
+      if (reset) hasLoadedRef.current = true
     } catch {
       // retry on next poll
     } finally {
-      if (reset) setLoading(false)
+      if (showSpinner) setInitialLoading(false)
     }
   }, [enabled])
 
   const resetMessages = useCallback(() => {
     lastTsRef.current = null
+    hasLoadedRef.current = false
     setMessages([])
   }, [])
 
   const bumpFromMessage = useCallback((message: T) => {
     setMessages((prev) => mergeChatMessages(prev, [message], false) as T[])
     if (message.created_at) lastTsRef.current = message.created_at
+    hasLoadedRef.current = true
   }, [])
 
   useEffect(() => {
@@ -60,15 +65,21 @@ export function useChatMessagePoll<T extends ChatMessageListItem>({
       resetMessages()
       return
     }
+    hasLoadedRef.current = false
     void loadMessages(true)
-    const timer = setInterval(() => void loadMessages(false), pollMs)
+
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void loadMessages(false)
+    }
+    const timer = setInterval(tick, pollMs)
     return () => clearInterval(timer)
   }, [enabled, conversationKey, pollMs, loadMessages, resetMessages])
 
   return {
     messages,
     setMessages,
-    loading,
+    loading: initialLoading,
     loadMessages,
     bumpFromMessage,
     resetMessages,

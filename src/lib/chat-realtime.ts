@@ -1,8 +1,8 @@
 /** Active chat polling interval (ms) while a conversation is open. */
-export const CHAT_POLL_MS = 2000
+export const CHAT_POLL_MS = 5000
 
-/** Inbox / thread list refresh while chat UI is visible. */
-export const CHAT_INBOX_POLL_MS = 5000
+/** Supplier thread list refresh while chat widget is open (silent). */
+export const CHAT_INBOX_POLL_MS = 20000
 
 export type ChatMessageListItem = {
   id: string

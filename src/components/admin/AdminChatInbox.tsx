@@ -20,6 +20,7 @@ type ThreadItem = {
   status: string
   buyerLabel: string
   accessCode: string | null
+  visitorIp?: string | null
   lastMessagePreview: string | null
   pendingQuoteCount: number
   updated_at: string
@@ -618,6 +619,10 @@ export default function AdminChatInbox() {
                       {(selectedThread?.accessCode ?? selectedQuote?.accessCode) ? (
                         <div className="text-xs text-gray-500">
                           Access code: {selectedThread?.accessCode ?? selectedQuote?.accessCode}
+                        </div>
+                      ) : selectedThread?.visitorIp ? (
+                        <div className="text-xs text-gray-500">
+                          Visitor IP: {selectedThread.visitorIp}
                         </div>
                       ) : null}
                     </>

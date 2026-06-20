@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const since = request.nextUrl.searchParams.get('since')
-  const items = await listChatMessagesWithQuotes(id, { since, limit: 200 })
+  const items = await listChatMessagesWithQuotes(id, { since, limit: 500 })
   return NextResponse.json({ items, conversation })
 }
 

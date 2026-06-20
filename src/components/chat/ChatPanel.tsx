@@ -224,7 +224,7 @@ export default function ChatPanel() {
             </div>
 
             <div ref={scrollRef} className="p-4 text-sm text-gray-700 flex-1 overflow-y-auto min-h-[180px]">
-              {loading ? (
+              {loading && !bootstrap ? (
                 <div className="text-gray-500">{t('chat.loading')}</div>
               ) : quoteError ? (
                 <div className="text-red-600">{quoteError}</div>

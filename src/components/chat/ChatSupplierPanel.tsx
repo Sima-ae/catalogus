@@ -113,9 +113,9 @@ export default function ChatSupplierPanel() {
         const confirmed = rowToMessageItem(data.message) as MessageItem
         setMessages((prev) => replaceOptimisticMessage(prev, optimistic.id, confirmed) as MessageItem[])
       } else {
-        await loadMessages(true)
+        await loadMessages(false)
       }
-      void refreshBootstrap()
+      void refreshBootstrap({ silent: true })
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
     } finally {
@@ -182,7 +182,7 @@ export default function ChatSupplierPanel() {
       ) : null}
 
       <div ref={scrollRef} className="p-4 text-sm text-gray-700 flex-1 overflow-y-auto min-h-[180px]">
-        {loading ? (
+        {loading && !bootstrap ? (
           <div className="text-gray-500">{t('chat.loading')}</div>
         ) : error ? (
           <div className="text-red-600">{error}</div>

@@ -13,15 +13,10 @@ import {
 import { getSiteAccessConfig, verifySiteAccessPassword } from '@/lib/site-access'
 import { findSiteAccessCodeByInput } from '@/lib/site-access-codes-db'
 import { checkSiteAccessVerifyRateLimit } from '@/lib/site-access-verify-rate-limit'
+import { clientIp } from '@/lib/request-client-ip'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for')
-  if (forwarded) return forwarded.split(',')[0]?.trim() || 'unknown'
-  return request.headers.get('x-real-ip')?.trim() || 'unknown'
-}
 
 export async function POST(request: NextRequest) {
   ensureEnvLoaded()

@@ -13,12 +13,7 @@ import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useI18n } from '@/lib/i18n-context'
 import { formatMessage } from '@/lib/i18n'
-
-const baseNavKeys = [
-  { key: 'buyer.nav.dashboard', href: '/buyer' },
-  { key: 'buyer.nav.browseShop', href: '/' },
-  { key: 'buyer.nav.myCart', href: '/cart' },
-] as const
+import { filterBuyerNavKeys } from '@/lib/buyer-nav'
 
 export default function BuyerDashboard() {
   const t = useAppTheme()
@@ -26,10 +21,7 @@ export default function BuyerDashboard() {
   const { catalogMode } = useCatalogMode()
   const { user } = useAuth()
   const nav = useMemo(
-    () =>
-      (catalogMode ? baseNavKeys.filter((item) => item.href !== '/cart') : baseNavKeys).map(
-        (item) => ({ name: tr(item.key), href: item.href })
-      ),
+    () => filterBuyerNavKeys(catalogMode).map((item) => ({ name: tr(item.key), href: item.href })),
     [catalogMode, tr]
   )
   const [products, setProducts] = useState<Product[]>([])

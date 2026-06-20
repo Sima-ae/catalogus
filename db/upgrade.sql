@@ -571,12 +571,14 @@ CREATE TABLE IF NOT EXISTS chat_participant_sessions (
   user_id VARCHAR(36) NULL,
   pricelist_owner_id VARCHAR(36) NULL,
   display_label VARCHAR(255) NULL,
+  visitor_ip VARCHAR(45) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_seen_at TIMESTAMP NULL,
   PRIMARY KEY (id),
   KEY idx_chat_sessions_user (user_id),
   KEY idx_chat_sessions_code (site_access_code_id),
   KEY idx_chat_sessions_pricelist_owner (pricelist_owner_id),
+  KEY idx_chat_sessions_visitor_ip (participant_type, visitor_ip),
   CONSTRAINT fk_chat_sessions_code
     FOREIGN KEY (site_access_code_id) REFERENCES site_access_codes(id)
     ON DELETE SET NULL,
@@ -685,3 +687,9 @@ ALTER TABLE chat_messages
 
 ALTER TABLE chat_quote_requests
   ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL AFTER updated_at;
+
+ALTER TABLE chat_participant_sessions
+  ADD COLUMN IF NOT EXISTS visitor_ip VARCHAR(45) NULL AFTER display_label;
+
+ALTER TABLE chat_participant_sessions
+  ADD INDEX IF NOT EXISTS idx_chat_sessions_visitor_ip (participant_type, visitor_ip);

@@ -37,8 +37,11 @@ export type DashboardMessageKey =
   | 'dashboard.shell.openMenu'
   | 'buyer.dashboard.title'
   | 'buyer.nav.dashboard'
+  | 'buyer.nav.chat'
   | 'buyer.nav.browseShop'
   | 'buyer.nav.myCart'
+  | 'buyer.chat.hint'
+  | 'buyer.chat.empty'
   | 'buyer.dashboard.welcome'
   | 'buyer.dashboard.shop'
   | 'buyer.dashboard.shopDesc'
@@ -114,8 +117,11 @@ const EN: DashboardMessages = {
   "dashboard.shell.openMenu": "Open menu",
   "buyer.dashboard.title": "Buyer Dashboard",
   "buyer.nav.dashboard": "Dashboard",
+  "buyer.nav.chat": "Chat",
   "buyer.nav.browseShop": "Browse shop",
   "buyer.nav.myCart": "My cart",
+  "buyer.chat.hint": "Your conversation with admin. Quote requests and messages stay here until an admin removes them.",
+  "buyer.chat.empty": "No chat yet. Browse the shop and use “Ask a price” on a product to start a quote request.",
   "buyer.dashboard.welcome": "Welcome, {name}",
   "buyer.dashboard.shop": "Shop",
   "buyer.dashboard.shopDesc": "View all products",

@@ -14,7 +14,7 @@ export default function SellerChatPage() {
   )
 
   return (
-    <DashboardShell title="Chat" nav={nav}>
+    <DashboardShell title={t('seller.nav.chat')} nav={nav}>
       <SellerChatInbox />
     </DashboardShell>
   )
