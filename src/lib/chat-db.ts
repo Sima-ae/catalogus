@@ -36,6 +36,7 @@ export type ChatConversationRow = {
   pricelist_owner_id: string | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
 }
 
 export type ChatMessageRow = {
@@ -47,6 +48,7 @@ export type ChatMessageRow = {
   body: string | null
   created_at: string
   read_at: string | null
+  deleted_at?: string | null
 }
 
 export type ChatQuoteStatus = 'pending' | 'with_supplier' | 'answered' | 'closed'
@@ -65,8 +67,10 @@ export type ChatQuoteRequestRow = {
   site_access_code_id: string | null
   user_id: string | null
   supplier_conversation_id: string | null
+  supplier_message_id: string | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
 }
 
 export async function touchChatParticipantSessionLastSeen(sessionId: string): Promise<void> {
@@ -118,6 +122,7 @@ export async function findBuyerConversationForSession(
   const rows = await queryDb<ChatConversationRow[]>(
     `SELECT * FROM chat_conversations
      WHERE type = 'buyer_thread' AND buyer_session_id = ? AND status = 'open'
+       AND deleted_at IS NULL
      ORDER BY updated_at DESC
      LIMIT 1`,
     [buyerSessionId]
@@ -158,7 +163,7 @@ export async function listChatMessages(
   if (since) {
     return queryDb<ChatMessageRow[]>(
       `SELECT * FROM chat_messages
-       WHERE conversation_id = ? AND created_at > ?
+       WHERE conversation_id = ? AND deleted_at IS NULL AND created_at > ?
        ORDER BY created_at ASC
        LIMIT ?`,
       [conversationId, since, limit]
@@ -166,7 +171,7 @@ export async function listChatMessages(
   }
   return queryDb<ChatMessageRow[]>(
     `SELECT * FROM chat_messages
-     WHERE conversation_id = ?
+     WHERE conversation_id = ? AND deleted_at IS NULL
      ORDER BY created_at ASC
      LIMIT ?`,
     [conversationId, limit]
@@ -277,6 +282,7 @@ export type SupplierThreadInboxItem = {
   productSku: string | null
   productImageUrl: string | null
   quoteStatus: ChatQuoteStatus | null
+  productId?: string | null
 }
 
 export type SellerUserOption = {
@@ -312,12 +318,22 @@ export async function findPricelistGuestSession(
   return rows[0] ?? null
 }
 
-export async function getChatConversationById(id: string): Promise<ChatConversationRow | null> {
+export async function getChatConversationById(
+  id: string,
+  options?: { includeDeleted?: boolean }
+): Promise<ChatConversationRow | null> {
+  const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL'
   const rows = await queryDb<ChatConversationRow[]>(
-    `SELECT * FROM chat_conversations WHERE id = ? LIMIT 1`,
+    `SELECT * FROM chat_conversations WHERE id = ?${deletedClause} LIMIT 1`,
     [id]
   )
   return rows[0] ?? null
+}
+
+function normalizeQuoteProductName(name: string | null | undefined): string {
+  const trimmed = name?.trim()
+  if (!trimmed || trimmed === '—' || trimmed === '-') return 'Unnamed product'
+  return trimmed
 }
 
 function formatBuyerLabel(input: {
@@ -327,14 +343,14 @@ function formatBuyerLabel(input: {
   user_name: string | null
   user_email: string | null
 }): string {
-  if (input.access_code) return `Code ${input.access_code}`
+  if (input.participant_type === 'site_code' && input.access_code) return input.access_code
+  if (input.participant_type === 'site_password') return 'Site visitor'
   const name = input.user_name?.trim()
   if (name) return name
   const email = input.user_email?.trim()
   if (email) return email
-  if (input.display_label?.trim()) return input.display_label.trim()
   if (input.participant_type === 'buyer_user') return 'Buyer'
-  if (input.participant_type === 'site_code') return 'Access code visitor'
+  if (input.participant_type === 'site_code') return input.access_code?.trim() || 'Access code'
   return 'Site visitor'
 }
 
@@ -367,19 +383,20 @@ export async function listBuyerThreadsForAdmin(limit = 100): Promise<BuyerThread
        (
          SELECT COUNT(*)
          FROM chat_quote_requests q
-         WHERE q.conversation_id = c.id AND q.status IN ('pending', 'with_supplier')
+         WHERE q.conversation_id = c.id AND q.deleted_at IS NULL
+           AND q.status IN ('pending', 'with_supplier')
        ) AS pending_quote_count,
        (
          SELECT m.body
          FROM chat_messages m
-         WHERE m.conversation_id = c.id
+         WHERE m.conversation_id = c.id AND m.deleted_at IS NULL
          ORDER BY m.created_at DESC
          LIMIT 1
        ) AS last_body,
        (
          SELECT m.message_type
          FROM chat_messages m
-         WHERE m.conversation_id = c.id
+         WHERE m.conversation_id = c.id AND m.deleted_at IS NULL
          ORDER BY m.created_at DESC
          LIMIT 1
        ) AS last_type
@@ -388,6 +405,7 @@ export async function listBuyerThreadsForAdmin(limit = 100): Promise<BuyerThread
      LEFT JOIN site_access_codes sac ON sac.id = s.site_access_code_id
      LEFT JOIN users u ON u.id = s.user_id
      WHERE c.type = 'buyer_thread'
+       AND c.deleted_at IS NULL
      ORDER BY c.updated_at DESC
      LIMIT ?`,
     [capped]
@@ -438,11 +456,11 @@ export async function listQuotesForAdmin(options?: {
        u.name AS user_name,
        u.email AS user_email
      FROM chat_quote_requests q
-     INNER JOIN chat_conversations c ON c.id = q.conversation_id
-     INNER JOIN chat_participant_sessions s ON s.id = c.buyer_session_id
+     INNER JOIN chat_conversations c ON c.id = q.conversation_id AND c.deleted_at IS NULL
+     LEFT JOIN chat_participant_sessions s ON s.id = c.buyer_session_id
      LEFT JOIN site_access_codes sac ON sac.id = s.site_access_code_id
      LEFT JOIN users u ON u.id = s.user_id
-     WHERE ${statusClause}
+     WHERE q.deleted_at IS NULL AND ${statusClause}
      ORDER BY q.updated_at DESC
      LIMIT ?`,
     [...params, capped]
@@ -452,8 +470,10 @@ export async function listQuotesForAdmin(options?: {
     const { participant_type, display_label, access_code, user_name, user_email, ...quote } = row
     return {
       ...quote,
+      conversation_id: quote.conversation_id,
+      product_name: normalizeQuoteProductName(quote.product_name),
       buyerLabel: formatBuyerLabel({
-        participant_type,
+        participant_type: participant_type ?? 'site_password',
         display_label,
         access_code,
         user_name,
@@ -464,9 +484,13 @@ export async function listQuotesForAdmin(options?: {
   })
 }
 
-export async function getChatQuoteById(id: string): Promise<ChatQuoteRequestRow | null> {
+export async function getChatQuoteById(
+  id: string,
+  options?: { includeDeleted?: boolean }
+): Promise<ChatQuoteRequestRow | null> {
+  const deletedClause = options?.includeDeleted ? '' : ' AND deleted_at IS NULL'
   const rows = await queryDb<ChatQuoteRequestRow[]>(
-    `SELECT * FROM chat_quote_requests WHERE id = ? LIMIT 1`,
+    `SELECT * FROM chat_quote_requests WHERE id = ?${deletedClause} LIMIT 1`,
     [id]
   )
   return rows[0] ?? null
@@ -477,6 +501,7 @@ export async function updateChatQuoteRequest(
   patch: {
     status?: ChatQuoteStatus
     supplierConversationId?: string | null
+    supplierMessageId?: string | null
   }
 ): Promise<ChatQuoteRequestRow | null> {
   const sets: string[] = []
@@ -489,10 +514,102 @@ export async function updateChatQuoteRequest(
     sets.push('supplier_conversation_id = ?')
     params.push(patch.supplierConversationId)
   }
+  if (patch.supplierMessageId !== undefined) {
+    sets.push('supplier_message_id = ?')
+    params.push(patch.supplierMessageId)
+  }
   if (!sets.length) return getChatQuoteById(id)
   params.push(id)
   await queryDb(`UPDATE chat_quote_requests SET ${sets.join(', ')} WHERE id = ?`, params)
   return getChatQuoteById(id)
+}
+
+export async function findChatSessionForPricelistSupplier(input: {
+  userId?: string | null
+  pricelistOwnerId: string
+  participantType: 'seller_user' | 'pricelist_guest'
+}): Promise<ChatParticipantSessionRow | null> {
+  if (input.participantType === 'seller_user' && input.userId) {
+    const rows = await queryDb<ChatParticipantSessionRow[]>(
+      `SELECT * FROM chat_participant_sessions
+       WHERE user_id = ? AND participant_type = 'seller_user' AND pricelist_owner_id = ?
+       ORDER BY COALESCE(last_seen_at, created_at) DESC
+       LIMIT 1`,
+      [input.userId, input.pricelistOwnerId]
+    )
+    return rows[0] ?? null
+  }
+  return findPricelistGuestSession(input.pricelistOwnerId)
+}
+
+export async function ensurePricelistPageChatSession(
+  pricelistOwnerId: string,
+  displayLabel: string
+): Promise<ChatParticipantSessionRow> {
+  const existing = await findPricelistGuestSession(pricelistOwnerId)
+  if (existing) {
+    if (existing.display_label !== displayLabel) {
+      await queryDb(`UPDATE chat_participant_sessions SET display_label = ? WHERE id = ?`, [
+        displayLabel,
+        existing.id,
+      ])
+      return (await getChatParticipantSessionById(existing.id))!
+    }
+    return existing
+  }
+  return createChatParticipantSession({
+    participantType: 'pricelist_guest',
+    pricelistOwnerId,
+    displayLabel,
+  })
+}
+
+export async function listSupplierThreadsForPricelist(
+  pricelistOwnerId: string,
+  limit = 50
+): Promise<SupplierThreadInboxItem[]> {
+  const capped = Math.min(100, Math.max(1, Math.floor(limit)))
+  const rows = await queryDb<
+    {
+      id: string
+      status: ChatConversationStatus
+      updated_at: string
+      quote_id: string | null
+      product_name: string | null
+      product_sku: string | null
+      product_image_url: string | null
+      quote_status: ChatQuoteStatus | null
+      product_id: string | null
+    }[]
+  >(
+    `SELECT
+       c.id,
+       c.status,
+       c.updated_at,
+       q.id AS quote_id,
+       q.product_name,
+       q.product_sku,
+       q.product_image_url,
+       q.status AS quote_status,
+       q.product_id
+     FROM chat_conversations c
+     LEFT JOIN chat_quote_requests q ON q.supplier_conversation_id = c.id AND q.deleted_at IS NULL
+     WHERE c.type = 'supplier_thread' AND c.pricelist_owner_id = ? AND c.deleted_at IS NULL
+     ORDER BY c.updated_at DESC
+     LIMIT ?`,
+    [pricelistOwnerId, capped]
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    updated_at: row.updated_at,
+    quoteId: row.quote_id,
+    productName: row.product_name,
+    productSku: row.product_sku,
+    productImageUrl: row.product_image_url,
+    quoteStatus: row.quote_status,
+    productId: row.product_id,
+  }))
 }
 
 export async function createSupplierConversation(input: {
@@ -537,8 +654,8 @@ export async function listSupplierThreadsForSession(
        q.product_image_url,
        q.status AS quote_status
      FROM chat_conversations c
-     LEFT JOIN chat_quote_requests q ON q.supplier_conversation_id = c.id
-     WHERE c.type = 'supplier_thread' AND c.supplier_session_id = ?
+     LEFT JOIN chat_quote_requests q ON q.supplier_conversation_id = c.id AND q.deleted_at IS NULL
+     WHERE c.type = 'supplier_thread' AND c.supplier_session_id = ? AND c.deleted_at IS NULL
      ORDER BY c.updated_at DESC
      LIMIT ?`,
     [supplierSessionId, capped]
@@ -579,6 +696,7 @@ export async function listChatMessagesWithQuotes(
       quote_site_access_code_id: string | null
       quote_user_id: string | null
       quote_supplier_conversation_id: string | null
+      quote_supplier_message_id: string | null
       quote_created_at: string | null
       quote_updated_at: string | null
     })[]
@@ -598,11 +716,13 @@ export async function listChatMessagesWithQuotes(
        q.site_access_code_id AS quote_site_access_code_id,
        q.user_id AS quote_user_id,
        q.supplier_conversation_id AS quote_supplier_conversation_id,
+       q.supplier_message_id AS quote_supplier_message_id,
        q.created_at AS quote_created_at,
        q.updated_at AS quote_updated_at
      FROM chat_messages m
-     LEFT JOIN chat_quote_requests q ON q.message_id = m.id
-     WHERE m.conversation_id = ? ${sinceClause}
+     LEFT JOIN chat_quote_requests q ON q.deleted_at IS NULL
+       AND (q.message_id = m.id OR q.supplier_message_id = m.id)
+     WHERE m.conversation_id = ? AND m.deleted_at IS NULL ${sinceClause}
      ORDER BY m.created_at ASC
      LIMIT ?`,
     params
@@ -616,7 +736,7 @@ export async function listChatMessagesWithQuotes(
             conversation_id: row.quote_conversation_id!,
             message_id: row.quote_message_id!,
             product_id: row.quote_product_id,
-            product_name: row.quote_product_name!,
+            product_name: normalizeQuoteProductName(row.quote_product_name),
             product_sku: row.quote_product_sku,
             product_image_url: row.quote_product_image_url,
             product_brand: row.quote_product_brand,
@@ -625,6 +745,7 @@ export async function listChatMessagesWithQuotes(
             site_access_code_id: row.quote_site_access_code_id,
             user_id: row.quote_user_id,
             supplier_conversation_id: row.quote_supplier_conversation_id,
+            supplier_message_id: row.quote_supplier_message_id,
             created_at: row.quote_created_at!,
             updated_at: row.quote_updated_at!,
           }
@@ -680,10 +801,286 @@ export function buyerSessionOwnsConversation(
   return conversation.type === 'buyer_thread' && conversation.buyer_session_id === sessionId
 }
 
+export function supplierCanAccessConversation(
+  pricelistOwnerId: string | null,
+  conversation: ChatConversationRow
+): boolean {
+  if (conversation.type !== 'supplier_thread') return false
+  if (!pricelistOwnerId || !conversation.pricelist_owner_id) return false
+  return conversation.pricelist_owner_id === pricelistOwnerId
+}
+
 export function supplierSessionOwnsConversation(
   sessionId: string,
   conversation: ChatConversationRow
 ): boolean {
   return conversation.type === 'supplier_thread' && conversation.supplier_session_id === sessionId
+}
+
+export type ChatTrashKind = 'thread' | 'message' | 'quote'
+
+export type ChatTrashItem = {
+  id: string
+  kind: ChatTrashKind
+  label: string
+  subtitle: string | null
+  deleted_at: string
+  conversation_id: string | null
+  thread_type: ChatConversationType | null
+}
+
+async function markMessageDeleted(id: string): Promise<void> {
+  await queryDb(`UPDATE chat_messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`, [
+    id,
+  ])
+}
+
+async function markQuoteDeleted(id: string): Promise<void> {
+  const quote = await getChatQuoteById(id, { includeDeleted: true })
+  if (!quote || quote.deleted_at) return
+  await queryDb(`UPDATE chat_quote_requests SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [id])
+  if (quote.message_id) await markMessageDeleted(quote.message_id)
+  if (quote.supplier_message_id) await markMessageDeleted(quote.supplier_message_id)
+}
+
+export async function softDeleteChatMessage(id: string): Promise<boolean> {
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM chat_messages WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+    [id]
+  )
+  if (!rows[0]) return false
+  await markMessageDeleted(id)
+  const quoteRows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM chat_quote_requests
+     WHERE (message_id = ? OR supplier_message_id = ?) AND deleted_at IS NULL`,
+    [id, id]
+  )
+  for (const q of quoteRows) {
+    await queryDb(`UPDATE chat_quote_requests SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [q.id])
+  }
+  return true
+}
+
+export async function softDeleteChatQuote(id: string): Promise<boolean> {
+  const quote = await getChatQuoteById(id)
+  if (!quote) return false
+  await markQuoteDeleted(id)
+  return true
+}
+
+export async function softDeleteChatConversation(id: string): Promise<boolean> {
+  const conv = await getChatConversationById(id)
+  if (!conv) return false
+
+  await queryDb(`UPDATE chat_conversations SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [id])
+  await queryDb(
+    `UPDATE chat_messages SET deleted_at = CURRENT_TIMESTAMP WHERE conversation_id = ? AND deleted_at IS NULL`,
+    [id]
+  )
+  await queryDb(
+    `UPDATE chat_quote_requests SET deleted_at = CURRENT_TIMESTAMP
+     WHERE (conversation_id = ? OR supplier_conversation_id = ?) AND deleted_at IS NULL`,
+    [id, id]
+  )
+
+  if (conv.type === 'buyer_thread') {
+    const linked = await queryDb<{ supplier_conversation_id: string | null }[]>(
+      `SELECT supplier_conversation_id FROM chat_quote_requests
+       WHERE conversation_id = ? AND supplier_conversation_id IS NOT NULL`,
+      [id]
+    )
+    for (const row of linked) {
+      const supplierId = row.supplier_conversation_id
+      if (!supplierId) continue
+      await queryDb(
+        `UPDATE chat_conversations SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL`,
+        [supplierId]
+      )
+      await queryDb(
+        `UPDATE chat_messages SET deleted_at = CURRENT_TIMESTAMP WHERE conversation_id = ? AND deleted_at IS NULL`,
+        [supplierId]
+      )
+    }
+  }
+
+  return true
+}
+
+export async function listChatTrash(limit = 200): Promise<ChatTrashItem[]> {
+  const capped = Math.min(500, Math.max(1, Math.floor(limit)))
+  const threads = await queryDb<
+    {
+      id: string
+      type: ChatConversationType
+      deleted_at: string
+      buyer_label: string | null
+      product_name: string | null
+    }[]
+  >(
+    `SELECT
+       c.id,
+       c.type,
+       c.deleted_at,
+       COALESCE(sac.code, u.name, u.email, s.display_label, 'Thread') AS buyer_label,
+       (
+         SELECT q.product_name FROM chat_quote_requests q
+         WHERE q.supplier_conversation_id = c.id
+         ORDER BY q.created_at DESC LIMIT 1
+       ) AS product_name
+     FROM chat_conversations c
+     LEFT JOIN chat_participant_sessions s ON s.id = c.buyer_session_id
+     LEFT JOIN site_access_codes sac ON sac.id = s.site_access_code_id
+     LEFT JOIN users u ON u.id = s.user_id
+     WHERE c.deleted_at IS NOT NULL
+     ORDER BY c.deleted_at DESC
+     LIMIT ?`,
+    [capped]
+  )
+
+  const messages = await queryDb<
+    { id: string; deleted_at: string; body: string | null; message_type: string; conversation_id: string }[]
+  >(
+    `SELECT m.id, m.deleted_at, m.body, m.message_type, m.conversation_id
+     FROM chat_messages m
+     INNER JOIN chat_conversations c ON c.id = m.conversation_id
+     WHERE m.deleted_at IS NOT NULL AND c.deleted_at IS NULL
+     ORDER BY m.deleted_at DESC
+     LIMIT ?`,
+    [capped]
+  )
+
+  const quotes = await queryDb<
+    {
+      id: string
+      deleted_at: string
+      product_name: string
+      product_sku: string | null
+      conversation_id: string
+    }[]
+  >(
+    `SELECT q.id, q.deleted_at, q.product_name, q.product_sku, q.conversation_id
+     FROM chat_quote_requests q
+     INNER JOIN chat_conversations c ON c.id = q.conversation_id
+     WHERE q.deleted_at IS NOT NULL AND c.deleted_at IS NULL
+     ORDER BY q.deleted_at DESC
+     LIMIT ?`,
+    [capped]
+  )
+
+  const items: ChatTrashItem[] = [
+    ...threads.map((t) => ({
+      id: t.id,
+      kind: 'thread' as const,
+      label:
+        t.type === 'supplier_thread'
+          ? t.product_name?.trim() || 'Supplier thread'
+          : t.buyer_label?.trim() || 'Buyer thread',
+      subtitle: t.type === 'supplier_thread' ? 'Supplier thread' : 'Buyer thread',
+      deleted_at: t.deleted_at,
+      conversation_id: t.id,
+      thread_type: t.type,
+    })),
+    ...messages.map((m) => ({
+      id: m.id,
+      kind: 'message' as const,
+      label:
+        m.message_type === 'quote'
+          ? '[Quote message]'
+          : m.body?.trim()?.slice(0, 120) || `[${m.message_type}]`,
+      subtitle: 'Message',
+      deleted_at: m.deleted_at,
+      conversation_id: m.conversation_id,
+      thread_type: null,
+    })),
+    ...quotes.map((q) => ({
+      id: q.id,
+      kind: 'quote' as const,
+      label: q.product_name,
+      subtitle: q.product_sku ? `SKU ${q.product_sku}` : 'Quote request',
+      deleted_at: q.deleted_at,
+      conversation_id: q.conversation_id,
+      thread_type: null,
+    })),
+  ]
+
+  items.sort((a, b) => String(b.deleted_at).localeCompare(String(a.deleted_at)))
+  return items.slice(0, capped)
+}
+
+export async function restoreChatTrashItem(kind: ChatTrashKind, id: string): Promise<boolean> {
+  if (kind === 'thread') {
+    const conv = await getChatConversationById(id, { includeDeleted: true })
+    if (!conv?.deleted_at) return false
+    await queryDb(`UPDATE chat_conversations SET deleted_at = NULL WHERE id = ?`, [id])
+    await queryDb(`UPDATE chat_messages SET deleted_at = NULL WHERE conversation_id = ?`, [id])
+    await queryDb(
+      `UPDATE chat_quote_requests SET deleted_at = NULL
+       WHERE conversation_id = ? OR supplier_conversation_id = ?`,
+      [id, id]
+    )
+    return true
+  }
+  if (kind === 'message') {
+    const rows = await queryDb<{ id: string }[]>(
+      `SELECT id FROM chat_messages WHERE id = ? AND deleted_at IS NOT NULL LIMIT 1`,
+      [id]
+    )
+    if (!rows[0]) return false
+    await queryDb(`UPDATE chat_messages SET deleted_at = NULL WHERE id = ?`, [id])
+    return true
+  }
+  const quote = await getChatQuoteById(id, { includeDeleted: true })
+  if (!quote?.deleted_at) return false
+  await queryDb(`UPDATE chat_quote_requests SET deleted_at = NULL WHERE id = ?`, [id])
+  if (quote.message_id) {
+    await queryDb(`UPDATE chat_messages SET deleted_at = NULL WHERE id = ?`, [quote.message_id])
+  }
+  if (quote.supplier_message_id) {
+    await queryDb(`UPDATE chat_messages SET deleted_at = NULL WHERE id = ?`, [quote.supplier_message_id])
+  }
+  return true
+}
+
+export async function permanentlyDeleteChatTrashItem(kind: ChatTrashKind, id: string): Promise<boolean> {
+  if (kind === 'thread') {
+    const conv = await getChatConversationById(id, { includeDeleted: true })
+    if (!conv?.deleted_at) return false
+    await queryDb(`DELETE FROM chat_quote_requests WHERE conversation_id = ? OR supplier_conversation_id = ?`, [
+      id,
+      id,
+    ])
+    await queryDb(`DELETE FROM chat_messages WHERE conversation_id = ?`, [id])
+    await queryDb(`DELETE FROM chat_conversations WHERE id = ?`, [id])
+    return true
+  }
+  if (kind === 'message') {
+    const rows = await queryDb<{ id: string; deleted_at: string | null }[]>(
+      `SELECT id, deleted_at FROM chat_messages WHERE id = ? LIMIT 1`,
+      [id]
+    )
+    const row = rows[0]
+    if (!row?.deleted_at) return false
+    await queryDb(`DELETE FROM chat_quote_requests WHERE message_id = ? OR supplier_message_id = ?`, [id, id])
+    await queryDb(`DELETE FROM chat_messages WHERE id = ?`, [id])
+    return true
+  }
+  const quote = await getChatQuoteById(id, { includeDeleted: true })
+  if (!quote?.deleted_at) return false
+  if (quote.message_id) await queryDb(`DELETE FROM chat_messages WHERE id = ?`, [quote.message_id])
+  if (quote.supplier_message_id) {
+    await queryDb(`DELETE FROM chat_messages WHERE id = ?`, [quote.supplier_message_id])
+  }
+  await queryDb(`DELETE FROM chat_quote_requests WHERE id = ?`, [id])
+  return true
+}
+
+export async function emptyChatTrash(): Promise<{ deleted: number }> {
+  const items = await listChatTrash(500)
+  let deleted = 0
+  for (const item of items) {
+    const ok = await permanentlyDeleteChatTrashItem(item.kind, item.id)
+    if (ok) deleted += 1
+  }
+  return { deleted }
 }
 

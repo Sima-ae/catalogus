@@ -5,7 +5,7 @@ import {
   createChatMessage,
   getChatConversationById,
   listChatMessagesWithQuotes,
-  supplierSessionOwnsConversation,
+  supplierCanAccessConversation,
 } from '@/lib/chat-db'
 
 export const dynamic = 'force-dynamic'
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
   }
 
-  if (!supplierSessionOwnsConversation(resolved.viewer.session.id, conversation)) {
+  if (!supplierCanAccessConversation(resolved.viewer.pricelistOwnerId, conversation)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
   }
 
-  if (!supplierSessionOwnsConversation(resolved.viewer.session.id, conversation)) {
+  if (!supplierCanAccessConversation(resolved.viewer.pricelistOwnerId, conversation)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     conversationId,
     messageId: message.id,
     productId: product.id,
-    productName: String(product.name ?? '').trim() || '—',
+    productName: String(product.name ?? '').trim() || 'Unnamed product',
     productSku: product.sku ?? null,
     productImageUrl: product.image_url ?? null,
     productBrand: product.brand ?? null,

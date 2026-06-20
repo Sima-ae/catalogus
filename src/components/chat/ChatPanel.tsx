@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@/components/chat/ChatProvider'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
+import ChatSupplierPanel from '@/components/chat/ChatSupplierPanel'
 import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
 import { useAuth } from '@/lib/auth-local'
@@ -192,9 +193,15 @@ export default function ChatPanel() {
 
   if (!open) return null
 
+  const isSupplier = bootstrap?.chatRole === 'pricelist_supplier'
+
   return (
     <div className="fixed bottom-24 right-5 z-[9998] w-[min(92vw,380px)]">
       <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[min(70vh,520px)]">
+        {isSupplier ? (
+          <ChatSupplierPanel />
+        ) : (
+          <>
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 shrink-0">
           <div className="font-semibold text-gray-900">{t('chat.title')}</div>
           <div className="text-xs text-gray-500">{t('chat.subtitle')}</div>
@@ -247,6 +254,8 @@ export default function ChatPanel() {
           <div className="px-4 py-3 border-t border-gray-200 bg-white shrink-0">
             <div className="text-xs text-gray-500">{t('chat.v1Hint')}</div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

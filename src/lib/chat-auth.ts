@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { getSiteAccessConfig } from '@/lib/site-access'
 import { readUnlockCookie, verifyUnlockToken } from '@/lib/site-access-cookie'
-import { tryVerifyCatalogActor, type CatalogActor } from '@/lib/catalog-user-auth'
+import { canViewPricelist, tryVerifyCatalogActor, type CatalogActor } from '@/lib/catalog-user-auth'
 import { resolvePricelistAccess } from '@/lib/pricelist-access'
 import { verifySiteAccessCodeToken } from '@/lib/site-access-cookie'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/lib/chat-session-cookie'
 import {
   createChatParticipantSession,
+  findChatSessionForPricelistSupplier,
   findChatSessionForUser,
   findPricelistGuestSession,
   getChatParticipantSessionById,
@@ -18,6 +19,8 @@ import {
   type ChatParticipantSessionRow,
 } from '@/lib/chat-db'
 import { verifyAdminActor } from '@/lib/admin-api-auth'
+import { getPricelistPageById, resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
+import { queryDb } from '@/lib/db'
 
 export type ChatViewerContext = {
   session: ChatParticipantSessionRow
@@ -25,6 +28,8 @@ export type ChatViewerContext = {
   siteAccessCodeId: string | null
   mode: 'site' | 'pricelist'
   pricelistOwnerId: string | null
+  pricelistLabel: string | null
+  chatRole: 'buyer' | 'pricelist_supplier'
 }
 
 async function ensureSiteUnlocked(request: NextRequest): Promise<{ ok: true; configVersion: number } | { ok: false; status: number; error: string }> {
@@ -36,26 +41,70 @@ async function ensureSiteUnlocked(request: NextRequest): Promise<{ ok: true; con
   return { ok: true, configVersion: config.version }
 }
 
+async function findSiteAccessCodeById(id: string): Promise<{ code: string } | null> {
+  try {
+    const rows = await queryDb<{ code: string }[]>(
+      'SELECT code FROM site_access_codes WHERE id = ? LIMIT 1',
+      [id]
+    )
+    return rows[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+async function resolvePricelistLabel(ownerId: string | null): Promise<string | null> {
+  if (!ownerId) return null
+  const page = await getPricelistPageById(ownerId)
+  return page?.label?.trim() || null
+}
+
+function isPricelistSupplierActor(
+  actor: CatalogActor | null,
+  pricelistOwnerId: string | null,
+  pricelistAccess: Awaited<ReturnType<typeof resolvePricelistAccess>>
+): boolean {
+  if (!pricelistOwnerId) return false
+  if (!pricelistAccess.ok) return false
+  if (actor?.role === 'admin') return true
+  if (actor?.role === 'seller' && pricelistAccess.mode === 'full') return true
+  if (pricelistAccess.mode === 'guest') return true
+  return false
+}
+
 export async function resolveChatViewer(
   request: NextRequest,
-  options?: { allowPricelistGuest?: boolean }
+  options?: { allowPricelistGuest?: boolean; ownerParam?: string | null }
 ): Promise<{ ok: true; viewer: ChatViewerContext; configVersion: number } | { ok: false; status: number; error: string }> {
   const unlock = await ensureSiteUnlocked(request)
   if (!unlock.ok) return unlock
 
   const actor = await tryVerifyCatalogActor(request)
+  const ownerParam =
+    options?.ownerParam?.trim() ||
+    request.nextUrl.searchParams.get('owner')?.trim() ||
+    null
 
   let mode: ChatViewerContext['mode'] = 'site'
   let pricelistOwnerId: string | null = null
+  let pricelistLabel: string | null = null
+  let pricelistAccess: Awaited<ReturnType<typeof resolvePricelistAccess>> = {
+    ok: false,
+    status: 401,
+    error: 'No pricelist',
+  }
 
-  if (options?.allowPricelistGuest) {
-    const ownerParam = request.nextUrl.searchParams.get('owner')
-    const pricelist = await resolvePricelistAccess(request, ownerParam)
-    if (pricelist.ok && pricelist.mode === 'guest') {
+  if (options?.allowPricelistGuest && ownerParam) {
+    pricelistAccess = await resolvePricelistAccess(request, ownerParam)
+    if (pricelistAccess.ok) {
       mode = 'pricelist'
-      pricelistOwnerId = pricelist.ownerId
+      pricelistOwnerId = pricelistAccess.ownerId
+      pricelistLabel = await resolvePricelistLabel(pricelistOwnerId)
     }
   }
+
+  const onPricelistSupplier = isPricelistSupplierActor(actor, pricelistOwnerId, pricelistAccess)
+  const chatRole: ChatViewerContext['chatRole'] = onPricelistSupplier ? 'pricelist_supplier' : 'buyer'
 
   const cookieHeader = request.headers.get('cookie')
   const codeToken = readSiteAccessCodeCookie(cookieHeader)
@@ -66,18 +115,123 @@ export async function resolveChatViewer(
   if (sessionId) {
     const existing = await getChatParticipantSessionById(sessionId)
     if (existing) {
-      await touchChatParticipantSessionLastSeen(existing.id)
-      return {
-        ok: true,
-        viewer: { session: existing, actor, siteAccessCodeId, mode, pricelistOwnerId },
-        configVersion: unlock.configVersion,
+      if (onPricelistSupplier && pricelistOwnerId && pricelistLabel) {
+        const matchesPricelist =
+          existing.pricelist_owner_id === pricelistOwnerId &&
+          (existing.participant_type === 'pricelist_guest' ||
+            existing.participant_type === 'seller_user' ||
+            existing.participant_type === 'admin_user')
+        if (!matchesPricelist) {
+          // fall through to create pricelist-scoped session
+        } else {
+          if (existing.display_label !== pricelistLabel) {
+            await queryDb(`UPDATE chat_participant_sessions SET display_label = ? WHERE id = ?`, [
+              pricelistLabel,
+              existing.id,
+            ])
+            existing.display_label = pricelistLabel
+          }
+          await touchChatParticipantSessionLastSeen(existing.id)
+          return {
+            ok: true,
+            viewer: {
+              session: existing,
+              actor,
+              siteAccessCodeId,
+              mode,
+              pricelistOwnerId,
+              pricelistLabel,
+              chatRole,
+            },
+            configVersion: unlock.configVersion,
+          }
+        }
+      } else if (!onPricelistSupplier) {
+        await touchChatParticipantSessionLastSeen(existing.id)
+        return {
+          ok: true,
+          viewer: {
+            session: existing,
+            actor,
+            siteAccessCodeId,
+            mode,
+            pricelistOwnerId,
+            pricelistLabel,
+            chatRole,
+          },
+          configVersion: unlock.configVersion,
+        }
       }
     }
   }
 
-  if (actor) {
+  if (onPricelistSupplier && pricelistOwnerId && pricelistLabel) {
     const participantType =
-      actor.role === 'admin' ? 'admin_user' : actor.role === 'buyer' ? 'buyer_user' : 'seller_user'
+      actor?.role === 'admin'
+        ? 'admin_user'
+        : actor?.role === 'seller'
+          ? 'seller_user'
+          : 'pricelist_guest'
+
+    let existing =
+      participantType === 'pricelist_guest'
+        ? await findPricelistGuestSession(pricelistOwnerId)
+        : actor
+          ? await findChatSessionForPricelistSupplier({
+              userId: actor.userId,
+              pricelistOwnerId,
+              participantType: 'seller_user',
+            })
+          : null
+
+    if (existing) {
+      if (existing.display_label !== pricelistLabel) {
+        await queryDb(`UPDATE chat_participant_sessions SET display_label = ? WHERE id = ?`, [
+          pricelistLabel,
+          existing.id,
+        ])
+        existing = (await getChatParticipantSessionById(existing.id))!
+      }
+      await touchChatParticipantSessionLastSeen(existing.id)
+      return {
+        ok: true,
+        viewer: {
+          session: existing,
+          actor,
+          siteAccessCodeId,
+          mode,
+          pricelistOwnerId,
+          pricelistLabel,
+          chatRole,
+        },
+        configVersion: unlock.configVersion,
+      }
+    }
+
+    const session = await createChatParticipantSession({
+      participantType,
+      siteAccessCodeId: null,
+      userId: actor?.userId ?? null,
+      pricelistOwnerId,
+      displayLabel: pricelistLabel,
+    })
+    return {
+      ok: true,
+      viewer: {
+        session,
+        actor,
+        siteAccessCodeId,
+        mode,
+        pricelistOwnerId,
+        pricelistLabel,
+        chatRole,
+      },
+      configVersion: unlock.configVersion,
+    }
+  }
+
+  if (actor && actor.role !== 'admin' && actor.role !== 'seller') {
+    const participantType = actor.role === 'buyer' ? 'buyer_user' : 'buyer_user'
     const existingUserSession = await findChatSessionForUser(actor.userId, participantType)
     if (existingUserSession) {
       await touchChatParticipantSessionLastSeen(existingUserSession.id)
@@ -89,19 +243,9 @@ export async function resolveChatViewer(
           siteAccessCodeId,
           mode,
           pricelistOwnerId,
+          pricelistLabel,
+          chatRole: 'buyer',
         },
-        configVersion: unlock.configVersion,
-      }
-    }
-  }
-
-  if (mode === 'pricelist' && pricelistOwnerId) {
-    const existingGuest = await findPricelistGuestSession(pricelistOwnerId)
-    if (existingGuest) {
-      await touchChatParticipantSessionLastSeen(existingGuest.id)
-      return {
-        ok: true,
-        viewer: { session: existingGuest, actor, siteAccessCodeId, mode, pricelistOwnerId },
         configVersion: unlock.configVersion,
       }
     }
@@ -110,44 +254,41 @@ export async function resolveChatViewer(
   let displayLabel: string | null = null
   if (siteAccessCodeId) {
     const codeRow = await findSiteAccessCodeById(siteAccessCodeId)
-    displayLabel = codeRow ? `Code ${codeRow.code}` : 'Access code'
+    displayLabel = codeRow?.code ?? null
   }
 
+  const participantType = actor
+    ? actor.role === 'admin'
+      ? 'admin_user'
+      : actor.role === 'buyer'
+        ? 'buyer_user'
+        : actor.role === 'seller'
+          ? 'seller_user'
+          : 'site_password'
+    : siteAccessCodeId
+      ? 'site_code'
+      : 'site_password'
+
   const session = await createChatParticipantSession({
-    participantType: actor
-      ? actor.role === 'admin'
-        ? 'admin_user'
-        : actor.role === 'buyer'
-          ? 'buyer_user'
-          : 'seller_user'
-      : mode === 'pricelist'
-        ? 'pricelist_guest'
-        : siteAccessCodeId
-          ? 'site_code'
-          : 'site_password',
+    participantType,
     siteAccessCodeId,
     userId: actor?.userId ?? null,
-    pricelistOwnerId,
-    displayLabel,
+    pricelistOwnerId: null,
+    displayLabel: participantType === 'site_code' ? displayLabel : null,
   })
 
   return {
     ok: true,
-    viewer: { session, actor, siteAccessCodeId, mode, pricelistOwnerId },
+    viewer: {
+      session,
+      actor,
+      siteAccessCodeId,
+      mode,
+      pricelistOwnerId,
+      pricelistLabel,
+      chatRole: 'buyer',
+    },
     configVersion: unlock.configVersion,
-  }
-}
-
-async function findSiteAccessCodeById(id: string): Promise<{ code: string } | null> {
-  try {
-    const { queryDb } = await import('@/lib/db')
-    const rows = await queryDb<{ code: string }[]>(
-      'SELECT code FROM site_access_codes WHERE id = ? LIMIT 1',
-      [id]
-    )
-    return rows[0] ?? null
-  } catch {
-    return null
   }
 }
 
@@ -178,48 +319,78 @@ export async function resolveAdminChatContext(
 export type SupplierChatContext = {
   session: ChatParticipantSessionRow
   actor: CatalogActor | null
-  pricelistOwnerId: string | null
+  pricelistOwnerId: string
+  pricelistLabel: string | null
 }
 
 export async function resolveSupplierChatViewer(
   request: NextRequest
 ): Promise<{ ok: true; viewer: SupplierChatContext } | { ok: false; status: number; error: string }> {
-  const actor = await tryVerifyCatalogActor(request)
-
-  if (actor?.role === 'seller') {
-    let session = await findChatSessionForUser(actor.userId, 'seller_user')
-    if (!session) {
-      session = await createChatParticipantSession({
-        participantType: 'seller_user',
-        userId: actor.userId,
-        displayLabel: actor.email,
-      })
-    }
-    await touchChatParticipantSessionLastSeen(session.id)
-    return { ok: true, viewer: { session, actor, pricelistOwnerId: null } }
-  }
-
   const unlock = await ensureSiteUnlocked(request)
   if (!unlock.ok) return unlock
 
   const ownerParam = request.nextUrl.searchParams.get('owner')
-  const pricelist = await resolvePricelistAccess(request, ownerParam)
-  if (!pricelist.ok || pricelist.mode !== 'guest') {
+  const ownerId = await resolvePricelistOwnerId(ownerParam)
+  if (!ownerId) {
+    return { ok: false, status: 400, error: 'Pricelist owner is required' }
+  }
+
+  const pricelistLabel = await resolvePricelistLabel(ownerId)
+  const actor = await tryVerifyCatalogActor(request)
+  const pricelistAccess = await resolvePricelistAccess(request, ownerParam)
+
+  if (!isPricelistSupplierActor(actor, ownerId, pricelistAccess)) {
     return { ok: false, status: 403, error: 'Supplier chat access required' }
   }
 
-  let session = await findPricelistGuestSession(pricelist.ownerId)
+  const participantType =
+    actor?.role === 'admin'
+      ? 'admin_user'
+      : actor?.role === 'seller'
+        ? 'seller_user'
+        : 'pricelist_guest'
+
+  let session =
+    participantType === 'pricelist_guest'
+      ? await findPricelistGuestSession(ownerId)
+      : actor
+        ? await findChatSessionForPricelistSupplier({
+            userId: actor.userId,
+            pricelistOwnerId: ownerId,
+            participantType: 'seller_user',
+          })
+        : null
+
   if (!session) {
     session = await createChatParticipantSession({
-      participantType: 'pricelist_guest',
-      pricelistOwnerId: pricelist.ownerId,
-      displayLabel: 'Pricelist guest',
+      participantType,
+      userId: actor?.userId ?? null,
+      pricelistOwnerId: ownerId,
+      displayLabel: pricelistLabel,
     })
+  } else if (pricelistLabel && session.display_label !== pricelistLabel) {
+    await queryDb(`UPDATE chat_participant_sessions SET display_label = ? WHERE id = ?`, [
+      pricelistLabel,
+      session.id,
+    ])
+    session = (await getChatParticipantSessionById(session.id))!
   }
+
   await touchChatParticipantSessionLastSeen(session.id)
   return {
     ok: true,
-    viewer: { session, actor: pricelist.actor, pricelistOwnerId: pricelist.ownerId },
+    viewer: { session, actor, pricelistOwnerId: ownerId, pricelistLabel },
   }
 }
 
+export async function canActorAccessPricelistSupplierChat(
+  actor: CatalogActor | null,
+  request: NextRequest,
+  pricelistOwnerId: string
+): Promise<boolean> {
+  if (!pricelistOwnerId) return false
+  if (actor?.role === 'admin') return true
+  if (actor && (await canViewPricelist(actor, pricelistOwnerId))) return true
+  const access = await resolvePricelistAccess(request, pricelistOwnerId)
+  return access.ok && access.mode === 'guest'
+}

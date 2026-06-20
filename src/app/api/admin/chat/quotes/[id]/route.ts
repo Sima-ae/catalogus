@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { resolveAdminChatContext } from '@/lib/chat-auth'
-import { getChatQuoteById, updateChatQuoteRequest, type ChatQuoteStatus } from '@/lib/chat-db'
+import { verifyAdminActor, superAdminDenial } from '@/lib/admin-api-auth'
+import { getChatQuoteById, softDeleteChatQuote, updateChatQuoteRequest, type ChatQuoteStatus } from '@/lib/chat-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -31,4 +32,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const updated = await updateChatQuoteRequest(id, { status })
   return NextResponse.json({ ok: true, quote: updated })
+}
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  ensureEnvLoaded()
+  const auth = await verifyAdminActor(request)
+  const denied = superAdminDenial(auth)
+  if (denied) return denied
+
+  const { id } = await context.params
+  const ok = await softDeleteChatQuote(id)
+  if (!ok) {
+    return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
+  }
+  return NextResponse.json({ ok: true })
 }

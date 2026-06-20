@@ -4,6 +4,7 @@ import Image from 'next/image'
 
 export type ChatQuoteCardData = {
   id: string
+  product_id?: string | null
   product_name: string
   product_sku: string | null
   product_image_url: string | null
@@ -17,6 +18,7 @@ type ChatQuoteCardProps = {
   quote: ChatQuoteCardData
   compact?: boolean
   actions?: React.ReactNode
+  onClick?: () => void
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -33,7 +35,7 @@ const STATUS_LABELS: Record<string, string> = {
   closed: 'Closed',
 }
 
-export default function ChatQuoteCard({ quote, compact, actions }: ChatQuoteCardProps) {
+export default function ChatQuoteCard({ quote, compact, actions, onClick }: ChatQuoteCardProps) {
   const statusClass = STATUS_STYLES[quote.status] ?? STATUS_STYLES.pending
   const statusLabel = STATUS_LABELS[quote.status] ?? quote.status
 
@@ -41,7 +43,11 @@ export default function ChatQuoteCard({ quote, compact, actions }: ChatQuoteCard
     <div
       className={`rounded-lg border border-gray-200 bg-gray-50 overflow-hidden ${
         compact ? 'text-xs' : 'text-sm'
-      }`}
+      } ${onClick ? 'cursor-pointer hover:border-blue-300' : ''}`}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className="flex gap-3 p-3">
         <div className="relative h-14 w-14 shrink-0 rounded-md overflow-hidden bg-white border border-gray-200">
@@ -80,7 +86,15 @@ export default function ChatQuoteCard({ quote, compact, actions }: ChatQuoteCard
           </div>
         </div>
       </div>
-      {actions ? <div className="px-3 pb-3 flex flex-wrap gap-2">{actions}</div> : null}
+      {actions ? (
+        <div
+          className="px-3 pb-3 flex flex-wrap gap-2"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {actions}
+        </div>
+      ) : null}
     </div>
   )
 }

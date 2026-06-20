@@ -15,6 +15,8 @@ type ThreadItem = {
   productSku: string | null
   productImageUrl: string | null
   quoteStatus: string | null
+  pricelistLabel?: string
+  pricelistOwnerId?: string
 }
 
 type MessageItem = {
@@ -92,9 +94,11 @@ export default function SellerChatInbox() {
       try {
         const params = new URLSearchParams()
         if (!reset && lastTsRef.current) params.set('since', lastTsRef.current)
-        const suffix = params.toString() ? `?${params.toString()}` : ''
+        const ownerForThread = threads.find((t) => t.id === conversationId)?.pricelistOwnerId
+        if (ownerForThread) params.set('owner', ownerForThread)
+        const query = params.toString() ? `?${params.toString()}` : ''
         const data = await fetchJson(
-          appPath(`/api/chat/supplier/conversations/${conversationId}/messages${suffix}`),
+          appPath(`/api/chat/supplier/conversations/${conversationId}/messages${query}`),
           { headers: catalogAuthHeaders(user) }
         )
         const items = (data.items ?? []) as MessageItem[]
@@ -114,7 +118,7 @@ export default function SellerChatInbox() {
         setLoadingMessages(false)
       }
     },
-    [user]
+    [user, threads]
   )
 
   useEffect(() => {
@@ -132,11 +136,21 @@ export default function SellerChatInbox() {
     if (!selectedId || !reply.trim() || sending) return
     setSending(true)
     try {
-      await fetchJson(appPath(`/api/chat/supplier/conversations/${selectedId}/messages`), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ text: reply.trim() }),
-      })
+      await fetchJson(
+        appPath(
+          `/api/chat/supplier/conversations/${selectedId}/messages${
+            (() => {
+              const owner = threads.find((t) => t.id === selectedId)?.pricelistOwnerId
+              return owner ? `?owner=${encodeURIComponent(owner)}` : ''
+            })()
+          }`
+        ),
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ text: reply.trim() }),
+        }
+      )
       setReply('')
       await loadMessages(selectedId, true)
       void loadInbox()
@@ -193,6 +207,9 @@ export default function SellerChatInbox() {
                       <div className="font-medium text-gray-900 truncate">
                         {thread.productName ?? 'Quote request'}
                       </div>
+                      {thread.pricelistLabel ? (
+                        <div className="text-[11px] text-emerald-700 truncate">{thread.pricelistLabel}</div>
+                      ) : null}
                       {thread.productSku ? (
                         <div className="text-xs text-gray-500 truncate">SKU {thread.productSku}</div>
                       ) : null}

@@ -673,3 +673,15 @@ CREATE TABLE IF NOT EXISTS chat_quote_requests (
     FOREIGN KEY (supplier_conversation_id) REFERENCES chat_conversations(id)
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE chat_quote_requests
+  ADD COLUMN IF NOT EXISTS supplier_message_id VARCHAR(36) NULL AFTER supplier_conversation_id;
+
+ALTER TABLE chat_conversations
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL AFTER updated_at;
+
+ALTER TABLE chat_messages
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL AFTER read_at;
+
+ALTER TABLE chat_quote_requests
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL AFTER updated_at;

@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { resolveAdminChatContext } from '@/lib/chat-auth'
+import { getProductCuratedPricelistId, listPricelistPages } from '@/lib/pricelist-pages-db'
 import {
   createChatMessage,
   createSupplierConversation,
-  ensureSellerChatSession,
+  ensurePricelistPageChatSession,
   getChatConversationById,
   getChatQuoteById,
-  getProductSellerId,
-  listSellerUsers,
   updateChatQuoteRequest,
 } from '@/lib/chat-db'
-import { queryDb } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -45,70 +43,58 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const body = await request.json().catch(() => ({}))
-  let sellerUserId = String(body?.sellerUserId ?? '').trim()
+  let pricelistPageId = String(body?.pricelistPageId ?? body?.pricelistOwnerId ?? '').trim()
 
-  if (!sellerUserId && quote.product_id) {
-    sellerUserId = (await getProductSellerId(quote.product_id)) ?? ''
+  if (!pricelistPageId && quote.product_id) {
+    pricelistPageId = (await getProductCuratedPricelistId(quote.product_id)) ?? ''
   }
 
-  if (!sellerUserId) {
-    const sellers = await listSellerUsers()
-    if (sellers.length === 1) {
-      sellerUserId = sellers[0].id
-    }
+  if (!pricelistPageId) {
+    return NextResponse.json({ error: 'pricelistPageId is required' }, { status: 400 })
   }
 
-  if (!sellerUserId) {
-    return NextResponse.json(
-      { error: 'sellerUserId is required when product has no assigned seller' },
-      { status: 400 }
-    )
+  const pages = await listPricelistPages({ activeOnly: true })
+  const page = pages.find((p) => p.id === pricelistPageId)
+  if (!page) {
+    return NextResponse.json({ error: 'Invalid pricelist page' }, { status: 400 })
   }
 
-  const sellerRows = await queryDb<{ id: string; name: string | null; email: string; role: string }[]>(
-    'SELECT id, name, email, role FROM users WHERE id = ? LIMIT 1',
-    [sellerUserId]
-  )
-  const seller = sellerRows[0]
-  if (!seller || seller.role !== 'seller') {
-    return NextResponse.json({ error: 'Invalid seller' }, { status: 400 })
-  }
-
-  const supplierSession = await ensureSellerChatSession(
-    seller.id,
-    seller.name?.trim() || seller.email
-  )
+  const pageSession = await ensurePricelistPageChatSession(page.id, page.label)
 
   const supplierConversation = await createSupplierConversation({
-    supplierSessionId: supplierSession.id,
+    supplierSessionId: pageSession.id,
     assignedAdminUserId: resolved.ctx.actor.userId,
-    pricelistOwnerId: buyerConversation.pricelist_owner_id,
+    pricelistOwnerId: page.id,
+  })
+
+  const supplierQuoteMessage = await createChatMessage({
+    conversationId: supplierConversation.id,
+    senderSessionId: resolved.ctx.session.id,
+    senderRole: 'admin',
+    messageType: 'quote',
+    body: null,
   })
 
   await updateChatQuoteRequest(quoteId, {
     status: 'with_supplier',
     supplierConversationId: supplierConversation.id,
+    supplierMessageId: supplierQuoteMessage.id,
   })
-
-  const productLine = [
-    quote.product_name,
-    quote.product_sku ? `SKU ${quote.product_sku}` : null,
-    quote.product_brand,
-  ]
-    .filter(Boolean)
-    .join(' · ')
 
   await createChatMessage({
     conversationId: supplierConversation.id,
     senderSessionId: resolved.ctx.session.id,
     senderRole: 'system',
     messageType: 'system',
-    body: `Quote request from admin: ${productLine}`,
+    body: `Admin forwarded a quote request for ${quote.product_name}${
+      quote.product_sku ? ` (SKU ${quote.product_sku})` : ''
+    }. Reply with your price.`,
   })
 
   return NextResponse.json({
     ok: true,
     supplierConversationId: supplierConversation.id,
-    sellerUserId: seller.id,
+    pricelistPageId: page.id,
+    pricelistLabel: page.label,
   })
 }

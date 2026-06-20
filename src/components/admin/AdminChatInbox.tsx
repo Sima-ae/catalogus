@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
+import AdminChatTrash from '@/components/admin/AdminChatTrash'
 
 type ThreadItem = {
   id: string
@@ -21,12 +22,13 @@ type QuoteItem = ChatQuoteCardData & {
   accessCode: string | null
   conversation_id: string
   message_id: string
+  suggestedPricelistPageId?: string | null
 }
 
-type SellerOption = {
+type PricelistPageOption = {
   id: string
-  name: string | null
-  email: string
+  slug: string
+  label: string
 }
 
 type MessageItem = {
@@ -54,12 +56,13 @@ function formatTime(iso: string) {
 }
 
 export default function AdminChatInbox() {
-  const { user } = useAuth()
-  const [tab, setTab] = useState<'threads' | 'quotes'>('threads')
+  const { user, isSuperAdmin } = useAuth()
+  const [tab, setTab] = useState<'threads' | 'quotes' | 'trash'>('threads')
   const [threads, setThreads] = useState<ThreadItem[]>([])
   const [quotes, setQuotes] = useState<QuoteItem[]>([])
-  const [sellers, setSellers] = useState<SellerOption[]>([])
+  const [pricelistPages, setPricelistPages] = useState<PricelistPageOption[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [loadingInbox, setLoadingInbox] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -67,8 +70,8 @@ export default function AdminChatInbox() {
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [escalatingId, setEscalatingId] = useState<string | null>(null)
-  const [pickSellerForQuote, setPickSellerForQuote] = useState<QuoteItem | null>(null)
-  const [pickSellerId, setPickSellerId] = useState('')
+  const [pickPricelistForQuote, setPickPricelistForQuote] = useState<QuoteItem | null>(null)
+  const [pickPricelistId, setPickPricelistId] = useState('')
   const [supplierConvId, setSupplierConvId] = useState<string | null>(null)
   const [supplierMessages, setSupplierMessages] = useState<MessageItem[]>([])
   const [supplierReply, setSupplierReply] = useState('')
@@ -89,7 +92,7 @@ export default function AdminChatInbox() {
       const data = await fetchJson(appPath('/api/admin/chat/inbox'), { headers: adminAuthHeaders(user) })
       setThreads(data.threads ?? [])
       setQuotes(data.quotes ?? [])
-      setSellers(data.sellers ?? [])
+      setPricelistPages(data.pricelistPages ?? [])
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -108,6 +111,18 @@ export default function AdminChatInbox() {
     () => threads.find((t) => t.id === selectedId) ?? null,
     [threads, selectedId]
   )
+
+  const selectedQuote = useMemo(
+    () => quotes.find((q) => q.id === selectedQuoteId) ?? null,
+    [quotes, selectedQuoteId]
+  )
+
+  const activeBuyerLabel = useMemo(() => {
+    if (selectedQuote?.buyerLabel) return selectedQuote.buyerLabel
+    if (selectedThread?.buyerLabel) return selectedThread.buyerLabel
+    const fromQuote = quotes.find((q) => q.conversation_id === selectedId)
+    return fromQuote?.buyerLabel ?? 'Conversation'
+  }, [selectedQuote, selectedThread, quotes, selectedId])
 
   const loadMessages = useCallback(
     async (conversationId: string, reset = false) => {
@@ -152,8 +167,22 @@ export default function AdminChatInbox() {
   }, [selectedId, loadMessages])
 
   const openThread = (id: string) => {
-    setTab('threads')
+    setSelectedQuoteId(null)
     setSelectedId(id)
+    setTab('threads')
+    lastTsRef.current = null
+  }
+
+  const openQuote = (quote: QuoteItem) => {
+    if (!quote.conversation_id) {
+      setError('Quote has no linked conversation')
+      return
+    }
+    setTab('quotes')
+    setSelectedQuoteId(quote.id)
+    setSelectedId(quote.conversation_id)
+    lastTsRef.current = null
+    setMessages([])
   }
 
   const sendReply = async () => {
@@ -175,29 +204,30 @@ export default function AdminChatInbox() {
     }
   }
 
-  const escalateQuote = async (quote: QuoteItem, sellerUserId?: string) => {
+  const escalateQuote = async (quote: QuoteItem, pricelistPageId?: string) => {
     if (escalatingId) return
+    if (!pricelistPageId) {
+      setPickPricelistForQuote(quote)
+      setPickPricelistId(
+        quote.suggestedPricelistPageId ?? pricelistPages[0]?.id ?? ''
+      )
+      return
+    }
     setEscalatingId(quote.id)
     setError('')
     try {
       await fetchJson(appPath(`/api/admin/chat/quotes/${quote.id}/escalate`), {
         method: 'POST',
         headers,
-        body: JSON.stringify(sellerUserId ? { sellerUserId } : {}),
+        body: JSON.stringify({ pricelistPageId }),
       })
-      setPickSellerForQuote(null)
-      setPickSellerId('')
-      if (quote.conversation_id) openThread(quote.conversation_id)
+      setPickPricelistForQuote(null)
+      setPickPricelistId('')
+      openQuote(quote)
       await loadMessages(quote.conversation_id, true)
       void loadInbox()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('sellerUserId is required') && sellers.length > 1) {
-        setPickSellerForQuote(quote)
-        setPickSellerId(sellers[0]?.id ?? '')
-      } else {
-        setError(msg)
-      }
+      setError(e instanceof Error ? e.message : String(e))
     } finally {
       setEscalatingId(null)
     }
@@ -211,6 +241,7 @@ export default function AdminChatInbox() {
         body: JSON.stringify({ status: 'answered' }),
       })
       if (selectedId) await loadMessages(selectedId, true)
+      if (selectedQuoteId === quoteId) setSelectedQuoteId(null)
       void loadInbox()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -276,6 +307,53 @@ export default function AdminChatInbox() {
     }
   }
 
+  const deleteThread = async (threadId: string) => {
+    if (!isSuperAdmin || !window.confirm('Move this thread to trash?')) return
+    try {
+      await fetchJson(appPath(`/api/admin/chat/conversations/${threadId}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
+      if (selectedId === threadId) setSelectedId(null)
+      void loadInbox()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const deleteMessage = async (messageId: string) => {
+    if (!isSuperAdmin || !window.confirm('Move this message to trash?')) return
+    try {
+      await fetchJson(appPath(`/api/admin/chat/messages/${messageId}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
+      if (selectedId) await loadMessages(selectedId, true)
+      void loadInbox()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const deleteQuote = async (quoteId: string) => {
+    if (!isSuperAdmin || !window.confirm('Move this quote to trash?')) return
+    try {
+      await fetchJson(appPath(`/api/admin/chat/quotes/${quoteId}`), {
+        method: 'DELETE',
+        headers: adminAuthHeaders(user),
+      })
+      if (selectedQuoteId === quoteId) {
+        setSelectedQuoteId(null)
+        setSelectedId(null)
+      } else if (selectedId) {
+        await loadMessages(selectedId, true)
+      }
+      void loadInbox()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+  }
+
   const renderQuoteActions = (quote: ChatQuoteCardData) => (
     <>
       {!quote.supplier_conversation_id && quote.status === 'pending' ? (
@@ -288,7 +366,7 @@ export default function AdminChatInbox() {
           disabled={escalatingId === quote.id}
           className="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {escalatingId === quote.id ? 'Asking…' : 'Ask supplier'}
+          {escalatingId === quote.id ? 'Forwarding…' : 'Ask supplier'}
         </button>
       ) : null}
       {quote.supplier_conversation_id ? (
@@ -309,8 +387,34 @@ export default function AdminChatInbox() {
           Mark answered
         </button>
       ) : null}
+      {isSuperAdmin ? (
+        <button
+          type="button"
+          onClick={() => void deleteQuote(quote.id)}
+          className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+        >
+          Trash
+        </button>
+      ) : null}
     </>
   )
+
+  if (tab === 'trash' && isSuperAdmin) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden min-h-[560px]">
+        <div className="flex border-b border-gray-200">
+          <button
+            type="button"
+            onClick={() => setTab('threads')}
+            className="px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            ← Back to inbox
+          </button>
+        </div>
+        <AdminChatTrash />
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -332,13 +436,25 @@ export default function AdminChatInbox() {
             </button>
             <button
               type="button"
-              onClick={() => setTab('quotes')}
+              onClick={() => {
+                setTab('quotes')
+                setSelectedQuoteId(null)
+              }}
               className={`flex-1 px-4 py-3 text-sm font-medium ${
                 tab === 'quotes' ? 'text-blue-700 border-b-2 border-blue-600' : 'text-gray-600'
               }`}
             >
               Quotes ({quotes.length})
             </button>
+            {isSuperAdmin ? (
+              <button
+                type="button"
+                onClick={() => setTab('trash')}
+                className="flex-1 px-4 py-3 text-sm font-medium text-gray-600 hover:text-red-700"
+              >
+                Trash
+              </button>
+            ) : null}
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-[520px]">
@@ -375,39 +491,104 @@ export default function AdminChatInbox() {
               ) : (
                 <div className="p-4 text-sm text-gray-500">No buyer threads yet.</div>
               )
-            ) : quotes.length ? (
-              <ul>
-                {quotes.map((quote) => (
-                  <li key={quote.id}>
-                    <button
-                      type="button"
-                      onClick={() => openThread(quote.conversation_id)}
-                      className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50"
-                    >
-                      <div className="font-medium text-gray-900 truncate">{quote.product_name}</div>
-                      <div className="text-xs text-gray-500 truncate">{quote.buyerLabel}</div>
-                      <div className="mt-1 text-[11px] text-gray-400">{quote.status}</div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            ) : tab === 'quotes' ? (
+              quotes.length ? (
+                <ul>
+                  {quotes.map((quote) => (
+                    <li key={quote.id}>
+                      <div
+                        className={`flex items-stretch border-b border-gray-100 ${
+                          selectedQuoteId === quote.id ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openQuote(quote)}
+                          className="flex-1 text-left px-4 py-3 hover:bg-gray-50"
+                        >
+                          <div className="font-medium text-gray-900 truncate">
+                            {quote.product_name || 'Unnamed product'}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">{quote.buyerLabel}</div>
+                          <div className="mt-1 flex items-center gap-2 text-[11px]">
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 ${
+                                quote.status === 'pending'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : quote.status === 'with_supplier'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {quote.status}
+                            </span>
+                            {quote.product_sku ? (
+                              <span className="text-gray-400 truncate">SKU {quote.product_sku}</span>
+                            ) : null}
+                          </div>
+                        </button>
+                        {isSuperAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => void deleteQuote(quote.id)}
+                            className="px-3 text-xs text-red-600 hover:bg-red-50"
+                          >
+                            Trash
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="p-4 text-sm text-gray-500">No quote requests in the database.</div>
+              )
             ) : (
-              <div className="p-4 text-sm text-gray-500">No pending quotes.</div>
+              <div className="p-4 text-sm text-gray-500">Select a tab.</div>
             )}
           </div>
         </aside>
 
         <section className="flex flex-col min-h-[400px]">
-          {selectedId ? (
+          {(tab === 'quotes' ? selectedQuoteId && selectedId : selectedId) ? (
             <>
-              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                <div className="font-semibold text-gray-900">
-                  {selectedThread?.buyerLabel ?? 'Conversation'}
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-start justify-between gap-3">
+                <div>
+                  {tab === 'quotes' && selectedQuote ? (
+                    <>
+                      <div className="font-semibold text-gray-900">{selectedQuote.product_name}</div>
+                      <div className="text-xs text-gray-500">
+                        {selectedQuote.buyerLabel}
+                        {selectedQuote.product_sku ? ` · SKU ${selectedQuote.product_sku}` : ''}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-semibold text-gray-900">{activeBuyerLabel}</div>
+                      {(selectedThread?.accessCode ?? selectedQuote?.accessCode) ? (
+                        <div className="text-xs text-gray-500">
+                          Access code: {selectedThread?.accessCode ?? selectedQuote?.accessCode}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
                 </div>
-                {selectedThread?.accessCode ? (
-                  <div className="text-xs text-gray-500">Access code: {selectedThread.accessCode}</div>
+                {isSuperAdmin && selectedId ? (
+                  <button
+                    type="button"
+                    onClick={() => void deleteThread(selectedId)}
+                    className="shrink-0 rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                  >
+                    Trash thread
+                  </button>
                 ) : null}
               </div>
+
+              {tab === 'quotes' && selectedQuote ? (
+                <div className="px-4 py-3 border-b border-gray-100 bg-white">
+                  <ChatQuoteCard quote={selectedQuote} actions={renderQuoteActions(selectedQuote)} />
+                </div>
+              ) : null}
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
                 {loadingMessages && !messages.length ? (
@@ -416,8 +597,20 @@ export default function AdminChatInbox() {
                   messages.map((m) => (
                     <div
                       key={m.id}
-                      className={`flex ${m.sender_role === 'admin' ? 'justify-end' : 'justify-start'}`}
+                      className={`group flex items-end gap-1 ${m.sender_role === 'admin' ? 'justify-end' : 'justify-start'}`}
                     >
+                      {isSuperAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => void deleteMessage(m.id)}
+                          className={`opacity-0 group-hover:opacity-100 text-[10px] text-red-600 px-1 ${
+                            m.sender_role === 'admin' ? 'order-first' : ''
+                          }`}
+                          title="Move to trash"
+                        >
+                          Trash
+                        </button>
+                      ) : null}
                       <div
                         className={`max-w-[85%] rounded-2xl px-3 py-2 ${
                           m.sender_role === 'admin'
@@ -428,7 +621,11 @@ export default function AdminChatInbox() {
                         }`}
                       >
                         {m.message_type === 'quote' && m.quote ? (
-                          <ChatQuoteCard quote={m.quote} compact actions={renderQuoteActions(m.quote)} />
+                          <ChatQuoteCard
+                            quote={m.quote}
+                            compact
+                            actions={renderQuoteActions(m.quote)}
+                          />
                         ) : (
                           <div className="text-sm whitespace-pre-wrap">{m.body}</div>
                         )}
@@ -473,45 +670,47 @@ export default function AdminChatInbox() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-sm text-gray-500 p-8">
-              Select a thread to view messages and reply.
+              {tab === 'quotes'
+                ? 'Select a quote to view the buyer thread and take action.'
+                : 'Select a thread to view messages and reply.'}
             </div>
           )}
         </section>
       </div>
 
-      {pickSellerForQuote ? (
+      {pickPricelistForQuote ? (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="font-semibold text-gray-900">Choose supplier</h3>
+            <h3 className="font-semibold text-gray-900">Forward to pricelist</h3>
             <p className="mt-1 text-sm text-gray-600">
-              This product has no assigned seller. Pick who should receive the supplier thread.
+              Choose which supplier pricelist page should receive this product quote request.
             </p>
             <select
-              value={pickSellerId}
-              onChange={(e) => setPickSellerId(e.target.value)}
+              value={pickPricelistId}
+              onChange={(e) => setPickPricelistId(e.target.value)}
               className="mt-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
-              {sellers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name?.trim() || s.email}
+              {pricelistPages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
                 </option>
               ))}
             </select>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPickSellerForQuote(null)}
+                onClick={() => setPickPricelistForQuote(null)}
                 className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                disabled={!pickSellerId || escalatingId === pickSellerForQuote.id}
-                onClick={() => void escalateQuote(pickSellerForQuote, pickSellerId)}
+                disabled={!pickPricelistId || escalatingId === pickPricelistForQuote.id}
+                onClick={() => void escalateQuote(pickPricelistForQuote, pickPricelistId)}
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                Ask supplier
+                Forward to supplier
               </button>
             </div>
           </div>
