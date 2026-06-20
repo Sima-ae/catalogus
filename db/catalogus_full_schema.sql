@@ -565,6 +565,120 @@ CREATE TABLE IF NOT EXISTS notifications (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+-- Live chat + quote requests (self-hosted)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS chat_participant_sessions (
+  id VARCHAR(36) NOT NULL,
+  participant_type VARCHAR(32) NOT NULL,
+  site_access_code_id VARCHAR(36) NULL,
+  user_id VARCHAR(36) NULL,
+  pricelist_owner_id VARCHAR(36) NULL,
+  display_label VARCHAR(255) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  KEY idx_chat_sessions_user (user_id),
+  KEY idx_chat_sessions_code (site_access_code_id),
+  KEY idx_chat_sessions_pricelist_owner (pricelist_owner_id),
+  CONSTRAINT fk_chat_sessions_code
+    FOREIGN KEY (site_access_code_id) REFERENCES site_access_codes(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_chat_sessions_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_conversations (
+  id VARCHAR(36) NOT NULL,
+  type VARCHAR(32) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'open',
+  buyer_session_id VARCHAR(36) NULL,
+  supplier_session_id VARCHAR(36) NULL,
+  assigned_admin_user_id VARCHAR(36) NULL,
+  pricelist_owner_id VARCHAR(36) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_chat_conv_type_status (type, status),
+  KEY idx_chat_conv_buyer (buyer_session_id),
+  KEY idx_chat_conv_supplier (supplier_session_id),
+  KEY idx_chat_conv_admin (assigned_admin_user_id),
+  KEY idx_chat_conv_updated (updated_at),
+  CONSTRAINT fk_chat_conv_buyer
+    FOREIGN KEY (buyer_session_id) REFERENCES chat_participant_sessions(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_chat_conv_supplier
+    FOREIGN KEY (supplier_session_id) REFERENCES chat_participant_sessions(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_chat_conv_admin
+    FOREIGN KEY (assigned_admin_user_id) REFERENCES users(id)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id VARCHAR(36) NOT NULL,
+  conversation_id VARCHAR(36) NOT NULL,
+  sender_session_id VARCHAR(36) NOT NULL,
+  sender_role VARCHAR(16) NOT NULL,
+  message_type VARCHAR(16) NOT NULL DEFAULT 'text',
+  body TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  read_at TIMESTAMP NULL,
+  PRIMARY KEY (id),
+  KEY idx_chat_messages_conv_created (conversation_id, created_at),
+  KEY idx_chat_messages_sender (sender_session_id),
+  CONSTRAINT fk_chat_msg_conversation
+    FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_chat_msg_sender
+    FOREIGN KEY (sender_session_id) REFERENCES chat_participant_sessions(id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_quote_requests (
+  id VARCHAR(36) NOT NULL,
+  conversation_id VARCHAR(36) NOT NULL,
+  message_id VARCHAR(36) NOT NULL,
+  product_id VARCHAR(36) NULL,
+  product_name VARCHAR(255) NOT NULL,
+  product_sku VARCHAR(255) NULL,
+  product_image_url TEXT NULL,
+  product_brand VARCHAR(255) NULL,
+  product_category VARCHAR(255) NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  site_access_code_id VARCHAR(36) NULL,
+  user_id VARCHAR(36) NULL,
+  supplier_conversation_id VARCHAR(36) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_chat_quotes_conv (conversation_id, created_at),
+  KEY idx_chat_quotes_status (status, updated_at),
+  KEY idx_chat_quotes_code (site_access_code_id),
+  KEY idx_chat_quotes_user (user_id),
+  KEY idx_chat_quotes_supplier_conv (supplier_conversation_id),
+  CONSTRAINT fk_chat_quotes_conversation
+    FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_chat_quotes_message
+    FOREIGN KEY (message_id) REFERENCES chat_messages(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_chat_quotes_product
+    FOREIGN KEY (product_id) REFERENCES products(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_chat_quotes_code
+    FOREIGN KEY (site_access_code_id) REFERENCES site_access_codes(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_chat_quotes_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_chat_quotes_supplier_conv
+    FOREIGN KEY (supplier_conversation_id) REFERENCES chat_conversations(id)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS settings (
   id VARCHAR(36) NOT NULL,
   `key` VARCHAR(255) NOT NULL,

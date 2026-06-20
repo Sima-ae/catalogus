@@ -244,14 +244,17 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
               <ProductOptionPrice
                 price={displayPrices.price}
                 originalPrice={displayPrices.original_price}
+                productId={product.id}
                 size="card"
               />
             ) : (
-              <span className="text-sm sm:text-base font-bold text-primary-500 truncate">
-                {isZeroPrice(product.price)
-                  ? t('product.priceOnRequest')
-                  : formatPrice(product.price)}
-              </span>
+              <ProductOptionPrice
+                price={product.price}
+                originalPrice={product.original_price}
+                productId={product.id}
+                size="card"
+                className="truncate"
+              />
             )}
           </div>
           {shopProductOptions && !singleFixedOption ? (

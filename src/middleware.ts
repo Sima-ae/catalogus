@@ -70,6 +70,9 @@ function isSiteAccessApi(pathname: string): boolean {
   return pathname.startsWith('/api/site-access/')
 }
 
+function isChatApi(pathname: string): boolean {
+  return pathname.startsWith('/api/chat/')
+}
 
 /** Deploy/diagnostics only — must not require the site-access cookie. */
 function isPublicApi(pathname: string): boolean {
@@ -151,6 +154,7 @@ export async function middleware(request: NextRequest) {
     isStaticAsset(pathname) ||
     isSiteAccessApi(pathname) ||
     isPricelistApiPath(pathname) ||
+    isChatApi(pathname) ||
     isPublicApi(pathname)
   ) {
     return finish(NextResponse.next())

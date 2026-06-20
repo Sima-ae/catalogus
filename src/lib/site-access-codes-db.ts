@@ -59,6 +59,30 @@ export async function verifySiteAccessCode(rawInput: string): Promise<boolean> {
   }
 }
 
+export type SiteAccessCodeRow = {
+  id: string
+  code: string
+  user_id: string | null
+}
+
+export async function findSiteAccessCodeByInput(rawInput: string): Promise<SiteAccessCodeRow | null> {
+  const code = normalizeSiteAccessCode(rawInput)
+  if (!code) return null
+  try {
+    const rows = await queryDb<SiteAccessCodeRow[]>(
+      'SELECT id, code, user_id FROM site_access_codes WHERE code = ? LIMIT 1',
+      [code]
+    )
+    return rows[0] ?? null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes("doesn't exist") || message.includes('site_access_codes')) {
+      return null
+    }
+    throw error
+  }
+}
+
 export async function listAvailableSiteAccessCodes(limit = 500): Promise<string[]> {
   const cap = Math.min(Math.max(1, limit), 2000)
   const rows = await queryDb<{ code: string }[]>(

@@ -4,12 +4,14 @@ import {
   applySiteAccessActiveCookie,
   applySiteAccessCookies,
   createActiveSessionToken,
+  createSiteAccessCodeToken,
   createUnlockToken,
   readUnlockCookie,
   siteAccessSecretDiagnostics,
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
-import { getSiteAccessConfig, verifySiteAccessCredential } from '@/lib/site-access'
+import { getSiteAccessConfig, verifySiteAccessPassword } from '@/lib/site-access'
+import { findSiteAccessCodeByInput } from '@/lib/site-access-codes-db'
 import { checkSiteAccessVerifyRateLimit } from '@/lib/site-access-verify-rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -46,7 +48,8 @@ export async function POST(request: NextRequest) {
       return res
     }
 
-    const valid = await verifySiteAccessCredential(password)
+    const codeRow = await findSiteAccessCodeByInput(password)
+    const valid = Boolean(codeRow) || (await verifySiteAccessPassword(password))
     if (!valid) {
       return NextResponse.json({ error: 'Incorrect password or access code' }, { status: 401 })
     }
@@ -90,6 +93,27 @@ export async function POST(request: NextRequest) {
       unlock ?? undefined
     )
     applySiteAccessActiveCookie(res, active)
+
+    if (codeRow) {
+      const codeToken = await createSiteAccessCodeToken(config.version, codeRow.id)
+      if (codeToken) {
+        res.cookies.set('rcc_site_code', codeToken.token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: codeToken.maxAge,
+        })
+      }
+    } else {
+      res.cookies.set('rcc_site_code', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 0,
+      })
+    }
     return res
   } catch (error) {
     console.error('Site access verify error:', error)

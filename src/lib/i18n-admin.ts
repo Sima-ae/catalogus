@@ -11,6 +11,7 @@ export type AdminMessageKey =
   | 'admin.nav.categories'
   | 'admin.nav.brands'
   | 'admin.nav.import'
+  | 'admin.nav.chat'
   | 'admin.nav.reviews'
   | 'admin.nav.analytics'
   | 'admin.nav.settings'
@@ -149,6 +150,7 @@ const EN: AdminMessages = {
   'admin.nav.categories': "Categories",
   'admin.nav.brands': "Brands",
   'admin.nav.import': "Import",
+  'admin.nav.chat': "Chat",
   'admin.nav.reviews': "Reviews",
   'admin.nav.analytics': "Analytics",
   'admin.nav.settings': "Settings",
@@ -293,6 +295,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.nav.categories': "Categorieën",
   'admin.nav.brands': "Merken",
   'admin.nav.import': "Importeren",
+  'admin.nav.chat': "Chat",
   'admin.nav.reviews': "Beoordelingen",
   'admin.nav.analytics': "Analyses",
   'admin.nav.settings': "Instellingen",

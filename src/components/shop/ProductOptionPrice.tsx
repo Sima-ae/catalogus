@@ -4,10 +4,12 @@ import { useTheme } from '@/lib/theme'
 import { formatPrice, formatPriceAmount, hasPublicOriginalPrice, isZeroPrice } from '@/lib/format-price'
 import { useShopCurrency } from '@/lib/shop-currency-context'
 import { useI18n } from '@/lib/i18n-context'
+import { useChat } from '@/components/chat/ChatProvider'
 
 type Props = {
   price: number
   originalPrice?: number | null
+  productId?: string
   size?: 'card' | 'page'
   className?: string
 }
@@ -15,12 +17,14 @@ type Props = {
 export default function ProductOptionPrice({
   price,
   originalPrice,
+  productId,
   size = 'page',
   className = '',
 }: Props) {
   const { theme } = useTheme()
   const { t } = useI18n()
   const { symbol: currencySymbol } = useShopCurrency()
+  const { requestQuote } = useChat()
   const isDark = theme === 'dark'
   const compact = size === 'card'
 
@@ -29,11 +33,17 @@ export default function ProductOptionPrice({
 
   if (onRequest) {
     return (
-      <span
-        className={`font-bold text-primary-500 ${compact ? 'text-sm sm:text-base' : 'text-2xl sm:text-3xl'} ${className}`}
+      <button
+        type="button"
+        className={`font-bold text-primary-500 hover:underline ${compact ? 'text-sm sm:text-base' : 'text-2xl sm:text-3xl'} ${className}`}
+        onClick={() => {
+          if (!productId) return
+          requestQuote({ productId })
+        }}
+        disabled={!productId}
       >
         {t('product.priceOnRequest')}
-      </span>
+      </button>
     )
   }
 

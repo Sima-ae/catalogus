@@ -9,6 +9,9 @@ import SiteAccessGuard from '@/components/site-access/SiteAccessGuard'
 import { LanguagePickerProvider } from '@/lib/language-picker-context'
 import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
 import { I18nProvider } from '@/lib/i18n-context'
+import ChatProvider from '@/components/chat/ChatProvider'
+import ChatWidget from '@/components/chat/ChatWidget'
+import ChatPanel from '@/components/chat/ChatPanel'
 import { appPath } from '@/lib/paths'
 import {
   getDefaultShopBootstrap,
@@ -114,7 +117,11 @@ export default function LayoutBootstrapGate({
               >
                 <CartProvider>
                   <ShopCurrencyProvider initialCurrency={shopBootstrap.currency}>
-                    {children}
+                    <ChatProvider>
+                      {children}
+                      <ChatPanel />
+                      <ChatWidget />
+                    </ChatProvider>
                   </ShopCurrencyProvider>
                 </CartProvider>
               </ProductCardDisplayProvider>

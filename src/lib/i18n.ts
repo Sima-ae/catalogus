@@ -314,6 +314,14 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.verifyFailed': 'Unable to verify. Try again.',
     'pricelist.access.incorrectPassword': 'Incorrect pricelist password',
     'pricelist.access.checkAccessFailed': 'Unable to check access',
+
+    // Chat (self-hosted)
+    'chat.title': 'Live chat',
+    'chat.subtitle': 'Ask a question or request a quote.',
+    'chat.loading': 'Connecting…',
+    'chat.ready': 'Connected. (Message UI will appear in the next step.)',
+    'chat.notAvailable': 'Chat is not available for this account.',
+    'chat.v1Hint': 'Tip: Click “Price on request” on a product to request a quote.',
   },
   nl: {
     // Shop / nav
@@ -555,6 +563,14 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'pricelist.access.verifyFailed': 'Verificatie mislukt. Probeer opnieuw.',
     'pricelist.access.incorrectPassword': 'Onjuist prijslijstwachtwoord',
     'pricelist.access.checkAccessFailed': 'Toegang kan niet worden gecontroleerd',
+
+    // Chat (self-hosted)
+    'chat.title': 'Live chat',
+    'chat.subtitle': 'Stel een vraag of vraag een offerte aan.',
+    'chat.loading': 'Verbinden…',
+    'chat.ready': 'Verbonden. (Berichten komen in de volgende stap.)',
+    'chat.notAvailable': 'Chat is niet beschikbaar voor dit account.',
+    'chat.v1Hint': 'Tip: Klik “Prijs op aanvraag” bij een product om een offerte aan te vragen.',
   },
   es: MESSAGES_ES,
   fr: MESSAGES_FR,

@@ -746,16 +746,21 @@ export default function ProductPageClient() {
                   <ProductOptionPrice
                     price={displayPrices.price}
                     originalPrice={displayPrices.original_price}
+                    productId={product.id}
                     size="page"
                   />
                 ) : isZeroPrice(selectedLicenseOption?.price ?? product.price) ? (
-                  <span className="text-2xl sm:text-3xl font-bold text-primary-500">
-                    {t('product.priceOnRequest')}
-                  </span>
+                  <ProductOptionPrice
+                    price={0}
+                    originalPrice={product.original_price}
+                    productId={product.id}
+                    size="page"
+                  />
                 ) : (
                   <ProductOptionPrice
                     price={selectedLicenseOption?.price ?? product.price}
                     originalPrice={product.original_price}
+                    productId={product.id}
                     size="page"
                   />
                 )}

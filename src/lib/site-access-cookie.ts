@@ -4,12 +4,16 @@ export const SITE_ACCESS_COOKIE = 'rcc_site_unlock'
 /** HttpOnly active session — cleared after inactivity; unlock cookie is kept. */
 export const SITE_ACCESS_ACTIVE_COOKIE = 'rcc_site_active'
 
+/** HttpOnly signed site-access code identifier (for quote/chat attribution). */
+export const SITE_ACCESS_CODE_COOKIE = 'rcc_site_code'
+
 /** Non-secret hints for Edge middleware (synced from DB on verify/status/check). */
 export const SITE_ACCESS_META_REQUIRED = 'rcc_sa_required'
 export const SITE_ACCESS_META_VERSION = 'rcc_sa_ver'
 
 const SESSION_MAX_AGE_SEC = 60 * 60 * 12
 const REMEMBER_MAX_AGE_SEC = 60 * 60 * 24 * 30
+const CODE_MAX_AGE_SEC = 60 * 60 * 24 * 30
 
 const textEncoder = new TextEncoder()
 
@@ -105,6 +109,46 @@ async function signPayload(payload: string): Promise<string | null> {
   if (!key) return null
   const sig = await crypto.subtle.sign('HMAC', key, textEncoder.encode(payload))
   return bytesToBase64Url(sig)
+}
+
+export async function createSiteAccessCodeToken(
+  version: number,
+  codeId: string
+): Promise<{ token: string; maxAge: number } | null> {
+  const maxAge = CODE_MAX_AGE_SEC
+  const exp = Math.floor(Date.now() / 1000) + maxAge
+  const payload = `v1.${version}.${codeId}.${exp}`
+  const sig = await signPayload(payload)
+  if (!sig) return null
+  return { token: `${stringToBase64Url(payload)}.${sig}`, maxAge }
+}
+
+export async function verifySiteAccessCodeToken(
+  token: string | null | undefined,
+  version: number
+): Promise<string | null> {
+  const raw = String(token ?? '').trim()
+  if (!raw) return null
+  const [payloadB64, sig] = raw.split('.')
+  if (!payloadB64 || !sig) return null
+  let payload = ''
+  try {
+    payload = base64UrlToString(payloadB64)
+  } catch {
+    return null
+  }
+  const parts = payload.split('.')
+  if (parts.length !== 4) return null
+  const [v, tokenVersionRaw, codeId, expRaw] = parts
+  if (v !== 'v1') return null
+  const tokenVersion = Number.parseInt(tokenVersionRaw || '0', 10) || 0
+  if (tokenVersion !== version) return null
+  const exp = Number.parseInt(expRaw || '0', 10) || 0
+  if (!exp || Math.floor(Date.now() / 1000) > exp) return null
+  const expected = await signPayload(payload)
+  if (!expected) return null
+  if (!timingSafeEqualString(expected, sig)) return null
+  return codeId?.trim() || null
 }
 
 export async function createUnlockToken(
