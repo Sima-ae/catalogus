@@ -6,7 +6,6 @@ import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { useShopCategories } from '@/lib/use-shop-categories'
 import {
   findParentCategoryName,
-  isShopTopLevelCategory,
 } from '@/lib/shop-category-tree'
 import {
   catalogFilterBasePath,
@@ -27,7 +26,6 @@ export function useShopCategory() {
     const raw = searchParams.get('category')?.trim()
     if (!raw) return 'All'
     if (categoryMenu.includes(raw)) return raw
-    if (isShopTopLevelCategory(categoryRows, raw)) return raw
 
     const parent = findParentCategoryName(categoryRows, raw)
     if (parent) return parent
@@ -39,7 +37,6 @@ export function useShopCategory() {
   useEffect(() => {
     const raw = searchParams.get('category')?.trim()
     if (!raw || raw === 'All' || categoryMenu.includes(raw)) return
-    if (isShopTopLevelCategory(categoryRows, raw)) return
 
     const parent = findParentCategoryName(categoryRows, raw)
     if (!parent) return
@@ -50,6 +47,24 @@ export function useShopCategory() {
     )
     params.set('category', parent)
     params.set('subcategory', raw)
+    params.delete('brand')
+    const qs = params.toString()
+    router.replace(qs ? `${basePath}?${qs}` : basePath)
+  }, [categoryMenu, categoryRows, pathname, router, searchParams])
+
+  /** Drop ?category= when the category has no products and is hidden from the menu. */
+  useEffect(() => {
+    const raw = searchParams.get('category')?.trim()
+    if (!raw || raw === 'All' || categoryMenu.length <= 1) return
+    if (categoryMenu.includes(raw)) return
+    if (findParentCategoryName(categoryRows, raw)) return
+
+    const basePath = catalogFilterBasePath(pathname)
+    const params = new URLSearchParams(
+      isCatalogFilterPath(pathname) ? searchParams.toString() : ''
+    )
+    params.delete('category')
+    params.delete('subcategory')
     params.delete('brand')
     const qs = params.toString()
     router.replace(qs ? `${basePath}?${qs}` : basePath)

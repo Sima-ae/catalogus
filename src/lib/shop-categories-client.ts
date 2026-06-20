@@ -22,6 +22,31 @@ function normalizeCategoryRows(data: unknown): CategoryTreeRow[] {
   })
 }
 
+let cachedMenu: string[] | null = null
+let menuInflight: Promise<string[]> | null = null
+
+/** Top-level category labels for shop pills — only categories with products. */
+export function fetchShopCategoryMenu(): Promise<string[]> {
+  if (cachedMenu) return Promise.resolve(cachedMenu)
+  if (menuInflight) return menuInflight
+
+  menuInflight = fetch(appPath('/api/categories/shop-menu'))
+    .then((res) => (res.ok ? res.json() : ['All']))
+    .then((data) => {
+      const menu = Array.isArray(data)
+        ? data.map((name) => String(name ?? '').trim()).filter(Boolean)
+        : ['All']
+      cachedMenu = menu.includes('All') ? menu : ['All', ...menu]
+      return cachedMenu
+    })
+    .catch(() => ['All'] as string[])
+    .finally(() => {
+      menuInflight = null
+    })
+
+  return menuInflight
+}
+
 /** Single shared fetch for shop category pills, sidebar, and subcategory resolution. */
 export function fetchShopCategoryRows(): Promise<CategoryTreeRow[]> {
   if (cachedRows) return Promise.resolve(cachedRows)

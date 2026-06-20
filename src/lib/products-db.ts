@@ -13,6 +13,7 @@ import {
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
+import { buildShopCategoryMenu } from '@/lib/shop-category-menu'
 import { formatCategoryDisplayName } from '@/lib/category-picker'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
 import {
@@ -591,7 +592,30 @@ export type ShopSubcategoryOption = {
   productCount: number
 }
 
-/** Direct subcategories under a parent — always listed; productCount is for display/sorting only. */
+const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu'
+const SHOP_CATEGORY_MENU_TTL_MS = 180_000
+
+/** Top-level shop categories with at least one active product in scope. */
+export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
+  return getCachedValue(
+    SHOP_CATEGORY_MENU_CACHE_NS,
+    'menu',
+    SHOP_CATEGORY_MENU_TTL_MS,
+    async () => {
+      const categories = await loadActiveCategories()
+      const candidates = buildShopCategoryMenu(categories).filter((name) => name !== 'All')
+      const counts = await Promise.all(
+        candidates.map(async (name) => ({
+          name,
+          count: await countActiveProductsForCatalogQuery({ category: name }),
+        }))
+      )
+      return ['All', ...counts.filter((row) => row.count > 0).map((row) => row.name)]
+    }
+  )
+}
+
+/** Direct subcategories under a parent — only rows with at least one active product. */
 export async function listShopSubcategoriesWithProducts(
   parentCategoryName: string,
   brandName?: string
@@ -600,45 +624,22 @@ export async function listShopSubcategoriesWithProducts(
   const children = getDirectChildCategories(categories, parentCategoryName)
   if (!children.length) return []
 
-  const childIds = children.map((row) => row.id)
-  const idPlaceholders = childIds.map(() => '?').join(', ')
-
   const brand = brandName?.trim()
-  const brandJoin =
-    brand && brand !== 'All'
-      ? (() => {
-          const filter = buildProductBrandSegmentFilter(brand)
-          return {
-            sql: `AND (
-              ${filter.sql}
-              OR EXISTS (
-                SELECT 1 FROM brands bx
-                WHERE bx.active = 1 AND bx.id = p.brand_id AND LOWER(TRIM(bx.name)) = LOWER(?)
-              )
-            )`,
-            params: [...filter.params, brand],
-          }
-        })()
-      : null
-  const brandParams = brandJoin?.params ?? []
+  const brandFilter = brand && brand !== 'All' ? brand : undefined
 
-  const rows = await queryDb<{ id: string; name: string; productCount: number }[]>(
-    `SELECT c.id, c.name, COUNT(DISTINCT p.id) AS productCount
-     FROM categories c
-     LEFT JOIN products p ON p.status = 'active' AND p.category_id = c.id ${brandJoin?.sql ?? ''}
-     WHERE c.id IN (${idPlaceholders}) AND c.active = 1
-     GROUP BY c.id, c.name
-     ORDER BY c.name ASC`,
-    [...brandParams, ...childIds]
+  const rows = await Promise.all(
+    children.map(async (child) => ({
+      id: String(child.id),
+      name: String(child.name),
+      productCount: await countActiveProductsForCatalogQuery({
+        category: parentCategoryName,
+        subcategory: child.name,
+        brand: brandFilter,
+      }),
+    }))
   )
 
-  const countsById = new Map(rows.map((row) => [String(row.id), Number(row.productCount ?? 0)]))
-
-  return children.map((child) => ({
-    id: String(child.id),
-    name: String(child.name),
-    productCount: countsById.get(String(child.id)) ?? 0,
-  }))
+  return rows.filter((row) => row.productCount > 0)
 }
 
 async function fetchProductRow(
