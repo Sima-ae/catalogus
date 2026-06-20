@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import AdminChatTrash from '@/components/admin/AdminChatTrash'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
 import {
   CHAT_INBOX_POLL_MS,
   createOptimisticMessage,
@@ -80,6 +81,8 @@ export default function AdminChatInbox() {
   const [supplierConvId, setSupplierConvId] = useState<string | null>(null)
   const [supplierReply, setSupplierReply] = useState('')
   const [supplierSending, setSupplierSending] = useState(false)
+  const buyerScrollRef = useRef<HTMLDivElement | null>(null)
+  const supplierScrollRef = useRef<HTMLDivElement | null>(null)
 
   const headers = useMemo(
     () => ({
@@ -149,7 +152,14 @@ export default function AdminChatInbox() {
   } = useChatMessagePoll<MessageItem>({
     enabled: Boolean(selectedId),
     fetchMessages: fetchBuyerMessages,
+    conversationKey: selectedId,
   })
+
+  const { requestScrollToBottom: scrollBuyerToBottom } = useChatAutoScroll(
+    buyerScrollRef,
+    messages.length,
+    { conversationKey: selectedId }
+  )
 
   const fetchSupplierMessages = useCallback(
     async (since: string | null): Promise<MessageItem[]> => {
@@ -173,7 +183,14 @@ export default function AdminChatInbox() {
   } = useChatMessagePoll<MessageItem>({
     enabled: Boolean(supplierConvId),
     fetchMessages: fetchSupplierMessages,
+    conversationKey: supplierConvId,
   })
+
+  const { requestScrollToBottom: scrollSupplierToBottom } = useChatAutoScroll(
+    supplierScrollRef,
+    supplierMessages.length,
+    { conversationKey: supplierConvId }
+  )
 
   const openThread = (id: string) => {
     setSelectedQuoteId(null)
@@ -198,6 +215,7 @@ export default function AdminChatInbox() {
     setReply('')
     setSending(true)
     setMessages((prev) => [...prev, optimistic as MessageItem])
+    scrollBuyerToBottom()
     try {
       const data = await fetchJson(appPath(`/api/admin/chat/conversations/${selectedId}/messages`), {
         method: 'POST',
@@ -275,6 +293,7 @@ export default function AdminChatInbox() {
     setSupplierReply('')
     setSupplierSending(true)
     setSupplierMessages((prev) => [...prev, optimistic as MessageItem])
+    scrollSupplierToBottom()
     try {
       const data = await fetchJson(
         appPath(`/api/admin/chat/supplier-conversations/${supplierConvId}/messages`),
@@ -621,7 +640,7 @@ export default function AdminChatInbox() {
                 </div>
               ) : null}
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
+              <div ref={buyerScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
                 {loadingMessages && !messages.length ? (
                   <div className="text-sm text-gray-500">Loading messages…</div>
                 ) : messages.length ? (
@@ -750,7 +769,7 @@ export default function AdminChatInbox() {
                 Close
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div ref={supplierScrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
               {supplierMessages.length ? (
                 supplierMessages.map((m) => (
                   <div

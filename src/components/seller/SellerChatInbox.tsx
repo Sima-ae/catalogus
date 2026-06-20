@@ -1,11 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
 import {
   CHAT_INBOX_POLL_MS,
   createOptimisticMessage,
@@ -58,6 +59,7 @@ export default function SellerChatInbox() {
   const [error, setError] = useState('')
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null)
 
   const headers = useMemo(
     () => ({
@@ -112,6 +114,11 @@ export default function SellerChatInbox() {
   const { messages, setMessages, loading: loadingMessages, loadMessages } = useChatMessagePoll<MessageItem>({
     enabled: Boolean(selectedId),
     fetchMessages,
+    conversationKey: selectedId,
+  })
+
+  const { requestScrollToBottom } = useChatAutoScroll(messagesScrollRef, messages.length, {
+    conversationKey: selectedId,
   })
 
   const sendReply = async () => {
@@ -121,6 +128,7 @@ export default function SellerChatInbox() {
     setReply('')
     setSending(true)
     setMessages((prev) => [...prev, optimistic as MessageItem])
+    requestScrollToBottom()
     try {
       const owner = threads.find((t) => t.id === selectedId)?.pricelistOwnerId
       const ownerQuery = owner ? `?owner=${encodeURIComponent(owner)}` : ''
@@ -220,7 +228,7 @@ export default function SellerChatInbox() {
                 </div>
               ) : null}
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[380px]">
+              <div ref={messagesScrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[380px]">
                 {loadingMessages && !messages.length ? (
                   <div className="text-sm text-gray-500">Loading messages…</div>
                 ) : messages.length ? (

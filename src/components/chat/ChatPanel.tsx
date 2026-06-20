@@ -5,6 +5,7 @@ import { useChat } from '@/components/chat/ChatProvider'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import ChatSupplierPanel from '@/components/chat/ChatSupplierPanel'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
 import {
   createOptimisticMessage,
   replaceOptimisticMessage,
@@ -24,15 +25,27 @@ type MessageItem = {
   quote: ChatQuoteCardData | null
 }
 
+function quotedProductIds(messages: MessageItem[]): Set<string> {
+  const ids = new Set<string>()
+  for (const m of messages) {
+    const pid = m.quote?.product_id?.trim()
+    if (pid) ids.add(pid)
+  }
+  return ids
+}
+
 export default function ChatPanel() {
   const { t } = useI18n()
   const { user } = useAuth()
-  const { open, loading, error, bootstrap, pendingQuote, clearPendingQuote } = useChat()
+  const { open, loading, error, bootstrap, quoteQueue, dequeueQuote } = useChat()
   const [quoteError, setQuoteError] = useState('')
   const [sendingQuote, setSendingQuote] = useState(false)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const quoteQueueRef = useRef<string[]>([])
+  const messagesRef = useRef<MessageItem[]>([])
+  const pumpingRef = useRef(false)
 
   const conversationId = bootstrap?.conversationId ?? null
   const isSupplier = bootstrap?.chatRole === 'pricelist_supplier'
@@ -59,11 +72,77 @@ export default function ChatPanel() {
     useChatMessagePoll<MessageItem>({
       enabled: canPoll,
       fetchMessages,
+      conversationKey: conversationId,
     })
 
+  quoteQueueRef.current = quoteQueue
+  messagesRef.current = messages
+
+  const { requestScrollToBottom } = useChatAutoScroll(scrollRef, messages.length, {
+    conversationKey: conversationId,
+  })
+
+  const pumpQuoteQueue = useCallback(async () => {
+    if (!open || !conversationId || pumpingRef.current) return
+    if (quoteQueueRef.current.length === 0) return
+
+    pumpingRef.current = true
+    setSendingQuote(true)
+    setQuoteError('')
+
+    try {
+      const quoted = quotedProductIds(messagesRef.current)
+      while (quoteQueueRef.current.length > 0) {
+        const productId = quoteQueueRef.current[0]
+        if (!productId) break
+
+        if (quoted.has(productId)) {
+          dequeueQuote(productId)
+          continue
+        }
+
+        const res = await fetch(appPath('/api/chat/quotes'), {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+            ...catalogAuthHeaders(user),
+          },
+          body: JSON.stringify({ conversationId, productId }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(String(data?.error || `HTTP_${res.status}`))
+
+        quoted.add(productId)
+        dequeueQuote(productId)
+        await loadMessages(false)
+        requestScrollToBottom()
+      }
+    } catch (e) {
+      setQuoteError(e instanceof Error ? e.message : String(e))
+    } finally {
+      pumpingRef.current = false
+      setSendingQuote(false)
+      if (quoteQueueRef.current.length > 0) {
+        void pumpQuoteQueue()
+      }
+    }
+  }, [open, conversationId, dequeueQuote, user, loadMessages, requestScrollToBottom])
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
+    if (!open || !conversationId || quoteQueue.length === 0) return
+    void pumpQuoteQueue()
+  }, [open, conversationId, quoteQueue.length, quoteQueue[0], pumpQuoteQueue])
+
+  const sendingQuoteLabel = useMemo(() => {
+    if (!sendingQuote) return null
+    const remaining = quoteQueue.length
+    if (remaining > 1) {
+      return t('chat.sendingQuotes', { count: remaining })
+    }
+    return t('chat.sendingQuote')
+  }, [sendingQuote, quoteQueue.length, t])
 
   const messageList = useMemo(() => {
     if (!messages.length) return null
@@ -95,46 +174,6 @@ export default function ChatPanel() {
     )
   }, [messages])
 
-  useEffect(() => {
-    if (!open) return
-    if (!bootstrap?.conversationId) return
-    if (!pendingQuote?.productId) return
-    if (sendingQuote) return
-
-    let cancelled = false
-    const run = async () => {
-      setQuoteError('')
-      setSendingQuote(true)
-      try {
-        const res = await fetch(appPath('/api/chat/quotes'), {
-          method: 'POST',
-          credentials: 'include',
-          cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-            ...catalogAuthHeaders(user),
-          },
-          body: JSON.stringify({
-            conversationId: bootstrap.conversationId,
-            productId: pendingQuote.productId,
-          }),
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(String(data?.error || `HTTP_${res.status}`))
-        if (!cancelled) clearPendingQuote()
-        await loadMessages(true)
-      } catch (e) {
-        if (!cancelled) setQuoteError(e instanceof Error ? e.message : String(e))
-      } finally {
-        if (!cancelled) setSendingQuote(false)
-      }
-    }
-    void run()
-    return () => {
-      cancelled = true
-    }
-  }, [open, bootstrap?.conversationId, pendingQuote?.productId, sendingQuote, clearPendingQuote, user, loadMessages])
-
   const sendMessage = async () => {
     if (!conversationId || !reply.trim() || sending) return
     const text = reply.trim()
@@ -142,6 +181,7 @@ export default function ChatPanel() {
     setReply('')
     setSending(true)
     setMessages((prev) => [...prev, optimistic as MessageItem])
+    requestScrollToBottom()
     try {
       const res = await fetch(appPath('/api/chat/messages'), {
         method: 'POST',
@@ -159,7 +199,7 @@ export default function ChatPanel() {
         const confirmed = rowToMessageItem(data.message) as MessageItem
         setMessages((prev) => replaceOptimisticMessage(prev, optimistic.id, confirmed) as MessageItem[])
       } else {
-        await loadMessages(true)
+        await loadMessages(false)
       }
     } catch {
       setReply(text)
@@ -192,8 +232,8 @@ export default function ChatPanel() {
                 <div className="text-red-600">{error}</div>
               ) : bootstrap?.conversationId ? (
                 <div className="text-gray-600">
-                  {sendingQuote ? (
-                    <div className="text-gray-500 mb-2">{t('chat.sendingQuote')}</div>
+                  {sendingQuoteLabel ? (
+                    <div className="text-gray-500 mb-2">{sendingQuoteLabel}</div>
                   ) : null}
                   {loadingMessages && !messages.length ? (
                     <div className="text-gray-500 mb-2">{t('chat.loading')}</div>

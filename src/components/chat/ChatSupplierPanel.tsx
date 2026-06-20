@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useChat } from '@/components/chat/ChatProvider'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import ChatQuoteProductModal from '@/components/chat/ChatQuoteProductModal'
 import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
 import {
   createOptimisticMessage,
   replaceOptimisticMessage,
@@ -77,11 +78,12 @@ export default function ChatSupplierPanel() {
   const { messages, loading: loadingMessages, loadMessages, setMessages } = useChatMessagePoll<MessageItem>({
     enabled: Boolean(threadId),
     fetchMessages,
+    conversationKey: threadId,
   })
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
+  const { requestScrollToBottom } = useChatAutoScroll(scrollRef, messages.length, {
+    conversationKey: threadId,
+  })
 
   const sendMessage = async (text: string) => {
     if (!threadId || !text.trim() || sending) return
@@ -89,6 +91,7 @@ export default function ChatSupplierPanel() {
     const optimistic = createOptimisticMessage({ senderRole: 'seller', body: trimmed })
     setSending(true)
     setMessages((prev) => [...prev, optimistic as MessageItem])
+    requestScrollToBottom()
     try {
       const res = await fetch(
         appPath(`/api/chat/supplier/conversations/${threadId}/messages${ownerQuery}`),

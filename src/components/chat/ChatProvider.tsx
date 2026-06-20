@@ -48,8 +48,9 @@ type ChatContextValue = {
   loading: boolean
   error: string
   requestQuote: (quote: ChatQuoteAttach) => void
-  pendingQuote: ChatQuoteAttach | null
-  clearPendingQuote: () => void
+  /** Product IDs waiting to be sent as quote requests (FIFO). */
+  quoteQueue: string[]
+  dequeueQuote: (productId: string) => void
   pricelistOwnerParam: string | null
   selectedSupplierThreadId: string | null
   setSelectedSupplierThreadId: (id: string | null) => void
@@ -81,7 +82,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
   const [bootstrap, setBootstrap] = useState<ChatBootstrap | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [pendingQuote, setPendingQuote] = useState<ChatQuoteAttach | null>(null)
+  const [quoteQueue, setQuoteQueue] = useState<string[]>([])
   const [selectedSupplierThreadId, setSelectedSupplierThreadId] = useState<string | null>(null)
   const startedRef = useRef(false)
 
@@ -137,11 +138,15 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
   }, [open, loadBootstrap])
 
   const requestQuote = useCallback((quote: ChatQuoteAttach) => {
-    setPendingQuote(quote)
+    const productId = quote.productId.trim()
+    if (!productId) return
+    setQuoteQueue((prev) => (prev.includes(productId) ? prev : [...prev, productId]))
     setOpen(true)
   }, [])
 
-  const clearPendingQuote = useCallback(() => setPendingQuote(null), [])
+  const dequeueQuote = useCallback((productId: string) => {
+    setQuoteQueue((prev) => prev.filter((id) => id !== productId))
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -151,8 +156,8 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       loading,
       error,
       requestQuote,
-      pendingQuote,
-      clearPendingQuote,
+      quoteQueue,
+      dequeueQuote,
       pricelistOwnerParam,
       selectedSupplierThreadId,
       setSelectedSupplierThreadId,
@@ -164,8 +169,8 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       loading,
       error,
       requestQuote,
-      pendingQuote,
-      clearPendingQuote,
+      quoteQueue,
+      dequeueQuote,
       pricelistOwnerParam,
       selectedSupplierThreadId,
       loadBootstrap,
