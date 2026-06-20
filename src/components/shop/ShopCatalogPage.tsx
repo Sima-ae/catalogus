@@ -23,7 +23,7 @@ import { useShopSearch } from '@/lib/use-shop-search'
 import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
-import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
+import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -124,12 +124,13 @@ function ShopCatalogPageContent({
     loadingSubcategories,
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
+  const brandQueryActive = shouldPassBrandToCatalogQuery(filterBrand)
   const filterSignature = `${selectedCategory}|${selectedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
   const reorderScope = catalogSortScope({
     mode: config.mode === 'new' ? 'new' : undefined,
     category: selectedCategory !== 'All' ? selectedCategory : undefined,
     subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-    brand: brandFilterActive ? filterBrand : undefined,
+    brand: brandQueryActive ? filterBrand : undefined,
     tag: filterTag || undefined,
     search: debouncedSearch || undefined,
   })
@@ -222,7 +223,7 @@ function ShopCatalogPageContent({
       pageToLoad === 1 &&
       selectedCategory === 'All' &&
       selectedSubcategory === 'All' &&
-      !brandFilterActive &&
+      !brandQueryActive &&
       !filterTag &&
       !debouncedSearch
 
@@ -250,7 +251,7 @@ function ShopCatalogPageContent({
           limit: CATALOG_PAGE_SIZE,
           category: selectedCategory !== 'All' ? selectedCategory : undefined,
           subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-          brand: brandFilterActive ? filterBrand : undefined,
+          brand: brandQueryActive ? filterBrand : undefined,
           tag: filterTag || undefined,
           search: debouncedSearch || undefined,
           mode: config.mode === 'new' ? 'new' : undefined,
@@ -296,7 +297,7 @@ function ShopCatalogPageContent({
     filterSignature,
     reloadToken,
     initialCatalog,
-    brandFilterActive,
+    brandQueryActive,
     filterTag,
     selectedCategory,
     selectedSubcategory,
@@ -311,7 +312,7 @@ function ShopCatalogPageContent({
 
     let cancelled = false
     const showCategory = selectedCategory !== 'All'
-    const showBrand = brandFilterActive && filterBrand !== 'All'
+    const showBrand = brandQueryActive && filterBrand !== 'All'
 
     async function fetchCount(params: {
       category?: string
@@ -369,7 +370,7 @@ function ShopCatalogPageContent({
       cancelled = true
     }
   }, [
-    brandFilterActive,
+    brandQueryActive,
     config.mode,
     filterBrand,
     isAdmin,

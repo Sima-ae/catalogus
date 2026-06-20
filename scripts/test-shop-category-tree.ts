@@ -13,6 +13,10 @@ import {
   isShopTopLevelCategory,
   resolveShopCategoryFilter,
 } from '../src/lib/shop-category-tree'
+import {
+  parseCompoundCategoryParam,
+  resolveShopCategoryFilterLink,
+} from '../src/lib/shop-catalog-filter-url'
 
 function row(
   id: string,
@@ -136,5 +140,25 @@ assert.ok(!menu.includes('SANDALS'))
 
 assert.equal(isShopTopLevelCategory(tree, 'KIDS SLIPPERS'), true)
 assert.equal(isShopTopLevelCategory(tree, 'SHIRTS'), false)
+
+assert.deepEqual(parseCompoundCategoryParam('MIXED › BAGS'), {
+  category: 'MIXED',
+  subcategory: 'BAGS',
+})
+
+assert.deepEqual(
+  resolveShopCategoryFilterLink(tree, { categoryId: 'soccer-bags' }),
+  { category: 'SOCCER', subcategory: 'BAGS' }
+)
+
+assert.deepEqual(
+  resolveShopCategoryFilterLink(tree, { categoryName: 'SHIRTS' }),
+  { category: 'SOCCER', subcategory: 'SHIRTS' }
+)
+
+assert.deepEqual(
+  resolveShopCategoryFilterLink(tree, { categoryName: 'SOCCER' }),
+  { category: 'SOCCER' }
+)
 
 console.log('shop-category-tree: all assertions passed')

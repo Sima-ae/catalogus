@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import PricelistProductLightbox from '@/components/pricelist/PricelistProductLightbox'
+import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import { appPath } from '@/lib/paths'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
@@ -117,14 +118,17 @@ export default function ChatQuoteProductModal({
               className="relative w-full aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200"
             >
               {gallery[0] ? (
-                <Image
-                  src={gallery[0]}
-                  alt={quote.product_name}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 448px) 100vw, 448px"
-                  unoptimized
-                />
+                <>
+                  <Image
+                    src={gallery[0]}
+                    alt={quote.product_name}
+                    fill
+                    className="relative z-0 object-cover pointer-events-none"
+                    sizes="(max-width: 448px) 100vw, 448px"
+                    unoptimized
+                  />
+                  <ProductImageWatermark variant="gallery" />
+                </>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
                   {t('chat.noImage')}

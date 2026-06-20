@@ -74,15 +74,30 @@ export function useShopSubcategory(selectedCategory: string) {
 
   const hasSubcategories = subcategoryOptions.length > 0
 
-  const selectedSubcategory = useMemo(() => {
-    if (!hasSubcategories) return 'All'
-    const raw = searchParams.get('subcategory')?.trim()
-    if (!raw) return 'All'
-    const match = subcategoryOptions.find(
-      (name) => name.toLowerCase() === raw.toLowerCase()
+  const legacySubcategoryFromCategoryParam = useMemo(() => {
+    const rawCategory = searchParams.get('category')?.trim()
+    if (!rawCategory || rawCategory === 'All') return null
+    if (!selectedCategory || selectedCategory === 'All') return null
+    if (rawCategory.toLowerCase() === selectedCategory.toLowerCase()) return null
+    return (
+      subcategoryOptions.find(
+        (name) => name.toLowerCase() === rawCategory.toLowerCase()
+      ) ?? null
     )
-    return match ?? 'All'
-  }, [searchParams, subcategoryOptions, hasSubcategories])
+  }, [searchParams, selectedCategory, subcategoryOptions])
+
+  const selectedSubcategory = useMemo(() => {
+    const raw = searchParams.get('subcategory')?.trim()
+    if (raw) {
+      const match = subcategoryOptions.find(
+        (name) => name.toLowerCase() === raw.toLowerCase()
+      )
+      if (match) return match
+    }
+    if (legacySubcategoryFromCategoryParam) return legacySubcategoryFromCategoryParam
+    if (!hasSubcategories) return 'All'
+    return 'All'
+  }, [searchParams, subcategoryOptions, hasSubcategories, legacySubcategoryFromCategoryParam])
 
   const setSelectedSubcategory = useCallback(
     (subcategory: string) => {

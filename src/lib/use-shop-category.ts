@@ -13,6 +13,7 @@ import {
   clearShopSearchParam,
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
+import { parseCompoundCategoryParam } from '@/lib/shop-catalog-filter-url'
 import { prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 
 export function useShopCategory() {
@@ -38,6 +39,23 @@ export function useShopCategory() {
     const raw = searchParams.get('category')?.trim()
     if (!raw || raw === 'All' || categoryMenu.includes(raw)) return
 
+    const compound = parseCompoundCategoryParam(raw)
+    if (compound) {
+      const basePath = catalogFilterBasePath(pathname)
+      const params = new URLSearchParams(
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
+      )
+      params.set('category', compound.category)
+      params.set('subcategory', compound.subcategory ?? '')
+      if (!compound.subcategory) params.delete('subcategory')
+      params.delete('brand')
+      const qs = params.toString()
+      router.replace(qs ? `${basePath}?${qs}` : basePath)
+      return
+    }
+
+    if (!categoryRows.length) return
+
     const parent = findParentCategoryName(categoryRows, raw)
     if (!parent) return
 
@@ -57,7 +75,9 @@ export function useShopCategory() {
     const raw = searchParams.get('category')?.trim()
     if (!raw || raw === 'All' || categoryMenu.length <= 1) return
     if (categoryMenu.includes(raw)) return
+    if (!categoryRows.length) return
     if (findParentCategoryName(categoryRows, raw)) return
+    if (parseCompoundCategoryParam(raw)) return
 
     const basePath = catalogFilterBasePath(pathname)
     const params = new URLSearchParams(

@@ -27,6 +27,12 @@ export function shouldApplyShopBrandFilter(
   return shouldShowShopBrandFilter(ctx)
 }
 
+/** Apply ?brand= from the URL even when category pills are not active (e.g. product page links). */
+export function shouldPassBrandToCatalogQuery(brand: string): boolean {
+  const trimmed = brand.trim()
+  return Boolean(trimmed && trimmed !== 'All')
+}
+
 export function findShopBrandInMenu(brand: string, menu: string[]): string | undefined {
   const needle = brand.trim().toLowerCase()
   if (!needle) return undefined

@@ -22,6 +22,7 @@ export type ProductPageView = {
   original_price?: number
   sku: string
   category: string
+  category_id: string | null
   categoryHref: string
   /** Full stored brand label (single or collab, e.g. "LOUIS VUITTON X NIKE"). */
   brand: string
@@ -92,6 +93,11 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
   const cleanedShort = rawShort ? cleanImportDescription(rawShort, name, brand) : ''
   const shortDescription = cleanedShort || description.slice(0, 280) || description
 
+  const categoryId =
+    raw.category_id != null && String(raw.category_id).trim()
+      ? String(raw.category_id).trim()
+      : null
+
   const brandLabels = parseBrandCompound(brandDisplay)
   const brands: ProductPageBrand[] = brandLabels.map((name) => ({
     name,
@@ -111,6 +117,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
         : undefined,
     sku: String(raw.sku || '—'),
     category,
+    category_id: categoryId,
     categoryHref: category ? shopCategoryUrl(category) : appPath('/'),
     brand: brandDisplay,
     brands,

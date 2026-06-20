@@ -42,6 +42,11 @@ import {
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 import { getTagLabel } from '@/lib/i18n-tags'
+import { useShopCategories } from '@/lib/use-shop-categories'
+import {
+  shopBrandFilterUrl,
+  shopCategoryFilterUrl,
+} from '@/lib/shop-catalog-filter-url'
 
 type ProductReview = {
   id: string
@@ -60,6 +65,8 @@ export default function ProductPageClient() {
   const { theme } = useTheme()
   const { t } = useI18n()
   const toLocalizedPath = useLocalizedPath()
+  const categoryRows = useShopCategories()
+  const shopBasePath = toLocalizedPath('/')
   const [product, setProduct] = useState<ProductPageView | null>(null)
   const shopProductOptions = useMemo(
     () => getShopProductOptions(product?.productOptions ?? null),
@@ -97,6 +104,26 @@ export default function ProductPageClient() {
   const lightboxRef = useRef<HTMLDivElement>(null)
   const lightboxTouchStart = useRef<{ x: number; y: number } | null>(null)
   const lightboxDidSwipe = useRef(false)
+
+  const categoryHref = useMemo(() => {
+    if (!product?.category) return shopBasePath
+    return shopCategoryFilterUrl(
+      categoryRows,
+      {
+        categoryId: product.category_id,
+        categoryName: product.category,
+      },
+      shopBasePath
+    )
+  }, [product, categoryRows, shopBasePath])
+
+  const brandLinks = useMemo(() => {
+    if (!product) return []
+    return product.brands.map((brandItem) => ({
+      ...brandItem,
+      href: shopBrandFilterUrl(brandItem.name, shopBasePath),
+    }))
+  }, [product, shopBasePath])
 
   useEffect(() => {
     const main = mainGalleryRef.current
@@ -673,7 +700,7 @@ export default function ProductPageClient() {
                       /
                     </span>
                     <Link
-                      href={product.categoryHref}
+                      href={categoryHref}
                       className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
                     >
                       {getTopCategoryLabel(product.category, t)}
@@ -1046,7 +1073,7 @@ export default function ProductPageClient() {
               <div className="flex flex-wrap gap-2">
                 {product.category ? (
                   <Link
-                    href={product.categoryHref}
+                    href={categoryHref}
                     className={`inline-block text-sm px-2 py-1 rounded uppercase tracking-wide transition-colors ${
                       theme === 'dark'
                         ? 'text-gray-300 bg-dark-700 hover:bg-dark-600'
@@ -1056,7 +1083,7 @@ export default function ProductPageClient() {
                     {getTopCategoryLabel(product.category, t)}
                   </Link>
                 ) : null}
-                {product.brands.map((brandItem) => (
+                {brandLinks.map((brandItem) => (
                   <Link
                     key={brandItem.name}
                     href={brandItem.href}

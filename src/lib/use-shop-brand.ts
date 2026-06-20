@@ -60,12 +60,10 @@ export function useShopBrand() {
     const raw = searchParams.get('brand')?.trim()
     if (!raw) return
 
-    if (!brandFilterActive) {
-      if (loadingSubcategories) return
-    } else {
-      if (findShopBrandInMenu(raw, brandMenu)) return
-      if (loadingBrands || brandMenu.length === 0) return
-    }
+    if (!brandFilterActive) return
+
+    if (findShopBrandInMenu(raw, brandMenu)) return
+    if (loadingBrands || brandMenu.length === 0) return
 
     const basePath = catalogFilterBasePath(pathname)
     const params = new URLSearchParams(searchParams.toString())
