@@ -99,6 +99,15 @@ const mapped = mapWecatalogProduct({
 })
 assert.equal(mapped.externalId, 'wecatalog-GOODS123')
 assert.equal(mapped.sku, 'LV-001')
+assert.equal(
+  mapWecatalogProduct({
+    shopId: 'SHOP',
+    goodsId: '_d95qfY79620c823',
+    permalink: 'https://tenant.wecatalog.cn/weshop/product/SHOP/_d95qfY79620c823',
+    commodity: { goods_id: '_d95qfY79620c823', title: 'Test', imgsSrc: ['https://xcimg.szwego.com/a.jpg'] },
+  }).sku,
+  '_d95qfY79620c823'
+)
 assert.equal(mapped.price, 0)
 assert.equal(mapped.brandName, 'LOUIS VUITTON')
 assert.equal(mapped.imageUrls.length, 2)

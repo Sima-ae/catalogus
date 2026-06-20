@@ -27,6 +27,7 @@ import { translateProductText } from '@/lib/translate'
 import {
   describeCatalogImagesWriteTarget,
   isCatalogImagesVpsWrite,
+  assertCatalogImagesVpsWrite,
 } from '@/lib/catalog-images-root'
 import type { ImportJobItemRow, ImportSourceRow } from '@/lib/import-db'
 import { mergeRefreshProductPricing } from '@/lib/import-refresh-pricing'
@@ -564,6 +565,7 @@ async function processWecatalogJob(
   source: ImportSourceRow,
   flags: ReturnType<typeof workerFlags>
 ) {
+  assertCatalogImagesVpsWrite('WeCatalog import')
   const listUrl = resolveWecatalogListUrl(source)
   let items = await listPendingJobItems(jobId)
 

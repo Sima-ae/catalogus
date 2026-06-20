@@ -1,3 +1,4 @@
+import { assertCatalogImagesVpsWrite } from '@/lib/catalog-images-root'
 import {
   catalogImagePublicPath,
   clearCatalogImageDirectory,
@@ -101,6 +102,7 @@ export async function mirrorWecatalogProductImages(
   externalId: string,
   imageUrls: string[]
 ): Promise<string[]> {
+  assertCatalogImagesVpsWrite('WeCatalog import')
   const cleaned = cleanProductGalleryUrls(imageUrls)
   if (!cleaned.length) return []
 

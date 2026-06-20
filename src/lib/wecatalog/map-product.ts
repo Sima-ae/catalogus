@@ -80,8 +80,7 @@ export function mapWecatalogProduct(input: {
     String(input.commodity.selfGoodsId ?? input.commodity.goods_id ?? input.commodity.parent_goods_id ?? input.goodsId).trim() ||
     input.goodsId
   const { name, description } = splitWecatalogTitleAndDescription(String(input.commodity.title ?? '').trim())
-  const sku =
-    String(input.commodity.goodsNum ?? '').trim() || wecatalogExternalId(goodsId)
+  const sku = String(input.commodity.goodsNum ?? '').trim() || goodsId
   const purchasePrice = purchasePriceFromCommodity(input.commodity)
 
   return {

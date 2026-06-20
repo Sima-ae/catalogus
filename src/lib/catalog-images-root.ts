@@ -41,6 +41,14 @@ export function isCatalogImagesVpsWrite(): boolean {
   return Boolean(process.env.CATALOGUS_PUBLIC_HTML?.trim() || process.env.CATALOGUS_IMAGES_ROOT?.trim())
 }
 
+/** WeCatalog (and similar bulk mirrors) must write to VPS public_html — not local public/images. */
+export function assertCatalogImagesVpsWrite(label = 'This import'): void {
+  if (isCatalogImagesVpsWrite()) return
+  throw new Error(
+    `${label} requires VPS image storage. Run import:worker on the VPS with CATALOGUS_PUBLIC_HTML set in .env (do not run locally — images must not go to public/images in git).`
+  )
+}
+
 export function describeCatalogImagesWriteTarget(): string {
   const publicHtml = process.env.CATALOGUS_PUBLIC_HTML?.trim()
   if (publicHtml) {
@@ -51,7 +59,7 @@ export function describeCatalogImagesWriteTarget(): string {
 
 /** Ensure import mirror folders exist under public/images. */
 export function catalogImportMirrorDirs(): string[] {
-  return ['imports/facebook', 'imports/woocommerce', 'imports/lkxox', 'uploads']
+  return ['imports/facebook', 'imports/woocommerce', 'imports/lkxox', 'imports/wecatalog', 'uploads']
 }
 
 /** @deprecated Imports no longer use SSH — kept for older scripts. */

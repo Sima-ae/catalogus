@@ -21,24 +21,17 @@ Import draft products from [WeCatalog](https://wecatalog.cn) category list URLs 
 ## Sync workflow
 
 1. Click **Start sync** on the source row.
-2. Copy the worker command and run locally (with `db:tunnel`) or on the VPS:
+2. Copy the worker command and run **on the VPS** (not locally):
 
    ```bash
    npm run import:worker -- --job=<uuid>
    ```
 
+   WeCatalog images are written directly to `public_html/images/imports/wecatalog/` on the VPS (`CATALOGUS_PUBLIC_HTML` in `.env`). Do **not** run the worker on your Mac — local runs are blocked and must not use `public/images` + git deploy.
+
 3. Discovery paginates the list API until `isLoadMore` is false and creates job items.
-4. The worker imports each product: translated title, description, **price = 0** (Price on request), gallery images.
-5. Images save under `public/images/imports/wecatalog/wecatalog-{goodsId}/`.
-6. Commit and push images in batches:
-
-   ```bash
-   git add public/images/imports/wecatalog/
-   git commit -m "Add WeCatalog import images batch 1"
-   git push
-   ```
-
-7. Admin → Import → **Review import queue** → publish.
+4. The worker imports each product: translated title, description, **price = 0** (Price on request), gallery images mirrored on the VPS.
+5. Admin → Import → **Review import queue** → publish.
 
 ## Field mapping
 
@@ -46,8 +39,8 @@ Import draft products from [WeCatalog](https://wecatalog.cn) category list URLs 
 |--------|----------------|
 | `commodity.title` (first line) | `name` (EN translation + brand fix) |
 | Remaining title lines | `description` |
-| `goodsNum` or external id | `sku` |
-| `imgsSrc` / `imgs` | `image_url` + `gallery_images` |
+| `goodsNum` or WeCatalog `goods_id` | `sku` (no `wecatalog-` prefix) |
+| `imgsSrc` / `imgs` | `image_url` + `gallery_images` (mirrored on VPS under `/images/imports/wecatalog/`) |
 | Source fallback category | `category` |
 | Brand in title | `brand` (auto-created) |
 | — | `price` = 0 (Price on request) |

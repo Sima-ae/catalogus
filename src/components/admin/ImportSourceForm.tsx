@@ -140,6 +140,8 @@ export default function ImportSourceForm({
               />
               <p className={`text-xs mt-1 ${t.muted}`}>
                 Infinite-scroll category page — worker loads all products via API until the list ends.
+                Run <code className="text-xs">import:worker</code> on the VPS only (images go to
+                public_html/images, not local git).
               </p>
             </label>
           </>
