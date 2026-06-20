@@ -53,6 +53,7 @@ export default function ImportSourceForm({
   const isWoo = values.source_type === 'woocommerce'
   const isFacebook = values.source_type === 'facebook'
   const isLkxox = values.source_type === 'lkxox'
+  const isWecatalog = values.source_type === 'wecatalog'
 
   const set = (patch: Partial<ImportSourceFormValues>) =>
     onChange({ ...values, ...patch })
@@ -63,6 +64,7 @@ export default function ImportSourceForm({
     if (raw === 'woocommerce') return 'woocommerce'
     if (raw === 'facebook') return 'facebook'
     if (raw === 'lkxox') return 'lkxox'
+    if (raw === 'wecatalog') return 'wecatalog'
     return 'yupoo'
   }
 
@@ -82,7 +84,9 @@ export default function ImportSourceForm({
                   ? 'e.g. Facebook supplier posts'
                   : isLkxox
                     ? 'e.g. Lkxox — new products'
-                    : 'e.g. BURBERRY 2'
+                    : isWecatalog
+                      ? 'e.g. Luxury showroom — Hermes bags'
+                      : 'e.g. BURBERRY 2'
             }
             required
           />
@@ -98,6 +102,7 @@ export default function ImportSourceForm({
             <option value="woocommerce">WooCommerce</option>
             <option value="facebook">Facebook</option>
             <option value="lkxox">Lkxox (Zen Cart)</option>
+            <option value="wecatalog">WeCatalog</option>
           </select>
         </label>
 
@@ -119,6 +124,22 @@ export default function ImportSourceForm({
               />
               <p className={`text-xs mt-1 ${t.muted}`}>
                 Paginated product listing — worker discovers all pages (e.g. 3040 products).
+              </p>
+            </label>
+          </>
+        ) : isWecatalog ? (
+          <>
+            <label className="block space-y-1 md:col-span-2">
+              <span className={`text-sm ${t.muted}`}>WeCatalog category list URL</span>
+              <input
+                className="input w-full"
+                value={values.catalog_list_url}
+                onChange={(e) => set({ catalog_list_url: e.target.value })}
+                placeholder="https://tenant.wecatalog.cn/weshop/goods_list/SHOP_ID?groupId=76810891"
+                required
+              />
+              <p className={`text-xs mt-1 ${t.muted}`}>
+                Infinite-scroll category page — worker loads all products via API until the list ends.
               </p>
             </label>
           </>
@@ -251,6 +272,10 @@ export default function ImportSourceForm({
               ) : isLkxox ? (
                 <p className={`text-xs mt-1 ${t.muted}`}>
                   Applied to all imported products. Brand is auto-detected from each product page.
+                </p>
+              ) : isWecatalog ? (
+                <p className={`text-xs mt-1 ${t.muted}`}>
+                  Applied to all imported products. Brand is auto-detected from each product title.
                 </p>
               ) : null}
             </label>

@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Process import jobs (Yupoo + WooCommerce + Facebook + Lkxox) on the VPS (or locally with db:tunnel).
+ * Process import jobs (Yupoo + WooCommerce + Facebook + Lkxox + WeCatalog) on the VPS (or locally with db:tunnel).
  *
  *   npm run import:worker
  *   npm run import:worker -- --job=<uuid>
@@ -37,22 +37,27 @@ import {
   buildProductInputFromWooStoreProduct,
   buildProductInputFromFacebookJobItem,
   buildProductInputFromLkxoxProduct,
+  buildProductInputFromWecatalogProduct,
   createImportJobItems,
   createImportJobItemsFromWooProducts,
   createImportJobItemsFromLkxoxProducts,
+  createImportJobItemsFromWecatalogProducts,
   discoverWooCommerceJobItems,
   discoverLkxoxJobItems,
+  discoverWecatalogJobItems,
   getImportJob,
   getImportSource,
   getProductBySourceAlbumId,
   getQueuedImportJob,
   isFacebookImportSource,
   isLkxoxImportSource,
+  isWecatalogImportSource,
   isWooCommerceImportSource,
   listPendingJobItems,
   resetCompletedJobItems,
   resetSkippedJobItems,
   resolveLkxoxListUrl,
+  resolveWecatalogListUrl,
   resolveWooStoreUrl,
   touchImportSourceSynced,
   updateImportJob,
@@ -63,6 +68,10 @@ import { sleep as wooSleep, fetchWooStoreProductForJobItem } from '@/lib/woocomm
 import { wooExternalId } from '@/lib/woocommerce/types'
 import { fetchLkxoxHtml, sleep as lkxoxSleep } from '@/lib/lkxox/client'
 import { parseLkxoxProductPage } from '@/lib/lkxox/parse-product'
+import { createWecatalogSession, sleep as wecatalogSleep } from '@/lib/wecatalog/client'
+import { fetchWecatalogProduct } from '@/lib/wecatalog/fetch-product'
+import { parseWecatalogExternalId } from '@/lib/wecatalog/types'
+import { getAllBrandNames } from '@/lib/brand-sku-prefixes'
 import {
   findProductByAlbumSku,
   findProductBySku,
@@ -182,6 +191,10 @@ async function importExistingOrSkip(
   }
 
   if (!existing && item.album_id.startsWith('lkxox-')) {
+    existing = await getProductBySourceAlbumId(item.album_id)
+  }
+
+  if (!existing && item.album_id.startsWith('wecatalog-')) {
     existing = await getProductBySourceAlbumId(item.album_id)
   }
 
@@ -545,6 +558,111 @@ async function processLkxoxJob(
   return counters
 }
 
+async function processWecatalogJob(
+  jobId: string,
+  job: NonNullable<Awaited<ReturnType<typeof getImportJob>>>,
+  source: ImportSourceRow,
+  flags: ReturnType<typeof workerFlags>
+) {
+  const listUrl = resolveWecatalogListUrl(source)
+  let items = await listPendingJobItems(jobId)
+
+  if (!items.length && job.total_albums === 0) {
+    console.log('==> Discover WeCatalog products:', listUrl)
+    const products = await discoverWecatalogJobItems(source)
+    console.log(`==> Found ${products.length} products`)
+    await createImportJobItemsFromWecatalogProducts(jobId, products)
+    await updateImportJob(jobId, { total_albums: products.length })
+    items = await listPendingJobItems(jobId)
+  } else if (!items.length && job.total_albums > 0) {
+    console.log(
+      'No pending items for this job — it may already be finished. Use --refresh --retry-all to re-run.'
+    )
+  }
+
+  if (flags.refresh) {
+    console.log('==> Refresh mode: existing products will be updated from WeCatalog (status unchanged)')
+  }
+
+  let processed = flags.retryAll || flags.retrySkipped ? 0 : job.processed
+  let imported = flags.retryAll || flags.retrySkipped ? 0 : job.imported
+  let skipped = flags.retryAll || flags.retrySkipped ? 0 : job.skipped
+  let failed = flags.retryAll || flags.retrySkipped ? 0 : job.failed
+  let refreshed = 0
+  const counters = { processed, imported, skipped, failed, refreshed }
+
+  const session = createWecatalogSession(listUrl)
+  const brandNames = await getAllBrandNames()
+
+  for (const item of items) {
+    try {
+      console.log(`==> ${item.album_id}`)
+      await wecatalogSleep(400)
+
+      const goodsId = parseWecatalogExternalId(item.album_id)
+      if (!goodsId) {
+        throw new Error(`Invalid WeCatalog external id: ${item.album_id}`)
+      }
+
+      const context = session.getContext()
+      const wecatalog = await fetchWecatalogProduct(session, context.shopId, goodsId, brandNames)
+      const externalId = wecatalog.externalId
+      const itemForDedup = { ...item, album_id: externalId }
+
+      const skipCheck = await importExistingOrSkip(
+        itemForDedup,
+        { sku: wecatalog.sku } as ProductInput,
+        flags,
+        counters
+      )
+      if (skipCheck.done) {
+        await updateImportJob(jobId, counters)
+        continue
+      }
+
+      console.log(
+        `==> Product ${externalId}${skipCheck.existing && flags.refresh ? ' (refresh)' : ''}`
+      )
+
+      const input = await buildProductInputFromWecatalogProduct(wecatalog, source)
+
+      if (!input.image_url) {
+        throw new Error('No images found on WeCatalog product')
+      }
+
+      const secondCheck = await importExistingOrSkip(itemForDedup, input, flags, counters)
+      if (secondCheck.done) {
+        await updateImportJob(jobId, counters)
+        continue
+      }
+
+      await saveImportedProduct(
+        itemForDedup,
+        jobId,
+        input,
+        secondCheck.existing,
+        flags,
+        { wecatalog, refreshed: Boolean(secondCheck.existing && flags.refresh) },
+        counters
+      )
+
+      if (item.album_id !== externalId) {
+        await updateJobItem(item.id, { album_id: externalId })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('FAIL:', item.album_id, message)
+      await updateJobItem(item.id, { status: 'failed', error_message: message })
+      await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
+      counters.failed++
+      counters.processed++
+      await updateImportJob(jobId, counters)
+    }
+  }
+
+  return counters
+}
+
 async function processFacebookJob(
   jobId: string,
   job: NonNullable<Awaited<ReturnType<typeof getImportJob>>>,
@@ -671,11 +789,13 @@ async function processJob(jobId: string) {
 
   const counters = isFacebookImportSource(source)
     ? await processFacebookJob(jobId, job, flags)
-    : isLkxoxImportSource(source)
-      ? await processLkxoxJob(jobId, job, source, flags)
-      : isWooCommerceImportSource(source)
-        ? await processWooCommerceJob(jobId, job, source, flags)
-        : await processYupooJob(jobId, job, source, flags)
+    : isWecatalogImportSource(source)
+      ? await processWecatalogJob(jobId, job, source, flags)
+      : isLkxoxImportSource(source)
+        ? await processLkxoxJob(jobId, job, source, flags)
+        : isWooCommerceImportSource(source)
+          ? await processWooCommerceJob(jobId, job, source, flags)
+          : await processYupooJob(jobId, job, source, flags)
 
   await updateImportJob(jobId, {
     status:

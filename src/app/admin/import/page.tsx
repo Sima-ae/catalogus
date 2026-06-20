@@ -77,7 +77,9 @@ function sourceToForm(source: ImportSourcePublic): ImportSourceFormValues {
         ? 'facebook'
         : typeRaw === 'lkxox'
           ? 'lkxox'
-          : 'yupoo'
+          : typeRaw === 'wecatalog'
+            ? 'wecatalog'
+            : 'yupoo'
   return {
     name: source.name,
     source_type,
@@ -703,7 +705,9 @@ export default function AdminImportPage() {
                           ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
                           : source.source_type === 'lkxox'
                             ? 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200'
-                            : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
+                            : source.source_type === 'wecatalog'
+                              ? 'bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200'
+                              : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
                     }`}>
                       {source.source_type === 'woocommerce'
                         ? 'WooCommerce'
@@ -711,14 +715,16 @@ export default function AdminImportPage() {
                           ? 'Facebook'
                           : source.source_type === 'lkxox'
                             ? 'Lkxox'
-                            : 'Yupoo'}
+                            : source.source_type === 'wecatalog'
+                              ? 'WeCatalog'
+                              : 'Yupoo'}
                     </div>
                     <div className={`text-xs truncate max-w-xs mt-1 ${t.muted}`}>
                       {source.source_type === 'woocommerce'
                         ? source.woocommerce_store_url || '—'
                         : source.source_type === 'facebook'
                           ? 'Single post imports'
-                          : source.source_type === 'lkxox'
+                          : source.source_type === 'lkxox' || source.source_type === 'wecatalog'
                             ? source.catalog_list_url || '—'
                             : source.yupoo_category_url || '—'}
                     </div>

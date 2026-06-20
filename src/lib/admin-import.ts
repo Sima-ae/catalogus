@@ -2,6 +2,7 @@ import type { ImportSourceType } from '@/lib/import-db'
 import { normalizeImportSourceType } from '@/lib/import-db'
 import { parseWooImportShippingCost } from '@/lib/woocommerce/import-shipping'
 import { normalizeWooCommercePriceMode } from '@/lib/woocommerce/types'
+import { parseWecatalogListUrl } from '@/lib/wecatalog/client'
 
 export type ImportSourceInput = {
   name: string
@@ -84,6 +85,20 @@ export function validateImportSourceInput(input: ImportSourceInput): string | nu
     }
     if (!isValidHttpUrl(input.catalog_list_url)) {
       return 'Lkxox catalog list URL must be a valid http(s) URL'
+    }
+    return null
+  }
+  if (input.source_type === 'wecatalog') {
+    if (!input.catalog_list_url) {
+      return 'WeCatalog category list URL is required (must include groupId)'
+    }
+    if (!isValidHttpUrl(input.catalog_list_url)) {
+      return 'WeCatalog category list URL must be a valid http(s) URL'
+    }
+    try {
+      parseWecatalogListUrl(input.catalog_list_url)
+    } catch (err) {
+      return err instanceof Error ? err.message : 'Invalid WeCatalog list URL'
     }
     return null
   }

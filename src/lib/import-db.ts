@@ -46,17 +46,25 @@ import { discoverAllLkxoxListItems, lkxoxListItemsToJobItems } from '@/lib/lkxox
 import { mirrorLkxoxProductImages } from '@/lib/lkxox/mirror-images'
 import type { LkxoxProductData } from '@/lib/lkxox/types'
 import { normalizeLkxoxListUrl } from '@/lib/lkxox/client'
+import {
+  discoverAllWecatalogListItems,
+  wecatalogListItemsToJobItems,
+} from '@/lib/wecatalog/discover-list'
+import { mirrorWecatalogProductImages } from '@/lib/wecatalog/mirror-images'
+import type { WecatalogProductData } from '@/lib/wecatalog/types'
+import { normalizeWecatalogListUrl } from '@/lib/wecatalog/client'
 import { resolveOrCreateImportBrand } from '@/lib/woocommerce/resolve-catalog'
 import { getAllBrandNames } from '@/lib/brand-sku-prefixes'
 import { fixBrandNamesInText } from '@/lib/product-brand-text'
 
-export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook' | 'lkxox'
+export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook' | 'lkxox' | 'wecatalog'
 
 export function normalizeImportSourceType(value: string | null | undefined): ImportSourceType {
   const raw = String(value ?? '').trim().toLowerCase()
   if (raw === 'woocommerce') return 'woocommerce'
   if (raw === 'facebook') return 'facebook'
   if (raw === 'lkxox') return 'lkxox'
+  if (raw === 'wecatalog') return 'wecatalog'
   return 'yupoo'
 }
 
@@ -70,6 +78,10 @@ export function isFacebookImportSource(source: { source_type?: string | null }):
 
 export function isLkxoxImportSource(source: { source_type?: string | null }): boolean {
   return normalizeImportSourceType(source.source_type) === 'lkxox'
+}
+
+export function isWecatalogImportSource(source: { source_type?: string | null }): boolean {
+  return normalizeImportSourceType(source.source_type) === 'wecatalog'
 }
 
 export async function buildProductInputFromImport(
@@ -380,6 +392,87 @@ export async function buildProductInputFromLkxoxProduct(
   return buildProductInputFromLkxoxImport(lkxoxWithLocalImages, catalog)
 }
 
+export async function buildProductInputFromWecatalogImport(
+  wecatalog: WecatalogProductData,
+  catalog: {
+    categoryName: string
+    categoryId: string | null
+    brandName: string | null
+  }
+): Promise<ProductInput> {
+  const brandNames = await getAllBrandNames()
+  const rawTitle = wecatalog.name
+  let name = sanitizeProductName(
+    await resolveYupooProductTitleAsync({
+      albumTitle: rawTitle,
+      description: wecatalog.description,
+      thumbTitle: rawTitle,
+      fallbackSku: wecatalog.sku,
+      fallbackAlbumId: wecatalog.goodsId,
+    })
+  )
+  name = fixBrandNamesInText(name, brandNames, catalog.brandName)
+  const description = fixBrandNamesInText(
+    cleanImportDescription(wecatalog.description || rawTitle, name, catalog.brandName),
+    brandNames,
+    catalog.brandName
+  )
+  const short_description =
+    catalogCardDescription(name, description, undefined, catalog.brandName).slice(0, 280) ||
+    undefined
+
+  const uniqueImages = cleanProductGalleryUrls(wecatalog.imageUrls)
+  const mainImage = uniqueImages[0] || ''
+  const gallery = uniqueImages.slice(1)
+
+  return {
+    name,
+    description,
+    short_description,
+    price: 0,
+    original_price: wecatalog.originalPrice,
+    purchase_price: wecatalog.purchasePrice,
+    image_url: mainImage,
+    gallery_images: gallery.length ? gallery : null,
+    category: catalog.categoryName,
+    category_id: catalog.categoryId,
+    brand: catalog.brandName,
+    source_url: wecatalog.permalink,
+    source_album_id: wecatalog.externalId,
+    author: APP_DEFAULT_AUTHOR,
+    author_icon: APP_DEFAULT_AUTHOR_ICON,
+    sku: wecatalog.sku,
+    status: 'draft',
+    featured: false,
+  }
+}
+
+async function resolveWecatalogImportCatalog(
+  wecatalog: WecatalogProductData,
+  source: ImportSourceRow
+): Promise<{ categoryName: string; categoryId: string | null; brandName: string | null }> {
+  const categoryName = String(source.category_name ?? '').trim() || 'Uncategorized'
+  const categoryId = source.catalog_category_id?.trim() || null
+
+  let brandName = source.brand_name?.trim() || null
+  if (wecatalog.brandName) {
+    const resolved = await resolveOrCreateImportBrand(wecatalog.brandName)
+    if (resolved) brandName = resolved.name
+  }
+
+  return { categoryName, categoryId, brandName }
+}
+
+export async function buildProductInputFromWecatalogProduct(
+  wecatalog: WecatalogProductData,
+  source: ImportSourceRow
+): Promise<ProductInput> {
+  const mirroredUrls = await mirrorWecatalogProductImages(wecatalog.externalId, wecatalog.imageUrls)
+  const wecatalogWithLocalImages = { ...wecatalog, imageUrls: mirroredUrls }
+  const catalog = await resolveWecatalogImportCatalog(wecatalogWithLocalImages, source)
+  return buildProductInputFromWecatalogImport(wecatalogWithLocalImages, catalog)
+}
+
 export type ImportSourceRow = {
   id: string
   name: string
@@ -523,10 +616,32 @@ function normalizeLkxoxListUrlForSource(raw: string | null | undefined): string 
   return normalizeLkxoxListUrl(trimmed)
 }
 
+function normalizeWecatalogListUrlForSource(raw: string | null | undefined): string | null {
+  const trimmed = String(raw ?? '').trim()
+  if (!trimmed) return null
+  return normalizeWecatalogListUrl(trimmed)
+}
+
+function normalizeCatalogListUrlForSource(
+  raw: string | null | undefined,
+  sourceType: ImportSourceType
+): string | null {
+  if (sourceType === 'lkxox') return normalizeLkxoxListUrlForSource(raw)
+  if (sourceType === 'wecatalog') return normalizeWecatalogListUrlForSource(raw)
+  const trimmed = String(raw ?? '').trim()
+  return trimmed || null
+}
+
 export function resolveLkxoxListUrl(source: ImportSourceRow): string {
   const fromSource = String(source.catalog_list_url ?? '').trim()
   if (fromSource) return normalizeLkxoxListUrl(fromSource)
   throw new Error('Lkxox catalog list URL is required on the import source')
+}
+
+export function resolveWecatalogListUrl(source: ImportSourceRow): string {
+  const fromSource = String(source.catalog_list_url ?? '').trim()
+  if (fromSource) return normalizeWecatalogListUrl(fromSource)
+  throw new Error('WeCatalog catalog list URL is required on the import source')
 }
 
 /** Resolve store root for API calls (fixes legacy rows that saved a /product/ URL). */
@@ -581,7 +696,7 @@ export async function createImportSource(input: {
       input.woocommerce_category_slug?.trim() || null,
       normalizeWooCommercePriceMode(input.woocommerce_price_mode),
       parseWooImportShippingCost(input.woocommerce_shipping_cost),
-      normalizeLkxoxListUrlForSource(input.catalog_list_url),
+      normalizeCatalogListUrlForSource(input.catalog_list_url, sourceType),
       input.catalog_category_id || null,
       input.catalog_brand_id || null,
     ]
@@ -610,6 +725,9 @@ export async function updateImportSource(
   const sourceType = input.source_type
     ? normalizeImportSourceType(input.source_type)
     : undefined
+  const existing = sourceType ? null : await getImportSource(id)
+  const catalogListSourceType =
+    sourceType ?? normalizeImportSourceType(existing?.source_type)
 
   const fields = [
     'name = ?',
@@ -633,7 +751,7 @@ export async function updateImportSource(
     input.woocommerce_category_slug?.trim() || null,
     normalizeWooCommercePriceMode(input.woocommerce_price_mode),
     parseWooImportShippingCost(input.woocommerce_shipping_cost),
-    normalizeLkxoxListUrlForSource(input.catalog_list_url),
+    normalizeCatalogListUrlForSource(input.catalog_list_url, catalogListSourceType),
     input.catalog_category_id || null,
     input.catalog_brand_id || null,
     id,
@@ -791,6 +909,21 @@ export async function discoverLkxoxJobItems(
   const listUrl = resolveLkxoxListUrl(source)
   const items = await discoverAllLkxoxListItems(listUrl)
   return lkxoxListItemsToJobItems(items)
+}
+
+export async function createImportJobItemsFromWecatalogProducts(
+  jobId: string,
+  products: { externalId: string; permalink: string; title: string }[]
+): Promise<void> {
+  return createImportJobItemsFromWooProducts(jobId, products)
+}
+
+export async function discoverWecatalogJobItems(
+  source: ImportSourceRow
+): Promise<{ externalId: string; permalink: string; title: string }[]> {
+  const listUrl = resolveWecatalogListUrl(source)
+  const items = await discoverAllWecatalogListItems(listUrl)
+  return wecatalogListItemsToJobItems(items)
 }
 
 export async function createSingleWooProductImportJob(

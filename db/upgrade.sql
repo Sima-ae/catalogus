@@ -517,6 +517,9 @@ ALTER TABLE import_sources
 ALTER TABLE import_sources
   ADD COLUMN IF NOT EXISTS catalog_list_url TEXT NULL AFTER woocommerce_category_slug;
 
+-- WeCatalog import (see db/wecatalog_import.sql)
+-- source_type = 'wecatalog' — catalog_list_url holds category list URL with groupId
+
 -- WooCommerce purchase-price mode (see db/woocommerce_purchase_price.sql)
 ALTER TABLE import_sources
   ADD COLUMN IF NOT EXISTS woocommerce_price_mode VARCHAR(32) NOT NULL DEFAULT 'storefront'
