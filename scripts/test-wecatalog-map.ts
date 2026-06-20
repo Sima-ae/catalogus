@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { parseWecatalogListUrl, normalizeWecatalogListUrl } from '../src/lib/wecatalog/client'
 import {
   collectWecatalogImageUrls,
+  deriveWecatalogSku,
   detectBrandFromTitle,
   mapWecatalogProduct,
   normalizeWecatalogImageUrl,
@@ -99,6 +100,21 @@ const mapped = mapWecatalogProduct({
 })
 assert.equal(mapped.externalId, 'wecatalog-GOODS123')
 assert.equal(mapped.sku, 'LV-001')
+
+assert.equal(
+  deriveWecatalogSku({ goodsNum: '96151', title: '96151浅蓝' }, 'GOODS-A'),
+  '96151浅蓝'
+)
+assert.equal(
+  deriveWecatalogSku({ goodsNum: '96151', title: '96151粉色' }, 'GOODS-B'),
+  '96151粉色'
+)
+assert.equal(
+  deriveWecatalogSku({ goodsNum: '96151', title: '96151 浅蓝' }, 'GOODS-A'),
+  '96151浅蓝'
+)
+assert.equal(deriveWecatalogSku({ goodsNum: '96151', title: '96151' }, 'GOODS-A'), '96151')
+
 assert.equal(
   mapWecatalogProduct({
     shopId: 'SHOP',

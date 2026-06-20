@@ -53,6 +53,42 @@ export function splitWecatalogTitleAndDescription(title: string): { name: string
   return { name, description: body }
 }
 
+/** goodsNum is often shared across color variants; append title suffix when present (e.g. 96151浅蓝). */
+export function deriveWecatalogSku(
+  commodity: WecatalogCommodityDetail,
+  goodsId: string
+): string {
+  const goodsNum = String(commodity.goodsNum ?? '').trim()
+  if (!goodsNum) return goodsId
+
+  const { name: titleName } = splitWecatalogTitleAndDescription(String(commodity.title ?? ''))
+  const title = titleName.trim()
+  if (!title || title === goodsNum) return goodsNum
+
+  const variantSuffix = wecatalogVariantSuffixFromTitle(goodsNum, title)
+  if (variantSuffix) return `${goodsNum}${variantSuffix}`.slice(0, 255)
+
+  return goodsNum
+}
+
+function wecatalogVariantSuffixFromTitle(goodsNum: string, title: string): string | null {
+  let rest = ''
+  if (title.startsWith(goodsNum)) {
+    rest = title.slice(goodsNum.length)
+  } else {
+    const idx = title.indexOf(goodsNum)
+    if (idx < 0) return null
+    rest = title.slice(idx + goodsNum.length)
+  }
+
+  rest = rest.replace(/^[\s\-_./]+/, '').trim()
+  if (!rest) return null
+
+  const suffix = rest.split(/[\s,，|/\\]+/)[0]?.trim() ?? ''
+  if (!suffix || suffix.length > 64) return null
+  return suffix
+}
+
 export function detectBrandFromTitle(title: string, brandNames: string[]): string | null {
   const key = lettersOnlyBrandKey(title)
   if (!key) return null
@@ -80,7 +116,7 @@ export function mapWecatalogProduct(input: {
     String(input.commodity.selfGoodsId ?? input.commodity.goods_id ?? input.commodity.parent_goods_id ?? input.goodsId).trim() ||
     input.goodsId
   const { name, description } = splitWecatalogTitleAndDescription(String(input.commodity.title ?? '').trim())
-  const sku = String(input.commodity.goodsNum ?? '').trim() || goodsId
+  const sku = deriveWecatalogSku(input.commodity, goodsId)
   const purchasePrice = purchasePriceFromCommodity(input.commodity)
 
   return {
