@@ -16,8 +16,8 @@ import {
 } from '@/lib/pricelist-pages-db'
 import { hasApprovedSellerAccess } from '@/lib/seller-pricelist-access-db'
 import {
-  countActiveProductsForCatalogQuery,
-  resolveActiveCatalogListSql,
+  countPricelistCatalogProductsForQuery,
+  resolvePricelistCatalogListSql,
 } from '@/lib/products-db'
 import type { CatalogProductsQuery } from '@/lib/catalog-products'
 import { listPendingEditRequestsForProducts } from '@/lib/seller-price-edit-db'
@@ -116,13 +116,15 @@ export async function listPricelistMemberProductIds(
   return onList
 }
 
+const PRICELIST_ADDABLE_PRODUCT_STATUSES_SQL = "status IN ('active', 'inactive')"
+
 export async function addPricelistItem(input: {
   ownerUserId: string
   productId: string
   addedByUserId: string
 }): Promise<void> {
   const product = await queryDb<{ id: string }[]>(
-    `SELECT id FROM products WHERE id = ? AND status = 'active' LIMIT 1`,
+    `SELECT id FROM products WHERE id = ? AND ${PRICELIST_ADDABLE_PRODUCT_STATUSES_SQL} LIMIT 1`,
     [input.productId]
   )
   if (!product[0]) throw new Error('PRODUCT_NOT_FOUND')
@@ -174,16 +176,16 @@ async function filterCuratedEligibleProductIds(
   return { eligible, conflicts: excluded.size }
 }
 
-/** Fast path: insert all catalog-filtered active products in one SQL statement. */
+/** Fast path: insert catalog-filtered active/inactive products in one SQL statement. */
 export async function bulkAddCatalogFilterToPricelist(input: {
   ownerUserId: string
   addedByUserId: string
   filterQuery: Omit<CatalogProductsQuery, 'page' | 'limit'>
 }): Promise<{ inserted: number; skipped: number; matched: number }> {
-  const listSql = await resolveActiveCatalogListSql(input.filterQuery)
+  const listSql = await resolvePricelistCatalogListSql(input.filterQuery)
   if (!listSql) return { inserted: 0, skipped: 0, matched: 0 }
 
-  const matched = await countActiveProductsForCatalogQuery(input.filterQuery)
+  const matched = await countPricelistCatalogProductsForQuery(input.filterQuery)
   if (!matched) return { inserted: 0, skipped: 0, matched: 0 }
 
   const eligibility = await buildCuratedBulkEligibilitySql(input.ownerUserId)
@@ -209,7 +211,7 @@ export async function bulkAddCatalogFilterToPricelist(input: {
   }
 }
 
-/** Add many products to a pricelist; skips duplicates and inactive products. */
+/** Add many products to a pricelist; skips duplicates and draft/trash products. */
 export async function bulkAddPricelistItems(input: {
   ownerUserId: string
   productIds: string[]
@@ -226,7 +228,7 @@ export async function bulkAddPricelistItems(input: {
     const batch = unique.slice(i, i + PRICELIST_BULK_INSERT_BATCH)
     const placeholders = batch.map(() => '?').join(', ')
     const activeRows = await queryDb<{ id: string }[]>(
-      `SELECT id FROM products WHERE status = 'active' AND id IN (${placeholders})`,
+      `SELECT id FROM products WHERE ${PRICELIST_ADDABLE_PRODUCT_STATUSES_SQL} AND id IN (${placeholders})`,
       batch
     )
     if (!activeRows.length) continue

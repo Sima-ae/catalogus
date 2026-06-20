@@ -178,6 +178,8 @@ export function combineCategoryIdAndLegacyTextMatch(
 export type CatalogFilterOptions = {
   /** Include brands.name in search / brand filter (when brands table is joined). */
   includeBrandJoin?: boolean
+  /** Pricelist bulk-add includes inactive catalog products (shop stays active-only). */
+  includeInactiveForPricelist?: boolean
 }
 
 /** Shared WHERE for paginated shop catalog queries. */
@@ -185,7 +187,11 @@ export function buildActiveCatalogFilters(
   query: CatalogProductsQuery,
   options: CatalogFilterOptions = {}
 ): CatalogSqlFilters {
-  const where: string[] = ["p.status = 'active'"]
+  const where: string[] = [
+    options.includeInactiveForPricelist
+      ? "p.status IN ('active', 'inactive')"
+      : "p.status = 'active'",
+  ]
   const params: unknown[] = []
   const includeBrand = options.includeBrandJoin === true
 

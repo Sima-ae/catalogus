@@ -980,7 +980,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 }
 
 function shouldSyncPricelistOutOfStock(status: string | undefined): boolean {
-  return status === 'inactive' || status === 'draft'
+  return status === 'draft'
 }
 
 function syncPricelistAfterCatalogStatusChange(
@@ -1075,6 +1075,79 @@ export async function listActiveProductsPaginated(
     pageSize: limit,
     totalPages: Math.max(1, Math.ceil(total / limit) || 1),
   }
+}
+
+/** Active + inactive product ids matching shop catalog filters (pricelist bulk add). */
+export async function resolvePricelistCatalogListSql(
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>
+): Promise<{ fromClause: string; whereSql: string; params: unknown[] } | null> {
+  const [fromClause, categories, hasBrandsTable] = await Promise.all([
+    catalogListingFromSql(),
+    loadActiveCategories(),
+    brandsTableExists(),
+  ])
+  const categoryFilter = resolveShopCategoryFilter(categories, {
+    category: query.category,
+    subcategory: query.subcategory,
+  })
+
+  if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
+    return null
+  }
+
+  const { whereSql, params } = buildActiveCatalogFilters(
+    {
+      ...query,
+      page: 1,
+      limit: 1,
+      categoryIds: categoryFilter?.categoryIds,
+      legacyCategoryNames: categoryFilter?.legacyNames,
+      strictCategoryIdOnly: categoryFilter?.strictIdOnly,
+      categoryStorageLabel: categoryFilter?.categoryStorageLabel,
+      excludeCategoryIds: categoryFilter?.excludeCategoryIds,
+    },
+    { includeBrandJoin: hasBrandsTable, includeInactiveForPricelist: true }
+  )
+
+  return { fromClause, whereSql, params }
+}
+
+export async function countPricelistCatalogProductsForQuery(
+  query: Omit<CatalogProductsQuery, 'page' | 'limit'>
+): Promise<number> {
+  const [fromClause, categories, hasBrandsTable] = await Promise.all([
+    catalogListingFromSql(),
+    loadActiveCategories(),
+    brandsTableExists(),
+  ])
+  const categoryFilter = resolveShopCategoryFilter(categories, {
+    category: query.category,
+    subcategory: query.subcategory,
+  })
+
+  if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
+    return 0
+  }
+
+  const { whereSql, params } = buildActiveCatalogFilters(
+    {
+      ...query,
+      page: 1,
+      limit: 1,
+      categoryIds: categoryFilter?.categoryIds,
+      legacyCategoryNames: categoryFilter?.legacyNames,
+      strictCategoryIdOnly: categoryFilter?.strictIdOnly,
+      categoryStorageLabel: categoryFilter?.categoryStorageLabel,
+      excludeCategoryIds: categoryFilter?.excludeCategoryIds,
+    },
+    { includeBrandJoin: hasBrandsTable, includeInactiveForPricelist: true }
+  )
+
+  const rows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+    params
+  )
+  return Number(rows[0]?.total ?? 0)
 }
 
 /** Active product ids matching shop catalog filters (optional chunk for bulk operations). */

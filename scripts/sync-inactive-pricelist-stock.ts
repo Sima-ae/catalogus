@@ -1,13 +1,17 @@
 #!/usr/bin/env npx tsx
 /**
- * One-time: mark all inactive/draft products on a pricelist as Uitverkocht.
+ * Draft pricelist sync + optional inactive restore.
  *
  *   npm run db:sync-inactive-pricelist-stock
+ *   npm run db:sync-inactive-pricelist-stock -- --restore-inactive
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { resetDbPool } from '@/lib/db'
-import { markPricelistOutOfStockForAllHiddenCatalogProducts } from '@/lib/pricelist-catalog-status-sync'
+import {
+  markPricelistOutOfStockForAllHiddenCatalogProducts,
+  restoreInactiveProductsOnPricelist,
+} from '@/lib/pricelist-catalog-status-sync'
 
 function loadDotEnv() {
   const envPath = resolve(process.cwd(), '.env')
@@ -31,9 +35,19 @@ function loadDotEnv() {
 
 async function main() {
   loadDotEnv()
+
+  if (process.argv.includes('--restore-inactive')) {
+    const result = await restoreInactiveProductsOnPricelist()
+    console.log(
+      `Restored ${result.restored} inactive product price row(s) on pricelist(s) (cleared auto out-of-stock; re-enter prices if they were zeroed).`
+    )
+    await resetDbPool()
+    return
+  }
+
   const result = await markPricelistOutOfStockForAllHiddenCatalogProducts()
   console.log(
-    `Synced ${result.productCount} inactive/draft products on pricelist (${result.updated} price rows updated, ${result.inserted} inserted).`
+    `Synced ${result.productCount} draft products on pricelist (${result.updated} price rows updated, ${result.inserted} inserted).`
   )
   await resetDbPool()
 }

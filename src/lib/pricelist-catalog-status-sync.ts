@@ -3,6 +3,7 @@ import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
 import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
 
 const SYNC_ACTOR = 'catalog-status-sync'
+const RESTORE_ACTOR = 'inactive-pricelist-restore'
 
 async function shopCurrency(): Promise<string> {
   const rows = await queryDb<{ value: string }[]>(
@@ -16,8 +17,9 @@ function sellerIdForNewRow(listOwnerId: string, addedByUserId: string): string {
 }
 
 /**
- * When catalog status is inactive/draft: mark pricelist rows as Uitverkocht (out of stock)
- * so products leave "Met prijs" / missing-price views and appear under Uitverkocht.
+ * When catalog status is draft: mark pricelist rows as Uitverkocht (out of stock)
+ * so draft imports leave "Met prijs" / missing-price views and appear under Uitverkocht.
+ * Inactive products stay on the pricelist with their saved prices.
  */
 export async function markPricelistOutOfStockForProducts(
   productIds: string[]
@@ -93,7 +95,7 @@ export async function markPricelistOutOfStockForProducts(
   return { updated, inserted }
 }
 
-/** Backfill: all inactive/draft products currently on a pricelist. */
+/** Backfill: all draft products currently on a pricelist. */
 export async function markPricelistOutOfStockForAllHiddenCatalogProducts(): Promise<{
   productCount: number
   updated: number
@@ -103,9 +105,27 @@ export async function markPricelistOutOfStockForAllHiddenCatalogProducts(): Prom
     `SELECT DISTINCT p.id
      FROM products p
      INNER JOIN pricelist_items pi ON pi.product_id = p.id
-     WHERE p.status IN ('inactive', 'draft')`
+     WHERE p.status = 'draft'`
   )
   const ids = rows.map((r) => String(r.id))
   const { updated, inserted } = await markPricelistOutOfStockForProducts(ids)
   return { productCount: ids.length, updated, inserted }
+}
+
+/** Undo catalog-status-sync out-of-stock flags for inactive products (prices are not restored). */
+export async function restoreInactiveProductsOnPricelist(): Promise<{ restored: number }> {
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE seller_product_prices spp
+     INNER JOIN products p ON p.id = spp.product_id
+     INNER JOIN pricelist_items pi
+       ON pi.product_id = spp.product_id AND pi.owner_user_id = spp.list_owner_id
+     SET spp.stock_status = '',
+         spp.out_of_stock = 0,
+         spp.updated_by = ?,
+         spp.updated_at = CURRENT_TIMESTAMP
+     WHERE p.status = 'inactive'
+       AND spp.updated_by = ?`,
+    [RESTORE_ACTOR, SYNC_ACTOR]
+  )
+  return { restored: Number(result?.affectedRows ?? 0) }
 }
