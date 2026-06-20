@@ -96,7 +96,7 @@ export const MESSAGES_DE: Record<string, string> = {
   'product.nextImage': 'Nächstes Bild',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Version:',
-  'product.priceOnRequest': 'Preis auf Anfrage',
+  'product.priceOnRequest': 'Preis anfragen',
   'product.instantDownload': 'Sofort-Download',
   'product.instantDownload.subtitle': 'Erhalten Sie Ihre Dateien direkt nach dem Kauf',
   'product.securePayment': 'Sichere Zahlung',

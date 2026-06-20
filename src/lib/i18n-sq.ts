@@ -76,7 +76,7 @@ export const MESSAGES_SQ: Record<string, string> = {
   'product.nextImage': 'Imazhi tjetër',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Versioni:',
-  'product.priceOnRequest': 'Çmimi sipas kërkesës',
+  'product.priceOnRequest': 'Kërko çmimin',
   'product.instantDownload': 'Shkarkim i menjëhershëm',
   'product.instantDownload.subtitle': 'Merrni skedarët menjëherë pas blerjes',
   'product.securePayment': 'Pagesë e sigurt',

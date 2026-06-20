@@ -76,7 +76,7 @@ export const MESSAGES_MK: Record<string, string> = {
   'product.nextImage': 'Следна слика',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Верзија:',
-  'product.priceOnRequest': 'Цена по барање',
+  'product.priceOnRequest': 'Побарај цена',
   'product.instantDownload': 'Веднаш преземање',
   'product.instantDownload.subtitle': 'Добијте ги датотеките веднаш по купувањето',
   'product.securePayment': 'Безбедна уплата',

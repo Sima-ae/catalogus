@@ -96,7 +96,7 @@ export const MESSAGES_RO: Record<string, string> = {
   'product.nextImage': 'Imaginea următoare',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Versiune:',
-  'product.priceOnRequest': 'Preț la cerere',
+  'product.priceOnRequest': 'Cere preț',
   'product.instantDownload': 'Descărcare instantanee',
   'product.instantDownload.subtitle': 'Primești fișierele imediat după cumpărare',
   'product.securePayment': 'Plată securizată',

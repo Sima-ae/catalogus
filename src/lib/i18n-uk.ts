@@ -76,7 +76,7 @@ export const MESSAGES_UK: Record<string, string> = {
   'product.nextImage': 'Наступне зображення',
   'product.meta.sku': 'Артикул:',
   'product.meta.version': 'Версія:',
-  'product.priceOnRequest': 'Ціна за запитом',
+  'product.priceOnRequest': 'Запитати ціну',
   'product.instantDownload': 'Миттєве завантаження',
   'product.instantDownload.subtitle': 'Отримайте файли одразу після покупки',
   'product.securePayment': 'Безпечна оплата',

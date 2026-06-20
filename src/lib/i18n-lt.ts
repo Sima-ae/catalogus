@@ -76,7 +76,7 @@ export const MESSAGES_LT: Record<string, string> = {
   'product.nextImage': 'Kitas vaizdas',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Versija:',
-  'product.priceOnRequest': 'Kaina pagal užklausą',
+  'product.priceOnRequest': 'Klauskite kainos',
   'product.instantDownload': 'Momentinis atsisiuntimas',
   'product.instantDownload.subtitle': 'Gaukite failus iškart po pirkimo',
   'product.securePayment': 'Saugus mokėjimas',

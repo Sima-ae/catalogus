@@ -76,7 +76,7 @@ export const MESSAGES_JA: Record<string, string> = {
   'product.nextImage': '次の画像',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'バージョン:',
-  'product.priceOnRequest': '価格はお問い合わせください',
+  'product.priceOnRequest': '価格を問い合わせる',
   'product.instantDownload': '即時ダウンロード',
   'product.instantDownload.subtitle': '購入後すぐにファイルを受け取れます',
   'product.securePayment': '安全な決済',

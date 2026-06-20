@@ -76,7 +76,7 @@ export const MESSAGES_SK: Record<string, string> = {
   'product.nextImage': 'Ďalší obrázok',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Verzia:',
-  'product.priceOnRequest': 'Cena na vyžiadanie',
+  'product.priceOnRequest': 'Opýtať sa na cenu',
   'product.instantDownload': 'Okamžité stiahnutie',
   'product.instantDownload.subtitle': 'Získajte súbory ihneď po nákupe',
   'product.securePayment': 'Bezpečná platba',

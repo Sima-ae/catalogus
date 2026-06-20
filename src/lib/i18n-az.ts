@@ -76,7 +76,7 @@ export const MESSAGES_AZ: Record<string, string> = {
   'product.nextImage': "Sonraki görsel",
   'product.meta.sku': "SKU:",
   'product.meta.version': "Sürüm:",
-  'product.priceOnRequest': "Fiyat için sorun",
+  'product.priceOnRequest': 'Qiymət sor',
   'product.instantDownload': "Anında indirme",
   'product.instantDownload.subtitle': "Satın aldıktan hemen sonra dosyalarınızı alın",
   'product.securePayment': "Güvenli ödeme",

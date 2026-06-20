@@ -13,7 +13,7 @@ export type ChatConversationType = 'buyer_thread' | 'supplier_thread'
 export type ChatConversationStatus = 'open' | 'closed'
 
 export type ChatSenderRole = 'visitor' | 'admin' | 'seller' | 'system'
-export type ChatMessageType = 'text' | 'quote' | 'system'
+export type ChatMessageType = 'text' | 'quote' | 'system' | 'supplier_reply'
 
 export type ChatParticipantSessionRow = {
   id: string
@@ -209,6 +209,42 @@ export async function createChatMessage(input: {
   const row = rows[0]
   if (!row) throw new Error('CHAT_MESSAGE_CREATE_FAILED')
   return row
+}
+
+export async function getChatQuoteBySupplierConversationId(
+  supplierConversationId: string
+): Promise<ChatQuoteRequestRow | null> {
+  const rows = await queryDb<ChatQuoteRequestRow[]>(
+    `SELECT * FROM chat_quote_requests
+     WHERE supplier_conversation_id = ? AND deleted_at IS NULL
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [supplierConversationId]
+  )
+  return rows[0] ?? null
+}
+
+/** Copy supplier price/text replies into the buyer thread for admin visibility (hidden from buyers). */
+export async function mirrorSupplierReplyToBuyerThread(input: {
+  supplierConversationId: string
+  supplierSessionId: string
+  replyText: string
+}): Promise<ChatMessageRow | null> {
+  const quote = await getChatQuoteBySupplierConversationId(input.supplierConversationId)
+  if (!quote) return null
+
+  const supplierSession = await getChatParticipantSessionById(input.supplierSessionId)
+  const supplierLabel = supplierSession?.display_label?.trim() || 'Supplier'
+  const trimmed = input.replyText.trim()
+  if (!trimmed) return null
+
+  return createChatMessage({
+    conversationId: quote.conversation_id,
+    senderSessionId: input.supplierSessionId,
+    senderRole: 'seller',
+    messageType: 'supplier_reply',
+    body: `${supplierLabel}: ${trimmed}`,
+  })
 }
 
 export async function createChatQuoteRequest(input: {
@@ -674,12 +710,22 @@ export async function listSupplierThreadsForSession(
 
 export async function listChatMessagesWithQuotes(
   conversationId: string,
-  options?: { since?: string | null; limit?: number }
+  options?: {
+    since?: string | null
+    limit?: number
+    excludeMessageTypes?: ChatMessageType[]
+  }
 ): Promise<ChatMessageWithQuote[]> {
   const limit = Math.min(500, Math.max(1, Math.floor(options?.limit ?? 200)))
   const since = options?.since?.trim() || null
   const sinceClause = since ? 'AND m.created_at > ?' : ''
-  const params: unknown[] = since ? [conversationId, since, limit] : [conversationId, limit]
+  const excluded = (options?.excludeMessageTypes ?? []).filter(Boolean)
+  const excludeClause = excluded.length
+    ? `AND m.message_type NOT IN (${excluded.map(() => '?').join(', ')})`
+    : ''
+  const params: unknown[] = since
+    ? [conversationId, ...excluded, since, limit]
+    : [conversationId, ...excluded, limit]
 
   const rows = await queryDb<
     (ChatMessageRow & {
@@ -722,7 +768,7 @@ export async function listChatMessagesWithQuotes(
      FROM chat_messages m
      LEFT JOIN chat_quote_requests q ON q.deleted_at IS NULL
        AND (q.message_id = m.id OR q.supplier_message_id = m.id)
-     WHERE m.conversation_id = ? AND m.deleted_at IS NULL ${sinceClause}
+     WHERE m.conversation_id = ? AND m.deleted_at IS NULL ${excludeClause} ${sinceClause}
      ORDER BY m.created_at ASC
      LIMIT ?`,
     params

@@ -76,7 +76,7 @@ export const MESSAGES_FI: Record<string, string> = {
   'product.nextImage': 'Seuraava kuva',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Versio:',
-  'product.priceOnRequest': 'Hinta pyynnöstä',
+  'product.priceOnRequest': 'Pyydä hintaa',
   'product.instantDownload': 'Välitön lataus',
   'product.instantDownload.subtitle': 'Saat tiedostot heti oston jälkeen',
   'product.securePayment': 'Turvallinen maksu',

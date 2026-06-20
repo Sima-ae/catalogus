@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@/components/chat/ChatProvider'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import ChatQuoteProductModal from '@/components/chat/ChatQuoteProductModal'
+import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import {
+  createOptimisticMessage,
+  replaceOptimisticMessage,
+  rowToMessageItem,
+} from '@/lib/chat-realtime'
 import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
 import { useAuth } from '@/lib/auth-local'
@@ -31,11 +37,9 @@ export default function ChatSupplierPanel() {
     refreshBootstrap,
   } = useChat()
 
-  const [messages, setMessages] = useState<MessageItem[]>([])
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
   const [activeQuote, setActiveQuote] = useState<ChatQuoteCardData | null>(null)
-  const lastTsRef = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   const threads = bootstrap?.supplierThreads ?? []
@@ -48,52 +52,32 @@ export default function ChatSupplierPanel() {
     return q ? `?${q}` : ''
   }, [pricelistOwnerParam])
 
-  const loadMessages = useCallback(
-    async (reset = false) => {
-      if (!threadId) return
-      try {
-        const params = new URLSearchParams()
-        if (pricelistOwnerParam) params.set('owner', pricelistOwnerParam)
-        if (!reset && lastTsRef.current) params.set('since', lastTsRef.current)
-        const suffix = params.toString() ? `?${params.toString()}` : ''
-        const res = await fetch(
-          appPath(`/api/chat/supplier/conversations/${threadId}/messages${suffix}`),
-          {
-            credentials: 'include',
-            cache: 'no-store',
-            headers: catalogAuthHeaders(user),
-          }
-        )
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok || !Array.isArray(data.items)) return
-        const items = data.items as MessageItem[]
-        if (reset) {
-          setMessages(items)
-        } else if (items.length) {
-          setMessages((prev) => [...prev, ...items])
+  const fetchMessages = useCallback(
+    async (since: string | null): Promise<MessageItem[]> => {
+      if (!threadId) return []
+      const params = new URLSearchParams()
+      if (pricelistOwnerParam) params.set('owner', pricelistOwnerParam)
+      if (since) params.set('since', since)
+      const suffix = params.toString() ? `?${params.toString()}` : ''
+      const res = await fetch(
+        appPath(`/api/chat/supplier/conversations/${threadId}/messages${suffix}`),
+        {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: catalogAuthHeaders(user),
         }
-        if (items.length) {
-          lastTsRef.current = items[items.length - 1]?.created_at ?? lastTsRef.current
-        } else if (reset) {
-          lastTsRef.current = null
-        }
-      } catch {
-        // retry on next poll
-      }
+      )
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !Array.isArray(data.items)) return []
+      return data.items as MessageItem[]
     },
     [threadId, pricelistOwnerParam, user]
   )
 
-  useEffect(() => {
-    if (!threadId) {
-      setMessages([])
-      lastTsRef.current = null
-      return
-    }
-    void loadMessages(true)
-    const timer = setInterval(() => void loadMessages(false), 4000)
-    return () => clearInterval(timer)
-  }, [threadId, loadMessages])
+  const { messages, loading: loadingMessages, loadMessages, setMessages } = useChatMessagePoll<MessageItem>({
+    enabled: Boolean(threadId),
+    fetchMessages,
+  })
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -101,7 +85,10 @@ export default function ChatSupplierPanel() {
 
   const sendMessage = async (text: string) => {
     if (!threadId || !text.trim() || sending) return
+    const trimmed = text.trim()
+    const optimistic = createOptimisticMessage({ senderRole: 'seller', body: trimmed })
     setSending(true)
+    setMessages((prev) => [...prev, optimistic as MessageItem])
     try {
       const res = await fetch(
         appPath(`/api/chat/supplier/conversations/${threadId}/messages${ownerQuery}`),
@@ -113,13 +100,21 @@ export default function ChatSupplierPanel() {
             'Content-Type': 'application/json',
             ...catalogAuthHeaders(user),
           },
-          body: JSON.stringify({ text: text.trim() }),
+          body: JSON.stringify({ text: trimmed }),
         }
       )
-      if (!res.ok) return
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(String(data?.error || `HTTP_${res.status}`))
       setReply('')
-      await loadMessages(true)
+      if (data.message) {
+        const confirmed = rowToMessageItem(data.message) as MessageItem
+        setMessages((prev) => replaceOptimisticMessage(prev, optimistic.id, confirmed) as MessageItem[])
+      } else {
+        await loadMessages(true)
+      }
       void refreshBootstrap()
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
     } finally {
       setSending(false)
     }
@@ -141,14 +136,10 @@ export default function ChatSupplierPanel() {
                   : m.sender_role === 'system'
                     ? 'bg-gray-100 text-gray-600 italic text-xs'
                     : 'bg-gray-100 text-gray-900'
-              }`}
+              } ${m.id.startsWith('pending-') ? 'opacity-80' : ''}`}
             >
               {m.message_type === 'quote' && m.quote ? (
-                <ChatQuoteCard
-                  quote={m.quote}
-                  compact
-                  onClick={() => setActiveQuote(m.quote)}
-                />
+                <ChatQuoteCard quote={m.quote} compact onClick={() => setActiveQuote(m.quote)} />
               ) : (
                 <div className="whitespace-pre-wrap px-1">{m.body}</div>
               )}
@@ -193,10 +184,14 @@ export default function ChatSupplierPanel() {
         ) : error ? (
           <div className="text-red-600">{error}</div>
         ) : threadId ? (
-          messageList ?? (
-            <div className="text-gray-500">
-              {threads.length ? t('chat.ready') : t('chat.noSupplierThreads')}
-            </div>
+          loadingMessages && !messages.length ? (
+            <div className="text-gray-500">{t('chat.loading')}</div>
+          ) : (
+            messageList ?? (
+              <div className="text-gray-500">
+                {threads.length ? t('chat.ready') : t('chat.noSupplierThreads')}
+              </div>
+            )
           )
         ) : (
           <div className="text-gray-500">{t('chat.noSupplierThreads')}</div>

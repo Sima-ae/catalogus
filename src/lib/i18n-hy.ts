@@ -76,7 +76,7 @@ export const MESSAGES_HY: Record<string, string> = {
   'product.nextImage': 'Հաջորդ պատկեր',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Տարբերակ:',
-  'product.priceOnRequest': 'Գինը հարցման դեպքում',
+  'product.priceOnRequest': 'Հարցրեք գինը',
   'product.instantDownload': 'Անմիջական ներբեռնում',
   'product.instantDownload.subtitle': 'Ստացեք ֆայլերը անմիջապես գնումից հետո',
   'product.securePayment': 'Անվտանգ վճարում',

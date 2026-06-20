@@ -96,7 +96,7 @@ export const MESSAGES_HU: Record<string, string> = {
   'product.nextImage': 'Következő kép',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Verzió:',
-  'product.priceOnRequest': 'Ár kérésre',
+  'product.priceOnRequest': 'Ár kérése',
   'product.instantDownload': 'Azonnali letöltés',
   'product.instantDownload.subtitle': 'A fájlok azonnal elérhetők a vásárlás után',
   'product.securePayment': 'Biztonságos fizetés',

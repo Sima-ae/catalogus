@@ -96,7 +96,7 @@ export const MESSAGES_GR: Record<string, string> = {
   'product.nextImage': 'Επόμενη εικόνα',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Έκδοση:',
-  'product.priceOnRequest': 'Τιμή κατόπιν αιτήματος',
+  'product.priceOnRequest': 'Ζητήστε τιμή',
   'product.instantDownload': 'Άμεση λήψη',
   'product.instantDownload.subtitle': 'Λάβετε τα αρχεία σας αμέσως μετά την αγορά',
   'product.securePayment': 'Ασφαλής πληρωμή',

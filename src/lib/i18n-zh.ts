@@ -78,7 +78,7 @@ export const MESSAGES_ZH: Record<string, string> = {
   'product.nextImage': '下一张',
   'product.meta.sku': 'SKU:',
   'product.meta.version': '版本:',
-  'product.priceOnRequest': '价格面议',
+  'product.priceOnRequest': '询价',
   'product.instantDownload': '即时下载',
   'product.instantDownload.subtitle': '购买后立即获取文件',
   'product.securePayment': '安全支付',

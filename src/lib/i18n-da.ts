@@ -76,7 +76,7 @@ export const MESSAGES_DA: Record<string, string> = {
   'product.nextImage': 'Næste billede',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Version:',
-  'product.priceOnRequest': 'Pris på forespørgsel',
+  'product.priceOnRequest': 'Anmod om pris',
   'product.instantDownload': 'Øjeblikkelig download',
   'product.instantDownload.subtitle': 'Modtag dine filer straks efter køb',
   'product.securePayment': 'Sikker betaling',

@@ -76,7 +76,7 @@ export const MESSAGES_HE: Record<string, string> = {
   'product.nextImage': 'תמונה הבאה',
   'product.meta.sku': 'מק״ט:',
   'product.meta.version': 'גרסה:',
-  'product.priceOnRequest': 'מחיר לפי בקשה',
+  'product.priceOnRequest': 'בקש מחיר',
   'product.instantDownload': 'הורדה מיידית',
   'product.instantDownload.subtitle': 'קבלו את הקבצים מיד לאחר הרכישה',
   'product.securePayment': 'תשלום מאובטח',

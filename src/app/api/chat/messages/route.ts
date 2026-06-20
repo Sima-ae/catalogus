@@ -37,7 +37,11 @@ export async function GET(request: NextRequest) {
   }
 
   const since = request.nextUrl.searchParams.get('since')
-  const items = await listChatMessagesWithQuotes(conversationId, { since, limit: 200 })
+  const items = await listChatMessagesWithQuotes(conversationId, {
+    since,
+    limit: 200,
+    excludeMessageTypes: ['supplier_reply'],
+  })
   return NextResponse.json({ items })
 }
 

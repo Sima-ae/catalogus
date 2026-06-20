@@ -76,7 +76,7 @@ export const MESSAGES_NB: Record<string, string> = {
   'product.nextImage': 'Neste bilde',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Versjon:',
-  'product.priceOnRequest': 'Pris på forespørsel',
+  'product.priceOnRequest': 'Be om pris',
   'product.instantDownload': 'Umiddelbar nedlasting',
   'product.instantDownload.subtitle': 'Få filene dine rett etter kjøp',
   'product.securePayment': 'Sikker betaling',

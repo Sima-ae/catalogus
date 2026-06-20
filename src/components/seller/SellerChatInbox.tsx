@@ -1,10 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { appPath } from '@/lib/paths'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
+import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import {
+  CHAT_INBOX_POLL_MS,
+  createOptimisticMessage,
+  replaceOptimisticMessage,
+  rowToMessageItem,
+} from '@/lib/chat-realtime'
 
 type ThreadItem = {
   id: string
@@ -47,13 +54,10 @@ export default function SellerChatInbox() {
   const { user } = useAuth()
   const [threads, setThreads] = useState<ThreadItem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<MessageItem[]>([])
   const [loadingInbox, setLoadingInbox] = useState(true)
-  const [loadingMessages, setLoadingMessages] = useState(false)
   const [error, setError] = useState('')
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
-  const lastTsRef = useRef<string | null>(null)
 
   const headers = useMemo(
     () => ({
@@ -79,7 +83,7 @@ export default function SellerChatInbox() {
 
   useEffect(() => {
     void loadInbox()
-    const timer = setInterval(() => void loadInbox(), 12000)
+    const timer = setInterval(() => void loadInbox(), CHAT_INBOX_POLL_MS)
     return () => clearInterval(timer)
   }, [loadInbox])
 
@@ -88,73 +92,56 @@ export default function SellerChatInbox() {
     [threads, selectedId]
   )
 
-  const loadMessages = useCallback(
-    async (conversationId: string, reset = false) => {
-      setLoadingMessages(true)
-      try {
-        const params = new URLSearchParams()
-        if (!reset && lastTsRef.current) params.set('since', lastTsRef.current)
-        const ownerForThread = threads.find((t) => t.id === conversationId)?.pricelistOwnerId
-        if (ownerForThread) params.set('owner', ownerForThread)
-        const query = params.toString() ? `?${params.toString()}` : ''
-        const data = await fetchJson(
-          appPath(`/api/chat/supplier/conversations/${conversationId}/messages${query}`),
-          { headers: catalogAuthHeaders(user) }
-        )
-        const items = (data.items ?? []) as MessageItem[]
-        if (reset) {
-          setMessages(items)
-        } else if (items.length) {
-          setMessages((prev) => [...prev, ...items])
-        }
-        if (items.length) {
-          lastTsRef.current = items[items.length - 1]?.created_at ?? lastTsRef.current
-        } else if (reset) {
-          lastTsRef.current = null
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      } finally {
-        setLoadingMessages(false)
-      }
+  const fetchMessages = useCallback(
+    async (since: string | null): Promise<MessageItem[]> => {
+      if (!selectedId) return []
+      const params = new URLSearchParams()
+      if (since) params.set('since', since)
+      const ownerForThread = threads.find((t) => t.id === selectedId)?.pricelistOwnerId
+      if (ownerForThread) params.set('owner', ownerForThread)
+      const query = params.toString() ? `?${params.toString()}` : ''
+      const data = await fetchJson(
+        appPath(`/api/chat/supplier/conversations/${selectedId}/messages${query}`),
+        { headers: catalogAuthHeaders(user) }
+      )
+      return (data.items ?? []) as MessageItem[]
     },
-    [user, threads]
+    [selectedId, threads, user]
   )
 
-  useEffect(() => {
-    if (!selectedId) {
-      setMessages([])
-      lastTsRef.current = null
-      return
-    }
-    void loadMessages(selectedId, true)
-    const timer = setInterval(() => void loadMessages(selectedId, false), 4000)
-    return () => clearInterval(timer)
-  }, [selectedId, loadMessages])
+  const { messages, setMessages, loading: loadingMessages, loadMessages } = useChatMessagePoll<MessageItem>({
+    enabled: Boolean(selectedId),
+    fetchMessages,
+  })
 
   const sendReply = async () => {
     if (!selectedId || !reply.trim() || sending) return
+    const text = reply.trim()
+    const optimistic = createOptimisticMessage({ senderRole: 'seller', body: text })
+    setReply('')
     setSending(true)
+    setMessages((prev) => [...prev, optimistic as MessageItem])
     try {
-      await fetchJson(
-        appPath(
-          `/api/chat/supplier/conversations/${selectedId}/messages${
-            (() => {
-              const owner = threads.find((t) => t.id === selectedId)?.pricelistOwnerId
-              return owner ? `?owner=${encodeURIComponent(owner)}` : ''
-            })()
-          }`
-        ),
+      const owner = threads.find((t) => t.id === selectedId)?.pricelistOwnerId
+      const ownerQuery = owner ? `?owner=${encodeURIComponent(owner)}` : ''
+      const data = await fetchJson(
+        appPath(`/api/chat/supplier/conversations/${selectedId}/messages${ownerQuery}`),
         {
           method: 'POST',
           headers,
-          body: JSON.stringify({ text: reply.trim() }),
+          body: JSON.stringify({ text }),
         }
       )
-      setReply('')
-      await loadMessages(selectedId, true)
+      if (data.message) {
+        const confirmed = rowToMessageItem(data.message) as MessageItem
+        setMessages((prev) => replaceOptimisticMessage(prev, optimistic.id, confirmed) as MessageItem[])
+      } else {
+        await loadMessages(true)
+      }
       void loadInbox()
     } catch (e) {
+      setReply(text)
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSending(false)
@@ -249,9 +236,13 @@ export default function SellerChatInbox() {
                             : m.sender_role === 'system'
                               ? 'bg-gray-100 text-gray-600 text-xs italic'
                               : 'bg-gray-100 text-gray-900'
-                        }`}
+                        } ${m.id.startsWith('pending-') ? 'opacity-80' : ''}`}
                       >
-                        <div className="text-sm whitespace-pre-wrap">{m.body}</div>
+                        {m.message_type === 'quote' && m.quote ? (
+                          <ChatQuoteCard quote={m.quote} compact />
+                        ) : (
+                          <div className="text-sm whitespace-pre-wrap">{m.body}</div>
+                        )}
                         <div
                           className={`mt-1 text-[10px] ${
                             m.sender_role === 'seller' ? 'text-emerald-100' : 'text-gray-400'

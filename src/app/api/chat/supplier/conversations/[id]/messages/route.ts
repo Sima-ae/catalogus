@@ -5,6 +5,7 @@ import {
   createChatMessage,
   getChatConversationById,
   listChatMessagesWithQuotes,
+  mirrorSupplierReplyToBuyerThread,
   supplierCanAccessConversation,
 } from '@/lib/chat-db'
 
@@ -64,6 +65,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     senderRole: 'seller',
     messageType: 'text',
     body: text.slice(0, 4000),
+  })
+
+  await mirrorSupplierReplyToBuyerThread({
+    supplierConversationId: id,
+    supplierSessionId: resolved.viewer.session.id,
+    replyText: text,
   })
 
   return NextResponse.json({ ok: true, message })

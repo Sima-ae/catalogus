@@ -10,6 +10,7 @@ import { useLocalizedPath } from '@/lib/use-localized-path'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
+import AskPriceButton from '@/components/shop/AskPriceButton'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
 import {
   catalogCardImageSrc,
@@ -123,11 +124,13 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
     if (hasOptions) {
       const range = optionPriceRange(shopProductOptions)
       if (range && range.min > 0) return formatPrice(range.min)
-      return t('product.priceOnRequest')
+      return null
     }
-    if (isZeroPrice(product.price)) return t('product.priceOnRequest')
+    if (isZeroPrice(product.price)) return null
     return formatPrice(product.price)
   })()
+
+  const showAskPriceBadge = cardPriceLabel === null
 
   return (
     <div
@@ -165,9 +168,21 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
           </div>
           {product.featured ? <ProductFeaturedTipBadge /> : null}
           <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">
-            <span className="sold-out-ribbon-text inline-block max-w-full rounded-full bg-black px-3 py-1.5 text-center text-[10px] font-semibold leading-none text-white shadow-md whitespace-nowrap sm:px-4 sm:py-2 sm:text-xs">
-              {cardPriceLabel}
-            </span>
+            {showAskPriceBadge ? (
+              <AskPriceButton
+                productId={product.id}
+                size="sm"
+                className="pointer-events-auto max-w-full truncate"
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+              />
+            ) : (
+              <span className="sold-out-ribbon-text inline-block max-w-full rounded-full bg-black px-3 py-1.5 text-center text-[10px] font-semibold leading-none text-white shadow-md whitespace-nowrap sm:px-4 sm:py-2 sm:text-xs">
+                {cardPriceLabel}
+              </span>
+            )}
           </div>
         </div>
       </Link>

@@ -96,7 +96,7 @@ export const MESSAGES_BG: Record<string, string> = {
   'product.nextImage': 'Следващо изображение',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Версия:',
-  'product.priceOnRequest': 'Цена по запитване',
+  'product.priceOnRequest': 'Попитайте за цена',
   'product.instantDownload': 'Незабавно изтегляне',
   'product.instantDownload.subtitle': 'Получете файловете веднага след покупката',
   'product.securePayment': 'Сигурно плащане',

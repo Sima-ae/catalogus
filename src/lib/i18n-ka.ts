@@ -76,7 +76,7 @@ export const MESSAGES_KA: Record<string, string> = {
   'product.nextImage': 'შემდეგი სურათი',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'ვერსია:',
-  'product.priceOnRequest': 'ფასი მოთხოვნით',
+  'product.priceOnRequest': 'ფასის მოთხოვნა',
   'product.instantDownload': 'მყისიერი ჩამოტვირთვა',
   'product.instantDownload.subtitle': 'ფაილებს მიიღებთ შეძენისთანავე',
   'product.securePayment': 'უსაფრთხო გადახდა',

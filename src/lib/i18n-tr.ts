@@ -96,7 +96,7 @@ export const MESSAGES_TR: Record<string, string> = {
   'product.nextImage': 'Sonraki görsel',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Sürüm:',
-  'product.priceOnRequest': 'Fiyat için sorun',
+  'product.priceOnRequest': 'Fiyat sor',
   'product.instantDownload': 'Anında indirme',
   'product.instantDownload.subtitle': 'Satın aldıktan hemen sonra dosyalarınızı alın',
   'product.securePayment': 'Güvenli ödeme',

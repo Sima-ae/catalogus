@@ -96,7 +96,7 @@ export const MESSAGES_CZ: Record<string, string> = {
   'product.nextImage': 'Další obrázek',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Verze:',
-  'product.priceOnRequest': 'Cena na dotaz',
+  'product.priceOnRequest': 'Zeptat se na cenu',
   'product.instantDownload': 'Okamžité stažení',
   'product.instantDownload.subtitle': 'Získejte soubory ihned po nákupu',
   'product.securePayment': 'Bezpečná platba',

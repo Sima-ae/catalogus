@@ -1,11 +1,18 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import ChatQuoteCard, { type ChatQuoteCardData } from '@/components/chat/ChatQuoteCard'
 import AdminChatTrash from '@/components/admin/AdminChatTrash'
+import { useChatMessagePoll } from '@/hooks/useChatMessagePoll'
+import {
+  CHAT_INBOX_POLL_MS,
+  createOptimisticMessage,
+  replaceOptimisticMessage,
+  rowToMessageItem,
+} from '@/lib/chat-realtime'
 
 type ThreadItem = {
   id: string
@@ -63,9 +70,7 @@ export default function AdminChatInbox() {
   const [pricelistPages, setPricelistPages] = useState<PricelistPageOption[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<MessageItem[]>([])
   const [loadingInbox, setLoadingInbox] = useState(true)
-  const [loadingMessages, setLoadingMessages] = useState(false)
   const [error, setError] = useState('')
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
@@ -73,11 +78,8 @@ export default function AdminChatInbox() {
   const [pickPricelistForQuote, setPickPricelistForQuote] = useState<QuoteItem | null>(null)
   const [pickPricelistId, setPickPricelistId] = useState('')
   const [supplierConvId, setSupplierConvId] = useState<string | null>(null)
-  const [supplierMessages, setSupplierMessages] = useState<MessageItem[]>([])
   const [supplierReply, setSupplierReply] = useState('')
   const [supplierSending, setSupplierSending] = useState(false)
-  const supplierLastTsRef = useRef<string | null>(null)
-  const lastTsRef = useRef<string | null>(null)
 
   const headers = useMemo(
     () => ({
@@ -103,7 +105,7 @@ export default function AdminChatInbox() {
 
   useEffect(() => {
     void loadInbox()
-    const timer = setInterval(() => void loadInbox(), 12000)
+    const timer = setInterval(() => void loadInbox(), CHAT_INBOX_POLL_MS)
     return () => clearInterval(timer)
   }, [loadInbox])
 
@@ -124,53 +126,59 @@ export default function AdminChatInbox() {
     return fromQuote?.buyerLabel ?? 'Conversation'
   }, [selectedQuote, selectedThread, quotes, selectedId])
 
-  const loadMessages = useCallback(
-    async (conversationId: string, reset = false) => {
-      setLoadingMessages(true)
-      try {
-        const params = new URLSearchParams()
-        if (!reset && lastTsRef.current) params.set('since', lastTsRef.current)
-        const suffix = params.toString() ? `?${params.toString()}` : ''
-        const data = await fetchJson(
-          appPath(`/api/admin/chat/conversations/${conversationId}/messages${suffix}`),
-          { headers: adminAuthHeaders(user) }
-        )
-        const items = (data.items ?? []) as MessageItem[]
-        if (reset) {
-          setMessages(items)
-        } else if (items.length) {
-          setMessages((prev) => [...prev, ...items])
-        }
-        if (items.length) {
-          lastTsRef.current = items[items.length - 1]?.created_at ?? lastTsRef.current
-        } else if (reset) {
-          lastTsRef.current = null
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      } finally {
-        setLoadingMessages(false)
-      }
+  const fetchBuyerMessages = useCallback(
+    async (since: string | null): Promise<MessageItem[]> => {
+      if (!selectedId) return []
+      const params = new URLSearchParams()
+      if (since) params.set('since', since)
+      const suffix = params.toString() ? `?${params.toString()}` : ''
+      const data = await fetchJson(
+        appPath(`/api/admin/chat/conversations/${selectedId}/messages${suffix}`),
+        { headers: adminAuthHeaders(user) }
+      )
+      return (data.items ?? []) as MessageItem[]
     },
-    [user]
+    [selectedId, user]
   )
 
-  useEffect(() => {
-    if (!selectedId) {
-      setMessages([])
-      lastTsRef.current = null
-      return
-    }
-    void loadMessages(selectedId, true)
-    const timer = setInterval(() => void loadMessages(selectedId, false), 4000)
-    return () => clearInterval(timer)
-  }, [selectedId, loadMessages])
+  const {
+    messages,
+    setMessages,
+    loading: loadingMessages,
+    loadMessages,
+  } = useChatMessagePoll<MessageItem>({
+    enabled: Boolean(selectedId),
+    fetchMessages: fetchBuyerMessages,
+  })
+
+  const fetchSupplierMessages = useCallback(
+    async (since: string | null): Promise<MessageItem[]> => {
+      if (!supplierConvId) return []
+      const params = new URLSearchParams()
+      if (since) params.set('since', since)
+      const suffix = params.toString() ? `?${params.toString()}` : ''
+      const data = await fetchJson(
+        appPath(`/api/admin/chat/supplier-conversations/${supplierConvId}/messages${suffix}`),
+        { headers: adminAuthHeaders(user) }
+      )
+      return (data.items ?? []) as MessageItem[]
+    },
+    [supplierConvId, user]
+  )
+
+  const {
+    messages: supplierMessages,
+    setMessages: setSupplierMessages,
+    loadMessages: loadSupplierMessages,
+  } = useChatMessagePoll<MessageItem>({
+    enabled: Boolean(supplierConvId),
+    fetchMessages: fetchSupplierMessages,
+  })
 
   const openThread = (id: string) => {
     setSelectedQuoteId(null)
     setSelectedId(id)
     setTab('threads')
-    lastTsRef.current = null
   }
 
   const openQuote = (quote: QuoteItem) => {
@@ -181,23 +189,31 @@ export default function AdminChatInbox() {
     setTab('quotes')
     setSelectedQuoteId(quote.id)
     setSelectedId(quote.conversation_id)
-    lastTsRef.current = null
-    setMessages([])
   }
 
   const sendReply = async () => {
     if (!selectedId || !reply.trim() || sending) return
+    const text = reply.trim()
+    const optimistic = createOptimisticMessage({ senderRole: 'admin', body: text })
+    setReply('')
     setSending(true)
+    setMessages((prev) => [...prev, optimistic as MessageItem])
     try {
-      await fetchJson(appPath(`/api/admin/chat/conversations/${selectedId}/messages`), {
+      const data = await fetchJson(appPath(`/api/admin/chat/conversations/${selectedId}/messages`), {
         method: 'POST',
         headers,
-        body: JSON.stringify({ text: reply.trim() }),
+        body: JSON.stringify({ text }),
       })
-      setReply('')
-      await loadMessages(selectedId, true)
+      if (data.message) {
+        const confirmed = rowToMessageItem(data.message) as MessageItem
+        setMessages((prev) => replaceOptimisticMessage(prev, optimistic.id, confirmed) as MessageItem[])
+      } else {
+        await loadMessages(true)
+      }
       void loadInbox()
     } catch (e) {
+      setReply(text)
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSending(false)
@@ -224,7 +240,7 @@ export default function AdminChatInbox() {
       setPickPricelistForQuote(null)
       setPickPricelistId('')
       openQuote(quote)
-      await loadMessages(quote.conversation_id, true)
+      await loadMessages(true)
       void loadInbox()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -240,7 +256,7 @@ export default function AdminChatInbox() {
         headers,
         body: JSON.stringify({ status: 'answered' }),
       })
-      if (selectedId) await loadMessages(selectedId, true)
+      if (selectedId) await loadMessages(true)
       if (selectedQuoteId === quoteId) setSelectedQuoteId(null)
       void loadInbox()
     } catch (e) {
@@ -248,59 +264,37 @@ export default function AdminChatInbox() {
     }
   }
 
-  const loadSupplierMessages = useCallback(
-    async (conversationId: string, reset = false) => {
-      try {
-        const params = new URLSearchParams()
-        if (!reset && supplierLastTsRef.current) params.set('since', supplierLastTsRef.current)
-        const suffix = params.toString() ? `?${params.toString()}` : ''
-        const data = await fetchJson(
-          appPath(`/api/admin/chat/supplier-conversations/${conversationId}/messages${suffix}`),
-          { headers: adminAuthHeaders(user) }
-        )
-        const items = (data.items ?? []) as MessageItem[]
-        if (reset) {
-          setSupplierMessages(items)
-        } else if (items.length) {
-          setSupplierMessages((prev) => [...prev, ...items])
-        }
-        if (items.length) {
-          supplierLastTsRef.current = items[items.length - 1]?.created_at ?? supplierLastTsRef.current
-        } else if (reset) {
-          supplierLastTsRef.current = null
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      }
-    },
-    [user]
-  )
-
   const openSupplierThread = (conversationId: string) => {
     setSupplierConvId(conversationId)
-    supplierLastTsRef.current = null
-    setSupplierMessages([])
-    void loadSupplierMessages(conversationId, true)
   }
-
-  useEffect(() => {
-    if (!supplierConvId) return
-    const timer = setInterval(() => void loadSupplierMessages(supplierConvId, false), 4000)
-    return () => clearInterval(timer)
-  }, [supplierConvId, loadSupplierMessages])
 
   const sendSupplierReply = async () => {
     if (!supplierConvId || !supplierReply.trim() || supplierSending) return
+    const text = supplierReply.trim()
+    const optimistic = createOptimisticMessage({ senderRole: 'admin', body: text })
+    setSupplierReply('')
     setSupplierSending(true)
+    setSupplierMessages((prev) => [...prev, optimistic as MessageItem])
     try {
-      await fetchJson(appPath(`/api/admin/chat/supplier-conversations/${supplierConvId}/messages`), {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ text: supplierReply.trim() }),
-      })
-      setSupplierReply('')
-      await loadSupplierMessages(supplierConvId, true)
+      const data = await fetchJson(
+        appPath(`/api/admin/chat/supplier-conversations/${supplierConvId}/messages`),
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ text }),
+        }
+      )
+      if (data.message) {
+        const confirmed = rowToMessageItem(data.message) as MessageItem
+        setSupplierMessages((prev) =>
+          replaceOptimisticMessage(prev, optimistic.id, confirmed) as MessageItem[]
+        )
+      } else {
+        await loadSupplierMessages(true)
+      }
     } catch (e) {
+      setSupplierReply(text)
+      setSupplierMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSupplierSending(false)
@@ -328,7 +322,7 @@ export default function AdminChatInbox() {
         method: 'DELETE',
         headers: adminAuthHeaders(user),
       })
-      if (selectedId) await loadMessages(selectedId, true)
+      if (selectedId) await loadMessages(true)
       void loadInbox()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -346,7 +340,7 @@ export default function AdminChatInbox() {
         setSelectedQuoteId(null)
         setSelectedId(null)
       } else if (selectedId) {
-        await loadMessages(selectedId, true)
+        await loadMessages(true)
       }
       void loadInbox()
     } catch (e) {
@@ -398,6 +392,43 @@ export default function AdminChatInbox() {
       ) : null}
     </>
   )
+
+  const messageBubbleClass = (m: MessageItem, context: 'buyer' | 'supplier') => {
+    if (context === 'supplier') {
+      if (m.sender_role === 'admin') return 'bg-blue-600 text-white'
+      if (m.sender_role === 'seller') return 'bg-emerald-100 text-emerald-900'
+      if (m.message_type === 'quote') return 'bg-white text-gray-900 border border-gray-200'
+      return 'bg-gray-100 text-gray-600 italic'
+    }
+    if (m.message_type === 'supplier_reply' || m.sender_role === 'seller') {
+      return 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+    }
+    if (m.sender_role === 'admin') return 'bg-blue-600 text-white'
+    if (m.sender_role === 'system') return 'bg-gray-100 text-gray-600 text-xs italic'
+    return 'bg-gray-100 text-gray-900'
+  }
+
+  const renderMessageBody = (m: MessageItem, showQuoteActions = false) => {
+    if (m.message_type === 'quote' && m.quote) {
+      return (
+        <ChatQuoteCard
+          quote={m.quote}
+          compact
+          actions={showQuoteActions ? renderQuoteActions(m.quote) : undefined}
+        />
+      )
+    }
+    return (
+      <>
+        {m.message_type === 'supplier_reply' ? (
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 mb-1">
+            Supplier reply
+          </div>
+        ) : null}
+        <div className="text-sm whitespace-pre-wrap">{m.body}</div>
+      </>
+    )
+  }
 
   if (tab === 'trash' && isSuperAdmin) {
     return (
@@ -612,23 +643,9 @@ export default function AdminChatInbox() {
                         </button>
                       ) : null}
                       <div
-                        className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                          m.sender_role === 'admin'
-                            ? 'bg-blue-600 text-white'
-                            : m.sender_role === 'system'
-                              ? 'bg-gray-100 text-gray-600 text-xs italic'
-                              : 'bg-gray-100 text-gray-900'
-                        }`}
+                        className={`max-w-[85%] rounded-2xl px-3 py-2 ${messageBubbleClass(m, 'buyer')}`}
                       >
-                        {m.message_type === 'quote' && m.quote ? (
-                          <ChatQuoteCard
-                            quote={m.quote}
-                            compact
-                            actions={renderQuoteActions(m.quote)}
-                          />
-                        ) : (
-                          <div className="text-sm whitespace-pre-wrap">{m.body}</div>
-                        )}
+                        {renderMessageBody(m, true)}
                         <div
                           className={`mt-1 text-[10px] ${
                             m.sender_role === 'admin' ? 'text-blue-100' : 'text-gray-400'
@@ -738,18 +755,19 @@ export default function AdminChatInbox() {
                 supplierMessages.map((m) => (
                   <div
                     key={m.id}
-                    className={`flex ${m.sender_role === 'admin' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${
+                      m.sender_role === 'admin' ? 'justify-end' : 'justify-start'
+                    }`}
                   >
-                    <div
-                      className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
-                        m.sender_role === 'admin'
-                          ? 'bg-blue-600 text-white'
-                          : m.sender_role === 'seller'
-                            ? 'bg-emerald-100 text-emerald-900'
-                            : 'bg-gray-100 text-gray-600 italic'
-                      }`}
-                    >
-                      {m.body}
+                    <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${messageBubbleClass(m, 'supplier')}`}>
+                      {renderMessageBody(m)}
+                      <div
+                        className={`mt-1 text-[10px] ${
+                          m.sender_role === 'admin' ? 'text-blue-100' : 'text-gray-400'
+                        }`}
+                      >
+                        {formatTime(m.created_at)}
+                      </div>
                     </div>
                   </div>
                 ))

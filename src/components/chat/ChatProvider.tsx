@@ -13,6 +13,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
+import { CHAT_INBOX_POLL_MS } from '@/lib/chat-realtime'
 
 export type ChatQuoteAttach = {
   productId: string
@@ -127,6 +128,12 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     if (startedRef.current) return
     startedRef.current = true
     void loadBootstrap()
+  }, [open, loadBootstrap])
+
+  useEffect(() => {
+    if (!open) return
+    const timer = setInterval(() => void loadBootstrap(), CHAT_INBOX_POLL_MS)
+    return () => clearInterval(timer)
   }, [open, loadBootstrap])
 
   const requestQuote = useCallback((quote: ChatQuoteAttach) => {

@@ -76,7 +76,7 @@ export const MESSAGES_SV: Record<string, string> = {
   'product.nextImage': 'Nästa bild',
   'product.meta.sku': 'SKU:',
   'product.meta.version': 'Version:',
-  'product.priceOnRequest': 'Pris på begäran',
+  'product.priceOnRequest': 'Be om pris',
   'product.instantDownload': 'Omedelbar nedladdning',
   'product.instantDownload.subtitle': 'Få dina filer direkt efter köp',
   'product.securePayment': 'Säker betalning',

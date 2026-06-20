@@ -3,8 +3,7 @@
 import { useTheme } from '@/lib/theme'
 import { formatPrice, formatPriceAmount, hasPublicOriginalPrice, isZeroPrice } from '@/lib/format-price'
 import { useShopCurrency } from '@/lib/shop-currency-context'
-import { useI18n } from '@/lib/i18n-context'
-import { useChat } from '@/components/chat/ChatProvider'
+import AskPriceButton from '@/components/shop/AskPriceButton'
 
 type Props = {
   price: number
@@ -22,9 +21,7 @@ export default function ProductOptionPrice({
   className = '',
 }: Props) {
   const { theme } = useTheme()
-  const { t } = useI18n()
   const { symbol: currencySymbol } = useShopCurrency()
-  const { requestQuote } = useChat()
   const isDark = theme === 'dark'
   const compact = size === 'card'
 
@@ -32,18 +29,21 @@ export default function ProductOptionPrice({
   const onRequest = isZeroPrice(price)
 
   if (onRequest) {
+    if (!productId) {
+      return (
+        <span
+          className={`font-bold text-primary-500 ${compact ? 'text-sm sm:text-base' : 'text-2xl sm:text-3xl'} ${className}`}
+        >
+          —
+        </span>
+      )
+    }
     return (
-      <button
-        type="button"
-        className={`font-bold text-primary-500 hover:underline ${compact ? 'text-sm sm:text-base' : 'text-2xl sm:text-3xl'} ${className}`}
-        onClick={() => {
-          if (!productId) return
-          requestQuote({ productId })
-        }}
-        disabled={!productId}
-      >
-        {t('product.priceOnRequest')}
-      </button>
+      <AskPriceButton
+        productId={productId}
+        size={compact ? 'md' : 'lg'}
+        className={className}
+      />
     )
   }
 

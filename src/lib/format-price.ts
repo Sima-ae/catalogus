@@ -68,7 +68,7 @@ export function formatPriceAmount(
   value: number | string | null | undefined,
   options: Omit<FormatPriceOptions, 'currency'> = {}
 ): string {
-  const { zeroLabel = 'Price on request', useCommaDecimals = true } = options
+  const { zeroLabel = 'Ask a price', useCommaDecimals = true } = options
   if (isZeroPrice(value)) return zeroLabel
   const n =
     typeof value === 'number'
@@ -84,7 +84,7 @@ export function formatPrice(
   options: FormatPriceOptions = {}
 ): string {
   const {
-    zeroLabel = 'Price on request',
+    zeroLabel = 'Ask a price',
     useCommaDecimals = true,
   } = options
 

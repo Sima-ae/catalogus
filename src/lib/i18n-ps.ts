@@ -76,7 +76,7 @@ export const MESSAGES_PS: Record<string, string> = {
   'product.nextImage': "الصورة التالية",
   'product.meta.sku': "SKU:",
   'product.meta.version': "الإصدار:",
-  'product.priceOnRequest': "السعر عند الطلب",
+  'product.priceOnRequest': 'اطلب السعر',
   'product.instantDownload': "تنزيل فوري",
   'product.instantDownload.subtitle': "احصل على ملفاتك فوراً بعد الشراء",
   'product.securePayment': "دفع آمن",
