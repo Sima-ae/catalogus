@@ -1,0 +1,61 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { ensureEnvLoaded } from '@/lib/ensure-env'
+import { resolveAdminChatContext } from '@/lib/chat-auth'
+import {
+  createChatMessage,
+  getChatConversationById,
+  listChatMessagesWithQuotes,
+} from '@/lib/chat-db'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
+type RouteContext = { params: Promise<{ id: string }> }
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  ensureEnvLoaded()
+  const resolved = await resolveAdminChatContext(request)
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.error }, { status: resolved.status })
+  }
+
+  const { id } = await context.params
+  const conversation = await getChatConversationById(id)
+  if (!conversation || conversation.type !== 'buyer_thread') {
+    return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+  }
+
+  const since = request.nextUrl.searchParams.get('since')
+  const items = await listChatMessagesWithQuotes(id, { since, limit: 200 })
+  return NextResponse.json({ items, conversation })
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
+  ensureEnvLoaded()
+  const resolved = await resolveAdminChatContext(request)
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.error }, { status: resolved.status })
+  }
+
+  const { id } = await context.params
+  const conversation = await getChatConversationById(id)
+  if (!conversation || conversation.type !== 'buyer_thread') {
+    return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+  }
+
+  const body = await request.json().catch(() => ({}))
+  const text = String(body?.text ?? '').trim()
+  if (!text) {
+    return NextResponse.json({ error: 'text is required' }, { status: 400 })
+  }
+
+  const message = await createChatMessage({
+    conversationId: id,
+    senderSessionId: resolved.ctx.session.id,
+    senderRole: 'admin',
+    messageType: 'text',
+    body: text.slice(0, 4000),
+  })
+
+  return NextResponse.json({ ok: true, message })
+}

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { resolveChatViewer } from '@/lib/chat-auth'
-import { createChatMessage, listChatMessages } from '@/lib/chat-db'
+import {
+  buyerSessionOwnsConversation,
+  createChatMessage,
+  getChatConversationById,
+  listChatMessagesWithQuotes,
+} from '@/lib/chat-db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -17,8 +22,22 @@ export async function GET(request: NextRequest) {
   if (!conversationId) {
     return NextResponse.json({ error: 'conversationId is required' }, { status: 400 })
   }
+
+  const conversation = await getChatConversationById(conversationId)
+  if (!conversation) {
+    return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+  }
+
+  const { viewer } = resolved
+  if (
+    conversation.type !== 'buyer_thread' ||
+    !buyerSessionOwnsConversation(viewer.session.id, conversation)
+  ) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const since = request.nextUrl.searchParams.get('since')
-  const items = await listChatMessages(conversationId, { since, limit: 200 })
+  const items = await listChatMessagesWithQuotes(conversationId, { since, limit: 200 })
   return NextResponse.json({ items })
 }
 
@@ -45,8 +64,16 @@ export async function POST(request: NextRequest) {
         ? 'seller'
         : 'visitor'
 
-  // Safety: sellers/pricelist guests may only use supplier inbox endpoints in later phase.
   if (senderRole === 'seller') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const conversation = await getChatConversationById(conversationId)
+  if (
+    !conversation ||
+    conversation.type !== 'buyer_thread' ||
+    !buyerSessionOwnsConversation(viewer.session.id, conversation)
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -59,4 +86,3 @@ export async function POST(request: NextRequest) {
   })
   return NextResponse.json({ ok: true, message: msg })
 }
-
