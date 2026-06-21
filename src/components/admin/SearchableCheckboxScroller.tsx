@@ -124,7 +124,7 @@ export default function SearchableCheckboxScroller<T extends SearchableListItem>
       ) : null}
       <div
         ref={listRef}
-        tabIndex={disabled ? -1 : 0}
+        tabIndex={-1}
         onKeyDown={onListKeyDown}
         className={`${listBorderClass} ${maxHeightClass}`}
       >

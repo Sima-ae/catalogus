@@ -82,6 +82,7 @@ export default function ProductCardBrandEditButton({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const panelRef = useRef<HTMLDivElement>(null)
+  const wasOpenRef = useRef(false)
 
   const brandOrder = useMemo(() => brands.map((b) => b.name), [brands])
   const brandPreview =
@@ -90,17 +91,25 @@ export default function ProductCardBrandEditButton({
       : t('productForm.noBrand')
 
   useEffect(() => {
-    if (!open) return
+    const justOpened = open && !wasOpenRef.current
+    wasOpenRef.current = open
+    if (!justOpened) return
 
     setError('')
     setTitleName(String(productName ?? '').trim())
-    setSelectedBrands(new Set(parseBrandCompound(String(currentBrand ?? ''))))
 
     let cancelled = false
+
+    const applySelection = (rows: BrandOption[]) => {
+      const names = brandNamesFromCompound(String(currentBrand ?? ''), rows)
+      setSelectedBrands(
+        new Set(names.length ? names : parseBrandCompound(String(currentBrand ?? '')))
+      )
+    }
+
     if (brandsCache) {
       setBrands(brandsCache)
-      const names = brandNamesFromCompound(String(currentBrand ?? ''), brandsCache)
-      setSelectedBrands(new Set(names.length ? names : parseBrandCompound(String(currentBrand ?? ''))))
+      applySelection(brandsCache)
       return
     }
 
@@ -109,8 +118,7 @@ export default function ProductCardBrandEditButton({
       .then((rows) => {
         if (cancelled) return
         setBrands(rows)
-        const names = brandNamesFromCompound(String(currentBrand ?? ''), rows)
-        setSelectedBrands(new Set(names.length ? names : parseBrandCompound(String(currentBrand ?? ''))))
+        applySelection(rows)
       })
       .catch(() => {
         if (!cancelled) setError(t('productForm.errorNetwork'))
@@ -122,7 +130,7 @@ export default function ProductCardBrandEditButton({
     return () => {
       cancelled = true
     }
-  }, [open, currentBrand, productName])
+  }, [open, currentBrand, productName, t])
 
   useEffect(() => {
     if (!open) return
@@ -284,9 +292,9 @@ export default function ProductCardBrandEditButton({
             </div>
 
             <div className="space-y-1.5">
-            <label className={`block text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+            <p className={`block text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               {t('productForm.brand')}
-            </label>
+            </p>
             {loadingBrands ? (
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 {t('loading.generic')}
