@@ -209,3 +209,72 @@ export async function polishProductTextForStorage(
   })
   return polished
 }
+
+const MIXED_BRAND_KEY = lettersOnlyBrandKey('- MIXED -')
+
+export function isMixedBrandLabel(brand: string | null | undefined): boolean {
+  const key = lettersOnlyBrandKey(String(brand ?? ''))
+  return key === MIXED_BRAND_KEY || key === 'mixed'
+}
+
+/** Find catalog brand names mentioned in product copy (longest match first, no sub-brand duplicates). */
+export function detectBrandsInProductText(
+  text: string,
+  brandNames: string[],
+  options?: { excludeNames?: string[] }
+): string[] {
+  const haystack = lettersOnlyBrandKey(text)
+  if (haystack.length < 3) return []
+
+  const excludeKeys = new Set(
+    (options?.excludeNames ?? [])
+      .map((name) => lettersOnlyBrandKey(name))
+      .filter(Boolean)
+  )
+  excludeKeys.add(MIXED_BRAND_KEY)
+  excludeKeys.add('mixed')
+
+  const catalog = uniqueBrandNames(brandNames).filter((name) => {
+    const key = lettersOnlyBrandKey(name)
+    return key.length >= 3 && !excludeKeys.has(key)
+  })
+
+  const matched: string[] = []
+  const matchedKeys: string[] = []
+
+  for (const brand of catalog) {
+    const key = lettersOnlyBrandKey(brand)
+    if (!haystack.includes(key)) continue
+    if (matchedKeys.some((mk) => mk.includes(key) && mk.length > key.length)) continue
+
+    for (let i = matched.length - 1; i >= 0; i--) {
+      const existingKey = matchedKeys[i]!
+      if (key.includes(existingKey) && key.length > existingKey.length) {
+        matched.splice(i, 1)
+        matchedKeys.splice(i, 1)
+      }
+    }
+
+    if (matchedKeys.includes(key)) continue
+    matched.push(brand)
+    matchedKeys.push(key)
+  }
+
+  return matched
+}
+
+export function detectBrandsFromProductFields(
+  fields: {
+    name?: string | null
+    description?: string | null
+    short_description?: string | null
+  },
+  brandNames: string[],
+  options?: { excludeNames?: string[] }
+): string[] {
+  const combined = [fields.name, fields.description, fields.short_description]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .join('\n')
+  return detectBrandsInProductText(combined, brandNames, options)
+}

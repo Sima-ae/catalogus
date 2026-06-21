@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
-import { fixBrandNamesInText, lettersOnlyBrandKey, polishProductDisplayText } from '../src/lib/product-brand-text'
+import {
+  detectBrandsFromProductFields,
+  fixBrandNamesInText,
+  isMixedBrandLabel,
+  lettersOnlyBrandKey,
+  polishProductDisplayText,
+} from '../src/lib/product-brand-text'
+import { joinBrandNames } from '../src/lib/product-taxonomy'
 
 const BRANDS = ['VERSACE', 'LOUIS VUITTON', 'GUCCI', 'ROLEX', 'PHILIPP PLEIN']
+const BRANDS_WITH_LUXURY = [...BRANDS, 'FENDI', 'PRADA', 'HERMES']
 
 assert.equal(lettersOnlyBrandKey('VERSAC*E'), 'versace')
 
@@ -45,6 +53,34 @@ assert.equal(
 assert.equal(
   fixBrandNamesInText('415 L0UIS VUITT0N bag', BRANDS),
   '415 LOUIS VUITTON bag'
+)
+
+assert.equal(isMixedBrandLabel('- MIXED -'), true)
+assert.equal(isMixedBrandLabel('MIXED'), true)
+assert.equal(isMixedBrandLabel('GUCCI'), false)
+
+assert.deepEqual(
+  detectBrandsFromProductFields(
+    { name: 'FENDI Baguette mini bag', description: 'Leather shoulder bag' },
+    BRANDS_WITH_LUXURY
+  ),
+  ['FENDI']
+)
+
+assert.equal(
+  joinBrandNames(
+    new Set(detectBrandsFromProductFields({ name: 'GUCCI X PRADA tote' }, BRANDS_WITH_LUXURY)),
+    BRANDS_WITH_LUXURY
+  ),
+  'GUCCI X PRADA'
+)
+
+assert.deepEqual(
+  detectBrandsFromProductFields(
+    { name: '89491', description: 'Classic HERMES Kelly style bag' },
+    BRANDS_WITH_LUXURY
+  ),
+  ['HERMES']
 )
 
 console.log('test-product-brand-text: ok')
