@@ -25,7 +25,7 @@ type Props = {
   currentBrand?: string | null
   size?: 'sm' | 'md'
   className?: string
-  onUpdated?: (brand: string | null) => void
+  onUpdated?: (patch: { name: string; brand: string | null }) => void
 }
 
 let brandsCache: BrandOption[] | null = null
@@ -69,6 +69,7 @@ export default function ProductCardBrandEditButton({
   const isDark = theme === 'dark'
   const { user, isAdmin, loading: authLoading } = useAuth()
   const [open, setOpen] = useState(false)
+  const [titleName, setTitleName] = useState('')
   const [brands, setBrands] = useState<BrandOption[]>(brandsCache ?? [])
   const [loadingBrands, setLoadingBrands] = useState(false)
   const [selectedBrands, setSelectedBrands] = useState<Set<string>>(new Set())
@@ -86,6 +87,7 @@ export default function ProductCardBrandEditButton({
     if (!open) return
 
     setError('')
+    setTitleName(String(productName ?? '').trim())
     setSelectedBrands(new Set(parseBrandCompound(String(currentBrand ?? ''))))
 
     let cancelled = false
@@ -114,7 +116,7 @@ export default function ProductCardBrandEditButton({
     return () => {
       cancelled = true
     }
-  }, [open, currentBrand, t])
+  }, [open, currentBrand, productName, t])
 
   useEffect(() => {
     if (!open) return
@@ -148,6 +150,12 @@ export default function ProductCardBrandEditButton({
   }
 
   const handleSave = async () => {
+    const trimmedName = titleName.trim()
+    if (!trimmedName) {
+      setError(t('productCard.nameRequired'))
+      return
+    }
+
     setBusy(true)
     setError('')
     try {
@@ -158,7 +166,7 @@ export default function ProductCardBrandEditButton({
           ...adminAuthHeaders(user),
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ brand }),
+        body: JSON.stringify({ name: trimmedName, brand }),
       })
       const data = await parseJsonResponse<Product & { error?: string }>(res)
       if (!res.ok) {
@@ -169,7 +177,10 @@ export default function ProductCardBrandEditButton({
         )
       }
       setOpen(false)
-      onUpdated?.(data.brand?.trim() || null)
+      onUpdated?.({
+        name: String(data.name ?? trimmedName).trim(),
+        brand: data.brand?.trim() || null,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : t('productForm.errorSaveFailed'))
     } finally {
@@ -218,7 +229,7 @@ export default function ProductCardBrandEditButton({
                 id={titleId}
                 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}
               >
-                {t('productCard.editBrand')}
+                {t('productCard.quickEdit')}
               </h2>
               <p className={`text-xs mt-0.5 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 {label}
@@ -241,7 +252,29 @@ export default function ProductCardBrandEditButton({
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <div className="space-y-1.5">
+              <label
+                htmlFor={`product-card-title-${productId}`}
+                className={`block text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+              >
+                {t('productForm.name')}
+              </label>
+              <input
+                id={`product-card-title-${productId}`}
+                type="text"
+                value={titleName}
+                onChange={(e) => setTitleName(e.target.value)}
+                disabled={busy}
+                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                  isDark
+                    ? 'border-dark-600 bg-dark-800 text-white placeholder:text-gray-500'
+                    : 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400'
+                }`}
+              />
+            </div>
+
+            <div className="space-y-1.5">
             <label className={`block text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
               {t('productForm.brand')}
             </label>
@@ -265,6 +298,7 @@ export default function ProductCardBrandEditButton({
                 emptyPreview={t('productForm.noBrand')}
               />
             )}
+            </div>
             {error ? <p className="text-sm text-red-500">{error}</p> : null}
           </div>
 
@@ -304,8 +338,8 @@ export default function ProductCardBrandEditButton({
         onClick={handleClick}
         disabled={busy}
         className={`rounded-full p-1.5 bg-black/50 hover:bg-primary-600/90 text-white transition-colors disabled:opacity-50 ${className}`}
-        aria-label={t('productCard.editBrand')}
-        title={t('productCard.editBrand')}
+        aria-label={t('productCard.quickEdit')}
+        title={t('productCard.quickEdit')}
       >
         <PencilSquareIcon className={iconClass} />
       </button>

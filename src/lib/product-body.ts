@@ -57,13 +57,6 @@ export function parseProductImageOrderBody(
   }
 }
 
-export function isProductImageOrderPatch(body: Record<string, unknown>): boolean {
-  const keys = Object.keys(body)
-  return (
-    keys.length > 0 && keys.every((key) => key === 'image_url' || key === 'gallery_images')
-  )
-}
-
 export function parseProductBody(body: Record<string, unknown>): ProductInput {
   const tagsRaw = body.tags
   let tags: string[] | null = null
@@ -139,4 +132,66 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
         ? parseProductOptions(body.product_options)
         : undefined,
   }
+}
+
+export function isProductImageOrderPatch(body: Record<string, unknown>): boolean {
+  const keys = Object.keys(body)
+  return (
+    keys.length > 0 && keys.every((key) => key === 'image_url' || key === 'gallery_images')
+  )
+}
+
+const PRODUCT_PATCH_KEYS = [
+  'name',
+  'description',
+  'short_description',
+  'price',
+  'original_price',
+  'purchase_price',
+  'shipping_cost',
+  'image_url',
+  'gallery_images',
+  'category',
+  'category_id',
+  'brand',
+  'tags',
+  'features',
+  'requirements',
+  'compatibility',
+  'author',
+  'author_icon',
+  'sku',
+  'download_url',
+  'demo_url',
+  'documentation_url',
+  'support_url',
+  'version',
+  'license_type',
+  'rating',
+  'review_count',
+  'download_count',
+  'status',
+  'featured',
+  'sold_out',
+  'pre_order',
+  'available_sizes',
+  'available_colors',
+  'product_options',
+  'source_url',
+  'source_album_id',
+  'source_album_date',
+] as const satisfies readonly (keyof ProductInput)[]
+
+/** PATCH — only fields present in the JSON body (partial catalog updates). */
+export function parseProductPatchBody(body: Record<string, unknown>): Partial<ProductInput> {
+  const full = parseProductBody(body)
+  const patch: Partial<ProductInput> = {}
+
+  for (const key of PRODUCT_PATCH_KEYS) {
+    if (key in body) {
+      ;(patch as Record<string, unknown>)[key] = full[key]
+    }
+  }
+
+  return patch
 }

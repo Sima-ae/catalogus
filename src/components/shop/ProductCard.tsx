@@ -43,7 +43,7 @@ import { memo, useMemo, useState } from 'react'
 interface ProductCardProps {
   product: Product
   onDeleted?: (productId: string) => void
-  onBrandUpdated?: (productId: string, brand: string | null) => void
+  onBrandUpdated?: (productId: string, patch: { name: string; brand: string | null }) => void
   /** Preload above-the-fold card images for faster first paint. */
   imagePriority?: boolean
 }
@@ -195,7 +195,7 @@ function ProductCard({ product, onDeleted, onBrandUpdated, imagePriority = false
           productName={product.name}
           currentBrand={product.brand}
           size="sm"
-          onUpdated={(brand) => onBrandUpdated?.(product.id, brand)}
+          onUpdated={(patch) => onBrandUpdated?.(product.id, patch)}
         />
       </div>
 

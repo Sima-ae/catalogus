@@ -175,10 +175,15 @@ function ShopCatalogPageContent({
     setTotalItems((prev) => Math.max(0, prev - 1))
   }
 
-  const handleProductBrandUpdated = (productId: string, brand: string | null) => {
+  const handleProductBrandUpdated = (
+    productId: string,
+    patch: { name: string; brand: string | null }
+  ) => {
     setProducts((prev) =>
       prev.map((p) =>
-        p.id === productId ? { ...p, brand: brand ?? undefined } : p
+        p.id === productId
+          ? { ...p, name: patch.name, brand: patch.brand ?? undefined }
+          : p
       )
     )
   }

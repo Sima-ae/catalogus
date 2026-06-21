@@ -14,7 +14,7 @@ type Props = {
   pageSize?: number
   onPageChange: (page: number) => void
   onProductDeleted?: (productId: string) => void
-  onProductBrandUpdated?: (productId: string, brand: string | null) => void
+  onProductBrandUpdated?: (productId: string, patch: { name: string; brand: string | null }) => void
   onReorder?: (productIds: string[]) => void | Promise<void>
   reorderScope?: string | null
   reorderSaving?: boolean

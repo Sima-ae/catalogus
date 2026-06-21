@@ -14,7 +14,7 @@ type Props = {
   saving?: boolean
   onReorder: (productIds: string[]) => void | Promise<void>
   onProductDeleted?: (productId: string) => void
-  onProductBrandUpdated?: (productId: string, brand: string | null) => void
+  onProductBrandUpdated?: (productId: string, patch: { name: string; brand: string | null }) => void
 }
 
 function reorderList<T extends { id: string }>(list: T[], fromId: string, toId: string): T[] {

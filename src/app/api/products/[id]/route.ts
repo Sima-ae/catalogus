@@ -12,7 +12,7 @@ import {
 } from '@/lib/products-db'
 import {
   isProductImageOrderPatch,
-  parseProductBody,
+  parseProductPatchBody,
   parseProductImageOrderBody,
 } from '@/lib/product-body'
 import { getDbErrorMessage } from '@/lib/db-errors'
@@ -100,7 +100,7 @@ export async function PATCH(
     const imageOnly = isProductImageOrderPatch(body)
     let input: Partial<ProductInput> = imageOnly
       ? parseProductImageOrderBody(body)
-      : parseProductBody(body)
+      : parseProductPatchBody(body)
     if (!imageOnly && auth.access.kind === 'seller') {
       input = applySellerProductInput(input as ProductInput, auth.access.actor)
     }
