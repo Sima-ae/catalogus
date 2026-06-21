@@ -14,6 +14,7 @@ type Props = {
   pageSize?: number
   onPageChange: (page: number) => void
   onProductDeleted?: (productId: string) => void
+  onProductBrandUpdated?: (productId: string, brand: string | null) => void
   onReorder?: (productIds: string[]) => void | Promise<void>
   reorderScope?: string | null
   reorderSaving?: boolean
@@ -28,6 +29,7 @@ export default function ShopCatalogListing({
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
   onProductDeleted,
+  onProductBrandUpdated,
   onReorder,
   reorderScope = null,
   reorderSaving = false,
@@ -58,6 +60,7 @@ export default function ShopCatalogListing({
           saving={reorderSaving}
           onReorder={onReorder ?? (() => undefined)}
           onProductDeleted={onProductDeleted}
+          onProductBrandUpdated={onProductBrandUpdated}
         />
       </PricelistMembershipBatchProvider>
       <CatalogPagination

@@ -20,6 +20,7 @@ import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
+import ProductCardBrandEditButton from '@/components/shop/ProductCardBrandEditButton'
 import ProductRibbon from '@/components/shop/ProductRibbon'
 import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
 import ProductOptionSelector, {
@@ -42,11 +43,12 @@ import { memo, useMemo, useState } from 'react'
 interface ProductCardProps {
   product: Product
   onDeleted?: (productId: string) => void
+  onBrandUpdated?: (productId: string, brand: string | null) => void
   /** Preload above-the-fold card images for faster first paint. */
   imagePriority?: boolean
 }
 
-function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardProps) {
+function ProductCard({ product, onDeleted, onBrandUpdated, imagePriority = false }: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const localizedPath = useLocalizedPath()
@@ -187,6 +189,16 @@ function ProductCard({ product, onDeleted, imagePriority = false }: ProductCardP
         </div>
       </Link>
 
+      <div className="absolute top-2 right-2 z-20">
+        <ProductCardBrandEditButton
+          productId={product.id}
+          productName={product.name}
+          currentBrand={product.brand}
+          size="sm"
+          onUpdated={(brand) => onBrandUpdated?.(product.id, brand)}
+        />
+      </div>
+
       <div className="absolute bottom-2 left-2 z-20">
         <ProductCardDeleteButton
           productId={product.id}
@@ -320,7 +332,9 @@ export default memo(ProductCard, (prev, next) => {
     prev.product.featured === next.product.featured &&
     prev.product.image_url === next.product.image_url &&
     prev.product.name === next.product.name &&
+    prev.product.brand === next.product.brand &&
     prev.onDeleted === next.onDeleted &&
+    prev.onBrandUpdated === next.onBrandUpdated &&
     prev.imagePriority === next.imagePriority
   )
 })

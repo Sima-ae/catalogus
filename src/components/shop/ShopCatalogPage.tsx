@@ -175,6 +175,14 @@ function ShopCatalogPageContent({
     setTotalItems((prev) => Math.max(0, prev - 1))
   }
 
+  const handleProductBrandUpdated = (productId: string, brand: string | null) => {
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId ? { ...p, brand: brand ?? undefined } : p
+      )
+    )
+  }
+
   useEffect(() => {
     scrollRestoredRef.current = false
   }, [listingScrollKey])
@@ -520,6 +528,7 @@ function ShopCatalogPageContent({
                 totalItems={totalItems}
                 onPageChange={setCurrentPage}
                 onProductDeleted={handleProductDeleted}
+                onProductBrandUpdated={handleProductBrandUpdated}
                 onReorder={isAdmin ? handleReorder : undefined}
                 reorderScope={isAdmin ? reorderScope : null}
                 reorderSaving={reorderSaving}
