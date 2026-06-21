@@ -80,8 +80,10 @@ export default function TaxonomyCheckboxList({
         disabled={disabled}
         renderItem={(item) => {
           const checked = selected.has(item.name)
+          const inputId = `taxonomy-cb-${item.id}`
           return (
             <label
+              htmlFor={inputId}
               className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer select-none ${
                 checked
                   ? t.isDark
@@ -89,20 +91,17 @@ export default function TaxonomyCheckboxList({
                     : 'bg-primary-50'
                   : 'hover:bg-black/5 dark:hover:bg-white/5'
               } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
-              onClick={(e) => {
-                if (disabled) return
-                e.preventDefault()
-                toggle(item.name)
-              }}
             >
               <input
+                id={inputId}
                 type="checkbox"
                 checked={checked}
-                readOnly
-                tabIndex={-1}
+                onChange={() => {
+                  if (disabled) return
+                  toggle(item.name)
+                }}
                 disabled={disabled}
-                aria-hidden
-                className={`${checkboxClass} pointer-events-none shrink-0`}
+                className={`${checkboxClass} shrink-0`}
               />
               <span className={`text-sm flex-1 min-w-0 ${t.isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                 {item.label}

@@ -89,15 +89,6 @@ export default function ProductCardBrandEditButton({
       ? joinBrandNames(selectedBrands, brandOrder)
       : t('productForm.noBrand')
 
-  const setSelectedBrandSingle = (next: Set<string>) => {
-    if (next.size <= 1) {
-      setSelectedBrands(next)
-      return
-    }
-    const added = Array.from(next).find((name) => !selectedBrands.has(name))
-    setSelectedBrands(added ? new Set([added]) : next)
-  }
-
   useEffect(() => {
     if (!open) return
 
@@ -131,7 +122,7 @@ export default function ProductCardBrandEditButton({
     return () => {
       cancelled = true
     }
-  }, [open, currentBrand, productName, t])
+  }, [open, currentBrand, productName])
 
   useEffect(() => {
     if (!open) return
@@ -308,7 +299,7 @@ export default function ProductCardBrandEditButton({
                   label: b.name,
                 }))}
                 selected={selectedBrands}
-                onChange={setSelectedBrandSingle}
+                onChange={setSelectedBrands}
                 disabled={busy}
                 searchPlaceholder={t('productForm.searchBrand')}
                 noMatchesMessage={t('productForm.searchNoMatches')}

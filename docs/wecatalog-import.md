@@ -42,7 +42,15 @@ npm run import:worker -- --job=<uuid> --concurrency=8
 npm run import:worker -- --job=<uuid> --fast
 ```
 
-`--fast` runs 8 workers, skips Google title translation (keeps supplier Chinese text), and downloads gallery images in parallel. Re-run without `--fast` later if you need English titles on specific products.
+`--fast` runs 8 workers, skips Google title translation, and downloads gallery images in parallel. Titles may end up empty, SKU-only, or still in Chinese. Fix them **without** re-importing images:
+
+```bash
+npm run db:fix-wecatalog-titles -- --dry-run
+npm run db:fix-wecatalog-titles
+npm run db:fix-wecatalog-titles -- --concurrency=4
+```
+
+Uses stored `import_job_items.raw_json` (original WeCatalog title/description) and Google Translate for CJK text. Updates `name`, `description`, and `short_description` only. Add `--no-fetch` to avoid WeCatalog API calls; add `--limit=100` to test a batch first.
 
 ## Field mapping
 

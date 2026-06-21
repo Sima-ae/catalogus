@@ -18,6 +18,7 @@
     "db:clean-descriptions": "tsx scripts/clean-product-descriptions.ts",
     "db:dedupe-galleries": "tsx scripts/dedupe-product-galleries.ts",
     "db:fix-yupoo-titles": "tsx scripts/fix-yupoo-product-titles.ts",
+    "db:fix-wecatalog-titles": "tsx scripts/fix-wecatalog-product-titles.ts",
     "db:remove-yupoo-sku": "tsx scripts/remove-yupoo-from-skus.ts",
     "db:remove-keshi-descriptions": "tsx scripts/remove-guangzhou-keshi-descriptions.ts",
     "db:clean-supplier-descriptions": "tsx scripts/clean-supplier-descriptions.ts",
