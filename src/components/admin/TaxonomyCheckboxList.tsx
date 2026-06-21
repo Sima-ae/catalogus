@@ -38,8 +38,6 @@ export default function TaxonomyCheckboxList({
   noMatchesMessage = 'No matches',
 }: Props) {
   const t = useAppTheme()
-  const checkboxClass =
-    'h-4 w-4 rounded border-gray-400 accent-primary-600 text-primary-600 focus:ring-primary-500'
 
   const toggle = (name: string) => {
     onChange(
@@ -80,11 +78,24 @@ export default function TaxonomyCheckboxList({
         disabled={disabled}
         renderItem={(item) => {
           const checked = selected.has(item.name)
-          const inputId = `taxonomy-cb-${item.id}`
           return (
-            <label
-              htmlFor={inputId}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer select-none ${
+            <div
+              role="checkbox"
+              aria-checked={checked}
+              aria-label={item.label}
+              tabIndex={disabled ? -1 : 0}
+              onClick={() => {
+                if (disabled) return
+                toggle(item.name)
+              }}
+              onKeyDown={(e) => {
+                if (disabled) return
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  toggle(item.name)
+                }
+              }}
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 ${
                 checked
                   ? t.isDark
                     ? 'bg-primary-500/20'
@@ -92,21 +103,26 @@ export default function TaxonomyCheckboxList({
                   : 'hover:bg-black/5 dark:hover:bg-white/5'
               } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
             >
-              <input
-                id={inputId}
-                type="checkbox"
-                checked={checked}
-                onChange={() => {
-                  if (disabled) return
-                  toggle(item.name)
-                }}
-                disabled={disabled}
-                className={`${checkboxClass} shrink-0`}
-              />
+              <span
+                aria-hidden
+                className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                  checked
+                    ? 'border-primary-600 bg-primary-600 text-white'
+                    : t.isDark
+                      ? 'border-dark-500 bg-dark-900'
+                      : 'border-gray-400 bg-white'
+                }`}
+              >
+                {checked ? (
+                  <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M2.5 6.2 4.8 8.5 9.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : null}
+              </span>
               <span className={`text-sm flex-1 min-w-0 ${t.isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                 {item.label}
               </span>
-            </label>
+            </div>
           )
         }}
       />

@@ -8,6 +8,7 @@
  *   npm run db:fix-wecatalog-titles -- --limit=100
  *   npm run db:fix-wecatalog-titles -- --concurrency=4
  *   npm run db:fix-wecatalog-titles -- --no-fetch   # use import_job_items.raw_json only
+ *   npm run db:fix-wecatalog-titles -- --verbose    # log each skip reason
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
@@ -26,14 +27,21 @@ import {
   type WecatalogProductData,
 } from '@/lib/wecatalog/types'
 import {
+  catalogCardDescription,
+  cleanImportDescription,
   isPlaceholderProductTitle,
   isSkuOnlyTitle,
+  sanitizeProductName,
 } from '@/lib/yupoo/import-text'
 import {
+  finalizeYupooProductTitle,
   resetCjkTranslateDelayMs,
   setCjkTranslateDelayMs,
   titleNeedsEnglishCleanup,
 } from '@/lib/yupoo/product-title'
+import { fixBrandNamesInText } from '@/lib/product-brand-text'
+
+const CJK_RE = /[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]/
 
 function loadDotEnv() {
   const envPath = resolve(process.cwd(), '.env')
@@ -107,6 +115,34 @@ function needsTitleFix(name: string, goodsId: string | null): boolean {
   return false
 }
 
+type SkipReason = 'no_source' | 'empty_result' | 'placeholder' | 'still_cjk' | 'unchanged'
+
+function classifyTitleCandidate(next: string, current: string): SkipReason | 'accepted' {
+  const trimmed = String(next ?? '').trim()
+  if (!trimmed) return 'empty_result'
+  if (isPlaceholderProductTitle(trimmed)) return 'placeholder'
+  if (titleNeedsEnglishCleanup(trimmed)) return 'still_cjk'
+  if (trimmed === current) return 'unchanged'
+  return 'accepted'
+}
+
+function isImprovableTitle(next: string, current: string): boolean {
+  return classifyTitleCandidate(next, current) === 'accepted'
+}
+
+async function translateRawTitleCandidate(
+  raw: string,
+  brandName: string | null,
+  brandNames: string[]
+): Promise<string> {
+  const trimmed = String(raw ?? '').trim()
+  if (!trimmed || (!CJK_RE.test(trimmed) && isSkuOnlyTitle(trimmed))) return ''
+
+  let name = await finalizeYupooProductTitle(trimmed)
+  name = fixBrandNamesInText(sanitizeProductName(name), brandNames, brandName)
+  return name.trim()
+}
+
 async function resolveWecatalogData(
   row: ProductRow,
   job: JobItemRow | undefined,
@@ -139,23 +175,50 @@ async function resolveWecatalogData(
 
 async function buildTranslatedFields(
   wecatalog: WecatalogProductData,
-  row: ProductRow
+  row: ProductRow,
+  current: string,
+  brandNames: string[]
 ): Promise<{ name: string; description: string; short_description: string | null }> {
-  const input = await buildProductInputFromWecatalogImport(
-    wecatalog,
-    {
-      categoryName: String(row.category ?? '').trim() || 'Uncategorized',
-      categoryId: row.category_id?.trim() || null,
-      brandName: row.brand?.trim() || null,
-    },
-    { translateTitle: true }
-  )
-
-  return {
-    name: input.name,
-    description: input.description,
-    short_description: input.short_description?.trim() || null,
+  const brandName = row.brand?.trim() || null
+  const catalog = {
+    categoryName: String(row.category ?? '').trim() || 'Uncategorized',
+    categoryId: row.category_id?.trim() || null,
+    brandName,
   }
+
+  const input = await buildProductInputFromWecatalogImport(wecatalog, catalog, {
+    translateTitle: true,
+  })
+
+  let name = input.name
+  if (!isImprovableTitle(name, current)) {
+    const rawCandidates = [
+      wecatalog.name,
+      String(wecatalog.description ?? '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line && CJK_RE.test(line)),
+    ].filter((value): value is string => Boolean(value?.trim()))
+
+    for (const raw of rawCandidates) {
+      const forced = await translateRawTitleCandidate(raw, brandName, brandNames)
+      if (isImprovableTitle(forced, current)) {
+        name = forced
+        break
+      }
+    }
+  }
+
+  const description = fixBrandNamesInText(
+    cleanImportDescription(wecatalog.description || wecatalog.name, name, brandName),
+    brandNames,
+    brandName
+  )
+  const short_description =
+    catalogCardDescription(name, description, row.short_description, brandName).slice(0, 280) ||
+    null
+
+  return { name, description, short_description }
 }
 
 async function main() {
@@ -164,6 +227,7 @@ async function main() {
   const dryRun = process.argv.includes('--dry-run')
   const allowFetch = !process.argv.includes('--no-fetch')
   const fixAll = process.argv.includes('--all')
+  const verbose = process.argv.includes('--verbose')
   const limit = parseArgInt('limit', 0)
   const concurrency = parseArgInt('concurrency', 3)
 
@@ -212,6 +276,13 @@ async function main() {
   let skipped = 0
   let fetched = 0
   let failed = 0
+  const skipReasons: Record<SkipReason, number> = {
+    no_source: 0,
+    empty_result: 0,
+    placeholder: 0,
+    still_cjk: 0,
+    unchanged: 0,
+  }
 
   console.log(
     `WeCatalog title fix: ${work.length} of ${products.length} products` +
@@ -237,20 +308,25 @@ async function main() {
 
       if (!wecatalog) {
         skipped++
-        console.warn(`SKIP ${row.id}: no WeCatalog source data (album=${albumId || '?'})`)
+        skipReasons.no_source++
+        if (verbose) {
+          console.warn(`SKIP ${row.id}: no WeCatalog source data (album=${albumId || '?'})`)
+        }
         return
       }
 
       if (!hadRaw && allowFetch) fetched++
 
-      const next = await buildTranslatedFields(wecatalog, row)
-      if (
-        !next.name ||
-        isPlaceholderProductTitle(next.name) ||
-        titleNeedsEnglishCleanup(next.name) ||
-        (next.name === current && !titleNeedsEnglishCleanup(current))
-      ) {
+      const next = await buildTranslatedFields(wecatalog, row, current, brandNames)
+      const reason = classifyTitleCandidate(next.name, current)
+      if (reason !== 'accepted') {
         skipped++
+        skipReasons[reason]++
+        if (verbose) {
+          console.warn(
+            `SKIP ${row.id} [${reason}]: "${current.slice(0, 60)}" → "${String(next.name ?? '').slice(0, 60)}"`
+          )
+        }
         return
       }
 
@@ -277,6 +353,9 @@ async function main() {
   console.log(
     `Done. scanned=${scanned} updated=${updated} fetched=${fetched} skipped=${skipped} failed=${failed}` +
       `${dryRun ? ' (dry-run)' : ''}`
+  )
+  console.log(
+    `Skip reasons: no_source=${skipReasons.no_source} unchanged=${skipReasons.unchanged} still_cjk=${skipReasons.still_cjk} empty_result=${skipReasons.empty_result} placeholder=${skipReasons.placeholder}`
   )
 }
 
