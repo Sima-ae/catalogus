@@ -50,16 +50,8 @@ export function localizedPath(path: string, locale: string): string {
 
 export function localizedPathFromWindow(path: string, locale: string): string {
   if (typeof window === 'undefined') return localizedPath(path, locale)
-  const { locale: fromUrl, pathnameWithoutLocale } = parseLocaleFromPathname(
-    window.location.pathname
-  )
-  const targetPath =
-    path === '/' || path === ''
-      ? pathnameWithoutLocale
-      : path.startsWith('/')
-        ? path
-        : `/${path}`
-  return localizedPath(targetPath, locale)
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  return localizedPath(normalized, locale)
 }
 
 export function resolveLocaleFromCookie(value: string | null | undefined): Locale {

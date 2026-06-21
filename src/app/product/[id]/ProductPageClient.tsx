@@ -689,7 +689,7 @@ export default function ProductPageClient() {
                 aria-label={t('product.breadcrumb')}
               >
                 <Link
-                  href={appPath('/')}
+                  href={toLocalizedPath('/')}
                   className={theme === 'dark' ? 'hover:text-white' : 'hover:text-gray-900'}
                 >
                   {t('nav.home')}

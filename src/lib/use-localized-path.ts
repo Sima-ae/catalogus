@@ -13,11 +13,8 @@ export function useLocalizedPath() {
   return useCallback(
     (path: string) => {
       const normalized = path.startsWith('/') ? path : `/${path}`
-      const { locale: fromUrl, pathnameWithoutLocale } = parseLocaleFromPathname(pathname ?? '/')
+      const { locale: fromUrl } = parseLocaleFromPathname(pathname ?? '/')
       const active = fromUrl ?? locale
-      if (normalized === '/' || normalized === '') {
-        return localizedPath(pathnameWithoutLocale, active)
-      }
       return localizedPath(normalized, active)
     },
     [pathname, locale]
