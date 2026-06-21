@@ -20,7 +20,9 @@ import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
-import ProductCardBrandEditButton from '@/components/shop/ProductCardBrandEditButton'
+import ProductCardBrandEditButton, {
+  type ProductQuickEditSaved,
+} from '@/components/shop/ProductCardBrandEditButton'
 import ProductRibbon from '@/components/shop/ProductRibbon'
 import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
 import ProductOptionSelector, {
@@ -43,12 +45,12 @@ import { memo, useMemo, useState } from 'react'
 interface ProductCardProps {
   product: Product
   onDeleted?: (productId: string) => void
-  onBrandUpdated?: (productId: string, patch: { name: string; brand: string | null }) => void
+  onQuickEditSaved?: (saved: ProductQuickEditSaved) => void
   /** Preload above-the-fold card images for faster first paint. */
   imagePriority?: boolean
 }
 
-function ProductCard({ product, onDeleted, onBrandUpdated, imagePriority = false }: ProductCardProps) {
+function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = false }: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const localizedPath = useLocalizedPath()
@@ -195,7 +197,7 @@ function ProductCard({ product, onDeleted, onBrandUpdated, imagePriority = false
           productName={product.name}
           currentBrand={product.brand}
           size="sm"
-          onUpdated={(patch) => onBrandUpdated?.(product.id, patch)}
+          onSaved={onQuickEditSaved}
         />
       </div>
 
@@ -334,7 +336,7 @@ export default memo(ProductCard, (prev, next) => {
     prev.product.name === next.product.name &&
     prev.product.brand === next.product.brand &&
     prev.onDeleted === next.onDeleted &&
-    prev.onBrandUpdated === next.onBrandUpdated &&
+    prev.onQuickEditSaved === next.onQuickEditSaved &&
     prev.imagePriority === next.imagePriority
   )
 })

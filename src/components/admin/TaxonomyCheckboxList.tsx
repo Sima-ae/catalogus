@@ -82,22 +82,29 @@ export default function TaxonomyCheckboxList({
           const checked = selected.has(item.name)
           return (
             <label
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer ${
+              className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer select-none ${
                 checked
                   ? t.isDark
                     ? 'bg-primary-500/20'
                     : 'bg-primary-50'
                   : 'hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+              } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+              onClick={(e) => {
+                if (disabled) return
+                e.preventDefault()
+                toggle(item.name)
+              }}
             >
               <input
                 type="checkbox"
                 checked={checked}
-                onChange={() => toggle(item.name)}
+                readOnly
+                tabIndex={-1}
                 disabled={disabled}
-                className={checkboxClass}
+                aria-hidden
+                className={`${checkboxClass} pointer-events-none shrink-0`}
               />
-              <span className={`text-sm flex-1 ${t.isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              <span className={`text-sm flex-1 min-w-0 ${t.isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                 {item.label}
               </span>
             </label>

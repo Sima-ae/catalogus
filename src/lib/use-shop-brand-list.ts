@@ -49,6 +49,12 @@ async function fetchShopBrandMenu(
   return request
 }
 
+/** Clear cached brand menus after catalog taxonomy changes (e.g. quick edit). */
+export function invalidateShopBrandMenuCache(): void {
+  brandCache.clear()
+  brandInflight.clear()
+}
+
 /** Warm the client cache when the user picks a category (parallel with other fetches). */
 export function prefetchShopBrandMenu(
   selectedCategory: string,

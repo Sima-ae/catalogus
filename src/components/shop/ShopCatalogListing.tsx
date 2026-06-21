@@ -3,6 +3,7 @@
 import CatalogProductCount from '@/components/shop/CatalogProductCount'
 import CatalogPagination, { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import SortableProductGrid from '@/components/shop/SortableProductGrid'
+import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import { isCatalogAdminUser, useAuth } from '@/lib/auth-local'
 import { PricelistMembershipBatchProvider } from '@/lib/pricelist-membership-batch-context'
 import type { Product } from '@/lib/types'
@@ -14,7 +15,7 @@ type Props = {
   pageSize?: number
   onPageChange: (page: number) => void
   onProductDeleted?: (productId: string) => void
-  onProductBrandUpdated?: (productId: string, patch: { name: string; brand: string | null }) => void
+  onProductQuickEditSaved?: (saved: ProductQuickEditSaved) => void
   onReorder?: (productIds: string[]) => void | Promise<void>
   reorderScope?: string | null
   reorderSaving?: boolean
@@ -29,7 +30,7 @@ export default function ShopCatalogListing({
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
   onProductDeleted,
-  onProductBrandUpdated,
+  onProductQuickEditSaved,
   onReorder,
   reorderScope = null,
   reorderSaving = false,
@@ -60,7 +61,7 @@ export default function ShopCatalogListing({
           saving={reorderSaving}
           onReorder={onReorder ?? (() => undefined)}
           onProductDeleted={onProductDeleted}
-          onProductBrandUpdated={onProductBrandUpdated}
+          onProductQuickEditSaved={onProductQuickEditSaved}
         />
       </PricelistMembershipBatchProvider>
       <CatalogPagination

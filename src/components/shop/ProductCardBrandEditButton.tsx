@@ -19,13 +19,19 @@ import type { Product } from '@/lib/types'
 
 type BrandOption = { id: string; name: string }
 
+export type ProductQuickEditSaved = {
+  productId: string
+  name: string
+  brand: string | null
+}
+
 type Props = {
   productId: string
   productName?: string
   currentBrand?: string | null
   size?: 'sm' | 'md'
   className?: string
-  onUpdated?: (patch: { name: string; brand: string | null }) => void
+  onSaved?: (saved: ProductQuickEditSaved) => void
 }
 
 let brandsCache: BrandOption[] | null = null
@@ -62,7 +68,7 @@ export default function ProductCardBrandEditButton({
   currentBrand,
   size = 'sm',
   className = '',
-  onUpdated,
+  onSaved,
 }: Props) {
   const { t } = useI18n()
   const { theme } = useTheme()
@@ -82,6 +88,15 @@ export default function ProductCardBrandEditButton({
     selectedBrands.size > 0
       ? joinBrandNames(selectedBrands, brandOrder)
       : t('productForm.noBrand')
+
+  const setSelectedBrandSingle = (next: Set<string>) => {
+    if (next.size <= 1) {
+      setSelectedBrands(next)
+      return
+    }
+    const added = Array.from(next).find((name) => !selectedBrands.has(name))
+    setSelectedBrands(added ? new Set([added]) : next)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -162,6 +177,7 @@ export default function ProductCardBrandEditButton({
       const brand = selectedBrands.size > 0 ? joinBrandNames(selectedBrands, brandOrder) : null
       const res = await fetch(appPath(`/api/products/${productId}`), {
         method: 'PATCH',
+        cache: 'no-store',
         headers: {
           ...adminAuthHeaders(user),
           'Content-Type': 'application/json',
@@ -176,11 +192,13 @@ export default function ProductCardBrandEditButton({
             : t('productForm.errorSaveFailed')
         )
       }
+      const savedName = String(data.name ?? trimmedName).trim()
+      const savedBrand =
+        data.brand !== undefined && data.brand !== null
+          ? String(data.brand).trim() || null
+          : brand
       setOpen(false)
-      onUpdated?.({
-        name: String(data.name ?? trimmedName).trim(),
-        brand: data.brand?.trim() || null,
-      })
+      onSaved?.({ productId, name: savedName, brand: savedBrand })
     } catch (err) {
       setError(err instanceof Error ? err.message : t('productForm.errorSaveFailed'))
     } finally {
@@ -290,7 +308,7 @@ export default function ProductCardBrandEditButton({
                   label: b.name,
                 }))}
                 selected={selectedBrands}
-                onChange={setSelectedBrands}
+                onChange={setSelectedBrandSingle}
                 disabled={busy}
                 searchPlaceholder={t('productForm.searchBrand')}
                 noMatchesMessage={t('productForm.searchNoMatches')}

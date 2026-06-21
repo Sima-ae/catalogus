@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ProductCard from '@/components/shop/ProductCard'
+import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import { catalogGridClassName } from '@/components/shop/CatalogPagination'
 import type { Product } from '@/lib/types'
 
@@ -14,7 +15,7 @@ type Props = {
   saving?: boolean
   onReorder: (productIds: string[]) => void | Promise<void>
   onProductDeleted?: (productId: string) => void
-  onProductBrandUpdated?: (productId: string, patch: { name: string; brand: string | null }) => void
+  onProductQuickEditSaved?: (saved: ProductQuickEditSaved) => void
 }
 
 function reorderList<T extends { id: string }>(list: T[], fromId: string, toId: string): T[] {
@@ -42,7 +43,7 @@ export default function SortableProductGrid({
   saving = false,
   onReorder,
   onProductDeleted,
-  onProductBrandUpdated,
+  onProductQuickEditSaved,
 }: Props) {
   const [ordered, setOrdered] = useState(products)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -151,7 +152,7 @@ export default function SortableProductGrid({
             key={product.id}
             product={product}
             onDeleted={onProductDeleted}
-            onBrandUpdated={onProductBrandUpdated}
+            onQuickEditSaved={onProductQuickEditSaved}
             imagePriority={index < 6}
           />
         ))}
@@ -190,7 +191,7 @@ export default function SortableProductGrid({
             <ProductCard
               product={product}
               onDeleted={onProductDeleted}
-              onBrandUpdated={onProductBrandUpdated}
+              onQuickEditSaved={onProductQuickEditSaved}
               imagePriority={index < 6}
             />
           </div>

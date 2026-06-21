@@ -11,6 +11,7 @@ import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing, {
   CATALOG_PAGE_SIZE,
 } from '@/components/shop/ShopCatalogListing'
+import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
@@ -24,6 +25,8 @@ import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
+import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
+import { invalidateShopBrandMenuCache } from '@/lib/use-shop-brand-list'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -175,17 +178,29 @@ function ShopCatalogPageContent({
     setTotalItems((prev) => Math.max(0, prev - 1))
   }
 
-  const handleProductBrandUpdated = (
-    productId: string,
-    patch: { name: string; brand: string | null }
-  ) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId
-          ? { ...p, name: patch.name, brand: patch.brand ?? undefined }
-          : p
+  const handleProductQuickEditSaved = (saved: ProductQuickEditSaved) => {
+    const activeBrand = filterBrand.trim()
+    const matchesBrandFilter =
+      !brandQueryActive ||
+      !activeBrand ||
+      activeBrand === 'All' ||
+      brandCompoundIncludesSegment(saved.brand ?? '', activeBrand)
+
+    if (!matchesBrandFilter) {
+      setProducts((prev) => prev.filter((p) => p.id !== saved.productId))
+      setTotalItems((prev) => Math.max(0, prev - 1))
+    } else {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === saved.productId
+            ? { ...p, name: saved.name, brand: saved.brand ?? undefined }
+            : p
+        )
       )
-    )
+    }
+
+    invalidateShopBrandMenuCache()
+    setReloadToken((t) => t + 1)
   }
 
   useEffect(() => {
@@ -387,6 +402,7 @@ function ShopCatalogPageContent({
     config.mode,
     filterBrand,
     isAdmin,
+    reloadToken,
     selectedCategory,
     selectedSubcategory,
     user,
@@ -533,7 +549,7 @@ function ShopCatalogPageContent({
                 totalItems={totalItems}
                 onPageChange={setCurrentPage}
                 onProductDeleted={handleProductDeleted}
-                onProductBrandUpdated={handleProductBrandUpdated}
+                onProductQuickEditSaved={handleProductQuickEditSaved}
                 onReorder={isAdmin ? handleReorder : undefined}
                 reorderScope={isAdmin ? reorderScope : null}
                 reorderSaving={reorderSaving}
