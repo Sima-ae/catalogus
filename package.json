@@ -25,6 +25,7 @@
     "db:clean-product-titles": "tsx scripts/clean-product-titles.ts",
     "db:fix-product-brand-text": "tsx scripts/fix-product-brand-text.ts",
     "db:fix-mixed-brands-from-text": "tsx scripts/fix-mixed-brand-from-text.ts",
+    "db:fix-missing-import-brands": "tsx scripts/fix-missing-import-brands.ts",
     "db:restore-descriptions": "tsx scripts/restore-product-descriptions.ts",
     "db:reapply-descriptions": "tsx scripts/reapply-description-cleanup.ts",
     "db:fix-stripped-descriptions": "tsx scripts/fix-stripped-descriptions.ts",

@@ -2,6 +2,7 @@ import {
   canonicalBrandForTypoKey,
   normalizeBrandMatchKey,
 } from '@/lib/brand-match'
+import { joinBrandNames } from '@/lib/product-taxonomy'
 import {
   cleanImportDescription,
   sanitizeProductName,
@@ -277,4 +278,138 @@ export function detectBrandsFromProductFields(
     .filter(Boolean)
     .join('\n')
   return detectBrandsInProductText(combined, brandNames, options)
+}
+
+export const IMPORT_BRAND_MIXED_FALLBACK = '- MIXED -'
+
+/** Short supplier tokens in Yupoo titles that map to full catalog brand names. */
+const IMPORT_BRAND_TOKEN_ALIASES: Record<string, string> = {
+  lv: 'LOUIS VUITTON',
+  dg: 'DOLCE & GABBANA',
+  dandg: 'DOLCE & GABBANA',
+  ch: 'CHROME HEARTS',
+  tb: 'THOM BROWNE',
+}
+
+function catalogBrandForAlias(alias: string, brandNames: string[]): string | null {
+  const key = lettersOnlyBrandKey(alias)
+  if (!key) return null
+  const inCatalog = brandNames.find((name) => lettersOnlyBrandKey(name) === key)
+  return inCatalog ?? alias
+}
+
+function addDetectedBrand(
+  brand: string,
+  brandNames: string[],
+  detected: string[],
+  detectedKeys: string[]
+): void {
+  const key = lettersOnlyBrandKey(brand)
+  if (!key || key.length < 3) return
+  if (detectedKeys.some((existing) => existing.includes(key) && existing.length > key.length)) {
+    return
+  }
+  for (let i = detectedKeys.length - 1; i >= 0; i--) {
+    const existingKey = detectedKeys[i]!
+    if (key.includes(existingKey) && key.length > existingKey.length) {
+      detected.splice(i, 1)
+      detectedKeys.splice(i, 1)
+    }
+  }
+  if (detectedKeys.includes(key)) return
+  const canonical = brandNames.find((name) => lettersOnlyBrandKey(name) === key) ?? brand
+  detected.push(canonical)
+  detectedKeys.push(key)
+}
+
+/** Token scan for title-style brand mentions (incl. short aliases like LV, DG). */
+export function detectBrandsFromTitleTokens(text: string, brandNames: string[]): string[] {
+  const tokens = tokenizeForBrandMatch(text)
+  if (!tokens.length) return []
+
+  const detected: string[] = []
+  const detectedKeys: string[] = []
+  const brands = uniqueBrandNames(brandNames)
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]!
+    if (isSeparatorToken(token)) continue
+
+    const tokenKey = lettersFromTokens([token])
+    if (tokenKey.length >= 2) {
+      const alias = IMPORT_BRAND_TOKEN_ALIASES[tokenKey]
+      if (alias) {
+        const resolved = catalogBrandForAlias(alias, brands)
+        if (resolved) addDetectedBrand(resolved, brands, detected, detectedKeys)
+      }
+    }
+
+    const maxSpan = Math.min(tokens.length - i, 6)
+    for (let span = maxSpan; span >= 1; span--) {
+      const chunk = tokens.slice(i, i + span)
+      if (chunk.some(isSeparatorToken)) continue
+      const chunkKey = lettersFromTokens(chunk)
+      if (chunkKey.length < 3) continue
+
+      const replacement = matchBrandInChunk(chunk, chunkKey, brands, null)
+      if (!replacement) continue
+
+      addDetectedBrand(replacement, brands, detected, detectedKeys)
+      i += span - 1
+      break
+    }
+  }
+
+  return detected
+}
+
+/** Detect brands from product copy (substring + title tokens). */
+export function detectImportBrandsFromProductFields(
+  fields: {
+    name?: string | null
+    description?: string | null
+    short_description?: string | null
+  },
+  brandNames: string[],
+  options?: { excludeNames?: string[] }
+): string[] {
+  const exclude = [IMPORT_BRAND_MIXED_FALLBACK, 'MIXED', ...(options?.excludeNames ?? [])]
+  const texts = [fields.name, fields.description, fields.short_description]
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+
+  const detected: string[] = []
+  const detectedKeys: string[] = []
+
+  for (const text of texts) {
+    for (const brand of detectBrandsInProductText(text, brandNames, { excludeNames: exclude })) {
+      addDetectedBrand(brand, brandNames, detected, detectedKeys)
+    }
+    for (const brand of detectBrandsFromTitleTokens(text, brandNames)) {
+      addDetectedBrand(brand, brandNames, detected, detectedKeys)
+    }
+  }
+
+  return detected
+}
+
+/**
+ * Resolve brand for import when the source has no fixed brand:
+ * detect from title/description, else fall back to `- MIXED -`.
+ */
+export function resolveImportBrandFromProductText(
+  fields: {
+    name?: string | null
+    description?: string | null
+    short_description?: string | null
+  },
+  sourceBrandName: string | null | undefined,
+  brandNames: string[]
+): string {
+  const configured = String(sourceBrandName ?? '').trim()
+  if (configured) return configured
+
+  const detected = detectImportBrandsFromProductFields(fields, brandNames)
+  if (detected.length) return joinBrandNames(new Set(detected), brandNames)
+  return IMPORT_BRAND_MIXED_FALLBACK
 }

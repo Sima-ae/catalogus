@@ -59,7 +59,7 @@ import type { WecatalogProductData } from '@/lib/wecatalog/types'
 import { normalizeWecatalogListUrl } from '@/lib/wecatalog/client'
 import { resolveOrCreateImportBrand } from '@/lib/woocommerce/resolve-catalog'
 import { getAllBrandNames } from '@/lib/brand-sku-prefixes'
-import { fixBrandNamesInText } from '@/lib/product-brand-text'
+import { fixBrandNamesInText, resolveImportBrandFromProductText } from '@/lib/product-brand-text'
 
 export type ImportSourceType = 'yupoo' | 'woocommerce' | 'facebook' | 'lkxox' | 'wecatalog'
 
@@ -88,6 +88,29 @@ export function isWecatalogImportSource(source: { source_type?: string | null })
   return normalizeImportSourceType(source.source_type) === 'wecatalog'
 }
 
+/** Source brand → supplier-detected brand → title/description detect → `- MIXED -`. */
+export async function resolveImportBrandNameForProduct(
+  sourceBrandName: string | null | undefined,
+  productFields: {
+    name?: string | null
+    description?: string | null
+    short_description?: string | null
+  },
+  productDetectedBrand?: string | null
+): Promise<string> {
+  const configured = String(sourceBrandName ?? '').trim()
+  if (configured) return configured
+
+  const detectedOnProduct = String(productDetectedBrand ?? '').trim()
+  if (detectedOnProduct) {
+    const resolved = await resolveOrCreateImportBrand(detectedOnProduct)
+    if (resolved) return resolved.name
+  }
+
+  const brandNames = await getAllBrandNames()
+  return resolveImportBrandFromProductText(productFields, null, brandNames)
+}
+
 export async function buildProductInputFromImport(
   album: YupooAlbumData,
   translated: TranslatedProductText,
@@ -96,15 +119,22 @@ export async function buildProductInputFromImport(
   thumbTitle?: string | null,
   catalogCategoryId?: string | null
 ): Promise<ProductInput> {
+  const rawTitle = translated.rawTitle || album.title
+  const rawDescription = translated.enDescription || album.description
+  const resolvedBrand = await resolveImportBrandNameForProduct(
+    brandName,
+    {
+      name: [album.title, rawTitle].filter(Boolean).join('\n'),
+      description: [album.description, rawDescription].filter(Boolean).join('\n'),
+    }
+  )
+  const brandNames = await getAllBrandNames()
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
   const uniqueImages = cleanProductGalleryUrls(album.images)
   const mainImage = uniqueImages[0] || ''
   const gallery = uniqueImages.slice(1)
-  const sku = buildSku(album, brandName)
+  const sku = buildSku(album, resolvedBrand)
 
-  const brandNames = await getAllBrandNames()
-  const rawTitle = translated.rawTitle || album.title
-  const rawDescription = translated.enDescription || album.description
   let name = sanitizeProductName(
     await resolveYupooProductTitleAsync({
       albumTitle: rawTitle,
@@ -114,14 +144,14 @@ export async function buildProductInputFromImport(
       fallbackAlbumId: album.albumId,
     })
   )
-  name = fixBrandNamesInText(name, brandNames, brandName)
+  name = fixBrandNamesInText(name, brandNames, resolvedBrand)
   const description = fixBrandNamesInText(
-    cleanImportDescription(rawDescription, name, brandName),
+    cleanImportDescription(rawDescription, name, resolvedBrand),
     brandNames,
-    brandName
+    resolvedBrand
   )
   const short_description =
-    catalogCardDescription(name, description, undefined, brandName).slice(0, 280) ||
+    catalogCardDescription(name, description, undefined, resolvedBrand).slice(0, 280) ||
     undefined
 
   return {
@@ -134,7 +164,7 @@ export async function buildProductInputFromImport(
     gallery_images: gallery.length ? gallery : null,
     category: categoryName,
     category_id: catalogCategoryId?.trim() || null,
-    brand: brandName,
+    brand: resolvedBrand,
     available_sizes: attrs.sizes,
     available_colors: attrs.colors,
     source_url: album.albumUrl,
@@ -157,6 +187,14 @@ export async function buildProductInputFromWooCommerceImport(
   },
   priceMode: WooCommercePriceMode = 'storefront'
 ): Promise<ProductInput> {
+  const resolvedBrand = await resolveImportBrandNameForProduct(
+    catalog.brandName,
+    {
+      name: woo.name,
+      description: woo.description || woo.shortDescription,
+    },
+    woo.brandName
+  )
   const uniqueImages = cleanProductGalleryUrls(woo.imageUrls)
   const mainImage = uniqueImages[0] || ''
   const gallery = uniqueImages.slice(1)
@@ -164,14 +202,14 @@ export async function buildProductInputFromWooCommerceImport(
   const description = cleanImportDescription(
     woo.description || woo.shortDescription,
     name,
-    catalog.brandName
+    resolvedBrand
   )
   const short_description =
     catalogCardDescription(
       name,
       description || woo.shortDescription,
       undefined,
-      catalog.brandName
+      resolvedBrand
     ).slice(0, 280) || undefined
 
   const usePurchasePrice = priceMode === 'purchase_price'
@@ -187,7 +225,7 @@ export async function buildProductInputFromWooCommerceImport(
     gallery_images: gallery.length ? gallery : null,
     category: catalog.categoryName,
     category_id: catalog.categoryId,
-    brand: catalog.brandName,
+    brand: resolvedBrand,
     source_url: woo.permalink,
     source_album_id: woo.externalId,
     author: APP_DEFAULT_AUTHOR,
@@ -377,11 +415,11 @@ async function resolveLkxoxImportCatalog(
   const categoryName = String(source.category_name ?? '').trim() || 'Uncategorized'
   const categoryId = source.catalog_category_id?.trim() || null
 
-  let brandName = source.brand_name?.trim() || null
-  if (lkxox.brandName) {
-    const resolved = await resolveOrCreateImportBrand(lkxox.brandName)
-    if (resolved) brandName = resolved.name
-  }
+  const brandName = await resolveImportBrandNameForProduct(
+    source.brand_name,
+    { name: lkxox.name, description: lkxox.description },
+    lkxox.brandName
+  )
 
   return { categoryName, categoryId, brandName }
 }
@@ -477,11 +515,11 @@ async function resolveWecatalogImportCatalog(
   const categoryName = String(source.category_name ?? '').trim() || 'Uncategorized'
   const categoryId = source.catalog_category_id?.trim() || null
 
-  let brandName = source.brand_name?.trim() || null
-  if (wecatalog.brandName) {
-    const resolved = await resolveOrCreateImportBrand(wecatalog.brandName)
-    if (resolved) brandName = resolved.name
-  }
+  const brandName = await resolveImportBrandNameForProduct(
+    source.brand_name,
+    { name: wecatalog.name, description: wecatalog.description },
+    wecatalog.brandName
+  )
 
   return { categoryName, categoryId, brandName }
 }

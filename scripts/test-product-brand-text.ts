@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
 import {
   detectBrandsFromProductFields,
+  detectImportBrandsFromProductFields,
   fixBrandNamesInText,
   isMixedBrandLabel,
   lettersOnlyBrandKey,
   polishProductDisplayText,
+  resolveImportBrandFromProductText,
+  IMPORT_BRAND_MIXED_FALLBACK,
 } from '../src/lib/product-brand-text'
 import { joinBrandNames } from '../src/lib/product-taxonomy'
 
@@ -81,6 +84,37 @@ assert.deepEqual(
     BRANDS_WITH_LUXURY
   ),
   ['HERMES']
+)
+
+assert.equal(
+  resolveImportBrandFromProductText({ name: 'FENDI Baguette mini bag' }, null, BRANDS_WITH_LUXURY),
+  'FENDI'
+)
+
+assert.equal(
+  resolveImportBrandFromProductText({ name: 'LV 2026 sweatpants' }, null, [
+    ...BRANDS_WITH_LUXURY,
+    'LOUIS VUITTON',
+    'DOLCE & GABBANA',
+    'CHROME HEARTS',
+    'THOM BROWNE',
+    'MIU MIU',
+    'LORO PIANA',
+    'LOEWE',
+    'DIOR',
+    'MONCLER',
+  ]),
+  'LOUIS VUITTON'
+)
+
+assert.equal(
+  resolveImportBrandFromProductText({ name: 'Generic unbranded item 2026' }, null, BRANDS_WITH_LUXURY),
+  IMPORT_BRAND_MIXED_FALLBACK
+)
+
+assert.equal(
+  resolveImportBrandFromProductText({ name: 'FENDI bag' }, 'GUCCI', BRANDS_WITH_LUXURY),
+  'GUCCI'
 )
 
 console.log('test-product-brand-text: ok')

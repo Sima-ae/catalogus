@@ -283,7 +283,12 @@ export default function ImportSourceForm({
                 <p className={`text-xs mt-1 ${t.muted}`}>
                   Applied to all imported products. Brand is auto-detected from each product title.
                 </p>
-              ) : null}
+              ) : (
+                <p className={`text-xs mt-1 ${t.muted}`}>
+                  When empty, brand is detected from each product title and description; otherwise
+                  falls back to - MIXED -.
+                </p>
+              )}
             </label>
             <label className="block space-y-1">
               <span className={`text-sm ${t.muted}`}>Catalog brand (optional)</span>
