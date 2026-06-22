@@ -85,6 +85,7 @@ function toMysqlDatetime(d: Date): string {
 export type CatalogSqlFilters = {
   whereSql: string
   params: unknown[]
+  extraJoinSql?: string
 }
 
 /** Match products whose sole or collab brand includes `brandName` (e.g. NIKE in "LOUIS VUITTON X NIKE"). */
@@ -300,6 +301,10 @@ export type AdminProductsQuery = CatalogProductsQuery & {
   status?: AdminProductStatusFilter
   /** Admin category filter — unique category row id (required for subcategories). */
   categoryId?: string
+  /** Show products with supplier purchase price filled on a pricelist page. */
+  filledPricesOnly?: boolean
+  /** Pricelist page slug or owner id (defaults to platform when filledPricesOnly). */
+  pricelistOwner?: string
 }
 
 /** Admin product list — requires `page` (and usually `scope=admin`). */
@@ -322,8 +327,16 @@ export function parseAdminProductsQuery(
       : undefined
 
   const categoryId = searchParams.get('categoryId')?.trim() || undefined
+  const filledPricesOnly = searchParams.get('filledPrices') === 'true'
+  const pricelistOwner = searchParams.get('pricelistOwner')?.trim() || undefined
 
-  return { ...base, status, categoryId }
+  return {
+    ...base,
+    status,
+    categoryId,
+    filledPricesOnly: filledPricesOnly || undefined,
+    pricelistOwner,
+  }
 }
 
 export type AdminProductFilterOptions = {
@@ -517,6 +530,12 @@ export function buildAdminProductsUrl(
   if (query.categoryId) {
     params.delete('category')
     params.set('categoryId', query.categoryId)
+  }
+  if (query.filledPricesOnly) {
+    params.set('filledPrices', 'true')
+  }
+  if (query.pricelistOwner) {
+    params.set('pricelistOwner', query.pricelistOwner)
   }
   const qs = params.toString()
   return qs ? `${basePath}?${qs}` : basePath

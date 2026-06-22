@@ -183,6 +183,7 @@ export default function AdminProductsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [brandFilter, setBrandFilter] = useState('all')
+  const [filledPricesFilter, setFilledPricesFilter] = useState(false)
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -278,6 +279,8 @@ export default function AdminProductsPage() {
         search: debouncedSearch || undefined,
         categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
         brand: brandFilter !== 'all' ? brandFilter : undefined,
+        filledPricesOnly: filledPricesFilter || undefined,
+        pricelistOwner: filledPricesFilter ? pricelistTarget : undefined,
       }) + '&scope=admin'
 
     try {
@@ -318,7 +321,7 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch])
+  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, pricelistTarget])
 
   useEffect(() => {
     loadProducts()
@@ -326,7 +329,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize])
+  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, pricelistTarget])
 
   const stats = useMemo(() => {
     if (productStats) {
@@ -887,6 +890,23 @@ export default function AdminProductsPage() {
               ))}
             </select>
           </label>
+          {isAdmin ? (
+            <div className="flex flex-wrap items-end gap-2 sm:w-auto">
+              <PricelistTargetSelector
+                inline
+                label={tr('admin.products.pricelistTarget')}
+              />
+              <button
+                type="button"
+                className={`btn-secondary text-sm whitespace-nowrap ${
+                  filledPricesFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
+                }`}
+                onClick={() => setFilledPricesFilter((current) => !current)}
+              >
+                {tr('admin.products.showWithPurchasePrice')}
+              </button>
+            </div>
+          ) : null}
           <label className="sm:w-32 space-y-1">
             <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.perPage')}</span>
             <select
@@ -916,6 +936,9 @@ export default function AdminProductsPage() {
           )}
           {brandFilter !== 'all' && (
             <> · {tr('admin.products.filterBrandPrefix')}: {brandFilter}</>
+          )}
+          {filledPricesFilter && (
+            <> · {tr('admin.products.filterPurchasePricePrefix')}</>
           )}
         </p>
 
@@ -1058,6 +1081,7 @@ export default function AdminProductsPage() {
               setStatusFilter('all')
               setCategoryFilter('all')
               setBrandFilter('all')
+              setFilledPricesFilter(false)
             }}
           >
             {tr('admin.products.clearFilters')}

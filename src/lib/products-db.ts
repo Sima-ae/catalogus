@@ -23,6 +23,9 @@ import {
 } from '@/lib/shop-category-tree'
 import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
 import { markPricelistOutOfStockForProducts } from '@/lib/pricelist-catalog-status-sync'
+import { buildAdminProductFilledPricelistPriceSql } from '@/lib/pricelist-list-query'
+import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
+import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
 import { serializeCatalogProductRow,
   serializeProductRow,
   parseProductJsonField,
@@ -1311,6 +1314,8 @@ export async function listProductsPaginatedAdmin(
     category?: string
     categoryId?: string
     brand?: string
+    filledPricesOnly?: boolean
+    pricelistOwner?: string
   } = {}
 ): Promise<CatalogProductsPage> {
   const safeLimit = Math.min(500, Math.max(1, limit))
@@ -1328,17 +1333,36 @@ export async function listProductsPaginatedAdmin(
     ...categoryFilterOpts,
     includeBrandJoin: hasBrandsTable,
   })
+
+  let extraJoinSql = ''
+  let filledWhereSql = whereSql
+  let filledParams = params
+
+  if (options.filledPricesOnly) {
+    const ownerId =
+      (await resolvePricelistOwnerId(options.pricelistOwner)) ?? PLATFORM_PRICELIST_OWNER_ID
+    const filled = buildAdminProductFilledPricelistPriceSql(ownerId)
+    if (filled) {
+      extraJoinSql = filled.joinSql
+      filledParams = [...params, ...filled.params]
+      filledWhereSql = filledWhereSql
+        ? `${filledWhereSql} AND ${filled.whereSql}`
+        : `WHERE ${filled.whereSql}`
+    }
+  }
+
   const fromIndex = select.search(/\bFROM\b/i)
   const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+  const fromWithJoin = `${fromClause}${extraJoinSql}`
 
   const [countRows, idRows] = await Promise.all([
     queryDb<{ total: number }[]>(
-      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
-      params
+      `SELECT COUNT(DISTINCT p.id) AS total ${fromWithJoin} ${filledWhereSql}`,
+      filledParams
     ),
     queryDb<{ id: string }[]>(
-      `SELECT p.id ${fromClause} ${whereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
-      [...params, safeLimit, offset]
+      `SELECT p.id ${fromWithJoin} ${filledWhereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
+      [...filledParams, safeLimit, offset]
     ),
   ])
 

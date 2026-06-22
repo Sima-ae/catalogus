@@ -57,6 +57,8 @@ export type AdminMessageKey =
   | 'admin.products.filterStatusPrefix'
   | 'admin.products.filterCategoryPrefix'
   | 'admin.products.filterBrandPrefix'
+  | 'admin.products.showWithPurchasePrice'
+  | 'admin.products.filterPurchasePricePrefix'
   | 'admin.products.selected'
   | 'admin.products.pricelistTarget'
   | 'admin.products.addToPricelist'
@@ -196,6 +198,8 @@ const EN: AdminMessages = {
   'admin.products.filterStatusPrefix': "status",
   'admin.products.filterCategoryPrefix': "category",
   'admin.products.filterBrandPrefix': "brand",
+  'admin.products.showWithPurchasePrice': "With purchase price",
+  'admin.products.filterPurchasePricePrefix': "purchase price filled (pricelist)",
   'admin.products.selected': "{count} selected",
   'admin.products.pricelistTarget': "Target pricelist",
   'admin.products.addToPricelist': "Add to pricelist",
@@ -337,6 +341,8 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.matchingSummary': "{matching} resultaten · {total} totaal in catalogus",
   'admin.products.filterCategoryPrefix': "categorie",
   'admin.products.filterBrandPrefix': "merk",
+  'admin.products.showWithPurchasePrice': "Met inkoopprijs",
+  'admin.products.filterPurchasePricePrefix': "inkoopprijs ingevuld (prijslijst)",
   'admin.products.selected': "{count} geselecteerd",
   'admin.products.pricelistTarget': "Doelprijslijst",
   'admin.products.addToPricelist': "Toevoegen aan prijslijst",

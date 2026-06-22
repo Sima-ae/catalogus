@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
           category: adminQuery.category,
           categoryId: adminQuery.categoryId,
           brand: adminQuery.brand,
+          filledPricesOnly: adminQuery.filledPricesOnly,
+          pricelistOwner: adminQuery.pricelistOwner,
         }),
         getProductDashboardStats(),
       ])

@@ -297,6 +297,37 @@ function appendOutOfStockFilter(
   }
 }
 
+/** Admin products table: supplier filled purchase price on a pricelist page. */
+export function buildAdminProductFilledPricelistPriceSql(listOwnerId: string): {
+  joinSql: string
+  whereSql: string
+  params: unknown[]
+} | null {
+  if (!listOwnerId) return null
+
+  if (isCuratedSupplierPricelist(listOwnerId)) {
+    const joins = { value: '' }
+    ensureCuratedPriceJoin(joins, listOwnerId)
+    return {
+      joinSql: joins.value,
+      whereSql: curatedFilledPriceSql(),
+      params: [],
+    }
+  }
+
+  return {
+    joinSql: '',
+    whereSql: `EXISTS (
+      SELECT 1 FROM seller_product_prices spp
+      WHERE spp.list_owner_id = ? AND spp.product_id = p.id
+        AND spp.unit_price IS NOT NULL AND spp.unit_price > 0
+        AND COALESCE(spp.stock_status, '') = ''
+        AND COALESCE(spp.out_of_stock, 0) = 0
+    )`,
+    params: [listOwnerId],
+  }
+}
+
 export function buildPricelistListSql(
   listOwnerId: string,
   viewer: PricelistListViewer,
