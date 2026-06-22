@@ -223,6 +223,10 @@ export default function ImportSourceForm({
                 placeholder="https://xxx.x.yupoo.com/categories/..."
                 required
               />
+              <p className={`text-xs mt-1 ${t.muted}`}>
+                Paginated Yupoo category — worker discovers all listing pages (e.g. 1670 albums
+                across 14 pages).
+              </p>
             </label>
             <label className="block space-y-1 md:col-span-2">
               <span className={`text-sm ${t.muted}`}>Yupoo access password (optional)</span>

@@ -20,7 +20,7 @@ import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { AsyncMutex, runPool } from '@/lib/async-pool'
 import { fetchHtml, sleep as yupooSleep } from '@/lib/yupoo/client'
-import { parseCategoryAlbums } from '@/lib/yupoo/parse-category'
+import { parseCategoryAlbums, discoverAllCategoryAlbums } from '@/lib/yupoo/parse-category'
 import { parseAlbumPage } from '@/lib/yupoo/parse-album'
 import {
   createYupooFetchContext,
@@ -334,12 +334,19 @@ async function processYupooJob(
 
   if (!items.length && job.total_albums === 0) {
     console.log('==> Fetch category:', source.yupoo_category_url)
-    const html = await fetchPage(String(source.yupoo_category_url))
-    assertNotPasswordGated(html, hasPassword)
-    const albums = parseCategoryAlbums(html, String(source.yupoo_category_url))
-    if (!albums.length && isYupooPasswordGateHtml(html)) {
+    const categoryUrl = String(source.yupoo_category_url)
+    const firstHtml = await fetchPage(categoryUrl)
+    assertNotPasswordGated(firstHtml, hasPassword)
+    if (!parseCategoryAlbums(firstHtml, categoryUrl).length && isYupooPasswordGateHtml(firstHtml)) {
       throw new Error(YUPOO_PASSWORD_REQUIRED_MSG)
     }
+    const albums = await discoverAllCategoryAlbums(categoryUrl, fetchPage, {
+      onPage: (page, totalPages, count) => {
+        if (page % 5 === 0 || page === totalPages) {
+          console.log(`==> Yupoo category discovery: page ${page}/${totalPages} (${count} albums)`)
+        }
+      },
+    })
     console.log(`==> Found ${albums.length} albums`)
     await createImportJobItems(jobId, albums)
     await updateImportJob(jobId, { total_albums: albums.length })
