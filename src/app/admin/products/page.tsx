@@ -43,6 +43,7 @@ import DuplicateProductsModal, {
   type DuplicateScanMode,
 } from '@/components/admin/DuplicateProductsModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
+import AdminProductSalePriceCell from '@/components/admin/AdminProductSalePriceCell'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import PricelistTargetSelector, { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
 import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
@@ -162,17 +163,10 @@ const adminProductsColgroup = (
   </colgroup>
 )
 
-function formatAdminSalePrice(
-  value: number | null | undefined,
-  tr: (key: string) => string
-): string {
-  return formatPrice(value, { zeroLabel: tr('product.priceOnRequest') })
-}
-
 export default function AdminProductsPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
@@ -202,6 +196,15 @@ export default function AdminProductsPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
+
+  const handleProductSalePriceSaved = useCallback((productId: string, price: number) => {
+    setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, price } : p)))
+  }, [])
+
+  const adminHeaders = useMemo(
+    () => (user ? adminAuthHeaders(user) : {}),
+    [user]
+  )
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -1209,7 +1212,15 @@ export default function AdminProductsPage() {
                   <AdminShippingCostCell value={p.shipping_cost} isDark={t.isDark} />
                 </AdminTd>
                 <AdminTd className={`${adminProductsMoneyCol} align-top`}>
-                  {formatAdminSalePrice(adminListDisplaySalePrice(p.price, p.product_options), tr)}
+                  <AdminProductSalePriceCell
+                    productId={p.id}
+                    productName={p.name}
+                    price={adminListDisplaySalePrice(p.price, p.product_options)}
+                    isDark={t.isDark}
+                    isSuperAdmin={isSuperAdmin}
+                    authHeaders={adminHeaders}
+                    onSaved={handleProductSalePriceSaved}
+                  />
                 </AdminTd>
                 <AdminTd className="px-2 align-top">
                   <span
