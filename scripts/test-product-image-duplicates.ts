@@ -115,6 +115,29 @@ function testNumericIdAndSizedFolderDedupe() {
   )
 }
 
+function testYupooPhotoFolderHashVariants() {
+  const urls = [
+    'https://photo.yupoo.com/paypalshop/476d627c/large.jpg',
+    'https://photo.yupoo.com/paypalshop/476d627c/f6febdc5.jpg',
+    'https://photo.yupoo.com/paypalshop/476d627c/big.jpg',
+    'https://photo.yupoo.com/paypalshop/c3d59454/big.jpg',
+    'https://photo.yupoo.com/paypalshop/c3d59454/5e7f85c3.jpg',
+    'https://photo.yupoo.com/paypalshop/c3d59454/large.jpg',
+    'https://photo.yupoo.com/paypalshop/d303a9cb/big.jpg',
+    'https://photo.yupoo.com/paypalshop/d303a9cb/ca143314.jpg',
+    'https://photo.yupoo.com/paypalshop/d303a9cb/large.jpg',
+  ]
+  const deduped = cleanProductGalleryUrls(urls)
+  assert.equal(deduped.length, 3)
+  assert.equal(deduped[0], 'https://photo.yupoo.com/paypalshop/476d627c/large.jpg')
+  assert.equal(deduped[1], 'https://photo.yupoo.com/paypalshop/c3d59454/large.jpg')
+  assert.equal(deduped[2], 'https://photo.yupoo.com/paypalshop/d303a9cb/large.jpg')
+
+  const stored = normalizeStoredProductImages(urls[0], urls.slice(1))
+  assert.equal(stored.image_url, deduped[0])
+  assert.deepEqual(stored.gallery_images, deduped.slice(1))
+}
+
 function testBrokenStoredUrls() {
   assert.equal(isBrokenStoredProductImageUrl(''), true)
   assert.equal(isBrokenStoredProductImageUrl('/api/yupoo-image'), true)
@@ -132,7 +155,8 @@ function testBrokenStoredUrls() {
     '/api/yupoo-image?url=https%3A%2F%2Fphoto.yupoo.com%2Fb%2Fsmall.jpg',
   ])
   assert.equal(deduped.length, 2)
-  assert.ok(deduped[0]!.includes('url='))
+  assert.equal(deduped[0], upgradeYupooImageUrl('https://photo.yupoo.com/a/medium.jpg'))
+  assert.equal(deduped[1], upgradeYupooImageUrl('https://photo.yupoo.com/b/small.jpg'))
 }
 
 function testStorageRoundTrip() {
@@ -212,6 +236,7 @@ testDuplicateGroups()
 testGalleryMatch()
 testKeepsLargestYupooVariant()
 testNumericIdAndSizedFolderDedupe()
+testYupooPhotoFolderHashVariants()
 testBrokenStoredUrls()
 testStorageRoundTrip()
 testStoredCleanupPreservesDisplayGallery()

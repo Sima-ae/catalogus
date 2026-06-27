@@ -180,6 +180,7 @@ export function upgradeYupooImageUrl(url: string): string {
   u = u.replace(/\/square\./gi, '/large.')
   u = u.replace(/\/medium\./gi, '/large.')
   u = u.replace(/\/original\./gi, '/large.')
+  u = u.replace(/\/big\./gi, '/large.')
   return u
 }
 
@@ -191,6 +192,7 @@ export function productImageQualityRank(url: string | null | undefined): number 
   const lower = raw.toLowerCase()
   if (/\/original\./i.test(lower)) return 100
   if (/\/large\./i.test(lower)) return 90
+  if (/\/big\./i.test(lower)) return 90
   if (/\/medium\./i.test(lower)) return 60
   if (/\/square\./i.test(lower)) return 40
   if (/\/small\./i.test(lower)) return 30
@@ -216,11 +218,15 @@ function normalizeYupooCanonicalPath(path: string): string {
   let p = path.replace(/\/+$/, '').toLowerCase()
   if (!p) return ''
 
-  // /shop/41776158/small.jpg → /shop/41776158
-  p = p.replace(/\/(small|thumb|square|medium|large|original)\.(jpe?g|png|webp|gif)$/i, '')
+  // /shop/476d627c/small.jpg → /shop/476d627c
+  p = p.replace(/\/(small|thumb|square|medium|large|original|big)\.(jpe?g|png|webp|gif)$/i, '')
 
   // /shop/41776158.jpg → /shop/41776158 (same photo as sized folder above)
   p = p.replace(/(\/\d{5,})\.(jpe?g|png|webp|gif)$/i, '$1')
+
+  // /shop/476d627c/f6febdc5.jpg → /shop/476d627c (hash filename in photo folder)
+  p = p.replace(/^(\/[^/]+\/[a-f0-9]{6,16})\/[^/]+\.(jpe?g|png|webp|gif)$/i, '$1')
+  p = p.replace(/^(\/[^/]+\/\d{5,})\/[^/]+\.(jpe?g|png|webp|gif)$/i, '$1')
 
   p = p.replace(/_(\d{2,4})x(\d{2,4})(\.[a-z0-9]+)$/i, '$3')
   p = p.replace(/-(\d{2,4})x(\d{2,4})(\.[a-z0-9]+)$/i, '$3')
@@ -370,11 +376,8 @@ export function dedupeProductImageUrls(urls: string[]): string[] {
     const trimmed = String(url ?? '').trim()
     if (!trimmed || isPlaceholderImageUrl(trimmed)) continue
 
-    const stored = trimmed.includes('/api/yupoo-image')
-      ? trimmed
-      : isYupooImageUrl(trimmed)
-        ? upgradeYupooImageUrl(trimmed)
-        : trimmed
+    const stored = storageProductImageUrl(trimmed)
+    if (!stored) continue
     const key = canonicalProductImageKey(stored)
     if (!key) continue
 
@@ -437,6 +440,7 @@ export function yupooImageUrlFallbackChain(url: string): string[] {
 
   add(base)
   add(base.replace(/\/original\./gi, '/large.'))
+  add(base.replace(/\/big\./gi, '/large.'))
   add(base.replace(/\/original\./gi, '/medium.'))
   add(base.replace(/\/large\./gi, '/medium.'))
   add(base.replace(/\/medium\./gi, '/small.'))
