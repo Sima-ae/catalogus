@@ -59,6 +59,8 @@ async function main() {
   )
 
   let updated = 0
+  let skipped = 0
+  const verbose = process.argv.includes('--verbose')
 
   for (const row of rows) {
     const rawName = String(row.name ?? '').trim()
@@ -78,7 +80,22 @@ async function main() {
     const descChanged = description !== rawDescription
     const shortChanged = (short_description ?? '') !== rawShort
 
-    if (!nameChanged && !descChanged && !shortChanged) continue
+    if (!nameChanged && !descChanged && !shortChanged) {
+      skipped++
+      if (verbose) {
+        console.warn(
+          `[skip] ${row.id} — SQL matched yupoo/又拍 but cleanup left text unchanged`
+        )
+        if (containsYupooPlatformText(rawName)) console.warn(`  name: ${rawName.slice(0, 120)}`)
+        if (containsYupooPlatformText(rawDescription)) {
+          console.warn(`  desc: ${rawDescription.slice(0, 120)}`)
+        }
+        if (containsYupooPlatformText(rawShort)) {
+          console.warn(`  short: ${rawShort.slice(0, 120)}`)
+        }
+      }
+      continue
+    }
     if (
       containsYupooPlatformText(name) ||
       containsYupooPlatformText(description) ||
@@ -104,10 +121,13 @@ async function main() {
     )
   }
 
+  const summary = dryRun
+    ? `Dry run: ${updated} of ${rows.length} matching products would be updated.`
+    : `Updated ${updated} of ${rows.length} matching products.`
   console.log(
-    dryRun
-      ? `Dry run: ${updated} of ${rows.length} matching products would be updated.`
-      : `Updated ${updated} of ${rows.length} matching products.`
+    skipped > 0
+      ? `${summary} ${skipped} skipped (matched SQL but cleanup produced identical text — re-run after deploying strip fixes).`
+      : summary
   )
 
   await resetDbPool()

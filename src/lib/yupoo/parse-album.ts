@@ -71,19 +71,6 @@ function bestImageUrlFromElement(
   return best
 }
 
-function collectFromHtml(html: string, pageUrl: string): string[] {
-  const found: string[] = []
-
-  const regexMatches =
-    html.match(/https?:\/\/photo\.yupoo\.com\/[^\s"'<>]+?\.(?:jpe?g|png|webp|gif)/gi) || []
-  for (const match of regexMatches) {
-    const normalized = normalizeImageUrl(match, pageUrl)
-    if (normalized) found.push(normalized)
-  }
-
-  return found
-}
-
 export function parseAlbumPage(html: string, albumUrl: string, albumId: string): YupooAlbumData {
   const $ = cheerio.load(html)
 
@@ -150,12 +137,8 @@ export function parseAlbumPage(html: string, albumUrl: string, albumId: string):
 
   const imageCandidates: string[] = []
 
-  for (const url of collectFromHtml(html, albumUrl)) {
-    imageCandidates.push(url)
-  }
-
   const imageSelectors =
-    '.showalbum__children img, .showalbum-image img, .album__img img, .image__main img, .showalbum img, img'
+    '.showalbum__children img, .showalbum-image img, .album__img img, .image__main img, .showalbum img'
 
   $(imageSelectors).each((_, el) => {
     if (isBrandingImageElement($, el)) return

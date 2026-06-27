@@ -1,6 +1,6 @@
 import { resolveProductVersion } from '@/lib/brand'
 import { appPath, appUrl, shopBrandUrl, shopCategoryUrl } from '@/lib/paths'
-import { buildProductGallery } from '@/lib/product-image-url'
+import { buildProductDisplayGallery } from '@/lib/product-image-url'
 import { parsePipeField, parseProductJsonField } from '@/lib/product-serialize'
 import { parseProductOptions, type ProductOptions } from '@/lib/product-options'
 import { cleanImportDescription, sanitizeProductName } from '@/lib/yupoo/import-text'
@@ -81,7 +81,7 @@ export function toProductPageView(raw: Record<string, unknown>): ProductPageView
   const brandDisplay = String(raw.brand ?? '').trim()
   const sourceUrl = raw.source_url != null ? String(raw.source_url) : ''
   const galleryRaw = galleryFromApi(raw)
-  const gallery = buildProductGallery(String(raw.image_url || ''), galleryRaw)
+  const gallery = buildProductDisplayGallery(String(raw.image_url || ''), galleryRaw, sourceUrl)
   const requirements = parseProductJsonField(raw.requirements) ?? []
   const features = parseProductJsonField(raw.features) ?? []
   const tags = parseProductJsonField(raw.tags) ?? []

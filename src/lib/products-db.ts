@@ -54,7 +54,7 @@ import {
   randomNumericSkuCandidate,
   requireProductSku,
 } from '@/lib/product-sku'
-import { normalizeProductImagesForStorage, normalizeProductImageList, normalizeProductImageUrl } from '@/lib/product-image-url'
+import { normalizeProductImagesForStorage, normalizeProductImageListForStorage, normalizeProductImageUrl, normalizeStoredProductImages } from '@/lib/product-image-url'
 import type { ProductOptions } from '@/lib/product-options'
 
 export { UnknownBrandError } from '@/lib/brands-db'
@@ -774,7 +774,7 @@ async function loadShopSubcategoriesWithProducts(
 
 async function fetchProductRow(
   id: string,
-  options?: Pick<SerializeProductRowOptions, 'includePurchasePrice'>
+  options?: Pick<SerializeProductRowOptions, 'includePurchasePrice' | 'storageImages'>
 ) {
   const select = await productSelectSql()
   const rows = await queryDb<Record<string, unknown>[]>(
@@ -786,6 +786,7 @@ async function fetchProductRow(
   return serializeProductRow(rows[0], {
     brandSkuPrefixes,
     includePurchasePrice: options?.includePurchasePrice,
+    storageImages: options?.storageImages,
   })
 }
 
@@ -886,7 +887,7 @@ export async function insertProduct(input: ProductInput) {
   })
 
   invalidateProductDashboardStatsCache()
-  return fetchProductRow(id, { includePurchasePrice: true })
+  return fetchProductRow(id, { includePurchasePrice: true, storageImages: true })
 }
 
 export async function updateProduct(id: string, input: Partial<ProductInput>) {
@@ -921,6 +922,11 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   const brandPrefixes = await getBrandSkuPrefixes()
   const brandNames = await getAllBrandNames()
 
+  const normalizedImages =
+    input.image_url !== undefined && input.gallery_images !== undefined
+      ? normalizeStoredProductImages(input.image_url, input.gallery_images)
+      : null
+
   const map: Record<string, unknown> = {
     name: undefined as string | undefined,
     description: input.description,
@@ -930,11 +936,17 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     purchase_price: input.purchase_price,
     shipping_cost: input.shipping_cost,
     image_url:
-      input.image_url !== undefined ? normalizeProductImageUrl(input.image_url) : undefined,
+      normalizedImages != null
+        ? normalizedImages.image_url
+        : input.image_url !== undefined
+          ? normalizeProductImageUrl(input.image_url)
+          : undefined,
     gallery_images:
-      input.gallery_images !== undefined
-        ? jsonCol(normalizeProductImageList(input.gallery_images))
-        : undefined,
+      normalizedImages != null
+        ? jsonCol(normalizedImages.gallery_images)
+        : input.gallery_images !== undefined
+          ? jsonCol(normalizeProductImageListForStorage(input.gallery_images))
+          : undefined,
     category: categoryName,
     category_id: categoryId,
     brand: hasBrandCol ? brandName : undefined,
@@ -1040,7 +1052,9 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     }
   }
 
-  if (!fields.length) return fetchProductRow(id, { includePurchasePrice: true })
+  if (!fields.length) {
+    return fetchProductRow(id, { includePurchasePrice: true, storageImages: true })
+  }
 
   if (input.sku !== undefined) {
     const sku = requireProductSku(input.sku, brandPrefixes)
@@ -1106,7 +1120,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   syncPricelistAfterCatalogStatusChange([id], input.status)
 
   invalidateProductDashboardStatsCache()
-  return fetchProductRow(id, { includePurchasePrice: true })
+  return fetchProductRow(id, { includePurchasePrice: true, storageImages: true })
 }
 
 function shouldSyncPricelistOutOfStock(status: string | undefined): boolean {
@@ -1652,7 +1666,7 @@ export async function listDraftImportProducts(limit = 100) {
 
 export async function getProductById(
   id: string,
-  options?: Pick<SerializeProductRowOptions, 'includePurchasePrice'>
+  options?: Pick<SerializeProductRowOptions, 'includePurchasePrice' | 'storageImages'>
 ) {
   return fetchProductRow(id, options)
 }

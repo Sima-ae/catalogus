@@ -1,7 +1,7 @@
 import type { ProductInput } from '@/lib/products-db'
 import { parseProductOptions } from '@/lib/product-options'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
-import { normalizeProductImageList, normalizeProductImageUrl } from '@/lib/product-image-url'
+import { normalizeProductImageList, normalizeProductImageListForStorage, normalizeProductImageUrl } from '@/lib/product-image-url'
 import { normalizeProductSku } from '@/lib/product-sku'
 
 /** One item per line (or comma-separated tags). */
@@ -53,7 +53,7 @@ export function parseProductImageOrderBody(
 ): Pick<ProductInput, 'image_url' | 'gallery_images'> {
   return {
     image_url: normalizeProductImageUrl(String(body.image_url || '').trim()),
-    gallery_images: normalizeProductImageList(linesToStringArray(body.gallery_images)),
+    gallery_images: normalizeProductImageListForStorage(linesToStringArray(body.gallery_images)),
   }
 }
 
@@ -93,7 +93,7 @@ export function parseProductBody(body: Record<string, unknown>): ProductInput {
       body.brand !== undefined && body.brand !== null
         ? String(body.brand).trim() || null
         : undefined,
-    gallery_images: normalizeProductImageList(linesToStringArray(body.gallery_images)),
+    gallery_images: normalizeProductImageListForStorage(linesToStringArray(body.gallery_images)),
     available_sizes: linesToPipe(body.available_sizes),
     available_colors: linesToPipe(body.available_colors),
     source_url:

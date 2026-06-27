@@ -74,17 +74,38 @@ export function productImageSrc(url: string | null | undefined): string {
   return normalized
 }
 
+/**
+ * DB cleanup / save: strip branding, dedupe size variants, split main + gallery (no overlap).
+ */
+export function normalizeStoredProductImages(
+  mainRaw: string | null | undefined,
+  galleryRaw: string[] | null | undefined
+): { image_url: string; gallery_images: string[] | null } {
+  let main = String(mainRaw ?? '').trim()
+  let gallery = (galleryRaw ?? []).map((u) => String(u).trim()).filter(Boolean)
+
+  if (main && isBrandingGalleryImageUrl(main)) {
+    const rest = stripBrandingGalleryImageUrls([main, ...gallery])
+    main = rest[0] ?? ''
+    gallery = rest.slice(1)
+  } else {
+    gallery = stripBrandingGalleryImageUrls(gallery)
+  }
+
+  const storageUrls = [main, ...gallery]
+    .filter(Boolean)
+    .map((u) => storageProductImageUrl(u))
+    .filter((u) => u && !isPlaceholderImageUrl(u))
+
+  return prepareImportProductImages(storageUrls)
+}
+
 /** Normalize image fields before persisting to the database. */
 export function normalizeProductImagesForStorage(input: {
   image_url?: string | null
   gallery_images?: string[] | null
 }): { image_url: string; gallery_images: string[] | null } {
-  const main = normalizeProductImageUrl(input.image_url)
-  const gallery = normalizeProductImageList(input.gallery_images)
-  return {
-    image_url: main,
-    gallery_images: gallery,
-  }
+  return normalizeStoredProductImages(input.image_url, input.gallery_images)
 }
 
 /** Absolute URL when needed (emails, OG tags). Relative /images/ paths use app origin. */
@@ -150,15 +171,15 @@ export function stripBrandingGalleryImageUrls(urls: string[]): string[] {
   })
 }
 
-/** Prefer original/large over small/thumb Yupoo CDN paths (for storage and dedupe). */
+/** Prefer /large/ for storage — /original/ often 404 on Yupoo CDN; still the largest reliable size. */
 export function upgradeYupooImageUrl(url: string): string {
   let u = url.trim()
   u = (u.split('?')[0] || u).trim()
-  u = u.replace(/\/small\./gi, '/original.')
-  u = u.replace(/\/thumb\./gi, '/original.')
-  u = u.replace(/\/square\./gi, '/original.')
-  u = u.replace(/\/medium\./gi, '/original.')
-  u = u.replace(/\/large\./gi, '/original.')
+  u = u.replace(/\/small\./gi, '/large.')
+  u = u.replace(/\/thumb\./gi, '/large.')
+  u = u.replace(/\/square\./gi, '/large.')
+  u = u.replace(/\/medium\./gi, '/large.')
+  u = u.replace(/\/original\./gi, '/large.')
   return u
 }
 
@@ -185,12 +206,25 @@ export function productImageQualityRank(url: string | null | undefined): number 
   return 50
 }
 
+function normalizeYupooImageHostname(hostname: string): string {
+  const h = hostname.toLowerCase()
+  if (h === 'photo.yupoo.com' || h.endsWith('.x.yupoo.com')) return 'photo.yupoo.com'
+  return h
+}
+
 function normalizeYupooCanonicalPath(path: string): string {
-  let p = path.replace(/\/+$/, '')
-  p = p.replace(/\/(small|thumb|square|medium|large|original)\.[^/]+$/i, '')
+  let p = path.replace(/\/+$/, '').toLowerCase()
+  if (!p) return ''
+
+  // /shop/41776158/small.jpg → /shop/41776158
+  p = p.replace(/\/(small|thumb|square|medium|large|original)\.(jpe?g|png|webp|gif)$/i, '')
+
+  // /shop/41776158.jpg → /shop/41776158 (same photo as sized folder above)
+  p = p.replace(/(\/\d{5,})\.(jpe?g|png|webp|gif)$/i, '$1')
+
   p = p.replace(/_(\d{2,4})x(\d{2,4})(\.[a-z0-9]+)$/i, '$3')
   p = p.replace(/-(\d{2,4})x(\d{2,4})(\.[a-z0-9]+)$/i, '$3')
-  return p.toLowerCase()
+  return p
 }
 
 /** Lighter Yupoo CDN path for catalog grid cards (faster mobile loads). */
@@ -277,6 +311,30 @@ function unwrapDisplayImageUrl(url: string): string {
   }
 }
 
+/** Canonical DB URL — unwraps /api/yupoo-image proxies and upgrades Yupoo variants. */
+export function storageProductImageUrl(url: string | null | undefined): string {
+  const unwrapped = unwrapDisplayImageUrl(String(url ?? '').trim())
+  if (!unwrapped) return ''
+  const normalized = normalizeProductImageUrl(unwrapped)
+  if (!normalized) return ''
+  if (isBrokenStoredProductImageUrl(normalized)) return ''
+  if (isYupooImageUrl(normalized)) return upgradeYupooImageUrl(normalized)
+  return normalized
+}
+
+/** Normalize gallery URLs for persistence (never store display-only proxy paths). */
+export function normalizeProductImageListForStorage(
+  urls: string[] | null | undefined
+): string[] | null {
+  if (!urls?.length) return null
+  const out = dedupeProductImageUrls(
+    urls
+      .map((u) => storageProductImageUrl(u))
+      .filter((u) => u && !isPlaceholderImageUrl(u))
+  )
+  return out.length ? out : null
+}
+
 /**
  * Stable key for deduping the same photo (Yupoo small/medium/original, proxy vs raw, etc.).
  */
@@ -291,7 +349,7 @@ export function canonicalProductImageKey(url: string | null | undefined): string
 
   try {
     const u = new URL(raw)
-    const host = u.hostname.toLowerCase()
+    const host = isYupooImageUrl(raw) ? normalizeYupooImageHostname(u.hostname) : u.hostname.toLowerCase()
     let path = u.pathname.replace(/\/+$/, '')
     if (isYupooImageUrl(raw)) {
       path = normalizeYupooCanonicalPath(path)
@@ -338,6 +396,18 @@ export function dedupeProductImageUrls(urls: string[]): string[] {
 /** Strip platform icons, then dedupe same-photo variants (small/medium/thumb). */
 export function cleanProductGalleryUrls(urls: string[]): string[] {
   return dedupeProductImageUrls(stripBrandingGalleryImageUrls(urls))
+}
+
+/** Import pipeline: largest unique photo as main, rest as gallery (no size duplicates). */
+export function prepareImportProductImages(urls: string[]): {
+  image_url: string
+  gallery_images: string[] | null
+} {
+  const unique = cleanProductGalleryUrls(urls)
+  return {
+    image_url: unique[0] ?? '',
+    gallery_images: unique.length > 1 ? unique.slice(1) : null,
+  }
 }
 
 /** Prefer /large/ for product detail display — /original/ often 404 on Yupoo CDN. */
@@ -487,6 +557,17 @@ export function resolveProductDisplayImages(
     main,
     gallery: gallery.length ? gallery : null,
   }
+}
+
+/** Ordered display URLs for product detail — main first, then gallery (deduped). */
+export function buildProductDisplayGallery(
+  mainImageRaw: string | null | undefined,
+  galleryRaw: string[] | null | undefined,
+  sourceUrl?: string | null
+): string[] {
+  const { main, gallery } = resolveProductDisplayImages(mainImageRaw, galleryRaw, sourceUrl)
+  if (!main) return gallery ?? []
+  return gallery?.length ? [main, ...gallery] : [main]
 }
 
 /** True when the image is served from our /images/ tree (safe for Next.js optimizer). */

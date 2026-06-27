@@ -43,7 +43,8 @@ export async function GET(
   try {
     const access = await resolveCatalogAccess(request)
     const includePurchasePrice = access.kind === 'admin'
-    const product = await getProductById(params.id, { includePurchasePrice })
+    const storageImages = access.kind === 'admin' || access.kind === 'seller'
+    const product = await getProductById(params.id, { includePurchasePrice, storageImages })
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }

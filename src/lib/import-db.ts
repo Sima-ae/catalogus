@@ -3,7 +3,7 @@ import { queryDb } from '@/lib/db'
 import { IMPORT_SOURCES_PAGE_SIZE } from '@/lib/import-sources-constants'
 import type { ProductInput } from '@/lib/products-db'
 import { APP_DEFAULT_AUTHOR, APP_DEFAULT_AUTHOR_ICON } from '@/lib/brand'
-import { cleanProductGalleryUrls } from '@/lib/product-image-url'
+import { prepareImportProductImages } from '@/lib/product-image-url'
 import { buildSku, parseAttributes } from '@/lib/yupoo/parse-album'
 import {
   catalogCardDescription,
@@ -130,9 +130,7 @@ export async function buildProductInputFromImport(
   )
   const brandNames = await getAllBrandNames()
   const attrs = parseAttributes(`${album.title}\n${album.description}`)
-  const uniqueImages = cleanProductGalleryUrls(album.images)
-  const mainImage = uniqueImages[0] || ''
-  const gallery = uniqueImages.slice(1)
+  const { image_url: mainImage, gallery_images: gallery } = prepareImportProductImages(album.images)
   const sku = buildSku(album, resolvedBrand)
 
   let name = sanitizeProductName(
@@ -161,7 +159,7 @@ export async function buildProductInputFromImport(
     price: 0,
     original_price: null,
     image_url: mainImage,
-    gallery_images: gallery.length ? gallery : null,
+    gallery_images: gallery,
     category: categoryName,
     category_id: catalogCategoryId?.trim() || null,
     brand: resolvedBrand,
@@ -195,9 +193,7 @@ export async function buildProductInputFromWooCommerceImport(
     },
     woo.brandName
   )
-  const uniqueImages = cleanProductGalleryUrls(woo.imageUrls)
-  const mainImage = uniqueImages[0] || ''
-  const gallery = uniqueImages.slice(1)
+  const { image_url: mainImage, gallery_images: gallery } = prepareImportProductImages(woo.imageUrls)
   const name = sanitizeProductName(woo.name)
   const description = cleanImportDescription(
     woo.description || woo.shortDescription,
@@ -222,7 +218,7 @@ export async function buildProductInputFromWooCommerceImport(
     original_price: usePurchasePrice ? null : woo.originalPrice,
     ...(usePurchasePrice && woo.price > 0 ? { purchase_price: woo.price } : {}),
     image_url: mainImage,
-    gallery_images: gallery.length ? gallery : null,
+    gallery_images: gallery,
     category: catalog.categoryName,
     category_id: catalog.categoryId,
     brand: resolvedBrand,
@@ -328,9 +324,7 @@ export async function buildProductInputFromFacebookPost(
   mirroredImageUrls: string[]
 ): Promise<ProductInput> {
   const mapped = mapFacebookPost(post)
-  const uniqueImages = cleanProductGalleryUrls(mirroredImageUrls)
-  const mainImage = uniqueImages[0] || ''
-  const gallery = uniqueImages.slice(1)
+  const { image_url: mainImage, gallery_images: gallery } = prepareImportProductImages(mirroredImageUrls)
   const name = sanitizeProductName(mapped.title || 'Facebook import')
   const description = cleanImportDescription(mapped.description, name, manual.brand)
   const short_description =
@@ -343,7 +337,7 @@ export async function buildProductInputFromFacebookPost(
     price: manual.price,
     original_price: null,
     image_url: mainImage,
-    gallery_images: gallery.length ? gallery : null,
+    gallery_images: gallery,
     category: manual.category,
     category_id: manual.category_id,
     brand: manual.brand,
@@ -377,9 +371,7 @@ export async function buildProductInputFromLkxoxImport(
     brandName: string | null
   }
 ): Promise<ProductInput> {
-  const uniqueImages = cleanProductGalleryUrls(lkxox.imageUrls)
-  const mainImage = uniqueImages[0] || ''
-  const gallery = uniqueImages.slice(1)
+  const { image_url: mainImage, gallery_images: gallery } = prepareImportProductImages(lkxox.imageUrls)
   const name = sanitizeProductName(lkxox.name)
   const description = cleanImportDescription(lkxox.description, name, catalog.brandName)
   const short_description =
@@ -394,7 +386,7 @@ export async function buildProductInputFromLkxoxImport(
     original_price: lkxox.originalPrice,
     purchase_price: lkxox.purchasePrice,
     image_url: mainImage,
-    gallery_images: gallery.length ? gallery : null,
+    gallery_images: gallery,
     category: catalog.categoryName,
     category_id: catalog.categoryId,
     brand: catalog.brandName,
@@ -482,9 +474,7 @@ export async function buildProductInputFromWecatalogImport(
     catalogCardDescription(name, description, undefined, catalog.brandName).slice(0, 280) ||
     undefined
 
-  const uniqueImages = cleanProductGalleryUrls(wecatalog.imageUrls)
-  const mainImage = uniqueImages[0] || ''
-  const gallery = uniqueImages.slice(1)
+  const { image_url: mainImage, gallery_images: gallery } = prepareImportProductImages(wecatalog.imageUrls)
 
   return {
     name,
@@ -494,7 +484,7 @@ export async function buildProductInputFromWecatalogImport(
     original_price: wecatalog.originalPrice,
     purchase_price: wecatalog.purchasePrice,
     image_url: mainImage,
-    gallery_images: gallery.length ? gallery : null,
+    gallery_images: gallery,
     category: catalog.categoryName,
     category_id: catalog.categoryId,
     brand: catalog.brandName,

@@ -670,52 +670,103 @@ export function stripYangliNiuli(text: string): string {
   return result
 }
 
-/** True when customer-facing copy still mentions the Yupoo platform. */
+/** True when copy mentions Yupoo in any form (word, glued IDs, domains, CN). */
 export function containsYupooPlatformText(text: string | null | undefined): boolean {
   const t = String(text ?? '')
   if (!t.trim()) return false
-  if (/\byupoo\b/i.test(t)) return true
-  if (/yupoo\.com/i.test(t)) return true
-  if (/[\w.-]+\.yupoo\.com/i.test(t)) return true
+  if (/yupoo/i.test(t)) return true
   if (/又拍/.test(t)) return true
   return false
 }
 
-/** Remove Yupoo platform branding from customer-facing product copy (EN + CN + URLs). */
-export function stripYupooPlatformText(text: string): string {
+/** Glued supplier tokens: yupoo123, myupoo, yupooalbum, etc. */
+const YUPOO_GLUED_TOKEN_RE = /yupoo\d*|myy?upoo|yupooalbum/i
+
+/** Marketing-only residue after "yupoo" is stripped from a supplier line. */
+function isYupooMarketingResidual(text: string): boolean {
+  const t = String(text ?? '').trim()
+  if (!t) return true
+  if (/^[\d\s.,;:!-]+$/i.test(t)) return true
+  if (/^m(\s+link(?:s)?(\s+here)?)?\.?$/i.test(t)) return true
+  if (/^(?:see\s+)?(?:for\s+)?pics\.?$/i.test(t)) return true
+  if (/^\d+\s+best\s+quality\.?$/i.test(t)) return true
+  if (/^best\s+quality\.?$/i.test(t)) return true
+  if (/^\d+\s+and\s+m\s+links?\.?$/i.test(t)) return true
+  if (/^link(?:s)?\s+here\.?$/i.test(t)) return true
+  if (/^see\s+for\s+pics\.?$/i.test(t)) return true
+  return false
+}
+
+/** Remove orphan fragments left after stripping glued "yupoo" tokens from descriptions. */
+function cleanYupooStripArtifacts(text: string): string {
   let result = String(text ?? '')
-  if (!result.trim()) return result
 
-  result = result.replace(/https?:\/\/[^\s<>"']*yupoo\.com[^\s<>"']*/gi, ' ')
-  result = result.replace(/\b[\w.-]+\.yupoo\.com\b/gi, ' ')
-  result = result.replace(/\byupoo\.com\b/gi, ' ')
+  result = result.replace(/\byupoo\d*\b/gi, ' ')
+  result = result.replace(/\bmyy?upoo\b/gi, ' ')
+  result = result.replace(/\byupooalbum\b/gi, ' ')
 
-  result = result.replace(/又拍云?/g, ' ')
-  result = result.replace(/友拍/g, ' ')
-
-  result = result.replace(/\byupoo\b/gi, ' ')
-  result = result.replace(
-    /\b(?:from|on|via|at|see|view)\s+(?:the\s+)?(?:yupoo\s+)?(?:album|shop|store|catalog|link|page)\b/gi,
-    ' '
+  result = result.replace(/\bm\s+links?\s+here\b/gi, ' ')
+  result = result.replace(/\bm\s+links?\b/gi, ' ')
+  result = result.replace(/\b\d+\s+and\s+m\s+links?\.?/gi, ' ')
+  result = result.replace(/\.\s*\d+\s+and\b/gi, '.')
+  result = result.replace(/\s+\d+\s+and\s*$/gi, ' ')
+  result = result.replace(/(?:^|[.!?]\s*)\d{3,}\s+best\s+quality\b/gi, (m) =>
+    m.startsWith('.') || m.startsWith('!') || m.startsWith('?') ? m[0]! : ''
   )
-
-  result = result
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => {
-      if (!line) return false
-      if (/^(?:yupoo|又拍)[\s:：\-–—|｜.!！]*$/i.test(line)) return false
-      return true
-    })
-    .join('\n')
+  result = result.replace(/\bsee\s+for\s+pics\b/gi, ' ')
+  result = result.replace(/\bfor\s+pics\b/gi, ' ')
 
   result = result
     .replace(/\(\s*\)/g, ' ')
     .replace(/\[\s*\]/g, ' ')
+    .replace(/\s+([,.!?;:])/g, '$1')
+    .replace(/([.!?])\s*([.!?])+/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
+function cleanYupooLine(line: string): string {
+  let result = String(line ?? '').trim()
+  if (!result) return ''
+
+  const hadYupoo = containsYupooPlatformText(result) || YUPOO_GLUED_TOKEN_RE.test(result)
+
+  result = result.replace(/https?:\/\/[^\s<>"']*yupoo\.com[^\s<>"']*/gi, ' ')
+  result = result.replace(/\b[\w.-]+\.yupoo\.com\b/gi, ' ')
+  result = result.replace(/\byupoo\.com\b/gi, ' ')
+  result = result.replace(/又拍[\u4e00-\u9fff]*/g, ' ')
+  result = result.replace(/友拍/g, ' ')
+  result = result.replace(/yupoo/gi, ' ')
+  result = result.replace(
+    /\b(?:from|on|via|at|see|view)\s+(?:the\s+)?(?:album|shop|store|catalog|link|page)\b/gi,
+    ' '
+  )
+
+  result = cleanYupooStripArtifacts(result)
+
+  if (hadYupoo && isYupooMarketingResidual(result)) return ''
+  if (/^(?:yupoo|又拍)[\s:：\-–—|｜.!！]*$/i.test(result)) return ''
+  return result.trim()
+}
+
+/** Remove Yupoo platform branding from customer-facing product copy (EN + CN + URLs). */
+export function stripYupooPlatformText(text: string): string {
+  const original = String(text ?? '').trim()
+  if (!original) return original
+
+  const lines = original.split(/\r?\n/)
+  if (lines.length > 1) {
+    const kept = lines.map((line) => cleanYupooLine(line)).filter((line) => line.length > 0)
+    return kept.join('\n').trim()
+  }
+
+  let result = cleanYupooLine(original)
+  result = result
     .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
     .replace(/^[|｜\-–—:：,，.\s]+/, '')
     .replace(/[|｜\-–—:：,，.\s]+$/, '')
-    .replace(/\s+/g, ' ')
     .trim()
 
   return result
@@ -733,8 +784,22 @@ export function sanitizeProductName(name: string): string {
     .replace(/\s+/g, ' ')
     .trim()
   result = stripCjkScriptFromProductText(result)
+
   if (!result) {
-    result = stripCjkScriptFromProductText(original)
+    const fromCode = extractYupooStyleCode(original)
+    if (fromCode) return fromCode
+    const stripped = stripCjkScriptFromProductText(stripYupooPlatformText(original))
+    if (stripped && !containsYupooPlatformText(stripped)) return stripped
+    return ''
+  }
+
+  if (containsYupooPlatformText(result)) {
+    result = stripCjkScriptFromProductText(stripYupooPlatformText(result))
+  }
+
+  if (result.length === 1 && !/\d/.test(result)) {
+    const fromCode = extractYupooStyleCode(original)
+    return fromCode || ''
   }
   return result
 }

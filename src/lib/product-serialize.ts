@@ -1,6 +1,7 @@
 import {
-  normalizeProductImageList,
+  normalizeProductImageListForStorage,
   resolveProductDisplayImages,
+  storageProductImageUrl,
 } from '@/lib/product-image-url'
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 import { polishProductDisplayText } from '@/lib/product-brand-text'
@@ -53,6 +54,8 @@ export type SerializeProductRowOptions = {
   brandNames?: string[]
   /** Internal cost — only for authenticated admin API responses. */
   includePurchasePrice?: boolean
+  /** Raw image URLs for admin edit forms — no display proxy or gallery dedupe against main. */
+  storageImages?: boolean
 }
 
 /** Prefer stored collab label (`A X B`) over single-brand FK join. */
@@ -85,11 +88,16 @@ export function serializeProductRow(
 
   const sourceUrl = row.source_url != null ? String(row.source_url) : null
   const rawGallery = parseProductJsonField(row.gallery_images)
-  const { main, gallery } = resolveProductDisplayImages(
-    String(row.image_url ?? ''),
-    rawGallery,
-    sourceUrl
-  )
+  const storageImages = options?.storageImages === true
+  const displayImages = storageImages
+    ? null
+    : resolveProductDisplayImages(String(row.image_url ?? ''), rawGallery, sourceUrl)
+  const main = storageImages
+    ? storageProductImageUrl(String(row.image_url ?? ''))
+    : displayImages!.main
+  const gallery = storageImages
+    ? normalizeProductImageListForStorage(rawGallery)
+    : displayImages!.gallery
 
   const rawSku = row.sku != null ? String(row.sku).trim() : ''
   const prefixes = options?.brandSkuPrefixes ?? []
@@ -175,7 +183,12 @@ export function serializeCatalogProductRow(
   const category = String(row.resolved_category_name ?? '').trim()
   const brand = resolveProductBrandDisplay(row)
   const sourceUrl = row.source_url != null ? String(row.source_url) : null
-  const { main } = resolveProductDisplayImages(String(row.image_url ?? ''), null, sourceUrl)
+  const rawGallery = parseProductJsonField(row.gallery_images)
+  const { main } = resolveProductDisplayImages(
+    String(row.image_url ?? ''),
+    rawGallery,
+    sourceUrl
+  )
 
   const rawSku = row.sku != null ? String(row.sku).trim() : ''
   const prefixes = options?.brandSkuPrefixes ?? []

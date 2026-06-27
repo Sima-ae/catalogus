@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict'
 import { findProductImageDuplicateGroups } from '../src/lib/product-image-duplicates'
 import {
+  buildProductDisplayGallery,
   cleanProductGalleryUrls,
   dedupeProductImageUrls,
   isBrokenStoredProductImageUrl,
+  normalizeProductImageListForStorage,
+  normalizeStoredProductImages,
+  resolveProductDisplayImages,
+  storageProductImageUrl,
   upgradeYupooImageUrl,
 } from '../src/lib/product-image-url'
 
@@ -89,6 +94,27 @@ function testKeepsLargestYupooVariant() {
   assert.equal(gallery[1], upgradeYupooImageUrl('https://photo.yupoo.com/shop/album/b/medium.jpg'))
 }
 
+function testNumericIdAndSizedFolderDedupe() {
+  const urls = [
+    'https://photo.yupoo.com/jmshop88/41776158.jpg',
+    'https://photo.yupoo.com/jmshop88/41776158/small.jpg',
+    'https://photo.yupoo.com/jmshop88/41776158/medium.jpg',
+    'https://photo.yupoo.com/jmshop88/41776158/large.jpg',
+    'https://photo.yupoo.com/jmshop88/99999999/small.jpg',
+    'https://photo.yupoo.com/jmshop88/99999999/large.jpg',
+  ]
+  const deduped = cleanProductGalleryUrls(urls)
+  assert.equal(deduped.length, 2)
+  assert.equal(
+    deduped[0],
+    'https://photo.yupoo.com/jmshop88/41776158/large.jpg'
+  )
+  assert.equal(
+    deduped[1],
+    'https://photo.yupoo.com/jmshop88/99999999/large.jpg'
+  )
+}
+
 function testBrokenStoredUrls() {
   assert.equal(isBrokenStoredProductImageUrl(''), true)
   assert.equal(isBrokenStoredProductImageUrl('/api/yupoo-image'), true)
@@ -109,8 +135,85 @@ function testBrokenStoredUrls() {
   assert.ok(deduped[0]!.includes('url='))
 }
 
+function testStorageRoundTrip() {
+  const proxy =
+    '/api/yupoo-image?url=' +
+    encodeURIComponent('https://photo.yupoo.com/shop/album/a/medium.jpg')
+  assert.equal(
+    storageProductImageUrl(proxy),
+    upgradeYupooImageUrl('https://photo.yupoo.com/shop/album/a/medium.jpg')
+  )
+
+  const stored = normalizeProductImageListForStorage([
+    proxy,
+    'https://photo.yupoo.com/shop/album/b/small.jpg',
+    'https://photo.yupoo.com/shop/album/b/original.jpg',
+  ])
+  assert.equal(stored?.length, 2)
+}
+
+function testStoredCleanupPreservesDisplayGallery() {
+  const sourceUrl = 'https://example.x.yupoo.com/albums/123'
+  const messyMain = 'https://photo.yupoo.com/jmshop88/41776158/small.jpg'
+  const messyGallery = [
+    'https://photo.yupoo.com/jmshop88/41776158/medium.jpg',
+    'https://photo.yupoo.com/jmshop88/41776158/large.jpg',
+    'https://photo.yupoo.com/jmshop88/99999999/small.jpg',
+    'https://photo.yupoo.com/jmshop88/99999999/large.jpg',
+  ]
+
+  const stored = normalizeStoredProductImages(messyMain, messyGallery)
+  assert.equal(stored.image_url, 'https://photo.yupoo.com/jmshop88/41776158/large.jpg')
+  assert.deepEqual(stored.gallery_images, [
+    'https://photo.yupoo.com/jmshop88/99999999/large.jpg',
+  ])
+
+  const { main, gallery } = resolveProductDisplayImages(
+    stored.image_url,
+    stored.gallery_images,
+    sourceUrl
+  )
+  assert.ok(main.includes('/api/yupoo-image'))
+  assert.equal(gallery?.length, 1)
+  assert.ok(gallery![0]!.includes('/api/yupoo-image'))
+
+  const displayGallery = buildProductDisplayGallery(
+    stored.image_url,
+    stored.gallery_images,
+    sourceUrl
+  )
+  assert.equal(displayGallery.length, 2)
+  assert.equal(displayGallery[0], main)
+  assert.equal(displayGallery[1], gallery![0])
+}
+
+function testCatalogMainFallsBackToGallery() {
+  const sourceUrl = 'https://example.x.yupoo.com/albums/456'
+  const stored = normalizeStoredProductImages('', [
+    'https://photo.yupoo.com/shop/a/small.jpg',
+    'https://photo.yupoo.com/shop/b/medium.jpg',
+  ])
+  assert.equal(
+    stored.image_url,
+    upgradeYupooImageUrl('https://photo.yupoo.com/shop/a/small.jpg')
+  )
+  assert.equal(stored.gallery_images?.length, 1)
+
+  const { main } = resolveProductDisplayImages(
+    stored.image_url,
+    stored.gallery_images,
+    sourceUrl
+  )
+  assert.ok(main.includes('/api/yupoo-image'))
+  assert.ok(main.includes(encodeURIComponent('large')))
+}
+
 testDuplicateGroups()
 testGalleryMatch()
 testKeepsLargestYupooVariant()
+testNumericIdAndSizedFolderDedupe()
 testBrokenStoredUrls()
+testStorageRoundTrip()
+testStoredCleanupPreservesDisplayGallery()
+testCatalogMainFallsBackToGallery()
 console.log('product-image-duplicates tests passed')

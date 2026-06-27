@@ -14,9 +14,8 @@ import { resolve } from 'path'
 import { queryDb } from '@/lib/db'
 import {
   cleanProductGalleryUrls,
-  dedupeProductImageUrls,
-  isBrandingGalleryImageUrl,
   normalizeProductImageUrl,
+  normalizeStoredProductImages,
   stripBrandingGalleryImageUrls,
   upgradeYupooImageUrl,
   isYupooImageUrl,
@@ -55,35 +54,23 @@ type Row = {
   gallery_images: unknown
 }
 
-function cleanStoredProductImages(
+function countBrandingAndDupesRemoved(
   mainRaw: string,
   galleryRaw: string[]
-): { main: string; gallery: string[]; brandingRemoved: number; dupesRemoved: number } {
-  const mainNorm = mainRaw ? normalizeStoredUrl(mainRaw) : ''
-  const galleryNorm = galleryRaw.map((u) => normalizeStoredUrl(String(u))).filter(Boolean)
+): { brandingRemoved: number; dupesRemoved: number } {
+  const beforeAll = [mainRaw, ...galleryRaw]
+    .map((u) => String(u).trim())
+    .filter(Boolean)
+    .map((u) => normalizeStoredUrl(u))
+    .filter(Boolean)
 
-  const beforeAll = [mainNorm, ...galleryNorm].filter(Boolean)
   const afterBranding = stripBrandingGalleryImageUrls(beforeAll)
   const brandingRemoved = beforeAll.length - afterBranding.length
 
-  let main = mainNorm
-  let gallery = galleryNorm
+  const afterDedupe = cleanProductGalleryUrls(afterBranding)
+  const dupesRemoved = afterBranding.length - afterDedupe.length
 
-  if (main && isBrandingGalleryImageUrl(main)) {
-    const next = stripBrandingGalleryImageUrls(galleryNorm)
-    main = next[0] || mainNorm
-    gallery = next.slice(main === next[0] ? 1 : 0)
-  } else {
-    gallery = stripBrandingGalleryImageUrls(galleryNorm)
-  }
-
-  const combined = dedupeProductImageUrls([main, ...gallery].filter(Boolean))
-  const dupesRemoved = afterBranding.length - combined.length
-
-  main = combined[0] || mainNorm || mainRaw
-  gallery = combined.slice(1)
-
-  return { main, gallery, brandingRemoved, dupesRemoved }
+  return { brandingRemoved, dupesRemoved }
 }
 
 async function main() {
@@ -104,7 +91,11 @@ async function main() {
 
     if (!mainRaw && galleryRaw.length === 0) continue
 
-    const { main, gallery, brandingRemoved, dupesRemoved } = cleanStoredProductImages(
+    const cleaned = normalizeStoredProductImages(mainRaw, galleryRaw)
+    const main = cleaned.image_url
+    const gallery = cleaned.gallery_images ?? []
+
+    const { brandingRemoved, dupesRemoved } = countBrandingAndDupesRemoved(
       mainRaw,
       galleryRaw
     )
