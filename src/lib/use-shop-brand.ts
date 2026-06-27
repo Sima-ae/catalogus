@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
-import type { ShopSubcategoryHookValue } from '@/lib/use-shop-subcategory'
+import type {
+  ShopNestedSubcategoryHookValue,
+  ShopSubcategoryHookValue,
+} from '@/lib/use-shop-subcategory'
 import {
   findShopBrandInMenu,
   shouldShowShopBrandFilter,
@@ -21,9 +24,17 @@ type UseShopBrandOptions = {
     ShopSubcategoryHookValue,
     'selectedSubcategory' | 'hasSubcategories' | 'loadingSubcategories'
   >
+  nestedSubcategoryState?: Pick<
+    ShopNestedSubcategoryHookValue,
+    'selectedNestedSubcategory' | 'hasNestedSubcategories' | 'loadingNestedSubcategories'
+  >
 }
 
-export function useShopBrand({ selectedCategory, subcategoryState }: UseShopBrandOptions) {
+export function useShopBrand({
+  selectedCategory,
+  subcategoryState,
+  nestedSubcategoryState,
+}: UseShopBrandOptions) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -34,16 +45,26 @@ export function useShopBrand({ selectedCategory, subcategoryState }: UseShopBran
     loadingSubcategories,
   } = subcategoryState
 
+  const selectedNestedSubcategory =
+    nestedSubcategoryState?.selectedNestedSubcategory ?? 'All'
+  const hasNestedSubcategories = nestedSubcategoryState?.hasNestedSubcategories ?? false
+  const loadingNestedSubcategories =
+    nestedSubcategoryState?.loadingNestedSubcategories ?? false
+
   const brandFilterActive = shouldShowShopBrandFilter({
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     hasSubcategories,
+    hasNestedSubcategories,
     loadingSubcategories,
+    loadingNestedSubcategories,
   })
 
   const brandMenuState = useShopBrandList(
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     brandFilterActive
   )
   const brandMenu = brandMenuState.brands
@@ -79,6 +100,7 @@ export function useShopBrand({ selectedCategory, subcategoryState }: UseShopBran
     brandFilterActive,
     brandMenu,
     loadingBrands,
+    loadingNestedSubcategories,
     loadingSubcategories,
     pathname,
     router,

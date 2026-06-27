@@ -8,6 +8,7 @@ export function buildPricelistItemsQueryString(input: {
   search?: string
   category?: string
   subcategory?: string
+  nested?: string
   brand?: string
   missingPricesOnly?: boolean
   filledPricesOnly?: boolean
@@ -23,6 +24,9 @@ export function buildPricelistItemsQueryString(input: {
   if (input.category && input.category !== 'All') params.set('category', input.category)
   if (input.subcategory && input.subcategory !== 'All') {
     params.set('subcategory', input.subcategory)
+  }
+  if (input.nested && input.nested !== 'All') {
+    params.set('nested', input.nested)
   }
   if (input.brand && input.brand !== 'All') params.set('brand', input.brand)
   if (input.missingPricesOnly === false) params.set('missingPrices', 'false')

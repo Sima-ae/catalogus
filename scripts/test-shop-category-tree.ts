@@ -7,6 +7,9 @@ import {
   buildCategoryParentPickerOptions,
   buildCategoryPickerOptions,
 } from '../src/lib/category-picker'
+import {
+  findCategoryShopPath,
+} from '../src/lib/shop-category-tree'
 import { buildShopCategoryMenu } from '../src/lib/shop-category-menu'
 import {
   categoryHasChildren,
@@ -81,8 +84,8 @@ const soccerShirts = resolveShopCategoryFilter(tree, {
   category: 'SOCCER',
   subcategory: 'SHIRTS',
 })
-assert.deepEqual(ids(soccerShirts), ['soccer-shirts'])
-assert.equal(soccerShirts?.strictIdOnly, true)
+assert.deepEqual(ids(soccerShirts).sort(), ['soccer-shirts'])
+assert.equal(soccerShirts?.strictIdOnly, false)
 assert.deepEqual(soccerShirts?.legacyNames, ['SOCCER › SHIRTS'])
 assert.equal(soccerShirts?.categoryStorageLabel, 'SOCCER › SHIRTS')
 
@@ -168,6 +171,8 @@ assert.deepEqual(
 const nested: CategoryTreeRow[] = [
   row('clothes', 'CLOTHES'),
   row('mixed', '- MIXED -', 'clothes'),
+  row('socks', 'SOCKS', 'clothes'),
+  row('socks-women', 'WOMEN', 'socks'),
   row('shoes', 'SHOES'),
   row('sneakers', 'SNEAKERS', 'shoes'),
   row('limited', 'LIMITED', 'sneakers'),
@@ -188,5 +193,33 @@ assert.ok(!editSneakers.some((o) => o.id === 'limited'))
 
 const editClothes = buildCategoryParentPickerOptions(nested, 'clothes')
 assert.ok(!editClothes.some((o) => o.id === 'mixed'))
+
+const footwearTree: CategoryTreeRow[] = [
+  row('footwear', 'FOOTWEAR'),
+  row('slippers', 'SLIPPERS', 'footwear'),
+  row('slippers-women', 'WOMEN', 'slippers'),
+  row('shoes', 'SHOES', 'footwear'),
+]
+
+const footwearSlippersFilter = resolveShopCategoryFilter(footwearTree, {
+  category: 'FOOTWEAR',
+  subcategory: 'SLIPPERS',
+})
+assert.deepEqual(ids(footwearSlippersFilter).sort(), ['slippers', 'slippers-women'].sort())
+assert.equal(footwearSlippersFilter?.strictIdOnly, false)
+
+const slippersWomen = resolveShopCategoryFilter(footwearTree, {
+  category: 'FOOTWEAR',
+  subcategory: 'SLIPPERS',
+  nested: 'WOMEN',
+})
+assert.deepEqual(ids(slippersWomen), ['slippers-women'])
+
+const clothesPath = findCategoryShopPath(nested, 'WOMEN')
+assert.deepEqual(clothesPath, {
+  category: 'CLOTHES',
+  subcategory: 'SOCKS',
+  nested: 'WOMEN',
+})
 
 console.log('shop-category-tree: all assertions passed')

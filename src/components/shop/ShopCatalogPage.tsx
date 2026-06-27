@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/Sidebar'
@@ -21,7 +21,7 @@ import { appPath } from '@/lib/paths'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopSearch } from '@/lib/use-shop-search'
-import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import { useShopNestedSubcategory, useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
@@ -99,9 +99,21 @@ function ShopCatalogPageContent({
     hasSubcategories,
     loadingSubcategories,
   } = subcategoryState
+  const nestedSubcategoryState = useShopNestedSubcategory(
+    selectedCategory,
+    selectedSubcategory
+  )
+  const {
+    selectedNestedSubcategory,
+    setSelectedNestedSubcategory,
+    hasNestedSubcategories,
+    loadingNestedSubcategories,
+    nestedSubcategoryOptions,
+  } = nestedSubcategoryState
   const { selectedBrand, setSelectedBrand } = useShopBrand({
     selectedCategory,
     subcategoryState,
+    nestedSubcategoryState,
   })
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
   const [loading, setLoading] = useState(!initialCatalog)
@@ -113,6 +125,9 @@ function ShopCatalogPageContent({
   const [filterNavigating, setFilterNavigating] = useState(false)
   const [optimisticCategory, setOptimisticCategory] = useState<string | null>(null)
   const [optimisticSubcategory, setOptimisticSubcategory] = useState<string | null>(null)
+  const [optimisticNestedSubcategory, setOptimisticNestedSubcategory] = useState<string | null>(
+    null
+  )
   const [optimisticBrand, setOptimisticBrand] = useState<string | null>(null)
   const hasLoadedOnce = useRef(Boolean(initialCatalog))
   const { user, isAdmin } = useAuth()
@@ -144,12 +159,15 @@ function ShopCatalogPageContent({
   const brandFilterCtx = {
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     hasSubcategories,
+    hasNestedSubcategories,
     loadingSubcategories,
+    loadingNestedSubcategories,
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const brandQueryActive = shouldPassBrandToCatalogQuery(filterBrand)
-  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
+  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
 
   const catalogMode = config.mode === 'new' ? 'new' : 'all'
 
@@ -178,6 +196,7 @@ function ShopCatalogPageContent({
   const handleSubcategoryChange = useCallback(
     (subcategory: string) => {
       setOptimisticSubcategory(subcategory)
+      setOptimisticNestedSubcategory(null)
       beginFilterNavigation({
         page: 1,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
@@ -189,6 +208,27 @@ function ShopCatalogPageContent({
     [beginFilterNavigation, catalogMode, selectedCategory, setSelectedSubcategory]
   )
 
+  const handleNestedSubcategoryChange = useCallback(
+    (nested: string) => {
+      setOptimisticNestedSubcategory(nested)
+      beginFilterNavigation({
+        page: 1,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+        nested: nested !== 'All' ? nested : undefined,
+        mode: catalogMode,
+      })
+      setSelectedNestedSubcategory(nested)
+    },
+    [
+      beginFilterNavigation,
+      catalogMode,
+      selectedCategory,
+      selectedSubcategory,
+      setSelectedNestedSubcategory,
+    ]
+  )
+
   const handleBrandChange = useCallback(
     (brand: string) => {
       setOptimisticBrand(brand)
@@ -196,6 +236,7 @@ function ShopCatalogPageContent({
         page: 1,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
         subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+        nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
         brand: brand !== 'All' ? brand : undefined,
         mode: catalogMode,
       })
@@ -206,6 +247,7 @@ function ShopCatalogPageContent({
       catalogMode,
       selectedCategory,
       selectedSubcategory,
+      selectedNestedSubcategory,
       setSelectedBrand,
     ]
   )
@@ -216,6 +258,7 @@ function ShopCatalogPageContent({
         page: 1,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
         subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+        nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
         brand: brandQueryActive ? filterBrand : undefined,
         tag: filterTag || undefined,
         search: debouncedSearch || undefined,
@@ -231,12 +274,25 @@ function ShopCatalogPageContent({
       filterTag,
       selectedCategory,
       selectedSubcategory,
+      selectedNestedSubcategory,
     ]
+  )
+
+  const nestedPillState = useMemo(
+    () => ({
+      selectedSubcategory: nestedSubcategoryState.selectedNestedSubcategory,
+      setSelectedSubcategory: nestedSubcategoryState.setSelectedNestedSubcategory,
+      subcategoryOptions: nestedSubcategoryState.nestedSubcategoryOptions,
+      hasSubcategories: nestedSubcategoryState.hasNestedSubcategories,
+      loadingSubcategories: nestedSubcategoryState.loadingNestedSubcategories,
+    }),
+    [nestedSubcategoryState]
   )
 
   useEffect(() => {
     setOptimisticCategory(null)
     setOptimisticSubcategory(null)
+    setOptimisticNestedSubcategory(null)
     setOptimisticBrand(null)
     setFilterNavigating(false)
   }, [searchParams])
@@ -366,6 +422,7 @@ function ShopCatalogPageContent({
       page: pageToLoad,
       category: selectedCategory !== 'All' ? selectedCategory : undefined,
       subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
       brand: brandQueryActive ? filterBrand : undefined,
       tag: filterTag || undefined,
       search: debouncedSearch || undefined,
@@ -416,6 +473,7 @@ function ShopCatalogPageContent({
           limit: CATALOG_PAGE_SIZE,
           category: fetchFilters.category,
           subcategory: fetchFilters.subcategory,
+          nested: fetchFilters.nested,
           brand: fetchFilters.brand,
           tag: fetchFilters.tag,
           search: fetchFilters.search,
@@ -466,6 +524,7 @@ function ShopCatalogPageContent({
     reloadToken,
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     setCurrentPage,
   ])
 
@@ -483,6 +542,7 @@ function ShopCatalogPageContent({
     async function fetchCount(params: {
       category?: string
       subcategory?: string
+      nested?: string
       brand?: string
     }): Promise<number> {
       const url = buildCatalogProductsUrl(appPath('/api/products'), {
@@ -507,6 +567,7 @@ function ShopCatalogPageContent({
             fetchCount({
               category: selectedCategory,
               subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+              nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
             }).then((n) => {
               if (!cancelled) setCategoryProductCount(n)
             })
@@ -520,6 +581,7 @@ function ShopCatalogPageContent({
             fetchCount({
               category: selectedCategory !== 'All' ? selectedCategory : undefined,
               subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+              nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
               brand: filterBrand,
             }).then((n) => {
               if (!cancelled) setBrandProductCount(n)
@@ -607,11 +669,26 @@ function ShopCatalogPageContent({
                 onSubcategoryHover={(subcategory) =>
                   prefetchCatalogHover({
                     subcategory: subcategory !== 'All' ? subcategory : undefined,
+                    nested: undefined,
                     brand: undefined,
                   })
                 }
                 centered={config.centerCatalog}
                 subcategoryState={subcategoryState}
+              />
+              <SubcategoryFilter
+                selectedCategory={selectedSubcategory}
+                displaySubcategory={optimisticNestedSubcategory ?? undefined}
+                onSubcategoryChange={handleNestedSubcategoryChange}
+                onSubcategoryHover={(nested) =>
+                  prefetchCatalogHover({
+                    nested: nested !== 'All' ? nested : undefined,
+                    brand: undefined,
+                  })
+                }
+                centered={config.centerCatalog}
+                subcategoryState={nestedPillState}
+                ariaLabel="Nested subcategories"
               />
               <BrandFilter
                 selectedCategory={selectedCategory}
@@ -625,6 +702,7 @@ function ShopCatalogPageContent({
                 }
                 centered={config.centerCatalog}
                 subcategoryState={subcategoryState}
+                nestedSubcategoryState={nestedSubcategoryState}
               />
             </div>
 

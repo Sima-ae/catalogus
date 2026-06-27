@@ -37,7 +37,7 @@ import { formatMessage } from '@/lib/i18n'
 import PricelistFilterToggleButton from '@/components/pricelist/PricelistFilterToggleButton'
 import PricelistExportButton from '@/components/pricelist/PricelistExportButton'
 import { useShopCategory } from '@/lib/use-shop-category'
-import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import { useShopNestedSubcategory, useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
 import type { PricelistListQuery } from '@/lib/use-pricelist'
@@ -60,13 +60,25 @@ export default function PricelistPageClient() {
   const { selectedCategory } = useShopCategory()
   const subcategoryState = useShopSubcategory(selectedCategory)
   const { selectedSubcategory, hasSubcategories, loadingSubcategories } = subcategoryState
-  const { selectedBrand } = useShopBrand({ selectedCategory, subcategoryState })
+  const nestedSubcategoryState = useShopNestedSubcategory(
+    selectedCategory,
+    selectedSubcategory
+  )
+  const { selectedNestedSubcategory } = nestedSubcategoryState
+  const { selectedBrand } = useShopBrand({
+    selectedCategory,
+    subcategoryState,
+    nestedSubcategoryState,
+  })
   const filterBrand = selectedBrand
   const brandFilterCtx = {
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     hasSubcategories,
+    hasNestedSubcategories: nestedSubcategoryState.hasNestedSubcategories,
     loadingSubcategories,
+    loadingNestedSubcategories: nestedSubcategoryState.loadingNestedSubcategories,
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const [quickFilter, setQuickFilter] = useState<PricelistQuickFilter>('missing')
@@ -85,6 +97,7 @@ export default function PricelistPageClient() {
       search: debouncedSearch.trim() || undefined,
       category: selectedCategory !== 'All' ? selectedCategory : undefined,
       subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
       brand: brandFilterActive && filterBrand !== 'All' ? filterBrand : undefined,
       missingPricesOnly: quickFilter === 'missing',
       filledPricesOnly: quickFilter === 'filled',
@@ -98,6 +111,7 @@ export default function PricelistPageClient() {
     pageSize,
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     quickFilter,
   ])
 
@@ -675,7 +689,7 @@ export default function PricelistPageClient() {
       ) : null}
 
       {!loading && (totalOnPricelist > 0 || hasActiveFilters) ? (
-        <PricelistCatalogFilters subcategoryState={subcategoryState} />
+        <PricelistCatalogFilters />
       ) : null}
 
       {loading ? (

@@ -6,14 +6,21 @@ export type BrandRow = {
 export type ShopBrandFilterContext = {
   selectedCategory: string
   selectedSubcategory: string
+  selectedNestedSubcategory?: string
   hasSubcategories: boolean
+  hasNestedSubcategories?: boolean
   loadingSubcategories: boolean
+  loadingNestedSubcategories?: boolean
 }
 
-/** Show brand pills only for a specific subcategory, or when the category has no subcategory row. */
+/** Show brand pills when a leaf filter is selected or no deeper pills remain. */
 export function shouldShowShopBrandFilter(ctx: ShopBrandFilterContext): boolean {
   if (!ctx.selectedCategory || ctx.selectedCategory === 'All') return false
-  if (ctx.selectedSubcategory !== 'All') return true
+  if (ctx.selectedNestedSubcategory && ctx.selectedNestedSubcategory !== 'All') return true
+  if (ctx.selectedSubcategory !== 'All') {
+    if (ctx.loadingNestedSubcategories) return false
+    return !ctx.hasNestedSubcategories
+  }
   if (ctx.loadingSubcategories) return false
   return !ctx.hasSubcategories
 }

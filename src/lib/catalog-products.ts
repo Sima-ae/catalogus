@@ -12,6 +12,8 @@ export type CatalogProductsQuery = {
   category?: string
   /** Narrow a parent category to one subcategory (e.g. SOCCER → SHIRTS). */
   subcategory?: string
+  /** Third-level pill (e.g. CLOTHES → SOCKS → WOMEN). */
+  nested?: string
   /** Resolved server-side — category ids for precise parent/child filtering. */
   categoryIds?: string[]
   /** Legacy product names when category_id is missing (not used for strict subcategory filters). */
@@ -68,6 +70,7 @@ export function parseCatalogProductsQuery(
 
   const category = searchParams.get('category')?.trim() || undefined
   const subcategory = searchParams.get('subcategory')?.trim() || undefined
+  const nested = searchParams.get('nested')?.trim() || undefined
   const brand = searchParams.get('brand')?.trim() || undefined
   const tag = searchParams.get('tag')?.trim() || undefined
   const search = searchParams.get('search')?.trim() || undefined
@@ -75,7 +78,7 @@ export function parseCatalogProductsQuery(
   const mode: CatalogMode | undefined =
     modeRaw === 'new' || modeRaw === 'all' ? modeRaw : undefined
 
-  return { page, limit, category, subcategory, brand, tag, search, mode }
+  return { page, limit, category, subcategory, nested, brand, tag, search, mode }
 }
 
 function toMysqlDatetime(d: Date): string {
@@ -551,6 +554,9 @@ export function buildCatalogProductsUrl(
   if (query.category && query.category !== 'All') params.set('category', query.category)
   if (query.subcategory && query.subcategory !== 'All') {
     params.set('subcategory', query.subcategory)
+  }
+  if (query.nested && query.nested !== 'All') {
+    params.set('nested', query.nested)
   }
   if (query.brand && query.brand !== 'All') params.set('brand', query.brand)
   if (query.tag) params.set('tag', query.tag)

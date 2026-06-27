@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { useShopCategories } from '@/lib/use-shop-categories'
 import {
+  findCategoryShopPath,
   findParentCategoryName,
 } from '@/lib/shop-category-tree'
 import {
@@ -28,6 +29,9 @@ export function useShopCategory() {
     if (!raw) return 'All'
     if (categoryMenu.includes(raw)) return raw
 
+    const path = findCategoryShopPath(categoryRows, raw)
+    if (path) return path.category
+
     const parent = findParentCategoryName(categoryRows, raw)
     if (parent) return parent
 
@@ -46,8 +50,10 @@ export function useShopCategory() {
         isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       params.set('category', compound.category)
-      params.set('subcategory', compound.subcategory ?? '')
-      if (!compound.subcategory) params.delete('subcategory')
+      if (compound.subcategory) params.set('subcategory', compound.subcategory)
+      else params.delete('subcategory')
+      if (compound.nested) params.set('nested', compound.nested)
+      else params.delete('nested')
       params.delete('brand')
       const qs = params.toString()
       router.replace(qs ? `${basePath}?${qs}` : basePath)
@@ -55,6 +61,23 @@ export function useShopCategory() {
     }
 
     if (!categoryRows.length) return
+
+    const path = findCategoryShopPath(categoryRows, raw)
+    if (path) {
+      const basePath = catalogFilterBasePath(pathname)
+      const params = new URLSearchParams(
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
+      )
+      params.set('category', path.category)
+      if (path.subcategory) params.set('subcategory', path.subcategory)
+      else params.delete('subcategory')
+      if (path.nested) params.set('nested', path.nested)
+      else params.delete('nested')
+      params.delete('brand')
+      const qs = params.toString()
+      router.replace(qs ? `${basePath}?${qs}` : basePath)
+      return
+    }
 
     const parent = findParentCategoryName(categoryRows, raw)
     if (!parent) return
@@ -77,6 +100,7 @@ export function useShopCategory() {
     if (categoryMenu.includes(raw)) return
     if (!categoryRows.length) return
     if (findParentCategoryName(categoryRows, raw)) return
+    if (findCategoryShopPath(categoryRows, raw)) return
     if (parseCompoundCategoryParam(raw)) return
 
     const basePath = catalogFilterBasePath(pathname)
@@ -85,6 +109,7 @@ export function useShopCategory() {
     )
     params.delete('category')
     params.delete('subcategory')
+    params.delete('nested')
     params.delete('brand')
     const qs = params.toString()
     router.replace(qs ? `${basePath}?${qs}` : basePath)
@@ -93,7 +118,8 @@ export function useShopCategory() {
   useEffect(() => {
     const raw = searchParams.get('category')?.trim()
     const sub = searchParams.get('subcategory')?.trim() || 'All'
-    if (raw && raw !== 'All') prefetchShopBrandMenu(raw, sub)
+    const nested = searchParams.get('nested')?.trim() || 'All'
+    if (raw && raw !== 'All') prefetchShopBrandMenu(raw, sub, nested)
   }, [searchParams])
 
   const setSelectedCategory = useCallback(
@@ -108,10 +134,12 @@ export function useShopCategory() {
       if (category === 'All') {
         params.delete('category')
         params.delete('subcategory')
+        params.delete('nested')
         params.delete('brand')
       } else {
         params.set('category', category)
         params.delete('subcategory')
+        params.delete('nested')
         params.delete('brand')
       }
       const qs = params.toString()

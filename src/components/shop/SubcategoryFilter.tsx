@@ -12,6 +12,7 @@ interface SubcategoryFilterProps {
   onSubcategoryChange?: (subcategory: string) => void
   onSubcategoryHover?: (subcategory: string) => void
   subcategoryState: ShopSubcategoryHookValue
+  ariaLabel?: string
 }
 
 export default function SubcategoryFilter({
@@ -21,6 +22,7 @@ export default function SubcategoryFilter({
   onSubcategoryChange,
   onSubcategoryHover,
   subcategoryState,
+  ariaLabel = 'Subcategories',
 }: SubcategoryFilterProps) {
   const { t } = useI18n()
   const {
@@ -50,7 +52,7 @@ export default function SubcategoryFilter({
         onChange={onChange}
         onItemHover={onSubcategoryHover}
         showArrows={subcategoryOptions.length > 6}
-        ariaLabel="Subcategories"
+        ariaLabel={ariaLabel}
         centered={centered}
         getLabel={(value) => getTopCategoryLabel(value, t, { allStyle: 'all' })}
       />

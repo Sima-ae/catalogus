@@ -14,6 +14,7 @@ export type ShopCatalogFilterPrefetch = {
   page?: number
   category?: string
   subcategory?: string
+  nested?: string
   brand?: string
   tag?: string
   search?: string
@@ -30,6 +31,7 @@ export function shopCatalogClientSignature(
       category: filters.category && filters.category !== 'All' ? filters.category : 'All',
       subcategory:
         filters.subcategory && filters.subcategory !== 'All' ? filters.subcategory : 'All',
+      nested: filters.nested && filters.nested !== 'All' ? filters.nested : 'All',
       brand: filters.brand && filters.brand !== 'All' ? filters.brand : 'All',
       tag: filters.tag ?? '',
       search: filters.search ?? '',
@@ -60,6 +62,7 @@ async function fetchShopCatalogPage(
     category: filters.category && filters.category !== 'All' ? filters.category : undefined,
     subcategory:
       filters.subcategory && filters.subcategory !== 'All' ? filters.subcategory : undefined,
+    nested: filters.nested && filters.nested !== 'All' ? filters.nested : undefined,
     brand: filters.brand && filters.brand !== 'All' ? filters.brand : undefined,
     tag: filters.tag || undefined,
     search: filters.search || undefined,

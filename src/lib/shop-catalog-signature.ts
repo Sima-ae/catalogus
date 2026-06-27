@@ -6,10 +6,11 @@ export function buildShopCatalogSignature(
   const page = pickSearchParam(searchParams, 'page') ?? '1'
   const category = pickSearchParam(searchParams, 'category') ?? 'All'
   const subcategory = pickSearchParam(searchParams, 'subcategory') ?? 'All'
+  const nested = pickSearchParam(searchParams, 'nested') ?? 'All'
   const brand = pickSearchParam(searchParams, 'brand') ?? 'All'
   const tag = pickSearchParam(searchParams, 'tag') ?? ''
   const search = pickSearchParam(searchParams, 'search') ?? ''
-  return `${page}|${category}|${subcategory}|${brand}|${tag}|${search}|${mode}`
+  return `${page}|${category}|${subcategory}|${nested}|${brand}|${tag}|${search}|${mode}`
 }
 
 function pickSearchParam(

@@ -7,15 +7,20 @@ import { buildShopBrandMenu, type BrandRow } from '@/lib/shop-brand-menu'
 const brandCache = new Map<string, string[]>()
 const brandInflight = new Map<string, Promise<string[]>>()
 
-function brandCacheKey(selectedCategory: string, selectedSubcategory: string): string {
-  return `${selectedCategory}|${selectedSubcategory}`
+function brandCacheKey(
+  selectedCategory: string,
+  selectedSubcategory: string,
+  selectedNested: string
+): string {
+  return `${selectedCategory}|${selectedSubcategory}|${selectedNested}`
 }
 
 async function fetchShopBrandMenu(
   selectedCategory: string,
-  selectedSubcategory: string
+  selectedSubcategory: string,
+  selectedNested: string
 ): Promise<string[]> {
-  const key = brandCacheKey(selectedCategory, selectedSubcategory)
+  const key = brandCacheKey(selectedCategory, selectedSubcategory, selectedNested)
   const cached = brandCache.get(key)
   if (cached) return cached
 
@@ -28,6 +33,9 @@ async function fetchShopBrandMenu(
   }
   if (selectedSubcategory && selectedSubcategory !== 'All') {
     params.set('subcategory', selectedSubcategory)
+  }
+  if (selectedNested && selectedNested !== 'All') {
+    params.set('nested', selectedNested)
   }
   const qs = params.toString()
   const url = qs ? `${appPath('/api/brands')}?${qs}` : appPath('/api/brands')
@@ -58,10 +66,11 @@ export function invalidateShopBrandMenuCache(): void {
 /** Warm the client cache when the user picks a category (parallel with other fetches). */
 export function prefetchShopBrandMenu(
   selectedCategory: string,
-  selectedSubcategory: string = 'All'
+  selectedSubcategory: string = 'All',
+  selectedNested: string = 'All'
 ): void {
   if (!selectedCategory || selectedCategory === 'All') return
-  void fetchShopBrandMenu(selectedCategory, selectedSubcategory)
+  void fetchShopBrandMenu(selectedCategory, selectedSubcategory, selectedNested)
 }
 
 export type ShopBrandListState = {
@@ -73,9 +82,10 @@ export type ShopBrandListState = {
 export function useShopBrandList(
   selectedCategory: string = 'All',
   selectedSubcategory: string = 'All',
+  selectedNested: string = 'All',
   enabled: boolean = true
 ): ShopBrandListState {
-  const cacheKey = brandCacheKey(selectedCategory, selectedSubcategory)
+  const cacheKey = brandCacheKey(selectedCategory, selectedSubcategory, selectedNested)
   const cachedMenu = enabled ? brandCache.get(cacheKey) : undefined
 
   const [brands, setBrands] = useState<string[]>(() => cachedMenu ?? [])
@@ -99,7 +109,7 @@ export function useShopBrandList(
     }
 
     let cancelled = false
-    fetchShopBrandMenu(selectedCategory, selectedSubcategory)
+    fetchShopBrandMenu(selectedCategory, selectedSubcategory, selectedNested)
       .then((menu) => {
         if (!cancelled) {
           setBrands(menu)
@@ -116,7 +126,7 @@ export function useShopBrandList(
     return () => {
       cancelled = true
     }
-  }, [cacheKey, selectedCategory, selectedSubcategory, enabled])
+  }, [cacheKey, selectedCategory, selectedSubcategory, selectedNested, enabled])
 
   return useMemo(() => ({ brands, loading }), [brands, loading])
 }

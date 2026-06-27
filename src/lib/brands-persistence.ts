@@ -11,8 +11,12 @@ import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cach
 const ACTIVE_BRANDS_CACHE_NS = 'active-brands'
 const ACTIVE_BRANDS_TTL_MS = 180_000
 
-function activeBrandsCacheKey(categoryName?: string, subcategory?: string): string {
-  return `${categoryName?.trim() || ''}|${subcategory?.trim() || ''}`
+function activeBrandsCacheKey(
+  categoryName?: string,
+  subcategory?: string,
+  nested?: string
+): string {
+  return `${categoryName?.trim() || ''}|${subcategory?.trim() || ''}|${nested?.trim() || ''}`
 }
 
 export function invalidateActiveBrandsCache(): void {
@@ -29,14 +33,16 @@ export async function loadAllBrands(): Promise<BrandRecord[]> {
 
 export async function loadActiveBrands(
   categoryName?: string,
-  subcategory?: string
+  subcategory?: string,
+  nested?: string
 ): Promise<BrandRecord[]> {
   try {
     return getCachedValue(
       ACTIVE_BRANDS_CACHE_NS,
-      activeBrandsCacheKey(categoryName, subcategory),
+      activeBrandsCacheKey(categoryName, subcategory, nested),
       ACTIVE_BRANDS_TTL_MS,
-      async () => (await listBrands(true, categoryName, subcategory)) as BrandRecord[]
+      async () =>
+        (await listBrands(true, categoryName, subcategory, nested)) as BrandRecord[]
     )
   } catch {
     return []

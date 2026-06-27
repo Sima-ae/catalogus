@@ -59,6 +59,7 @@ export type PricelistListQuery = {
   search?: string
   category?: string
   subcategory?: string
+  nested?: string
   brand?: string
   missingPricesOnly?: boolean
   filledPricesOnly?: boolean
@@ -140,6 +141,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
         search: listQuery?.search,
         category: listQuery?.category,
         subcategory: listQuery?.subcategory,
+        nested: listQuery?.nested,
         brand: listQuery?.brand,
         missingPricesOnly: listQuery?.missingPricesOnly,
         filledPricesOnly: listQuery?.filledPricesOnly,
@@ -189,6 +191,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
         search: scope === 'filtered' ? listQuery?.search : undefined,
         category: scope === 'filtered' ? listQuery?.category : undefined,
         subcategory: scope === 'filtered' ? listQuery?.subcategory : undefined,
+        nested: scope === 'filtered' ? listQuery?.nested : undefined,
         brand: scope === 'filtered' ? listQuery?.brand : undefined,
         missingPricesOnly: scope === 'allMissing' ? true : listQuery?.missingPricesOnly,
         filledPricesOnly: scope === 'filtered' ? listQuery?.filledPricesOnly : undefined,
@@ -217,6 +220,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       search: listQuery?.search,
       category: listQuery?.category,
       subcategory: listQuery?.subcategory,
+      nested: listQuery?.nested,
       brand: listQuery?.brand,
       missingPricesOnly: false,
       exportAll: true,

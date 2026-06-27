@@ -4,7 +4,10 @@ import FilterPillsScroll from '@/components/shop/FilterPillsScroll'
 import FilterPillsSkeleton from '@/components/shop/FilterPillsSkeleton'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
 import { shouldShowShopBrandFilter } from '@/lib/shop-brand-menu'
-import type { ShopSubcategoryHookValue } from '@/lib/use-shop-subcategory'
+import type {
+  ShopNestedSubcategoryHookValue,
+  ShopSubcategoryHookValue,
+} from '@/lib/use-shop-subcategory'
 
 interface BrandFilterProps {
   selectedCategory: string
@@ -17,6 +20,10 @@ interface BrandFilterProps {
     ShopSubcategoryHookValue,
     'selectedSubcategory' | 'hasSubcategories' | 'loadingSubcategories'
   >
+  nestedSubcategoryState?: Pick<
+    ShopNestedSubcategoryHookValue,
+    'selectedNestedSubcategory' | 'hasNestedSubcategories' | 'loadingNestedSubcategories'
+  >
 }
 
 export default function BrandFilter({
@@ -27,6 +34,7 @@ export default function BrandFilter({
   displayBrand,
   onBrandHover,
   subcategoryState,
+  nestedSubcategoryState,
 }: BrandFilterProps) {
   const {
     selectedSubcategory,
@@ -34,16 +42,26 @@ export default function BrandFilter({
     loadingSubcategories,
   } = subcategoryState
 
+  const selectedNestedSubcategory =
+    nestedSubcategoryState?.selectedNestedSubcategory ?? 'All'
+  const hasNestedSubcategories = nestedSubcategoryState?.hasNestedSubcategories ?? false
+  const loadingNestedSubcategories =
+    nestedSubcategoryState?.loadingNestedSubcategories ?? false
+
   const showBrandRow = shouldShowShopBrandFilter({
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     hasSubcategories,
+    hasNestedSubcategories,
     loadingSubcategories,
+    loadingNestedSubcategories,
   })
 
   const { brands, loading } = useShopBrandList(
     selectedCategory,
     selectedSubcategory,
+    selectedNestedSubcategory,
     showBrandRow
   )
 

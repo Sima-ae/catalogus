@@ -59,12 +59,23 @@ export function getDirectChildCategories(
 ): CategoryTreeRow[] {
   const parent = findCategoryByName(rows, parentName)
   if (!parent) return []
+  return getDirectChildCategoriesByParentId(rows, parent.id, parent.name)
+}
+
+/** Direct children of a parent row id (stable when names repeat under different parents). */
+export function getDirectChildCategoriesByParentId(
+  rows: CategoryTreeRow[],
+  parentId: string,
+  parentName?: string
+): CategoryTreeRow[] {
+  const parent = rows.find((row) => row.id === parentId)
+  const parentLabel = parentName ?? parent?.name ?? ''
   return rows
     .filter(
       (row) =>
-        row.parent_id === parent.id &&
+        row.parent_id === parentId &&
         isActiveRow(row) &&
-        !isQualifiedSiblingCategory(parent.name, row.name)
+        !isQualifiedSiblingCategory(parentLabel, row.name)
     )
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 }
@@ -73,7 +84,47 @@ export function categoryHasChildren(rows: CategoryTreeRow[], name: string): bool
   return getDirectChildCategories(rows, name).length > 0
 }
 
-function getCategoryAndDescendantIds(
+export function categoryHasChildrenUnderParent(
+  rows: CategoryTreeRow[],
+  topCategoryName: string,
+  subcategoryName: string
+): boolean {
+  return getDirectChildCategoriesUnderPath(rows, topCategoryName, subcategoryName).length > 0
+}
+
+/** Direct children of `subcategoryName` when scoped under `topCategoryName`. */
+export function getDirectChildCategoriesUnderPath(
+  rows: CategoryTreeRow[],
+  topCategoryName: string,
+  subcategoryName: string
+): CategoryTreeRow[] {
+  const top = findCategoryByName(rows, topCategoryName)
+  if (!top) return []
+  const mid = rows.find(
+    (row) =>
+      row.parent_id === top.id &&
+      normalizeName(row.name) === normalizeName(subcategoryName) &&
+      isActiveRow(row)
+  )
+  if (!mid) return []
+  return getDirectChildCategoriesByParentId(rows, mid.id, mid.name)
+}
+
+function findChildUnderParent(
+  rows: CategoryTreeRow[],
+  parent: CategoryTreeRow,
+  childName: string
+): CategoryTreeRow | undefined {
+  return rows.find(
+    (row) =>
+      row.parent_id === parent.id &&
+      normalizeName(row.name) === normalizeName(childName) &&
+      isActiveRow(row) &&
+      !isQualifiedSiblingCategory(parent.name, row.name)
+  )
+}
+
+export function getCategoryAndDescendantIds(
   rows: CategoryTreeRow[],
   cat: CategoryTreeRow
 ): { ids: string[]; names: string[] } {
@@ -96,6 +147,8 @@ function getCategoryAndDescendantIds(
 export type ShopCategoryFilterInput = {
   category?: string
   subcategory?: string
+  /** Third-level pill under category + subcategory (URL: ?nested=). */
+  nested?: string
 }
 
 export type ShopCategoryFilterResult = {
@@ -134,6 +187,61 @@ export function getHomonymousSubcategoryIdsElsewhere(
     .map((row) => row.id)
 }
 
+function buildSubtreeFilter(
+  rows: CategoryTreeRow[],
+  anchor: CategoryTreeRow
+): ShopCategoryFilterResult {
+  const { ids } = getCategoryAndDescendantIds(rows, anchor)
+  const legacyNames = ids
+    .map((id) => rows.find((row) => row.id === id))
+    .filter((row): row is CategoryTreeRow => Boolean(row))
+    .map((row) => storageLabelForRow(rows, row))
+  return {
+    categoryIds: ids,
+    legacyNames,
+    strictIdOnly: false,
+    categoryStorageLabel: storageLabelForRow(rows, anchor),
+  }
+}
+
+/** Walk from a category row up to the shop top-level (skipping qualified siblings). */
+export function buildCategoryAncestorChain(
+  rows: CategoryTreeRow[],
+  cat: CategoryTreeRow
+): CategoryTreeRow[] {
+  const chain: CategoryTreeRow[] = [cat]
+  let cursor: CategoryTreeRow | undefined = cat
+  while (cursor?.parent_id) {
+    const parent = rows.find((row) => row.id === cursor!.parent_id)
+    if (!parent) break
+    if (isQualifiedSiblingCategory(parent.name, cursor.name)) break
+    chain.unshift(parent)
+    cursor = parent
+  }
+  return chain
+}
+
+/** Map a category name to shop URL pills: top / subcategory / nested. */
+export function findCategoryShopPath(
+  rows: CategoryTreeRow[],
+  name: string
+): { category: string; subcategory?: string; nested?: string } | null {
+  const cat = findCategoryByName(rows, name)
+  if (!cat) return null
+  const chain = buildCategoryAncestorChain(rows, cat)
+  const top = chain[0]
+  if (!top) return null
+  if (chain.length === 1) return { category: top.name }
+  if (chain.length === 2) {
+    return { category: top.name, subcategory: chain[1]!.name }
+  }
+  return {
+    category: top.name,
+    subcategory: chain[1]!.name,
+    nested: chain[chain.length - 1]!.name,
+  }
+}
+
 /** Resolve which categories a shop filter should match (by id, not ambiguous name). */
 export function resolveShopCategoryFilter(
   rows: CategoryTreeRow[],
@@ -143,29 +251,26 @@ export function resolveShopCategoryFilter(
   if (!category || category === 'All') return undefined
 
   const subcategory = input.subcategory?.trim()
+  const nested = input.nested?.trim()
 
   if (subcategory && subcategory !== 'All') {
     const parent = findCategoryByName(rows, category)
     if (!parent) return { categoryIds: [], legacyNames: [], strictIdOnly: true }
 
-    const child = rows.find(
-      (row) =>
-        row.parent_id === parent.id &&
-        normalizeName(row.name) === normalizeName(subcategory) &&
-        isActiveRow(row)
-    )
-    if (
-      !child ||
-      isQualifiedSiblingCategory(parent.name, child.name)
-    ) {
+    const child = findChildUnderParent(rows, parent, subcategory)
+    if (!child) {
       return { categoryIds: [], legacyNames: [], strictIdOnly: true }
     }
-    return {
-      categoryIds: [child.id],
-      legacyNames: [storageLabelForRow(rows, child)],
-      strictIdOnly: true,
-      categoryStorageLabel: storageLabelForRow(rows, child),
+
+    if (nested && nested !== 'All') {
+      const leaf = findChildUnderParent(rows, child, nested)
+      if (!leaf) {
+        return { categoryIds: [], legacyNames: [], strictIdOnly: true }
+      }
+      return buildSubtreeFilter(rows, leaf)
     }
+
+    return buildSubtreeFilter(rows, child)
   }
 
   const anchor =
@@ -207,7 +312,7 @@ export function getCategoryAndDescendantNames(
   return getCategoryAndDescendantIds(rows, cat).names
 }
 
-/** Parent category name when `name` is a subcategory (null if top-level or unknown). */
+/** Parent category name when `name` is a direct child (null if top-level or unknown). */
 export function findParentCategoryName(
   rows: CategoryTreeRow[],
   name: string

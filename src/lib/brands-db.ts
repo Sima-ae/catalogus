@@ -33,12 +33,13 @@ export async function brandCategoriesTableExists(): Promise<boolean> {
 export async function listBrands(
   activeOnly = false,
   categoryName?: string,
-  subcategory?: string
+  subcategory?: string,
+  nested?: string
 ) {
   const category = categoryName?.trim()
 
   if (activeOnly && category && category !== 'All') {
-    return listActiveBrandsForShopCategory(category, subcategory)
+    return listActiveBrandsForShopCategory(category, subcategory, nested)
   }
 
   if (activeOnly) {
@@ -112,12 +113,14 @@ async function listActiveBrandsByProductsInCategory(
 /** Brands with at least one active product in the current category/subcategory scope. */
 async function listActiveBrandsForShopCategory(
   categoryName: string,
-  subcategory?: string
+  subcategory?: string,
+  nested?: string
 ): Promise<Record<string, unknown>[]> {
   const categories = await loadActiveCategories()
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: categoryName,
     subcategory,
+    nested,
   })
   const filterIds = categoryFilter?.categoryIds ?? []
 

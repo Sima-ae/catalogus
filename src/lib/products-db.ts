@@ -18,6 +18,7 @@ import { formatCategoryDisplayName } from '@/lib/category-picker'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
 import {
   getDirectChildCategories,
+  getDirectChildCategoriesUnderPath,
   isQualifiedSiblingCategory,
   resolveShopCategoryFilter,
   type ShopCategoryFilterResult,
@@ -772,6 +773,56 @@ async function loadShopSubcategoriesWithProducts(
   return rows.filter((row) => row.productCount > 0)
 }
 
+/** Third-level pills under category + subcategory — only rows with products in subtree. */
+export async function listShopNestedSubcategoriesWithProducts(
+  topCategoryName: string,
+  subcategoryName: string,
+  brandName?: string
+): Promise<ShopSubcategoryOption[]> {
+  const cacheKey = `${topCategoryName.trim().toLowerCase()}|${subcategoryName.trim().toLowerCase()}|${String(brandName ?? '').trim().toLowerCase()}`
+  return getCachedValue(
+    SHOP_SUBCATEGORY_CACHE_NS,
+    `nested:${cacheKey}`,
+    SHOP_SUBCATEGORY_TTL_MS,
+    () => loadShopNestedSubcategoriesWithProducts(topCategoryName, subcategoryName, brandName)
+  )
+}
+
+async function loadShopNestedSubcategoriesWithProducts(
+  topCategoryName: string,
+  subcategoryName: string,
+  brandName?: string
+): Promise<ShopSubcategoryOption[]> {
+  const categories = await loadActiveCategories()
+  const children = getDirectChildCategoriesUnderPath(
+    categories,
+    topCategoryName,
+    subcategoryName
+  )
+  if (!children.length) return []
+
+  const brand = brandName?.trim()
+  const brandFilter = brand && brand !== 'All' ? brand : undefined
+  const buckets = await loadActiveProductCountBuckets({ brand: brandFilter })
+
+  const rows = children.map((child) => {
+    const filter = resolveShopCategoryFilter(categories, {
+      category: topCategoryName,
+      subcategory: subcategoryName,
+      nested: child.name,
+    })
+    const productCount =
+      filter?.categoryIds.length ? sumCategoryFilterCounts(filter, buckets) : 0
+    return {
+      id: String(child.id),
+      name: String(child.name),
+      productCount,
+    }
+  })
+
+  return rows.filter((row) => row.productCount > 0)
+}
+
 async function fetchProductRow(
   id: string,
   options?: Pick<SerializeProductRowOptions, 'includePurchasePrice' | 'storageImages'>
@@ -1165,6 +1216,7 @@ export async function listActiveProductsPaginated(
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
+    nested: query.nested,
   })
 
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
@@ -1240,6 +1292,7 @@ export async function resolvePricelistCatalogListSql(
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
+    nested: query.nested,
   })
 
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
@@ -1274,6 +1327,7 @@ export async function countPricelistCatalogProductsForQuery(
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
+    nested: query.nested,
   })
 
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
@@ -1313,6 +1367,7 @@ export async function resolveActiveCatalogListSql(
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
+    nested: query.nested,
   })
 
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
@@ -1369,6 +1424,7 @@ export async function countActiveProductsForCatalogQuery(
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
+    nested: query.nested,
   })
 
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {

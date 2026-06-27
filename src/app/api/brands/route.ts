@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   try {
     const category = request.nextUrl.searchParams.get('category')?.trim() || undefined
     const subcategory = request.nextUrl.searchParams.get('subcategory')?.trim() || undefined
-    const rows = await loadActiveBrands(category, subcategory)
+    const nested = request.nextUrl.searchParams.get('nested')?.trim() || undefined
+    const rows = await loadActiveBrands(category, subcategory, nested)
     return jsonCached(rows, CATALOG_FILTER_CACHE_CONTROL)
   } catch (error) {
     console.error('Brands fetch error:', error)

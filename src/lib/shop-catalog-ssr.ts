@@ -34,12 +34,14 @@ export async function loadInitialShopCatalog(
 
   const category = pick('category')
   const subcategory = pick('subcategory')
+  const nested = pick('nested')
   const brand = pick('brand')
   const tag = pick('tag')
   const search = pick('search')
 
   if (category) params.set('category', category)
   if (subcategory) params.set('subcategory', subcategory)
+  if (nested) params.set('nested', nested)
   if (brand) params.set('brand', brand)
   if (tag) params.set('tag', tag)
   if (search) params.set('search', search)

@@ -20,6 +20,7 @@ export type PricelistClientFilterInput = {
   search?: string
   category?: string
   subcategory?: string
+  nested?: string
   brand?: string
   missingPricesOnly?: boolean
   filledPricesOnly?: boolean
@@ -33,6 +34,7 @@ export function parsePricelistClientFilterInput(raw: unknown): PricelistClientFi
     search: row.search != null ? String(row.search) : undefined,
     category: row.category != null ? String(row.category) : undefined,
     subcategory: row.subcategory != null ? String(row.subcategory) : undefined,
+    nested: row.nested != null ? String(row.nested) : undefined,
     brand: row.brand != null ? String(row.brand) : undefined,
     missingPricesOnly:
       row.missingPricesOnly === false || row.missingPricesOnly === 'false'
@@ -64,6 +66,7 @@ export async function buildPricelistFiltersFromClient(
 
   const category = input.category?.trim()
   const subcategory = input.subcategory?.trim()
+  const nested = input.nested?.trim()
 
   let categoryFilter: PricelistListFilterInput['categoryFilter']
   if (category && category !== 'All') {
@@ -72,6 +75,7 @@ export async function buildPricelistFiltersFromClient(
       resolveShopCategoryFilter(categories, {
         category,
         subcategory: subcategory && subcategory !== 'All' ? subcategory : undefined,
+        nested: nested && nested !== 'All' ? nested : undefined,
       }) ?? { categoryIds: [], legacyNames: [], strictIdOnly: true }
   }
 
@@ -132,6 +136,7 @@ export async function parsePricelistItemsQuery(
 
   const category = searchParams.get('category')?.trim()
   const subcategory = searchParams.get('subcategory')?.trim()
+  const nested = searchParams.get('nested')?.trim()
   const filledPricesOnly = searchParams.get('filledPrices') === 'true'
   const outOfStockOnly = searchParams.get('outOfStock') === 'true'
   const missingParam = searchParams.get('missingPrices')
@@ -146,6 +151,7 @@ export async function parsePricelistItemsQuery(
     search: searchParams.get('search') ?? undefined,
     category,
     subcategory,
+    nested,
     brand: searchParams.get('brand') ?? undefined,
     missingPricesOnly: exportAll ? false : missingPricesOnly,
     filledPricesOnly: exportAll ? false : filledPricesOnly,

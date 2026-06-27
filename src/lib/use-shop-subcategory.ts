@@ -26,8 +26,18 @@ export type ShopSubcategoryHookValue = {
   loadingSubcategories: boolean
 }
 
+export type ShopNestedSubcategoryHookValue = {
+  selectedNestedSubcategory: string
+  setSelectedNestedSubcategory: (nested: string) => void
+  nestedSubcategoryOptions: string[]
+  hasNestedSubcategories: boolean
+  loadingNestedSubcategories: boolean
+}
+
 const subcategoryCache = new Map<string, ShopSubcategoryRow[]>()
 const subcategoryInflight = new Map<string, Promise<ShopSubcategoryRow[]>>()
+const nestedSubcategoryCache = new Map<string, ShopSubcategoryRow[]>()
+const nestedSubcategoryInflight = new Map<string, Promise<ShopSubcategoryRow[]>>()
 
 async function fetchShopSubcategories(selectedCategory: string): Promise<ShopSubcategoryRow[]> {
   const key = selectedCategory.trim().toLowerCase()
@@ -62,13 +72,54 @@ async function fetchShopSubcategories(selectedCategory: string): Promise<ShopSub
   return request
 }
 
+async function fetchShopNestedSubcategories(
+  selectedCategory: string,
+  selectedSubcategory: string
+): Promise<ShopSubcategoryRow[]> {
+  const key = `${selectedCategory.trim().toLowerCase()}|${selectedSubcategory.trim().toLowerCase()}`
+  const cached = nestedSubcategoryCache.get(key)
+  if (cached) return cached
+
+  const pending = nestedSubcategoryInflight.get(key)
+  if (pending) return pending
+
+  const params = new URLSearchParams({
+    category: selectedCategory,
+    subcategory: selectedSubcategory,
+  })
+  const request = fetch(appPath(`/api/categories/subcategories?${params.toString()}`))
+    .then((res) => (res.ok ? res.json() : { subcategories: [] }))
+    .then((data: unknown) => {
+      const rows =
+        data &&
+        typeof data === 'object' &&
+        Array.isArray((data as { subcategories?: unknown }).subcategories)
+          ? ((data as { subcategories: ShopSubcategoryRow[] }).subcategories ?? [])
+          : []
+      const filtered = rows.filter(
+        (row) => row?.name && (row.productCount ?? 0) > 0
+      ) as ShopSubcategoryRow[]
+      nestedSubcategoryCache.set(key, filtered)
+      return filtered
+    })
+    .catch(() => [] as ShopSubcategoryRow[])
+    .finally(() => {
+      nestedSubcategoryInflight.delete(key)
+    })
+
+  nestedSubcategoryInflight.set(key, request)
+  return request
+}
+
 /** Clear client subcategory cache after taxonomy changes. */
 export function invalidateShopSubcategoryCache(): void {
   subcategoryCache.clear()
   subcategoryInflight.clear()
+  nestedSubcategoryCache.clear()
+  nestedSubcategoryInflight.clear()
 }
 
-/** Subcategory pills for the current parent category — only rows with products. */
+/** Subcategory pills for the current parent category — only rows with products in subtree. */
 export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHookValue {
   const router = useRouter()
   const pathname = usePathname()
@@ -158,6 +209,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       } else {
         params.set('subcategory', subcategory)
       }
+      params.delete('nested')
       params.delete('brand')
       const qs = params.toString()
       router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
@@ -178,6 +230,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
         isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       params.delete('subcategory')
+      params.delete('nested')
       const qs = params.toString()
       router.replace(qs ? `${basePath}?${qs}` : basePath)
     }
@@ -196,5 +249,130 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
     subcategoryOptions,
     hasSubcategories,
     loadingSubcategories: loading,
+  }
+}
+
+/** Third-level pills under the selected subcategory. */
+export function useShopNestedSubcategory(
+  selectedCategory: string,
+  selectedSubcategory: string
+): ShopNestedSubcategoryHookValue {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { t, locale } = useI18n()
+
+  const enabled =
+    Boolean(selectedCategory && selectedCategory !== 'All') &&
+    Boolean(selectedSubcategory && selectedSubcategory !== 'All')
+
+  const cacheKey = `${selectedCategory.trim().toLowerCase()}|${selectedSubcategory.trim().toLowerCase()}`
+  const cachedRows = enabled ? nestedSubcategoryCache.get(cacheKey) : undefined
+
+  const [nestedSubcategories, setNestedSubcategories] = useState<ShopSubcategoryRow[]>(
+    () => cachedRows ?? []
+  )
+  const [loading, setLoading] = useState(() => enabled && !cachedRows)
+
+  useEffect(() => {
+    if (!enabled) {
+      setNestedSubcategories([])
+      setLoading(false)
+      return
+    }
+
+    const hit = nestedSubcategoryCache.get(cacheKey)
+    if (hit) {
+      setNestedSubcategories(hit)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
+    let cancelled = false
+    fetchShopNestedSubcategories(selectedCategory, selectedSubcategory)
+      .then((rows) => {
+        if (!cancelled) setNestedSubcategories(rows)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [cacheKey, enabled, selectedCategory, selectedSubcategory])
+
+  const nestedSubcategoryOptions = useMemo(
+    () =>
+      sortShopCategoriesByLabel(nestedSubcategories.map((row) => row.name), t, locale),
+    [nestedSubcategories, t, locale]
+  )
+
+  const hasNestedSubcategories = nestedSubcategoryOptions.length > 0
+
+  const selectedNestedSubcategory = useMemo(() => {
+    const raw = searchParams.get('nested')?.trim()
+    if (raw) {
+      const match = nestedSubcategoryOptions.find(
+        (name) => name.toLowerCase() === raw.toLowerCase()
+      )
+      if (match) return match
+    }
+    if (!hasNestedSubcategories) return 'All'
+    return 'All'
+  }, [searchParams, nestedSubcategoryOptions, hasNestedSubcategories])
+
+  const setSelectedNestedSubcategory = useCallback(
+    (nested: string) => {
+      const basePath = catalogFilterBasePath(pathname)
+      const params = new URLSearchParams(
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
+      )
+      clearCatalogPageParam(params)
+      clearShopSearchParam(params)
+      if (nested === 'All') {
+        params.delete('nested')
+      } else {
+        params.set('nested', nested)
+      }
+      params.delete('brand')
+      const qs = params.toString()
+      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+    },
+    [pathname, router, searchParams]
+  )
+
+  useEffect(() => {
+    if (!hasNestedSubcategories || loading) return
+    const raw = searchParams.get('nested')?.trim()
+    if (!raw) return
+    const valid = nestedSubcategoryOptions.some(
+      (name) => name.toLowerCase() === raw.toLowerCase()
+    )
+    if (!valid) {
+      const basePath = catalogFilterBasePath(pathname)
+      const params = new URLSearchParams(
+        isCatalogFilterPath(pathname) ? searchParams.toString() : ''
+      )
+      params.delete('nested')
+      const qs = params.toString()
+      router.replace(qs ? `${basePath}?${qs}` : basePath)
+    }
+  }, [
+    hasNestedSubcategories,
+    loading,
+    nestedSubcategoryOptions,
+    pathname,
+    router,
+    searchParams,
+  ])
+
+  return {
+    selectedNestedSubcategory,
+    setSelectedNestedSubcategory,
+    nestedSubcategoryOptions,
+    hasNestedSubcategories,
+    loadingNestedSubcategories: loading,
   }
 }
