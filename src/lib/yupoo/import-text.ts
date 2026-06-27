@@ -372,12 +372,33 @@ function isMostlyChineseLine(line: string): boolean {
 
 /** Remove Han script from a line but keep Latin product copy on the same line. */
 function stripCjkFromLine(line: string): string {
-  return line
-    .replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+/g, ' ')
-    .replace(/[：；，。【】！？「」『』【】（）]/g, ' ')
+  return stripCjkScriptFromProductText(line)
+}
+
+/** Han + Japanese kana + fullwidth punctuation used in Yupoo supplier copy. */
+export const CJK_SCRIPT_RE =
+  /[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u3000-\u303f\uff00-\uffef]/
+
+/** True when copy still contains Chinese / Japanese script. */
+export function containsCjkScript(text: string | null | undefined): boolean {
+  return CJK_SCRIPT_RE.test(String(text ?? ''))
+}
+
+/** Remove all CJK characters from customer-facing product titles and descriptions. */
+export function stripCjkScriptFromProductText(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf]+/g, ' ')
+  result = result.replace(/[\u3000-\u303f\uff00-\uffef]/g, ' ')
+  result = result.replace(/[：；，。【】！？「」『』【】（）、]/g, ' ')
+  result = result
     .replace(/\(\s*\)/g, ' ')
+    .replace(/\[\s*\]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+
+  return result
 }
 
 function cleanDescriptionLine(line: string): string {
@@ -711,7 +732,10 @@ export function sanitizeProductName(name: string): string {
     .replace(/\s*[-–—|｜]\s*冠汇外贸\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-  if (!result) return original
+  result = stripCjkScriptFromProductText(result)
+  if (!result) {
+    result = stripCjkScriptFromProductText(original)
+  }
   return result
 }
 
@@ -744,6 +768,7 @@ export function cleanImportDescription(
   result = result
     .replace(/\bshipping\s+from\s+guangzhou\b/gi, ' ')
     .replace(/\bfree\s+shipping\b/gi, ' ')
+  result = stripCjkScriptFromProductText(result)
   return result.replace(/\s+/g, ' ').trim()
 }
 

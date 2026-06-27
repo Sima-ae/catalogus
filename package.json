@@ -21,6 +21,7 @@
     "db:fix-wecatalog-titles": "tsx scripts/fix-wecatalog-product-titles.ts",
     "db:remove-yupoo-sku": "tsx scripts/remove-yupoo-from-skus.ts",
     "db:remove-yupoo-text": "tsx scripts/remove-yupoo-from-product-text.ts",
+    "db:remove-cjk-text": "tsx scripts/remove-cjk-from-product-text.ts",
     "db:remove-keshi-descriptions": "tsx scripts/remove-guangzhou-keshi-descriptions.ts",
     "db:clean-supplier-descriptions": "tsx scripts/clean-supplier-descriptions.ts",
     "db:clean-product-titles": "tsx scripts/clean-product-titles.ts",

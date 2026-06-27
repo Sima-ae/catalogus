@@ -5,6 +5,7 @@ import {
   resolveYupooProductTitle,
   sanitizeYupooAlbumTitle,
   stripChineseMarketingFromTitle,
+  stripCjkScriptFromProductText,
   stripTitleDecorations,
   sanitizeProductName,
 } from '@/lib/yupoo/import-text'
@@ -77,7 +78,7 @@ export async function finalizeYupooProductTitle(raw: string): Promise<string> {
   t = stripChineseMarketingFromTitle(t)
   t = await translateCjkSegmentsInTitle(t)
   t = stripTitleDecorations(t)
-  t = t.replace(/[\u4e00-\u9fff\u3040-\u30ff\u31f0-\u31ff]+/g, ' ').replace(/\s+/g, ' ').trim()
+  t = stripCjkScriptFromProductText(t)
   t = sanitizeProductName(t)
 
   return t.length > 120 ? t.slice(0, 120).trim() : t

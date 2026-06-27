@@ -5,7 +5,9 @@ import {
 import { joinBrandNames } from '@/lib/product-taxonomy'
 import {
   cleanImportDescription,
+  containsCjkScript,
   sanitizeProductName,
+  stripCjkScriptFromProductText,
   stripTitleDecorations,
 } from '@/lib/yupoo/import-text'
 import {
@@ -178,7 +180,11 @@ export function polishProductDisplayText(input: PolishProductDisplayTextInput): 
       )
     : description
 
-  return { name, description, short_description }
+  return {
+    name: stripCjkScriptFromProductText(name),
+    description: stripCjkScriptFromProductText(description),
+    short_description: stripCjkScriptFromProductText(short_description),
+  }
 }
 
 /** Full title polish for storage — includes CJK → English when needed. */
@@ -193,11 +199,11 @@ export async function polishProductTitleForStorage(
     brand,
   }).name
 
-  if (!titleNeedsCjkCleanup(sync)) return sync
+  if (!titleNeedsCjkCleanup(sync) && !containsCjkScript(sync)) return sync
 
   let translated = await finalizeYupooProductTitle(sync)
   translated = fixBrandNamesInText(translated, brandNames, brand)
-  return sanitizeProductName(translated)
+  return stripCjkScriptFromProductText(sanitizeProductName(translated))
 }
 
 export async function polishProductTextForStorage(

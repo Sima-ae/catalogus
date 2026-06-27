@@ -6,6 +6,7 @@ import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 import { polishProductDisplayText } from '@/lib/product-brand-text'
 import {
   sanitizeProductName,
+  stripCjkScriptFromProductText,
   stripYupooPlatformText,
 } from '@/lib/yupoo/import-text'
 import {
@@ -187,7 +188,7 @@ export function serializeCatalogProductRow(
       : ''
   const displayName = sanitizeProductName(String(row.name ?? '').trim())
   const shortDescription = rawShort
-    ? stripYupooPlatformText(rawShort).slice(0, 280)
+    ? stripCjkScriptFromProductText(stripYupooPlatformText(rawShort)).slice(0, 280)
     : undefined
 
   return {
