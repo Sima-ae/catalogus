@@ -3,6 +3,10 @@
  */
 import assert from 'node:assert/strict'
 import type { CategoryTreeRow } from '../src/lib/category-picker'
+import {
+  buildCategoryParentPickerOptions,
+  buildCategoryPickerOptions,
+} from '../src/lib/category-picker'
 import { buildShopCategoryMenu } from '../src/lib/shop-category-menu'
 import {
   categoryHasChildren,
@@ -160,5 +164,29 @@ assert.deepEqual(
   resolveShopCategoryFilterLink(tree, { categoryName: 'SOCCER' }),
   { category: 'SOCCER' }
 )
+
+const nested: CategoryTreeRow[] = [
+  row('clothes', 'CLOTHES'),
+  row('mixed', '- MIXED -', 'clothes'),
+  row('shoes', 'SHOES'),
+  row('sneakers', 'SNEAKERS', 'shoes'),
+  row('limited', 'LIMITED', 'sneakers'),
+]
+
+const nestedOptions = buildCategoryPickerOptions(nested)
+assert.ok(nestedOptions.some((o) => o.id === 'sneakers'))
+assert.equal(
+  nestedOptions.find((o) => o.id === 'limited')?.listLabel,
+  'SHOES › SNEAKERS › LIMITED'
+)
+
+const editSneakers = buildCategoryParentPickerOptions(nested, 'sneakers')
+assert.ok(editSneakers.some((o) => o.id === 'clothes'))
+assert.ok(editSneakers.some((o) => o.id === 'shoes'))
+assert.ok(!editSneakers.some((o) => o.id === 'sneakers'))
+assert.ok(!editSneakers.some((o) => o.id === 'limited'))
+
+const editClothes = buildCategoryParentPickerOptions(nested, 'clothes')
+assert.ok(!editClothes.some((o) => o.id === 'mixed'))
 
 console.log('shop-category-tree: all assertions passed')

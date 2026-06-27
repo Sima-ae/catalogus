@@ -2201,8 +2201,18 @@ async function assertValidCategoryParent(
   if (!parentRow) {
     throw new Error('Parent category not found')
   }
-  if (categoryId && parentRow.parent_id === categoryId) {
-    throw new Error('Invalid parent category (circular reference)')
+  let cursor: string | null = parent
+  const seen = new Set<string>()
+  while (cursor) {
+    if (categoryId && cursor === categoryId) {
+      throw new Error('Invalid parent category (circular reference)')
+    }
+    if (seen.has(cursor)) break
+    seen.add(cursor)
+    const row: Awaited<ReturnType<typeof getCategoryById>> =
+      cursor === parent ? parentRow : await getCategoryById(cursor)
+    if (!row) break
+    cursor = row.parent_id ? String(row.parent_id) : null
   }
   const name = categoryName?.trim()
   if (name && isQualifiedSiblingCategory(String(parentRow.name ?? ''), name)) {

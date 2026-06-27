@@ -80,11 +80,11 @@ export function buildCategoryPickerOptions(rows: CategoryTreeRow[]): CategoryPic
 
   const options: CategoryPickerOption[] = []
 
-  const visit = (parentId: string | null, depth: number) => {
+  const visit = (parentId: string | null, depth: number, ancestors: string[]) => {
     for (const row of childrenByParent.get(parentId) ?? []) {
       const isSubcategory = depth > 0
       const listLabel = isSubcategory
-        ? formatCategoryDisplayName(row.name, row.parent_name)
+        ? [...ancestors, row.name].join(' › ')
         : row.name
       const indent = isSubcategory ? `${'  '.repeat(depth)}↳ ` : ''
       options.push({
@@ -97,11 +97,11 @@ export function buildCategoryPickerOptions(rows: CategoryTreeRow[]): CategoryPic
         parent_name: row.parent_name,
         isSubcategory,
       })
-      visit(row.id, depth + 1)
+      visit(row.id, depth + 1, [...ancestors, row.name])
     }
   }
 
-  visit(null, 0)
+  visit(null, 0, [])
 
   if (options.length < normalized.length) {
     const seen = new Set(options.map((o) => o.id))
@@ -125,6 +125,45 @@ export function buildCategoryPickerOptions(rows: CategoryTreeRow[]): CategoryPic
   }
 
   return options
+}
+
+/** All category ids nested under `rootId` (not including `rootId`). */
+export function getCategoryDescendantIds(
+  rows: CategoryTreeRow[],
+  rootId: string
+): Set<string> {
+  const normalized = rows.map(normalizeTreeRow)
+  const childrenByParent = new Map<string | null, ReturnType<typeof normalizeTreeRow>[]>()
+
+  for (const row of normalized) {
+    const list = childrenByParent.get(row.parent_id) ?? []
+    list.push(row)
+    childrenByParent.set(row.parent_id, list)
+  }
+
+  const out = new Set<string>()
+  const visit = (parentId: string) => {
+    for (const row of childrenByParent.get(parentId) ?? []) {
+      out.add(row.id)
+      visit(row.id)
+    }
+  }
+  visit(String(rootId))
+  return out
+}
+
+/** Parent picker for category create/edit — full tree, excluding self and descendants. */
+export function buildCategoryParentPickerOptions(
+  rows: CategoryTreeRow[],
+  excludeCategoryId?: string | null
+): CategoryPickerOption[] {
+  const options = buildCategoryPickerOptions(rows)
+  if (!excludeCategoryId) return options
+  const blocked = new Set([
+    String(excludeCategoryId),
+    ...Array.from(getCategoryDescendantIds(rows, String(excludeCategoryId))),
+  ])
+  return options.filter((option) => !blocked.has(option.id))
 }
 
 /** Display name for tables (e.g. SOCCER › SHIRTS). */

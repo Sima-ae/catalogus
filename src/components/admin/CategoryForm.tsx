@@ -9,6 +9,10 @@ import { slugifyCategory } from '@/lib/category-slug'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
+import {
+  buildCategoryParentPickerOptions,
+  type CategoryPickerOption,
+} from '@/lib/category-picker'
 
 type CategoryFormProps = {
   categoryId?: string
@@ -26,7 +30,7 @@ type CategoryRecord = {
   active?: number | boolean
 }
 
-type ParentOption = { id: string; name: string; parent_id?: string | null }
+type ParentOption = CategoryPickerOption
 
 export default function CategoryForm({
   categoryId,
@@ -59,13 +63,26 @@ export default function CategoryForm({
       .then((data) => {
         if (!Array.isArray(data)) return
         setParentOptions(
-          data
-            .filter((c: ParentOption) => !c.parent_id)
-            .map((c: ParentOption) => ({ id: c.id, name: c.name, parent_id: c.parent_id }))
+          buildCategoryParentPickerOptions(
+            data.map(
+              (c: {
+                id: string
+                name: string
+                parent_id?: string | null
+                parent_name?: string | null
+              }) => ({
+                id: c.id,
+                name: c.name,
+                parent_id: c.parent_id,
+                parent_name: c.parent_name,
+              })
+            ),
+            categoryId ?? null
+          )
         )
       })
       .catch(() => {})
-  }, [isAdmin, user])
+  }, [isAdmin, user, categoryId])
 
   useEffect(() => {
     if (!isEdit || !categoryId || authLoading || !isAdmin || !user) return
@@ -150,7 +167,7 @@ export default function CategoryForm({
     }
   }
 
-  const selectableParents = parentOptions.filter((p) => p.id !== categoryId)
+  const selectableParents = parentOptions
 
   if (!isAdmin) {
     return (
@@ -207,12 +224,13 @@ export default function CategoryForm({
           <option value="">None (top-level category)</option>
           {selectableParents.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name}
+              {p.label}
             </option>
           ))}
         </select>
         <p className={`text-xs mt-1 ${t.muted}`}>
-          Choose a parent to create a subcategory (e.g. SHOES → SNEAKERS).
+          Choose a parent to nest under a main category or subcategory (e.g. SHOES → SNEAKERS →
+          LIMITED).
         </p>
       </div>
       <div>
