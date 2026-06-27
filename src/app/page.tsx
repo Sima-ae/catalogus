@@ -10,10 +10,10 @@ export default async function HomePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const sp = await searchParams
-  const initialCatalogSignature = buildShopCatalogSignature(sp, 'all')
+  const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', { shuffle: true })
   let initialCatalog = null
   try {
-    initialCatalog = await loadInitialShopCatalog(sp, 'all')
+    initialCatalog = await loadInitialShopCatalog(sp, 'all', { shuffle: true })
   } catch {
     // Client-side fetch fallback if DB is unavailable during SSR.
   }
@@ -28,6 +28,7 @@ export default async function HomePage({
         showFooterTagline: false,
         emptyVariant: 'simple',
         centerCatalog: true,
+        shuffleCatalog: true,
       }}
       initialCatalog={initialCatalog}
       initialCatalogSignature={initialCatalogSignature}

@@ -6,6 +6,9 @@ import {
   buildAdminProductFilters,
   buildBulkArchiveProductFilters,
   buildProductBrandSegmentFilter,
+  CATALOG_PAGE_SIZE,
+  catalogShuffleOrderSql,
+  isCatalogShuffleEligible,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
   type CatalogProductsPage,
@@ -1224,7 +1227,7 @@ export async function listActiveProductsPaginated(
       items: [],
       total: 0,
       page: query.page,
-      pageSize: query.limit,
+      pageSize: CATALOG_PAGE_SIZE,
       totalPages: 1,
     }
   }
@@ -1248,9 +1251,13 @@ export async function listActiveProductsPaginated(
     { includeBrandJoin: needsBrandJoin }
   )
   const limit = query.limit
-  const offset = (query.page - 1) * limit
+  const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
   const sortScope = catalogSortScope(query)
-  const { joinSql, orderSql, scopeParam } = await catalogPositionJoin(sortScope)
+  const shuffle = isCatalogShuffleEligible(query)
+  const positionJoin = shuffle
+    ? { joinSql: '', orderSql: catalogShuffleOrderSql(), scopeParam: null }
+    : await catalogPositionJoin(sortScope)
+  const { joinSql, orderSql, scopeParam } = positionJoin
   const idParams = scopeParam ? [scopeParam, ...params] : params
 
   const [countRows, idRows] = await Promise.all([
@@ -1275,8 +1282,8 @@ export async function listActiveProductsPaginated(
     items: items as unknown as CatalogProductsPage['items'],
     total,
     page: query.page,
-    pageSize: limit,
-    totalPages: Math.max(1, Math.ceil(total / limit) || 1),
+    pageSize: CATALOG_PAGE_SIZE,
+    totalPages: Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE) || 1),
   }
 }
 

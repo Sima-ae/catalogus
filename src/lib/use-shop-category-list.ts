@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
+import { dedupeShopCategoriesByLabel, sortShopCategoriesByLabel } from '@/lib/i18n-categories'
 import { useI18n } from '@/lib/i18n-context'
 import { fetchShopCategoryMenu } from '@/lib/shop-categories-client'
 
@@ -26,7 +26,12 @@ export function useShopCategoryList() {
   }, [])
 
   return useMemo(
-    () => sortShopCategoriesByLabel(categories, t, locale),
+    () =>
+      dedupeShopCategoriesByLabel(
+        sortShopCategoriesByLabel(categories, t, locale),
+        t,
+        locale
+      ),
     [categories, t, locale]
   )
 }

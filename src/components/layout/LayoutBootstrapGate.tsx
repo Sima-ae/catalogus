@@ -1,5 +1,6 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { Suspense, useEffect, useState } from 'react'
 import { CatalogModeProvider } from '@/lib/catalog-mode-context'
 import { ProductCardDisplayProvider } from '@/lib/product-card-display-context'
@@ -10,7 +11,6 @@ import { LanguagePickerProvider } from '@/lib/language-picker-context'
 import LanguageSwitcherModal from '@/components/i18n/LanguageSwitcherModal'
 import { I18nProvider } from '@/lib/i18n-context'
 import ChatProvider from '@/components/chat/ChatProvider'
-import ChatWidget from '@/components/chat/ChatWidget'
 import ChatPanel from '@/components/chat/ChatPanel'
 import { appPath } from '@/lib/paths'
 import {
@@ -20,6 +20,8 @@ import {
 } from '@/lib/shop-bootstrap-shared'
 import { TickerMessagesProvider } from '@/lib/ticker-messages-context'
 import type { Locale } from '@/lib/i18n'
+
+const ChatWidget = dynamic(() => import('@/components/chat/ChatWidget'), { ssr: false })
 
 type Props = {
   locale: Locale

@@ -177,6 +177,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.tassen-en-portemonnees': 'Bags and wallets',
     'category.shirts': 'Shirts',
     'category.shorts': 'Shorts',
+    'category.ties': 'Ties',
 
     // Product page
     'product.loading': 'Loading product…',
@@ -425,6 +426,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.tassen-en-portemonnees': 'Tassen en portemonnees',
     'category.shirts': 'Shirts',
     'category.shorts': 'Korte broeken',
+    'category.ties': 'Stropdassen',
 
     // Product page
     'product.loading': 'Product laden…',

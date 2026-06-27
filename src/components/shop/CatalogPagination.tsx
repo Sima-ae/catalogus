@@ -5,7 +5,9 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { useAppTheme } from '@/lib/theme-classes'
 import { useI18n } from '@/lib/i18n-context'
 
-export const CATALOG_PAGE_SIZE = 24
+import { CATALOG_PAGE_SIZE } from '@/lib/catalog-products'
+
+export { CATALOG_PAGE_SIZE } from '@/lib/catalog-products'
 
 type Props = {
   page: number
@@ -17,6 +19,8 @@ type Props = {
   alignEnd?: boolean
   /** Smaller text, buttons, and spacing (e.g. pricelist table). */
   compact?: boolean
+  /** When set, "showing X–Y" reflects loaded rows (progressive catalog batches). */
+  loadedCount?: number
   /** Extra controls after the Go button (same row, centered with nav). */
   trailing?: ReactNode
 }
@@ -29,6 +33,7 @@ export default function CatalogPagination({
   centered = false,
   alignEnd = false,
   compact = false,
+  loadedCount,
   trailing,
 }: Props) {
   const t = useAppTheme()
@@ -47,7 +52,10 @@ export default function CatalogPagination({
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
   const start = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1
-  const end = Math.min(safePage * pageSize, totalItems)
+  const end =
+    loadedCount != null
+      ? Math.min((safePage - 1) * pageSize + loadedCount, totalItems)
+      : Math.min(safePage * pageSize, totalItems)
   const [gotoValue, setGotoValue] = useState('')
 
   useEffect(() => {

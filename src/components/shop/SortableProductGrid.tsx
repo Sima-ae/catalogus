@@ -153,7 +153,7 @@ export default function SortableProductGrid({
             product={product}
             onDeleted={onProductDeleted}
             onQuickEditSaved={onProductQuickEditSaved}
-            imagePriority={index < 6}
+            imagePriority={index < 4}
           />
         ))}
       </div>
@@ -192,7 +192,7 @@ export default function SortableProductGrid({
               product={product}
               onDeleted={onProductDeleted}
               onQuickEditSaved={onProductQuickEditSaved}
-              imagePriority={index < 6}
+              imagePriority={index < 4}
             />
           </div>
         )

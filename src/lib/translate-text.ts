@@ -1,3 +1,4 @@
+import { sanitizeTranslationMarkup } from '@/lib/category-i18n-key'
 import type { Locale } from '@/lib/i18n-locale-registry'
 
 /** Map app locale codes to DeepL / MyMemory target language codes. */
@@ -123,10 +124,10 @@ export async function translateFromEnglish(
   if (targetLocale === 'en') return source
 
   const deepl = await translateWithDeepL(source, targetLocale)
-  if (deepl) return deepl
+  if (deepl) return sanitizeTranslationMarkup(deepl)
 
   const memory = await translateWithMyMemory(source, targetLocale)
-  if (memory) return memory
+  if (memory) return sanitizeTranslationMarkup(memory)
 
   return source
 }

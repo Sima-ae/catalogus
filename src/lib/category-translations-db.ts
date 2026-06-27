@@ -1,5 +1,5 @@
 import { queryDb } from '@/lib/db'
-import { categoryI18nKey, formatCategoryTranslatedLabel } from '@/lib/category-i18n-key'
+import { categoryI18nKey, formatCategoryTranslatedLabel, sanitizeTranslationMarkup } from '@/lib/category-i18n-key'
 import { getCategoryManualTranslation } from '@/lib/category-manual-translations'
 import { getCategoryById, listCategories } from '@/lib/products-db'
 import { translateFromEnglish } from '@/lib/translate-text'
@@ -107,7 +107,7 @@ export async function getCategoryTranslationMessages(
       const name = String(row.name ?? '').trim()
       const label = String(row.label ?? '').trim()
       if (!name || !label) continue
-      messages[categoryI18nKey(name)] = label
+      messages[categoryI18nKey(name)] = sanitizeTranslationMarkup(label)
     }
     return messages
   })

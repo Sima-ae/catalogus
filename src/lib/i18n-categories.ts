@@ -1,4 +1,4 @@
-import { categoryI18nKey } from '@/lib/category-i18n-key'
+import { categoryI18nKey, sanitizeTranslationMarkup } from '@/lib/category-i18n-key'
 import type { Locale } from '@/lib/i18n'
 
 type Translator = (key: string) => string
@@ -46,9 +46,21 @@ export function getTopCategoryLabel(
   }
 
   const key = categoryI18nKey(raw)
-  const translated = t(key)
+  const translated = sanitizeTranslationMarkup(t(key))
   if (translated && translated !== key) {
     return humanizeAllCapsCategoryLabel(translated)
+  }
+  if (raw.includes('|')) {
+    return raw
+      .split('|')
+      .map((segment) => getTopCategoryLabel(segment.trim(), t, opts))
+      .join(' | ')
+  }
+  if (raw.includes('&')) {
+    return raw
+      .split('&')
+      .map((segment) => getTopCategoryLabel(segment.trim(), t, opts))
+      .join(' & ')
   }
   return humanizeAllCapsCategoryLabel(raw)
 }
@@ -82,6 +94,28 @@ export function getCategoryPickerLabel(
   const translated = translateCategoryCompound(option.listLabel, t)
   const indent = `${'  '.repeat(option.depth)}↳ `
   return `${indent}${translated}`
+}
+
+/** Drop duplicate pills that would show the same translated label. */
+export function dedupeShopCategoriesByLabel(
+  categories: string[],
+  t: Translator,
+  locale: Locale | string
+): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const category of categories) {
+    if (category === 'All') {
+      out.push(category)
+      continue
+    }
+    const label = getTopCategoryLabel(category, t, { allStyle: 'all' })
+      .toLocaleLowerCase(collatorLocale(String(locale)))
+    if (seen.has(label)) continue
+    seen.add(label)
+    out.push(category)
+  }
+  return out
 }
 
 /** Sort shop category ids: "All" first, then A–Z by translated label for the active locale. */

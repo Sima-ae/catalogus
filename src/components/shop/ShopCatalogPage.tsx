@@ -40,7 +40,10 @@ import {
 import { type CatalogMode } from '@/lib/catalog'
 import {
   buildCatalogProductsUrl,
+  CATALOG_BATCH_SIZE,
+  catalogPageBaseOffset,
   isCatalogProductsPage,
+  itemsOnCatalogPage,
   type CatalogProductsPage,
 } from '@/lib/catalog-products'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
@@ -77,6 +80,8 @@ export type ShopCatalogConfig = {
   emptyMessage?: string
   /** Center category pills, count, and pagination (homepage). */
   centerCatalog?: boolean
+  /** Randomize unfiltered homepage catalog (not used on /new). */
+  shuffleCatalog?: boolean
 }
 
 function ShopCatalogPageContent({
@@ -118,6 +123,7 @@ function ShopCatalogPageContent({
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
   const [loading, setLoading] = useState(!initialCatalog)
   const [pageLoading, setPageLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
@@ -130,6 +136,8 @@ function ShopCatalogPageContent({
   )
   const [optimisticBrand, setOptimisticBrand] = useState<string | null>(null)
   const hasLoadedOnce = useRef(Boolean(initialCatalog))
+  const productsRef = useRef(products)
+  productsRef.current = products
   const { user, isAdmin } = useAuth()
   const [categoryProductCount, setCategoryProductCount] = useState<number | null>(null)
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
@@ -170,6 +178,87 @@ function ShopCatalogPageContent({
   const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
 
   const catalogMode = config.mode === 'new' ? 'new' : 'all'
+
+  const itemsOnCurrentPage = useMemo(
+    () => itemsOnCatalogPage(totalItems, currentPage),
+    [totalItems, currentPage]
+  )
+  const hasMoreOnPage =
+    products.length > 0 && products.length < itemsOnCurrentPage && !pageLoading
+
+  const catalogShuffle =
+    config.shuffleCatalog === true &&
+    selectedCategory === 'All' &&
+    selectedSubcategory === 'All' &&
+    selectedNestedSubcategory === 'All' &&
+    !brandQueryActive &&
+    !filterTag &&
+    !debouncedSearch.trim()
+
+  const buildCatalogFetchUrl = useCallback(
+    (pageToLoad: number, rowOffset: number) =>
+      buildCatalogProductsUrl(appPath('/api/products'), {
+        page: pageToLoad,
+        limit: CATALOG_BATCH_SIZE,
+        offset: rowOffset,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+        nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
+        brand: brandQueryActive ? filterBrand : undefined,
+        tag: filterTag || undefined,
+        search: debouncedSearch || undefined,
+        mode: catalogMode === 'new' ? 'new' : undefined,
+        shuffle: catalogShuffle ? true : undefined,
+      }),
+    [
+      brandQueryActive,
+      catalogMode,
+      catalogShuffle,
+      debouncedSearch,
+      filterBrand,
+      filterTag,
+      selectedCategory,
+      selectedSubcategory,
+      selectedNestedSubcategory,
+    ]
+  )
+
+  const loadMoreProducts = useCallback(async () => {
+    if (loadingMore || pageLoading) return
+
+    const loaded = productsRef.current
+    const baseOffset = catalogPageBaseOffset(currentPage)
+    const remainingOnPage = itemsOnCatalogPage(totalItems, currentPage) - loaded.length
+    if (remainingOnPage <= 0) return
+
+    setLoadingMore(true)
+    try {
+      const response = await fetch(
+        buildCatalogFetchUrl(currentPage, baseOffset + loaded.length),
+        { method: 'GET' }
+      )
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+
+      const data: unknown = await response.json()
+      if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
+
+      setProducts((prev) => {
+        const seen = new Set(prev.map((p) => p.id))
+        const merged = [...prev]
+        for (const item of data.items) {
+          if (!seen.has(item.id)) merged.push(item)
+        }
+        return merged
+      })
+      setTotalItems(data.total)
+    } catch (err) {
+      setError(
+        `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
+      )
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [buildCatalogFetchUrl, currentPage, loadingMore, pageLoading, totalItems])
 
   const beginFilterNavigation = useCallback(
     (prefetch?: ShopCatalogFilterPrefetch) => {
@@ -390,12 +479,26 @@ function ShopCatalogPageContent({
       return
     }
 
+    if (
+      state.productId &&
+      !products.some((p) => p.id === state.productId) &&
+      currentPage === state.page &&
+      hasMoreOnPage &&
+      !loadingMore
+    ) {
+      void loadMoreProducts()
+      return
+    }
+
     scrollRestoredRef.current = true
     requestAnimationFrame(() => {
       requestAnimationFrame(() => restoreCatalogScroll(state))
     })
   }, [
+    hasMoreOnPage,
+    loadMoreProducts,
     loading,
+    loadingMore,
     pageLoading,
     products,
     listingScrollKey,
@@ -427,13 +530,16 @@ function ShopCatalogPageContent({
       tag: filterTag || undefined,
       search: debouncedSearch || undefined,
       mode: catalogMode,
+      shuffle: catalogShuffle ? true : undefined,
     }
     const clientCatalogSignature = shopCatalogClientSignature(fetchFilters)
 
     const applyCatalogPage = (data: CatalogProductsPage) => {
       setProducts(data.items)
       setTotalItems(data.total)
-      setCachedShopCatalog(clientCatalogSignature, data)
+      if (!catalogShuffle) {
+        setCachedShopCatalog(clientCatalogSignature, data)
+      }
       hasLoadedOnce.current = true
       if (data.page !== pageToLoad && data.page >= 1) {
         setCurrentPage(data.page)
@@ -450,9 +556,9 @@ function ShopCatalogPageContent({
     }
 
     const prefetched =
-      reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
+      !catalogShuffle && reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
     const cached =
-      reloadToken === 0
+      !catalogShuffle && reloadToken === 0
         ? prefetched ?? getCachedShopCatalog(clientCatalogSignature) ?? null
         : null
 
@@ -468,17 +574,7 @@ function ShopCatalogPageContent({
 
     async function loadProducts() {
       try {
-        const url = buildCatalogProductsUrl(appPath('/api/products'), {
-          page: pageToLoad,
-          limit: CATALOG_PAGE_SIZE,
-          category: fetchFilters.category,
-          subcategory: fetchFilters.subcategory,
-          nested: fetchFilters.nested,
-          brand: fetchFilters.brand,
-          tag: fetchFilters.tag,
-          search: fetchFilters.search,
-          mode: fetchFilters.mode === 'new' ? 'new' : undefined,
-        })
+        const url = buildCatalogFetchUrl(pageToLoad, catalogPageBaseOffset(pageToLoad))
 
         const response = await fetch(url, { method: 'GET' })
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
@@ -513,6 +609,7 @@ function ShopCatalogPageContent({
   }, [
     brandQueryActive,
     catalogMode,
+    catalogShuffle,
     config.mode,
     currentPage,
     debouncedSearch,
@@ -526,6 +623,7 @@ function ShopCatalogPageContent({
     selectedSubcategory,
     selectedNestedSubcategory,
     setCurrentPage,
+    buildCatalogFetchUrl,
   ])
 
   useEffect(() => {
@@ -815,6 +913,9 @@ function ShopCatalogPageContent({
                     reorderScope={isAdmin ? reorderScope : null}
                     reorderSaving={reorderSaving}
                     centered={config.centerCatalog}
+                    hasMoreOnPage={hasMoreOnPage}
+                    loadingMore={loadingMore}
+                    onLoadMore={() => void loadMoreProducts()}
                   />
                 </div>
               </div>

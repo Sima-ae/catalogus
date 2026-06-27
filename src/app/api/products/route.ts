@@ -68,9 +68,12 @@ export async function GET(request: NextRequest) {
       }
 
       const result = await listActiveProductsPaginated(paginatedQuery)
+      const cacheControl = paginatedQuery.shuffle
+        ? 'private, no-store'
+        : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300'
       return NextResponse.json(result, {
         headers: {
-          'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
+          'Cache-Control': cacheControl,
         },
       })
     }

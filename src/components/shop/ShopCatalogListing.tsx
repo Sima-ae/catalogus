@@ -1,5 +1,6 @@
 'use client'
 
+import CatalogLoadMoreSentinel from '@/components/shop/CatalogLoadMoreSentinel'
 import CatalogProductCount from '@/components/shop/CatalogProductCount'
 import CatalogPagination, { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import SortableProductGrid from '@/components/shop/SortableProductGrid'
@@ -20,6 +21,9 @@ type Props = {
   reorderScope?: string | null
   reorderSaving?: boolean
   centered?: boolean
+  hasMoreOnPage?: boolean
+  loadingMore?: boolean
+  onLoadMore?: () => void
 }
 
 /** Shared product grid with server-backed pagination. */
@@ -35,13 +39,16 @@ export default function ShopCatalogListing({
   reorderScope = null,
   reorderSaving = false,
   centered = false,
+  hasMoreOnPage = false,
+  loadingMore = false,
+  onLoadMore,
 }: Props) {
   const { user, loading: authLoading } = useAuth()
   const isCatalogAdmin = isCatalogAdminUser(user)
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, page), totalPages)
   const canReorder = Boolean(
-    !authLoading && isCatalogAdmin && reorderScope && onReorder
+    !authLoading && isCatalogAdmin && reorderScope && onReorder && !hasMoreOnPage
   )
 
   const listingBody = (
@@ -50,6 +57,7 @@ export default function ShopCatalogListing({
         page={safePage}
         totalItems={totalItems}
         pageSize={pageSize}
+        loadedCount={products.length}
         onPageChange={onPageChange}
         centered={centered}
         compact={centered}
@@ -64,10 +72,16 @@ export default function ShopCatalogListing({
           onProductQuickEditSaved={onProductQuickEditSaved}
         />
       </PricelistMembershipBatchProvider>
+      <CatalogLoadMoreSentinel
+        hasMore={hasMoreOnPage}
+        loading={loadingMore}
+        onLoadMore={onLoadMore ?? (() => undefined)}
+      />
       <CatalogPagination
         page={safePage}
         totalItems={totalItems}
         pageSize={pageSize}
+        loadedCount={products.length}
         onPageChange={onPageChange}
         centered={centered}
         compact={centered}

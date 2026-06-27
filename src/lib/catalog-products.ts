@@ -2,13 +2,34 @@ import type { CatalogMode } from '@/lib/catalog'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import type { Product } from '@/lib/types'
 
-export const DEFAULT_CATALOG_PAGE_SIZE = 24
+/** Products per pagination page (UI and total page count). */
+export const CATALOG_PAGE_SIZE = 24
+/** Initial fetch + each scroll batch on shop catalog pages. */
+export const CATALOG_BATCH_SIZE = 12
+/** @deprecated Use CATALOG_PAGE_SIZE */
+export const DEFAULT_CATALOG_PAGE_SIZE = CATALOG_PAGE_SIZE
 export const MAX_CATALOG_PAGE_SIZE = 60
 export const MAX_ADMIN_PRODUCTS_PAGE_SIZE = 500
+
+export function catalogPageBaseOffset(page: number): number {
+  return (page - 1) * CATALOG_PAGE_SIZE
+}
+
+/** SQL offset for a batch within a catalog page (0 = first batch, 1 = second). */
+export function catalogBatchOffset(page: number, batchIndex: number): number {
+  return catalogPageBaseOffset(page) + batchIndex * CATALOG_BATCH_SIZE
+}
+
+export function itemsOnCatalogPage(total: number, page: number): number {
+  const base = catalogPageBaseOffset(page)
+  return Math.min(CATALOG_PAGE_SIZE, Math.max(0, total - base))
+}
 
 export type CatalogProductsQuery = {
   page: number
   limit: number
+  /** Row offset within the full result set (defaults to page-based offset). */
+  offset?: number
   category?: string
   /** Narrow a parent category to one subcategory (e.g. SOCCER → SHIRTS). */
   subcategory?: string
@@ -27,6 +48,8 @@ export type CatalogProductsQuery = {
   tag?: string
   search?: string
   mode?: CatalogMode
+  /** Homepage-style random order (unfiltered global catalog only). */
+  shuffle?: boolean
 }
 
 export type CatalogProductsPage = {
@@ -68,6 +91,12 @@ export function parseCatalogProductsQuery(
     Math.max(1, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_CATALOG_PAGE_SIZE)
   )
 
+  const offsetRaw = searchParams.get('offset')
+  const offset =
+    offsetRaw != null && offsetRaw !== ''
+      ? Math.max(0, parseInt(offsetRaw, 10) || 0)
+      : undefined
+
   const category = searchParams.get('category')?.trim() || undefined
   const subcategory = searchParams.get('subcategory')?.trim() || undefined
   const nested = searchParams.get('nested')?.trim() || undefined
@@ -77,8 +106,10 @@ export function parseCatalogProductsQuery(
   const modeRaw = searchParams.get('mode')?.trim()
   const mode: CatalogMode | undefined =
     modeRaw === 'new' || modeRaw === 'all' ? modeRaw : undefined
+  const shuffleRaw = searchParams.get('shuffle')?.trim().toLowerCase()
+  const shuffle = shuffleRaw === '1' || shuffleRaw === 'true'
 
-  return { page, limit, category, subcategory, nested, brand, tag, search, mode }
+  return { page, limit, offset, category, subcategory, nested, brand, tag, search, mode, shuffle }
 }
 
 function toMysqlDatetime(d: Date): string {
@@ -551,6 +582,9 @@ export function buildCatalogProductsUrl(
   const params = new URLSearchParams()
   params.set('page', String(query.page))
   params.set('limit', String(query.limit))
+  if (query.offset != null && query.offset > 0) {
+    params.set('offset', String(query.offset))
+  }
   if (query.category && query.category !== 'All') params.set('category', query.category)
   if (query.subcategory && query.subcategory !== 'All') {
     params.set('subcategory', query.subcategory)
@@ -562,5 +596,30 @@ export function buildCatalogProductsUrl(
   if (query.tag) params.set('tag', query.tag)
   if (query.search) params.set('search', query.search)
   if (query.mode) params.set('mode', query.mode)
+  if (query.shuffle) params.set('shuffle', '1')
   return `${basePath}?${params.toString()}`
+}
+
+/** True when the catalog should use weighted-random homepage ordering. */
+export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
+  return (
+    query.shuffle === true &&
+    query.mode !== 'new' &&
+    !query.category &&
+    !query.subcategory &&
+    !query.nested &&
+    !query.brand &&
+    !query.tag &&
+    !query.search?.trim()
+  )
+}
+
+/** Prefer priced products (~60%) while keeping unpriced items in the mix. */
+export function catalogShuffleOrderSql(): string {
+  return `(
+    CASE
+      WHEN COALESCE(p.price, 0) > 0 THEN RAND() * 0.55
+      ELSE 0.55 + RAND() * 0.45
+    END
+  ) ASC, p.id ASC`
 }

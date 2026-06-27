@@ -9,6 +9,7 @@ import {
   type Locale,
   formatMessage,
 } from '@/lib/i18n'
+import { sanitizeTranslationMarkup } from '@/lib/category-i18n-key'
 import { appPath } from '@/lib/paths'
 
 type I18nContextValue = {
@@ -104,7 +105,7 @@ export function I18nProvider({
       t: (key, values) => {
         const msg =
           staticMessages[key] ?? categoryMessages[key] ?? tagMessages[key] ?? key
-        return formatMessage(msg, values)
+        return sanitizeTranslationMarkup(formatMessage(msg, values))
       },
     }
   }, [locale, staticMessages, categoryMessages, tagMessages])

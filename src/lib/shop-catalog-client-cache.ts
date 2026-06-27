@@ -1,6 +1,7 @@
-import { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import {
   buildCatalogProductsUrl,
+  CATALOG_BATCH_SIZE,
+  catalogPageBaseOffset,
   isCatalogProductsPage,
   type CatalogProductsPage,
 } from '@/lib/catalog-products'
@@ -19,6 +20,7 @@ export type ShopCatalogFilterPrefetch = {
   tag?: string
   search?: string
   mode?: 'all' | 'new'
+  shuffle?: boolean
 }
 
 /** Stable key for a catalog page request (matches SSR signature). */
@@ -36,7 +38,8 @@ export function shopCatalogClientSignature(
       tag: filters.tag ?? '',
       search: filters.search ?? '',
     },
-    filters.mode ?? 'all'
+    filters.mode ?? 'all',
+    { shuffle: filters.shuffle }
   )
 }
 
@@ -56,9 +59,11 @@ export function invalidateShopCatalogCache(): void {
 async function fetchShopCatalogPage(
   filters: ShopCatalogFilterPrefetch
 ): Promise<CatalogProductsPage | null> {
+  const page = filters.page ?? 1
   const url = buildCatalogProductsUrl(appPath('/api/products'), {
-    page: filters.page ?? 1,
-    limit: CATALOG_PAGE_SIZE,
+    page,
+    limit: CATALOG_BATCH_SIZE,
+    offset: catalogPageBaseOffset(page),
     category: filters.category && filters.category !== 'All' ? filters.category : undefined,
     subcategory:
       filters.subcategory && filters.subcategory !== 'All' ? filters.subcategory : undefined,

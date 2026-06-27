@@ -1,7 +1,8 @@
 /** Stable key for matching SSR catalog payload to client URL filters. */
 export function buildShopCatalogSignature(
   searchParams: Record<string, string | string[] | undefined>,
-  mode: 'all' | 'new' = 'all'
+  mode: 'all' | 'new' = 'all',
+  options?: { shuffle?: boolean }
 ): string {
   const page = pickSearchParam(searchParams, 'page') ?? '1'
   const category = pickSearchParam(searchParams, 'category') ?? 'All'
@@ -10,7 +11,8 @@ export function buildShopCatalogSignature(
   const brand = pickSearchParam(searchParams, 'brand') ?? 'All'
   const tag = pickSearchParam(searchParams, 'tag') ?? ''
   const search = pickSearchParam(searchParams, 'search') ?? ''
-  return `${page}|${category}|${subcategory}|${nested}|${brand}|${tag}|${search}|${mode}`
+  const shuffle = options?.shuffle ? '1' : '0'
+  return `${page}|${category}|${subcategory}|${nested}|${brand}|${tag}|${search}|${mode}|${shuffle}`
 }
 
 function pickSearchParam(
