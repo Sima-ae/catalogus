@@ -120,8 +120,7 @@ export default function MessageTickerBar() {
   if (!loaded) {
     return (
       <div
-        className="message-ticker-bar relative h-10 w-full shrink-0"
-        style={{ background: 'linear-gradient(to right, #3c2774, #2c5765)' }}
+        className="message-ticker-bar relative h-10 w-full shrink-0 bg-black"
         aria-hidden
       />
     )
@@ -131,8 +130,7 @@ export default function MessageTickerBar() {
 
   return (
     <div
-      className="message-ticker-bar relative h-10 w-full overflow-hidden px-5 text-white shadow-inner sm:px-8"
-      style={{ background: 'linear-gradient(to right, #3c2774, #2c5765)' }}
+      className="message-ticker-bar relative h-10 w-full overflow-hidden bg-black px-5 text-white shadow-inner sm:px-8"
       role="marquee"
       aria-live="polite"
     >
