@@ -175,6 +175,8 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.jewelry': 'Jewelry',
     'category.bags-and-wallets': 'Bags and wallets',
     'category.tassen-en-portemonnees': 'Bags and wallets',
+    'category.shirts': 'Shirts',
+    'category.shorts': 'Shorts',
 
     // Product page
     'product.loading': 'Loading product…',
@@ -421,6 +423,8 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'category.jewelry': 'Sieraden',
     'category.bags-and-wallets': 'Tassen en portemonnees',
     'category.tassen-en-portemonnees': 'Tassen en portemonnees',
+    'category.shirts': 'Shirts',
+    'category.shorts': 'Korte broeken',
 
     // Product page
     'product.loading': 'Product laden…',
