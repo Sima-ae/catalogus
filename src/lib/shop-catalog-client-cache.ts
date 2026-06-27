@@ -4,7 +4,7 @@ import {
   isCatalogProductsPage,
   type CatalogProductsPage,
 } from '@/lib/catalog-products'
-import { buildShopCatalogSignature } from '@/lib/shop-catalog-ssr'
+import { buildShopCatalogSignature } from '@/lib/shop-catalog-signature'
 import { appPath } from '@/lib/paths'
 
 const catalogCache = new Map<string, CatalogProductsPage>()
