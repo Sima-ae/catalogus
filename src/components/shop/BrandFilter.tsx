@@ -3,14 +3,18 @@
 import FilterPillsScroll from '@/components/shop/FilterPillsScroll'
 import FilterPillsSkeleton from '@/components/shop/FilterPillsSkeleton'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
-import { useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { shouldShowShopBrandFilter } from '@/lib/shop-brand-menu'
+import type { ShopSubcategoryHookValue } from '@/lib/use-shop-subcategory'
 
 interface BrandFilterProps {
   selectedCategory: string
   selectedBrand: string
   onBrandChange: (brand: string) => void
   centered?: boolean
+  subcategoryState: Pick<
+    ShopSubcategoryHookValue,
+    'selectedSubcategory' | 'hasSubcategories' | 'loadingSubcategories'
+  >
 }
 
 export default function BrandFilter({
@@ -18,12 +22,13 @@ export default function BrandFilter({
   selectedBrand,
   onBrandChange,
   centered = false,
+  subcategoryState,
 }: BrandFilterProps) {
   const {
     selectedSubcategory,
     hasSubcategories,
     loadingSubcategories,
-  } = useShopSubcategory(selectedCategory)
+  } = subcategoryState
 
   const showBrandRow = shouldShowShopBrandFilter({
     selectedCategory,

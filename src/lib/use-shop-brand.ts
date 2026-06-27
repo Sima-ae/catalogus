@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
-import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import type { ShopSubcategoryHookValue } from '@/lib/use-shop-subcategory'
 import {
   findShopBrandInMenu,
   shouldShowShopBrandFilter,
@@ -15,20 +15,24 @@ import {
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 
-export function useShopBrand() {
+type UseShopBrandOptions = {
+  selectedCategory: string
+  subcategoryState: Pick<
+    ShopSubcategoryHookValue,
+    'selectedSubcategory' | 'hasSubcategories' | 'loadingSubcategories'
+  >
+}
+
+export function useShopBrand({ selectedCategory, subcategoryState }: UseShopBrandOptions) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const selectedCategory = useMemo(() => {
-    const raw = searchParams.get('category')?.trim()
-    return raw || 'All'
-  }, [searchParams])
 
   const {
     selectedSubcategory,
     hasSubcategories,
     loadingSubcategories,
-  } = useShopSubcategory(selectedCategory)
+  } = subcategoryState
 
   const brandFilterActive = shouldShowShopBrandFilter({
     selectedCategory,

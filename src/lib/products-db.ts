@@ -20,6 +20,7 @@ import {
   getDirectChildCategories,
   isQualifiedSiblingCategory,
   resolveShopCategoryFilter,
+  type ShopCategoryFilterResult,
 } from '@/lib/shop-category-tree'
 import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
 import { markPricelistOutOfStockForProducts } from '@/lib/pricelist-catalog-status-sync'
@@ -319,15 +320,44 @@ async function catalogListingFromSql() {
   return g[CATALOG_FROM_CACHE_KEY]
 }
 
+type CatalogListingJoinOptions = {
+  needsCategoryJoin: boolean
+  needsBrandJoin: boolean
+}
+
+async function catalogListingFromSqlForQuery(options: CatalogListingJoinOptions): Promise<string> {
+  const parts = ['FROM products p']
+  if (options.needsCategoryJoin || options.needsBrandJoin) {
+    const { categoryJoin, brandJoin } = await buildProductJoinFragments()
+    if (options.needsCategoryJoin) parts.push(categoryJoin)
+    if (options.needsBrandJoin && brandJoin) parts.push(brandJoin)
+  }
+  return parts.join('\n')
+}
+
+function catalogListingNeedsCategoryJoin(
+  categoryFilter: ReturnType<typeof resolveShopCategoryFilter> | null | undefined,
+  query: Pick<CatalogProductsQuery, 'search'>
+): boolean {
+  return Boolean(
+    categoryFilter?.categoryIds?.length || String(query.search ?? '').trim()
+  )
+}
+
+function catalogListingNeedsBrandJoin(
+  query: Pick<CatalogProductsQuery, 'brand' | 'search'>,
+  hasBrandsTable: boolean
+): boolean {
+  if (!hasBrandsTable) return false
+  return Boolean(query.brand && query.brand !== 'All')
+}
+
 /** Lightweight SELECT for shop grid rows — skips description, gallery, tags, etc. */
 async function catalogProductSelectSql() {
   const g = globalThis as GlobalSchema
   if (g[CATALOG_SELECT_CACHE_KEY]) return g[CATALOG_SELECT_CACHE_KEY]
 
-  const [fromClause, { brandSelect }] = await Promise.all([
-    catalogListingFromSql(),
-    buildProductJoinFragments(),
-  ])
+  const { categoryJoin, brandJoin, brandSelect } = await buildProductJoinFragments()
 
   g[CATALOG_SELECT_CACHE_KEY] = `
     SELECT
@@ -347,12 +377,13 @@ async function catalogProductSelectSql() {
       p.featured,
       p.source_url,
       p.author_id,
+      p.sku,
       c.id AS resolved_category_id,
       c.name AS resolved_category_name,
-      c.slug AS resolved_category_slug,
-      pp.label AS supplier_pricelist_label,
-      pp.slug AS supplier_pricelist_slug${brandSelect}
-    ${fromClause}
+      c.slug AS resolved_category_slug${brandSelect}
+    FROM products p
+    ${categoryJoin}
+    ${brandJoin}
   `
   return g[CATALOG_SELECT_CACHE_KEY]
 }
@@ -396,10 +427,17 @@ async function serializeProductRows(
   rows: Record<string, unknown>[],
   options?: SerializeProductRowOptions & { catalog?: boolean }
 ) {
+  if (options?.catalog) {
+    const brandSkuPrefixes =
+      options.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
+    return dedupeProductRows(rows).map((row) =>
+      serializeCatalogProductRow(row, { brandSkuPrefixes, ...options })
+    )
+  }
+
   const brandSkuPrefixes =
     options?.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
   const brandNames = options?.brandNames ?? (await getAllBrandNames())
-  const serialize = options?.catalog ? serializeCatalogProductRow : serializeProductRow
   const cjkTitleCache = new Map<string, string>()
 
   const deduped = dedupeProductRows(rows)
@@ -418,7 +456,7 @@ async function serializeProductRows(
         rowToSerialize = { ...row, name: polished }
       }
 
-      return serialize(rowToSerialize, {
+      return serializeProductRow(rowToSerialize, {
         brandSkuPrefixes,
         brandNames,
         ...options,
@@ -596,7 +634,76 @@ export type ShopSubcategoryOption = {
 }
 
 const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu'
-const SHOP_CATEGORY_MENU_TTL_MS = 180_000
+const SHOP_CATEGORY_MENU_TTL_MS = 300_000
+const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories'
+const SHOP_SUBCATEGORY_TTL_MS = 300_000
+const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
+const PRODUCT_COUNT_BUCKETS_TTL_MS = 300_000
+
+async function loadActiveProductCountBuckets(options?: {
+  brand?: string
+  mode?: CatalogProductsQuery['mode']
+}): Promise<Map<string, number>> {
+  const cacheKey = `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}`
+  return getCachedValue(
+    PRODUCT_COUNT_BUCKETS_NS,
+    cacheKey,
+    PRODUCT_COUNT_BUCKETS_TTL_MS,
+    async () => {
+      const hasBrandsTable = await brandsTableExists()
+      const needsBrandJoin = Boolean(options?.brand && options.brand !== 'All')
+      const fromClause = await catalogListingFromSqlForQuery({
+        needsCategoryJoin: true,
+        needsBrandJoin: needsBrandJoin && hasBrandsTable,
+      })
+      const { whereSql, params } = buildActiveCatalogFilters(
+        { page: 1, limit: 1, brand: options?.brand, mode: options?.mode },
+        { includeBrandJoin: needsBrandJoin && hasBrandsTable }
+      )
+      const rows = await queryDb<{ bucket: string; total: number }[]>(
+        `SELECT
+          CASE
+            WHEN p.category_id IS NOT NULL AND TRIM(CAST(p.category_id AS CHAR)) != ''
+            THEN CONCAT('id:', p.category_id)
+            ELSE CONCAT('legacy:', LOWER(TRIM(COALESCE(c.name, p.category, ''))))
+          END AS bucket,
+          COUNT(*) AS total
+        ${fromClause}
+        ${whereSql}
+        GROUP BY bucket`,
+        params
+      )
+      const buckets = new Map<string, number>()
+      for (const row of rows) {
+        const key = String(row.bucket ?? '').trim()
+        if (!key || key === 'legacy:') continue
+        buckets.set(key, Number(row.total ?? 0))
+      }
+      return buckets
+    }
+  )
+}
+
+function sumCategoryFilterCounts(
+  filter: ShopCategoryFilterResult,
+  buckets: Map<string, number>
+): number {
+  let total = 0
+  const seenLegacy = new Set<string>()
+
+  for (const id of filter.categoryIds) {
+    total += buckets.get(`id:${id}`) ?? 0
+  }
+
+  for (const legacy of filter.legacyNames) {
+    const key = `legacy:${legacy.trim().toLowerCase()}`
+    if (seenLegacy.has(key)) continue
+    seenLegacy.add(key)
+    total += buckets.get(key) ?? 0
+  }
+
+  return total
+}
 
 /** Top-level shop categories with at least one active product in scope. */
 export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
@@ -605,14 +712,18 @@ export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
     'menu',
     SHOP_CATEGORY_MENU_TTL_MS,
     async () => {
-      const categories = await loadActiveCategories()
+      const [categories, buckets] = await Promise.all([
+        loadActiveCategories(),
+        loadActiveProductCountBuckets(),
+      ])
       const candidates = buildShopCategoryMenu(categories).filter((name) => name !== 'All')
-      const counts = await Promise.all(
-        candidates.map(async (name) => ({
-          name,
-          count: await countActiveProductsForCatalogQuery({ category: name }),
-        }))
-      )
+      const counts = candidates.map((name) => {
+        const filter = resolveShopCategoryFilter(categories, { category: name })
+        const count = filter?.categoryIds.length
+          ? sumCategoryFilterCounts(filter, buckets)
+          : 0
+        return { name, count }
+      })
       return ['All', ...counts.filter((row) => row.count > 0).map((row) => row.name)]
     }
   )
@@ -623,24 +734,40 @@ export async function listShopSubcategoriesWithProducts(
   parentCategoryName: string,
   brandName?: string
 ): Promise<ShopSubcategoryOption[]> {
+  const cacheKey = `${parentCategoryName.trim().toLowerCase()}|${String(brandName ?? '').trim().toLowerCase()}`
+  return getCachedValue(
+    SHOP_SUBCATEGORY_CACHE_NS,
+    cacheKey,
+    SHOP_SUBCATEGORY_TTL_MS,
+    () => loadShopSubcategoriesWithProducts(parentCategoryName, brandName)
+  )
+}
+
+async function loadShopSubcategoriesWithProducts(
+  parentCategoryName: string,
+  brandName?: string
+): Promise<ShopSubcategoryOption[]> {
   const categories = await loadActiveCategories()
   const children = getDirectChildCategories(categories, parentCategoryName)
   if (!children.length) return []
 
   const brand = brandName?.trim()
   const brandFilter = brand && brand !== 'All' ? brand : undefined
+  const buckets = await loadActiveProductCountBuckets({ brand: brandFilter })
 
-  const rows = await Promise.all(
-    children.map(async (child) => ({
+  const rows = children.map((child) => {
+    const filter = resolveShopCategoryFilter(categories, {
+      category: parentCategoryName,
+      subcategory: child.name,
+    })
+    const productCount =
+      filter?.categoryIds.length ? sumCategoryFilterCounts(filter, buckets) : 0
+    return {
       id: String(child.id),
       name: String(child.name),
-      productCount: await countActiveProductsForCatalogQuery({
-        category: parentCategoryName,
-        subcategory: child.name,
-        brand: brandFilter,
-      }),
-    }))
-  )
+      productCount,
+    }
+  })
 
   return rows.filter((row) => row.productCount > 0)
 }
@@ -1017,12 +1144,10 @@ export async function listActiveProducts() {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  const [fromClause, categories, hasBrandsTable] = await Promise.all([
-    catalogListingFromSql(),
+  const [categories, hasBrandsTable] = await Promise.all([
     loadActiveCategories(),
     brandsTableExists(),
   ])
-  const limit = query.limit
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
     subcategory: query.subcategory,
@@ -1033,10 +1158,17 @@ export async function listActiveProductsPaginated(
       items: [],
       total: 0,
       page: query.page,
-      pageSize: limit,
+      pageSize: query.limit,
       totalPages: 1,
     }
   }
+
+  const needsCategoryJoin = catalogListingNeedsCategoryJoin(categoryFilter, query)
+  const needsBrandJoin = catalogListingNeedsBrandJoin(query, hasBrandsTable)
+  const fromClause = await catalogListingFromSqlForQuery({
+    needsCategoryJoin,
+    needsBrandJoin,
+  })
 
   const { whereSql, params } = buildActiveCatalogFilters(
     {
@@ -1047,8 +1179,9 @@ export async function listActiveProductsPaginated(
       categoryStorageLabel: categoryFilter?.categoryStorageLabel,
       excludeCategoryIds: categoryFilter?.excludeCategoryIds,
     },
-    { includeBrandJoin: hasBrandsTable }
+    { includeBrandJoin: needsBrandJoin }
   )
+  const limit = query.limit
   const offset = (query.page - 1) * limit
   const sortScope = catalogSortScope(query)
   const { joinSql, orderSql, scopeParam } = await catalogPositionJoin(sortScope)
@@ -1056,19 +1189,20 @@ export async function listActiveProductsPaginated(
 
   const [countRows, idRows] = await Promise.all([
     queryDb<{ total: number }[]>(
-      `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${joinSql} ${whereSql}`,
+      `SELECT COUNT(*) AS total ${fromClause} ${joinSql} ${whereSql}`,
       idParams
     ),
     queryDb<{ id: string }[]>(
-      `SELECT p.id ${fromClause} ${joinSql} ${whereSql} GROUP BY p.id ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+      `SELECT p.id ${fromClause} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idParams, limit, offset]
     ),
   ])
 
   const total = Number(countRows[0]?.total ?? 0)
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)), { catalog: true })
+  const serialized = await serializeProductRows(rows, { catalog: true })
   const items = await applyStorefrontSoldOutFromPlatformPricelist(
-    await serializeProductRows(rows, { catalog: true })
+    serialized as Array<{ id: string; sold_out?: boolean }>
   )
 
   return {
@@ -1214,8 +1348,7 @@ export async function listActiveProductIdsForCatalogQuery(
 export async function countActiveProductsForCatalogQuery(
   query: Omit<CatalogProductsQuery, 'page' | 'limit'>
 ): Promise<number> {
-  const [fromClause, categories, hasBrandsTable] = await Promise.all([
-    catalogListingFromSql(),
+  const [categories, hasBrandsTable] = await Promise.all([
     loadActiveCategories(),
     brandsTableExists(),
   ])
@@ -1228,6 +1361,13 @@ export async function countActiveProductsForCatalogQuery(
     return 0
   }
 
+  const needsCategoryJoin = catalogListingNeedsCategoryJoin(categoryFilter, query)
+  const needsBrandJoin = catalogListingNeedsBrandJoin(query, hasBrandsTable)
+  const fromClause = await catalogListingFromSqlForQuery({
+    needsCategoryJoin,
+    needsBrandJoin,
+  })
+
   const { whereSql, params } = buildActiveCatalogFilters(
     {
       ...query,
@@ -1239,11 +1379,11 @@ export async function countActiveProductsForCatalogQuery(
       categoryStorageLabel: categoryFilter?.categoryStorageLabel,
       excludeCategoryIds: categoryFilter?.excludeCategoryIds,
     },
-    { includeBrandJoin: hasBrandsTable }
+    { includeBrandJoin: needsBrandJoin }
   )
 
   const countRows = await queryDb<{ total: number }[]>(
-    `SELECT COUNT(DISTINCT p.id) AS total ${fromClause} ${whereSql}`,
+    `SELECT COUNT(*) AS total ${fromClause} ${whereSql}`,
     params
   )
   return Number(countRows[0]?.total ?? 0)

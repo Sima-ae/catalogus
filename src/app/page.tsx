@@ -1,14 +1,19 @@
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
-import { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
-import { listActiveProductsPaginated } from '@/lib/products-db'
+import {
+  buildShopCatalogSignature,
+  loadInitialShopCatalog,
+} from '@/lib/shop-catalog-ssr'
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const sp = await searchParams
+  const initialCatalogSignature = buildShopCatalogSignature(sp, 'all')
   let initialCatalog = null
   try {
-    initialCatalog = await listActiveProductsPaginated({
-      page: 1,
-      limit: CATALOG_PAGE_SIZE,
-    })
+    initialCatalog = await loadInitialShopCatalog(sp, 'all')
   } catch {
     // Client-side fetch fallback if DB is unavailable during SSR.
   }
@@ -25,6 +30,7 @@ export default async function HomePage() {
         centerCatalog: true,
       }}
       initialCatalog={initialCatalog}
+      initialCatalogSignature={initialCatalogSignature}
     />
   )
 }

@@ -1,22 +1,29 @@
 'use client'
 
 import FilterPillsScroll from '@/components/shop/FilterPillsScroll'
-import { useShopSubcategory } from '@/lib/use-shop-subcategory'
+import type { ShopSubcategoryHookValue } from '@/lib/use-shop-subcategory'
 import { useI18n } from '@/lib/i18n-context'
 import { getTopCategoryLabel } from '@/lib/i18n-categories'
 
 interface SubcategoryFilterProps {
   selectedCategory: string
   centered?: boolean
+  subcategoryState: ShopSubcategoryHookValue
 }
 
 export default function SubcategoryFilter({
   selectedCategory,
   centered = false,
+  subcategoryState,
 }: SubcategoryFilterProps) {
   const { t } = useI18n()
-  const { selectedSubcategory, setSelectedSubcategory, subcategoryOptions, hasSubcategories, loadingSubcategories } =
-    useShopSubcategory(selectedCategory)
+  const {
+    selectedSubcategory,
+    setSelectedSubcategory,
+    subcategoryOptions,
+    hasSubcategories,
+    loadingSubcategories,
+  } = subcategoryState
 
   if (loadingSubcategories || !hasSubcategories || selectedCategory === 'All') return null
 

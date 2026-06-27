@@ -74,17 +74,26 @@ export type ShopCatalogConfig = {
 function ShopCatalogPageContent({
   config,
   initialCatalog,
+  initialCatalogSignature,
 }: {
   config: ShopCatalogConfig
   initialCatalog?: CatalogProductsPage | null
+  initialCatalogSignature?: string
 }) {
   const { t: tr } = useI18n()
   const [products, setProducts] = useState<Product[]>(initialCatalog?.items ?? [])
   const [totalItems, setTotalItems] = useState(initialCatalog?.total ?? 0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
-  const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
-    useShopSubcategory(selectedCategory)
-  const { selectedBrand, setSelectedBrand } = useShopBrand()
+  const subcategoryState = useShopSubcategory(selectedCategory)
+  const {
+    selectedSubcategory,
+    hasSubcategories,
+    loadingSubcategories,
+  } = subcategoryState
+  const { selectedBrand, setSelectedBrand } = useShopBrand({
+    selectedCategory,
+    subcategoryState,
+  })
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
   const [loading, setLoading] = useState(!initialCatalog)
   const [pageLoading, setPageLoading] = useState(false)
@@ -247,18 +256,16 @@ function ShopCatalogPageContent({
     }
 
     const pageToLoad = currentPage
-    const isDefaultBrowse =
-      pageToLoad === 1 &&
-      selectedCategory === 'All' &&
-      selectedSubcategory === 'All' &&
-      !brandQueryActive &&
-      !filterTag &&
-      !debouncedSearch
+    const urlSearch = searchParams.get('search')?.trim() || ''
+    const urlCategory = searchParams.get('category')?.trim() || 'All'
+    const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
+    const clientCatalogSignature = `${pageToLoad}|${urlCategory}|${urlSubcategory}|${filterBrand}|${filterTag}|${urlSearch}|${config.mode}`
 
     if (
       initialCatalog &&
+      initialCatalogSignature &&
+      clientCatalogSignature === initialCatalogSignature &&
       !skippedInitialFetch.current &&
-      isDefaultBrowse &&
       reloadToken === 0
     ) {
       skippedInitialFetch.current = true
@@ -325,10 +332,13 @@ function ShopCatalogPageContent({
     filterSignature,
     reloadToken,
     initialCatalog,
+    initialCatalogSignature,
     brandQueryActive,
     filterTag,
+    filterBrand,
     selectedCategory,
     selectedSubcategory,
+    searchParams,
   ])
 
   useEffect(() => {
@@ -360,42 +370,44 @@ function ShopCatalogPageContent({
       return data.total
     }
 
-    async function loadCounts() {
-      const tasks: Promise<void>[] = []
+    const timer = window.setTimeout(() => {
+      void (async function loadCounts() {
+        const tasks: Promise<void>[] = []
 
-      if (showCategory) {
-        tasks.push(
-          fetchCount({
-            category: selectedCategory,
-            subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-          }).then((n) => {
-            if (!cancelled) setCategoryProductCount(n)
-          })
-        )
-      } else if (!cancelled) {
-        setCategoryProductCount(null)
-      }
+        if (showCategory) {
+          tasks.push(
+            fetchCount({
+              category: selectedCategory,
+              subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+            }).then((n) => {
+              if (!cancelled) setCategoryProductCount(n)
+            })
+          )
+        } else if (!cancelled) {
+          setCategoryProductCount(null)
+        }
 
-      if (showBrand) {
-        tasks.push(
-          fetchCount({
-            category: selectedCategory !== 'All' ? selectedCategory : undefined,
-            subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-            brand: filterBrand,
-          }).then((n) => {
-            if (!cancelled) setBrandProductCount(n)
-          })
-        )
-      } else if (!cancelled) {
-        setBrandProductCount(null)
-      }
+        if (showBrand) {
+          tasks.push(
+            fetchCount({
+              category: selectedCategory !== 'All' ? selectedCategory : undefined,
+              subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+              brand: filterBrand,
+            }).then((n) => {
+              if (!cancelled) setBrandProductCount(n)
+            })
+          )
+        } else if (!cancelled) {
+          setBrandProductCount(null)
+        }
 
-      await Promise.all(tasks)
-    }
+        await Promise.all(tasks)
+      })()
+    }, 450)
 
-    void loadCounts()
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
     }
   }, [
     brandQueryActive,
@@ -453,12 +465,14 @@ function ShopCatalogPageContent({
               <SubcategoryFilter
                 selectedCategory={selectedCategory}
                 centered={config.centerCatalog}
+                subcategoryState={subcategoryState}
               />
               <BrandFilter
                 selectedCategory={selectedCategory}
                 selectedBrand={selectedBrand}
                 onBrandChange={setSelectedBrand}
                 centered={config.centerCatalog}
+                subcategoryState={subcategoryState}
               />
             </div>
 
@@ -574,13 +588,19 @@ function ShopCatalogPageContent({
 export default function ShopCatalogPage({
   config,
   initialCatalog,
+  initialCatalogSignature,
 }: {
   config: ShopCatalogConfig
   initialCatalog?: CatalogProductsPage | null
+  initialCatalogSignature?: string
 }) {
   return (
     <Suspense fallback={null}>
-      <ShopCatalogPageContent config={config} initialCatalog={initialCatalog} />
+      <ShopCatalogPageContent
+        config={config}
+        initialCatalog={initialCatalog}
+        initialCatalogSignature={initialCatalogSignature}
+      />
     </Suspense>
   )
 }

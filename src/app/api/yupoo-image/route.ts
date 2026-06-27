@@ -48,7 +48,7 @@ async function fetchYupooImage(
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'private, max-age=86400, stale-while-revalidate=604800',
+        'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
         ...NO_INDEX_RESPONSE_HEADERS,
       },
     })

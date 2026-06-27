@@ -18,16 +18,71 @@ export type ShopSubcategoryRow = {
   productCount: number
 }
 
+export type ShopSubcategoryHookValue = {
+  selectedSubcategory: string
+  setSelectedSubcategory: (subcategory: string) => void
+  subcategoryOptions: string[]
+  hasSubcategories: boolean
+  loadingSubcategories: boolean
+}
+
+const subcategoryCache = new Map<string, ShopSubcategoryRow[]>()
+const subcategoryInflight = new Map<string, Promise<ShopSubcategoryRow[]>>()
+
+async function fetchShopSubcategories(selectedCategory: string): Promise<ShopSubcategoryRow[]> {
+  const key = selectedCategory.trim().toLowerCase()
+  const cached = subcategoryCache.get(key)
+  if (cached) return cached
+
+  const pending = subcategoryInflight.get(key)
+  if (pending) return pending
+
+  const params = new URLSearchParams({ category: selectedCategory })
+  const request = fetch(appPath(`/api/categories/subcategories?${params.toString()}`))
+    .then((res) => (res.ok ? res.json() : { subcategories: [] }))
+    .then((data: unknown) => {
+      const rows =
+        data &&
+        typeof data === 'object' &&
+        Array.isArray((data as { subcategories?: unknown }).subcategories)
+          ? ((data as { subcategories: ShopSubcategoryRow[] }).subcategories ?? [])
+          : []
+      const filtered = rows.filter(
+        (row) => row?.name && (row.productCount ?? 0) > 0
+      ) as ShopSubcategoryRow[]
+      subcategoryCache.set(key, filtered)
+      return filtered
+    })
+    .catch(() => [] as ShopSubcategoryRow[])
+    .finally(() => {
+      subcategoryInflight.delete(key)
+    })
+
+  subcategoryInflight.set(key, request)
+  return request
+}
+
+/** Clear client subcategory cache after taxonomy changes. */
+export function invalidateShopSubcategoryCache(): void {
+  subcategoryCache.clear()
+  subcategoryInflight.clear()
+}
 
 /** Subcategory pills for the current parent category — only rows with products. */
-export function useShopSubcategory(selectedCategory: string) {
+export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHookValue {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t, locale } = useI18n()
 
-  const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>([])
-  const [loading, setLoading] = useState(false)
+  const cacheKey = selectedCategory.trim().toLowerCase()
+  const cachedRows =
+    selectedCategory && selectedCategory !== 'All' ? subcategoryCache.get(cacheKey) : undefined
+
+  const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>(() => cachedRows ?? [])
+  const [loading, setLoading] = useState(
+    () => Boolean(selectedCategory && selectedCategory !== 'All' && !cachedRows)
+  )
 
   useEffect(() => {
     if (!selectedCategory || selectedCategory === 'All') {
@@ -36,27 +91,18 @@ export function useShopSubcategory(selectedCategory: string) {
       return
     }
 
+    const hit = subcategoryCache.get(cacheKey)
+    if (hit) {
+      setSubcategories(hit)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+
     let cancelled = false
-    setLoading(true)
-
-    const params = new URLSearchParams({ category: selectedCategory })
-
-    fetch(appPath(`/api/categories/subcategories?${params.toString()}`))
-      .then((res) => (res.ok ? res.json() : { subcategories: [] }))
-      .then((data: unknown) => {
-        if (cancelled) return
-        const rows =
-          data &&
-          typeof data === 'object' &&
-          Array.isArray((data as { subcategories?: unknown }).subcategories)
-            ? ((data as { subcategories: ShopSubcategoryRow[] }).subcategories ?? [])
-            : []
-        setSubcategories(
-          rows.filter((row) => row?.name && (row.productCount ?? 0) > 0) as ShopSubcategoryRow[]
-        )
-      })
-      .catch(() => {
-        if (!cancelled) setSubcategories([])
+    fetchShopSubcategories(selectedCategory)
+      .then((rows) => {
+        if (!cancelled) setSubcategories(rows)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -65,7 +111,7 @@ export function useShopSubcategory(selectedCategory: string) {
     return () => {
       cancelled = true
     }
-  }, [selectedCategory])
+  }, [selectedCategory, cacheKey])
 
   const subcategoryOptions = useMemo(
     () => sortShopCategoriesByLabel(subcategories.map((row) => row.name), t, locale),

@@ -162,30 +162,48 @@ export function serializeProductRow(
   }
 }
 
-/** Lightweight shop grid payload — omits heavy fields not shown on product cards. */
+/** Lightweight shop grid payload — skips description polish and heavy fields. */
 export function serializeCatalogProductRow(
   row: Record<string, unknown>,
   options?: SerializeProductRowOptions
 ) {
-  const full = serializeProductRow(row, options)
+  const category = String(row.resolved_category_name ?? '').trim()
+  const brand = resolveProductBrandDisplay(row)
+  const sourceUrl = row.source_url != null ? String(row.source_url) : null
+  const { main } = resolveProductDisplayImages(String(row.image_url ?? ''), null, sourceUrl)
+
+  const rawSku = row.sku != null ? String(row.sku).trim() : ''
+  const prefixes = options?.brandSkuPrefixes ?? []
+  const sku =
+    rawSku && prefixes.length ? stripAllBrandPrefixesFromSku(rawSku, prefixes) : rawSku
+
+  const rawShort =
+    row.short_description != null && row.short_description !== ''
+      ? String(row.short_description)
+      : ''
+
   return {
-    id: full.id,
-    name: full.name,
+    id: String(row.id ?? ''),
+    name: String(row.name ?? '').trim(),
     description: '',
-    short_description: full.short_description,
-    price: full.price,
-    original_price: full.original_price,
-    image_url: full.image_url,
-    category: full.category,
-    category_id: full.category_id,
-    brand: full.brand,
-    brand_id: full.brand_id,
-    product_options: full.product_options,
-    sold_out: full.sold_out,
-    pre_order: full.pre_order,
-    featured: full.featured,
-    source_url: full.source_url,
-    author_id: (full as { author_id?: string }).author_id,
+    short_description: rawShort ? rawShort.slice(0, 280) : undefined,
+    price: Number(row.price) || 0,
+    original_price:
+      row.original_price != null && row.original_price !== ''
+        ? Number(row.original_price)
+        : null,
+    image_url: main,
+    category,
+    category_id: row.category_id ?? row.resolved_category_id ?? null,
+    brand: brand || undefined,
+    brand_id: row.brand_id ?? row.resolved_brand_id ?? null,
+    product_options: stripProductOptionsInternalPricing(parseProductOptions(row.product_options)),
+    sold_out: row.sold_out === 1 || row.sold_out === true,
+    pre_order: row.pre_order === 1 || row.pre_order === true,
+    featured: row.featured === 1 || row.featured === true,
+    source_url: sourceUrl,
+    author_id: row.author_id != null ? String(row.author_id) : undefined,
+    sku,
   }
 }
 

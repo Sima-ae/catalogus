@@ -51,14 +51,14 @@ export async function catalogPositionJoin(scope: string | null): Promise<Catalog
   if (!scope || !(await catalogPositionsTableExists())) {
     return {
       joinSql: '',
-      orderSql: 'MAX(p.created_at) DESC',
+      orderSql: 'p.created_at DESC',
       scopeParam: null,
     }
   }
 
   return {
     joinSql: `LEFT JOIN ${TABLE} cpp ON cpp.product_id = p.id AND cpp.scope = ?`,
-    orderSql: 'COALESCE(MIN(cpp.position), 999999) ASC, MAX(p.created_at) DESC',
+    orderSql: 'COALESCE(cpp.position, 999999) ASC, p.created_at DESC',
     scopeParam: scope,
   }
 }

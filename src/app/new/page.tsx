@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
-import { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import { buildPageMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
-import { listActiveProductsPaginated } from '@/lib/products-db'
+import {
+  buildShopCatalogSignature,
+  loadInitialShopCatalog,
+} from '@/lib/shop-catalog-ssr'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
@@ -14,14 +16,16 @@ export async function generateMetadata(): Promise<Metadata> {
   )
 }
 
-export default async function NewProductsPage() {
+export default async function NewProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const sp = await searchParams
+  const initialCatalogSignature = buildShopCatalogSignature(sp, 'new')
   let initialCatalog = null
   try {
-    initialCatalog = await listActiveProductsPaginated({
-      page: 1,
-      limit: CATALOG_PAGE_SIZE,
-      mode: 'new',
-    })
+    initialCatalog = await loadInitialShopCatalog(sp, 'new')
   } catch {
     // Client-side fetch fallback if DB is unavailable during SSR.
   }
@@ -42,6 +46,7 @@ export default async function NewProductsPage() {
         centerCatalog: true,
       }}
       initialCatalog={initialCatalog}
+      initialCatalogSignature={initialCatalogSignature}
     />
   )
 }

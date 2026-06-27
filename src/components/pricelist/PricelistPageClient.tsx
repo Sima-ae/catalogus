@@ -58,9 +58,9 @@ export default function PricelistPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const { selectedCategory } = useShopCategory()
-  const { selectedSubcategory, hasSubcategories, loadingSubcategories } =
-    useShopSubcategory(selectedCategory)
-  const { selectedBrand } = useShopBrand()
+  const subcategoryState = useShopSubcategory(selectedCategory)
+  const { selectedSubcategory, hasSubcategories, loadingSubcategories } = subcategoryState
+  const { selectedBrand } = useShopBrand({ selectedCategory, subcategoryState })
   const filterBrand = selectedBrand
   const brandFilterCtx = {
     selectedCategory,
@@ -675,7 +675,7 @@ export default function PricelistPageClient() {
       ) : null}
 
       {!loading && (totalOnPricelist > 0 || hasActiveFilters) ? (
-        <PricelistCatalogFilters />
+        <PricelistCatalogFilters subcategoryState={subcategoryState} />
       ) : null}
 
       {loading ? (

@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       const result = await listActiveProductsPaginated(paginatedQuery)
       return NextResponse.json(result, {
         headers: {
-          'Cache-Control': 'public, max-age=45, stale-while-revalidate=180',
+          'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
         },
       })
     }
