@@ -649,11 +649,63 @@ export function stripYangliNiuli(text: string): string {
   return result
 }
 
+/** True when customer-facing copy still mentions the Yupoo platform. */
+export function containsYupooPlatformText(text: string | null | undefined): boolean {
+  const t = String(text ?? '')
+  if (!t.trim()) return false
+  if (/\byupoo\b/i.test(t)) return true
+  if (/yupoo\.com/i.test(t)) return true
+  if (/[\w.-]+\.yupoo\.com/i.test(t)) return true
+  if (/又拍/.test(t)) return true
+  return false
+}
+
+/** Remove Yupoo platform branding from customer-facing product copy (EN + CN + URLs). */
+export function stripYupooPlatformText(text: string): string {
+  let result = String(text ?? '')
+  if (!result.trim()) return result
+
+  result = result.replace(/https?:\/\/[^\s<>"']*yupoo\.com[^\s<>"']*/gi, ' ')
+  result = result.replace(/\b[\w.-]+\.yupoo\.com\b/gi, ' ')
+  result = result.replace(/\byupoo\.com\b/gi, ' ')
+
+  result = result.replace(/又拍云?/g, ' ')
+  result = result.replace(/友拍/g, ' ')
+
+  result = result.replace(/\byupoo\b/gi, ' ')
+  result = result.replace(
+    /\b(?:from|on|via|at|see|view)\s+(?:the\s+)?(?:yupoo\s+)?(?:album|shop|store|catalog|link|page)\b/gi,
+    ' '
+  )
+
+  result = result
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false
+      if (/^(?:yupoo|又拍)[\s:：\-–—|｜.!！]*$/i.test(line)) return false
+      return true
+    })
+    .join('\n')
+
+  result = result
+    .replace(/\(\s*\)/g, ' ')
+    .replace(/\[\s*\]/g, ' ')
+    .replace(/\s*[-–—|｜]\s*[-–—|｜]\s*/g, ' ')
+    .replace(/^[|｜\-–—:：,，.\s]+/, '')
+    .replace(/[|｜\-–—:：,，.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return result
+}
+
 /** Remove supplier shop label from product titles (EN + CN). */
 export function sanitizeProductName(name: string): string {
   const original = String(name ?? '').trim()
   if (!original) return original
   let result = stripGuanhuiForeignTrade(original)
+  result = stripYupooPlatformText(result)
   result = result
     .replace(/\s*[-–—|｜]\s*guanhui\s+foreign\s+trade\s*$/gi, '')
     .replace(/\s*[-–—|｜]\s*冠汇外贸\s*$/g, '')
@@ -686,6 +738,7 @@ export function cleanImportDescription(
   result = stripImportedYangjingFabric(result)
   result = stripSupplierBoilerplateFromDescription(result, brandName)
   result = stripGuanhuiForeignTrade(result)
+  result = stripYupooPlatformText(result)
   result = normalizeDescriptionYears(result)
   result = stripChineseIconsAndDecorations(result)
   result = result

@@ -5,6 +5,10 @@ import {
 import { stripAllBrandPrefixesFromSku } from '@/lib/product-sku'
 import { polishProductDisplayText } from '@/lib/product-brand-text'
 import {
+  sanitizeProductName,
+  stripYupooPlatformText,
+} from '@/lib/yupoo/import-text'
+import {
   parseProductOptions,
   stripProductOptionsInternalPricing,
   type ProductOptions,
@@ -181,12 +185,16 @@ export function serializeCatalogProductRow(
     row.short_description != null && row.short_description !== ''
       ? String(row.short_description)
       : ''
+  const displayName = sanitizeProductName(String(row.name ?? '').trim())
+  const shortDescription = rawShort
+    ? stripYupooPlatformText(rawShort).slice(0, 280)
+    : undefined
 
   return {
     id: String(row.id ?? ''),
-    name: String(row.name ?? '').trim(),
+    name: displayName,
     description: '',
-    short_description: rawShort ? rawShort.slice(0, 280) : undefined,
+    short_description: shortDescription || undefined,
     price: Number(row.price) || 0,
     original_price:
       row.original_price != null && row.original_price !== ''
