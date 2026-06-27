@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Sidebar, { SidebarMenuButton, useShopSidebar } from '@/components/layout/Sidebar'
@@ -44,6 +44,14 @@ import {
   type CatalogProductsPage,
 } from '@/lib/catalog-products'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
+import {
+  consumePrefetchedShopCatalog,
+  getCachedShopCatalog,
+  prefetchShopCatalogFilter,
+  setCachedShopCatalog,
+  shopCatalogClientSignature,
+  type ShopCatalogFilterPrefetch,
+} from '@/lib/shop-catalog-client-cache'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { useAuth } from '@/lib/auth-local'
 import AppFooter from '@/components/layout/AppFooter'
@@ -87,6 +95,7 @@ function ShopCatalogPageContent({
   const subcategoryState = useShopSubcategory(selectedCategory)
   const {
     selectedSubcategory,
+    setSelectedSubcategory,
     hasSubcategories,
     loadingSubcategories,
   } = subcategoryState
@@ -101,8 +110,11 @@ function ShopCatalogPageContent({
   const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
   const [reorderSaving, setReorderSaving] = useState(false)
+  const [filterNavigating, setFilterNavigating] = useState(false)
+  const [optimisticCategory, setOptimisticCategory] = useState<string | null>(null)
+  const [optimisticSubcategory, setOptimisticSubcategory] = useState<string | null>(null)
+  const [optimisticBrand, setOptimisticBrand] = useState<string | null>(null)
   const hasLoadedOnce = useRef(Boolean(initialCatalog))
-  const skippedInitialFetch = useRef(false)
   const { user, isAdmin } = useAuth()
   const [categoryProductCount, setCategoryProductCount] = useState<number | null>(null)
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
@@ -138,6 +150,97 @@ function ShopCatalogPageContent({
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const brandQueryActive = shouldPassBrandToCatalogQuery(filterBrand)
   const filterSignature = `${selectedCategory}|${selectedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
+
+  const catalogMode = config.mode === 'new' ? 'new' : 'all'
+
+  const beginFilterNavigation = useCallback(
+    (prefetch?: ShopCatalogFilterPrefetch) => {
+      setFilterNavigating(true)
+      setPageLoading(true)
+      if (prefetch) prefetchShopCatalogFilter(prefetch)
+    },
+    []
+  )
+
+  const handleCategoryChange = useCallback(
+    (category: string) => {
+      setOptimisticCategory(category)
+      beginFilterNavigation({
+        page: 1,
+        category: category !== 'All' ? category : undefined,
+        mode: catalogMode,
+      })
+      setSelectedCategory(category)
+    },
+    [beginFilterNavigation, catalogMode, setSelectedCategory]
+  )
+
+  const handleSubcategoryChange = useCallback(
+    (subcategory: string) => {
+      setOptimisticSubcategory(subcategory)
+      beginFilterNavigation({
+        page: 1,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        subcategory: subcategory !== 'All' ? subcategory : undefined,
+        mode: catalogMode,
+      })
+      setSelectedSubcategory(subcategory)
+    },
+    [beginFilterNavigation, catalogMode, selectedCategory, setSelectedSubcategory]
+  )
+
+  const handleBrandChange = useCallback(
+    (brand: string) => {
+      setOptimisticBrand(brand)
+      beginFilterNavigation({
+        page: 1,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+        brand: brand !== 'All' ? brand : undefined,
+        mode: catalogMode,
+      })
+      setSelectedBrand(brand)
+    },
+    [
+      beginFilterNavigation,
+      catalogMode,
+      selectedCategory,
+      selectedSubcategory,
+      setSelectedBrand,
+    ]
+  )
+
+  const prefetchCatalogHover = useCallback(
+    (patch: Partial<ShopCatalogFilterPrefetch>) => {
+      prefetchShopCatalogFilter({
+        page: 1,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+        brand: brandQueryActive ? filterBrand : undefined,
+        tag: filterTag || undefined,
+        search: debouncedSearch || undefined,
+        mode: catalogMode,
+        ...patch,
+      })
+    },
+    [
+      brandQueryActive,
+      catalogMode,
+      debouncedSearch,
+      filterBrand,
+      filterTag,
+      selectedCategory,
+      selectedSubcategory,
+    ]
+  )
+
+  useEffect(() => {
+    setOptimisticCategory(null)
+    setOptimisticSubcategory(null)
+    setOptimisticBrand(null)
+    setFilterNavigating(false)
+  }, [searchParams])
+
   const reorderScope = catalogSortScope({
     mode: config.mode === 'new' ? 'new' : undefined,
     category: selectedCategory !== 'All' ? selectedCategory : undefined,
@@ -252,44 +355,71 @@ function ShopCatalogPageContent({
 
     if (filtersChanged && currentPage !== 1) {
       setCurrentPage(1)
-      return
+      return () => {
+        cancelled = true
+      }
     }
 
     const pageToLoad = currentPage
-    const urlSearch = searchParams.get('search')?.trim() || ''
-    const urlCategory = searchParams.get('category')?.trim() || 'All'
-    const urlSubcategory = searchParams.get('subcategory')?.trim() || 'All'
-    const clientCatalogSignature = `${pageToLoad}|${urlCategory}|${urlSubcategory}|${filterBrand}|${filterTag}|${urlSearch}|${config.mode}`
 
-    if (
-      initialCatalog &&
-      initialCatalogSignature &&
-      clientCatalogSignature === initialCatalogSignature &&
-      !skippedInitialFetch.current &&
-      reloadToken === 0
-    ) {
-      skippedInitialFetch.current = true
+    const fetchFilters: ShopCatalogFilterPrefetch = {
+      page: pageToLoad,
+      category: selectedCategory !== 'All' ? selectedCategory : undefined,
+      subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+      brand: brandQueryActive ? filterBrand : undefined,
+      tag: filterTag || undefined,
+      search: debouncedSearch || undefined,
+      mode: catalogMode,
+    }
+    const clientCatalogSignature = shopCatalogClientSignature(fetchFilters)
+
+    const applyCatalogPage = (data: CatalogProductsPage) => {
+      setProducts(data.items)
+      setTotalItems(data.total)
+      setCachedShopCatalog(clientCatalogSignature, data)
       hasLoadedOnce.current = true
+      if (data.page !== pageToLoad && data.page >= 1) {
+        setCurrentPage(data.page)
+      }
+    }
+
+    if (reloadToken === 0 && initialCatalog && initialCatalogSignature === clientCatalogSignature) {
+      applyCatalogPage(initialCatalog)
       setLoading(false)
       setPageLoading(false)
+      setFilterNavigating(false)
+      setError(null)
       return
     }
 
-    async function loadProducts() {
-      if (!hasLoadedOnce.current) setLoading(true)
-      else setPageLoading(true)
-      setError(null)
+    const prefetched =
+      reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
+    const cached =
+      reloadToken === 0
+        ? prefetched ?? getCachedShopCatalog(clientCatalogSignature) ?? null
+        : null
 
+    if (cached) {
+      applyCatalogPage(cached)
+      setLoading(false)
+    } else if (!hasLoadedOnce.current) {
+      setLoading(true)
+    }
+
+    setPageLoading(true)
+    setError(null)
+
+    async function loadProducts() {
       try {
         const url = buildCatalogProductsUrl(appPath('/api/products'), {
           page: pageToLoad,
           limit: CATALOG_PAGE_SIZE,
-          category: selectedCategory !== 'All' ? selectedCategory : undefined,
-          subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-          brand: brandQueryActive ? filterBrand : undefined,
-          tag: filterTag || undefined,
-          search: debouncedSearch || undefined,
-          mode: config.mode === 'new' ? 'new' : undefined,
+          category: fetchFilters.category,
+          subcategory: fetchFilters.subcategory,
+          brand: fetchFilters.brand,
+          tag: fetchFilters.tag,
+          search: fetchFilters.search,
+          mode: fetchFilters.mode === 'new' ? 'new' : undefined,
         })
 
         const response = await fetch(url, { method: 'GET' })
@@ -299,24 +429,21 @@ function ShopCatalogPageContent({
         if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
         if (cancelled) return
 
-        setProducts(data.items)
-        setTotalItems(data.total)
-        hasLoadedOnce.current = true
-
-        if (data.page !== pageToLoad && data.page >= 1) {
-          setCurrentPage(data.page)
-        }
+        applyCatalogPage(data)
       } catch (err) {
         if (cancelled) return
-        setError(
-          `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
-        )
-        setProducts([])
-        setTotalItems(0)
+        if (!cached) {
+          setError(
+            `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
+          )
+          setProducts([])
+          setTotalItems(0)
+        }
       } finally {
         if (!cancelled) {
           setLoading(false)
           setPageLoading(false)
+          setFilterNavigating(false)
         }
       }
     }
@@ -326,19 +453,20 @@ function ShopCatalogPageContent({
       cancelled = true
     }
   }, [
+    brandQueryActive,
+    catalogMode,
     config.mode,
     currentPage,
     debouncedSearch,
     filterSignature,
-    reloadToken,
+    filterBrand,
+    filterTag,
     initialCatalog,
     initialCatalogSignature,
-    brandQueryActive,
-    filterTag,
-    filterBrand,
+    reloadToken,
     selectedCategory,
     selectedSubcategory,
-    searchParams,
+    setCurrentPage,
   ])
 
   useEffect(() => {
@@ -424,7 +552,9 @@ function ShopCatalogPageContent({
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
   const shellBg = isDark ? 'bg-dark-950' : 'bg-gray-50'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const resultsLoading = pageLoading || searchPending
+  const resultsLoading = pageLoading || searchPending || filterNavigating
+  const showFullCatalogLoader = loading && products.length === 0
+  const showCatalogOverlay = resultsLoading && products.length > 0
 
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
@@ -459,18 +589,40 @@ function ShopCatalogPageContent({
             >
               <CategoryFilter
                 selectedCategory={selectedCategory}
-                onCategoryChange={setSelectedCategory}
+                displayCategory={optimisticCategory ?? undefined}
+                onCategoryChange={handleCategoryChange}
+                onCategoryHover={(category) =>
+                  prefetchCatalogHover({
+                    category: category !== 'All' ? category : undefined,
+                    brand: undefined,
+                    subcategory: undefined,
+                  })
+                }
                 centered={config.centerCatalog}
               />
               <SubcategoryFilter
                 selectedCategory={selectedCategory}
+                displaySubcategory={optimisticSubcategory ?? undefined}
+                onSubcategoryChange={handleSubcategoryChange}
+                onSubcategoryHover={(subcategory) =>
+                  prefetchCatalogHover({
+                    subcategory: subcategory !== 'All' ? subcategory : undefined,
+                    brand: undefined,
+                  })
+                }
                 centered={config.centerCatalog}
                 subcategoryState={subcategoryState}
               />
               <BrandFilter
                 selectedCategory={selectedCategory}
                 selectedBrand={selectedBrand}
-                onBrandChange={setSelectedBrand}
+                displayBrand={optimisticBrand ?? undefined}
+                onBrandChange={handleBrandChange}
+                onBrandHover={(brand) =>
+                  prefetchCatalogHover({
+                    brand: brand !== 'All' ? brand : undefined,
+                  })
+                }
                 centered={config.centerCatalog}
                 subcategoryState={subcategoryState}
               />
@@ -489,7 +641,7 @@ function ShopCatalogPageContent({
               />
             ) : null}
 
-            {loading || resultsLoading ? (
+            {showFullCatalogLoader ? (
               <CatalogLoadingIndicator />
             ) : error ? (
               <div className="text-center py-12">
@@ -557,18 +709,37 @@ function ShopCatalogPageContent({
                 </div>
               )
             ) : (
-              <ShopCatalogListing
-                products={products}
-                page={currentPage}
-                totalItems={totalItems}
-                onPageChange={setCurrentPage}
-                onProductDeleted={handleProductDeleted}
-                onProductQuickEditSaved={handleProductQuickEditSaved}
-                onReorder={isAdmin ? handleReorder : undefined}
-                reorderScope={isAdmin ? reorderScope : null}
-                reorderSaving={reorderSaving}
-                centered={config.centerCatalog}
-              />
+              <div className="relative">
+                {showCatalogOverlay ? (
+                  <div
+                    className="pointer-events-none absolute inset-0 z-10 flex justify-center pt-10"
+                    aria-hidden
+                  >
+                    <CatalogLoadingIndicator compact className="!py-0" />
+                  </div>
+                ) : null}
+                <div
+                  className={
+                    showCatalogOverlay
+                      ? 'pointer-events-none opacity-60 transition-opacity duration-150'
+                      : 'transition-opacity duration-150'
+                  }
+                  aria-busy={showCatalogOverlay}
+                >
+                  <ShopCatalogListing
+                    products={products}
+                    page={currentPage}
+                    totalItems={totalItems}
+                    onPageChange={setCurrentPage}
+                    onProductDeleted={handleProductDeleted}
+                    onProductQuickEditSaved={handleProductQuickEditSaved}
+                    onReorder={isAdmin ? handleReorder : undefined}
+                    reorderScope={isAdmin ? reorderScope : null}
+                    reorderSaving={reorderSaving}
+                    centered={config.centerCatalog}
+                  />
+                </div>
+              </div>
             )}
           </div>
 

@@ -8,12 +8,18 @@ import { getTopCategoryLabel } from '@/lib/i18n-categories'
 interface SubcategoryFilterProps {
   selectedCategory: string
   centered?: boolean
+  displaySubcategory?: string
+  onSubcategoryChange?: (subcategory: string) => void
+  onSubcategoryHover?: (subcategory: string) => void
   subcategoryState: ShopSubcategoryHookValue
 }
 
 export default function SubcategoryFilter({
   selectedCategory,
   centered = false,
+  displaySubcategory,
+  onSubcategoryChange,
+  onSubcategoryHover,
   subcategoryState,
 }: SubcategoryFilterProps) {
   const { t } = useI18n()
@@ -24,6 +30,9 @@ export default function SubcategoryFilter({
     hasSubcategories,
     loadingSubcategories,
   } = subcategoryState
+
+  const shown = displaySubcategory ?? selectedSubcategory
+  const onChange = onSubcategoryChange ?? setSelectedSubcategory
 
   if (loadingSubcategories || !hasSubcategories || selectedCategory === 'All') return null
 
@@ -37,8 +46,9 @@ export default function SubcategoryFilter({
     >
       <FilterPillsScroll
         items={items}
-        selected={selectedSubcategory}
-        onChange={setSelectedSubcategory}
+        selected={shown}
+        onChange={onChange}
+        onItemHover={onSubcategoryHover}
         showArrows={subcategoryOptions.length > 6}
         ariaLabel="Subcategories"
         centered={centered}

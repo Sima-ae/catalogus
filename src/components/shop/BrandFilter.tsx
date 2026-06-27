@@ -11,6 +11,8 @@ interface BrandFilterProps {
   selectedBrand: string
   onBrandChange: (brand: string) => void
   centered?: boolean
+  displayBrand?: string
+  onBrandHover?: (brand: string) => void
   subcategoryState: Pick<
     ShopSubcategoryHookValue,
     'selectedSubcategory' | 'hasSubcategories' | 'loadingSubcategories'
@@ -22,6 +24,8 @@ export default function BrandFilter({
   selectedBrand,
   onBrandChange,
   centered = false,
+  displayBrand,
+  onBrandHover,
   subcategoryState,
 }: BrandFilterProps) {
   const {
@@ -46,6 +50,7 @@ export default function BrandFilter({
   if (!showBrandRow) return null
 
   const brandOptions = brands.filter((name) => name !== 'All')
+  const shownBrand = displayBrand ?? selectedBrand
 
   const wrapperClass = centered
     ? 'mt-2 flex w-full min-w-0 justify-center'
@@ -65,8 +70,9 @@ export default function BrandFilter({
     <div className={wrapperClass}>
       <FilterPillsScroll
         items={brandOptions}
-        selected={selectedBrand === 'All' ? '' : selectedBrand}
+        selected={shownBrand === 'All' ? '' : shownBrand}
         onChange={onBrandChange}
+        onItemHover={onBrandHover}
         showArrows={brands.length > 5}
         ariaLabel="Brands"
         centered={centered}

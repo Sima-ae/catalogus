@@ -7,6 +7,7 @@ type Props = {
   items: string[]
   selected: string
   onChange: (value: string) => void
+  onItemHover?: (value: string) => void
   showArrows?: boolean
   ariaLabel?: string
   getLabel?: (value: string) => string
@@ -22,6 +23,7 @@ export default function FilterPillsScroll({
   items,
   selected,
   onChange,
+  onItemHover,
   showArrows = false,
   ariaLabel = 'Filter',
   getLabel,
@@ -218,6 +220,8 @@ export default function FilterPillsScroll({
           role="tab"
           aria-selected={selected === item}
           onClick={() => onChange(item)}
+          onMouseEnter={() => onItemHover?.(item)}
+          onFocus={() => onItemHover?.(item)}
           className={`inline-flex shrink-0 snap-center items-center justify-center rounded-full font-semibold uppercase tracking-wide whitespace-nowrap transition-all duration-200 ${
             centered
               ? 'min-h-[2.25rem] px-4 py-2 text-[0.6875rem] sm:min-h-[2.375rem] sm:px-4 sm:py-2 sm:text-xs'

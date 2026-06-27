@@ -160,7 +160,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       }
       params.delete('brand')
       const qs = params.toString()
-      router.push(qs ? `${basePath}?${qs}` : basePath)
+      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
     },
     [pathname, router, searchParams]
   )

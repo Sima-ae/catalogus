@@ -99,7 +99,7 @@ export function useShopBrand({ selectedCategory, subcategoryState }: UseShopBran
         params.set('brand', brand)
       }
       const qs = params.toString()
-      router.push(qs ? `${basePath}?${qs}` : basePath)
+      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
     },
     [pathname, router, searchParams]
   )
