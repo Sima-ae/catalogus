@@ -549,6 +549,17 @@ CREATE TABLE IF NOT EXISTS downloads (
 -- App settings & notifications
 -- ---------------------------------------------------------------------------
 
+CREATE TABLE IF NOT EXISTS site_ticker_messages (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  translations JSON NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_site_ticker_active_sort (is_active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS notifications (
   id VARCHAR(36) NOT NULL,
   user_id VARCHAR(36) NOT NULL,

@@ -5,6 +5,7 @@ import AdminPageShell from '@/components/admin/AdminPageShell'
 import CatalogModeSettings from '@/components/admin/CatalogModeSettings'
 import ProductCardDisplaySettings from '@/components/admin/ProductCardDisplaySettings'
 import SiteAccessSettings from '@/components/admin/SiteAccessSettings'
+import SiteTickerMessagesAdmin from '@/components/admin/SiteTickerMessagesAdmin'
 import { appPath } from '@/lib/paths'
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
@@ -65,6 +66,7 @@ export default function AdminSettingsPage() {
   return (
     <AdminPageShell titleKey="admin.nav.settings">
       <SiteAccessSettings />
+      <SiteTickerMessagesAdmin />
       <CatalogModeSettings />
       <ProductCardDisplaySettings />
 

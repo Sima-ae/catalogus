@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useTheme } from '@/lib/theme'
 import RecentPurchaseActivity from '@/components/shop/RecentPurchaseActivity'
 import ShopHeroSearch from '@/components/shop/ShopHeroSearch'
+import MessageTickerBar from '@/components/layout/MessageTickerBar'
 
 export type AppStickyHeaderProps = {
   title: string
@@ -73,46 +74,47 @@ export default function AppStickyHeader({
   )
 
   return (
-    <header
-      className={`sticky top-0 z-30 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 backdrop-blur-md ${shellBg} ${className}`.trim()}
-    >
-      <div
-        className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-4 shadow-sm ${cardBg}`}
-      >
+    <header className={`sticky top-0 z-30 backdrop-blur-md ${shellBg} ${className}`.trim()}>
+      <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
         <div
-          className={`flex flex-col gap-2.5 min-w-0 md:grid md:items-center md:gap-4 lg:gap-5 ${gridCols}`}
+          className={`rounded-xl border px-3 py-3 sm:px-4 sm:py-4 shadow-sm ${cardBg}`}
         >
-          <div className="min-w-0 w-full">{leftContent ?? defaultLeft}</div>
+          <div
+            className={`flex flex-col gap-2.5 min-w-0 md:grid md:items-center md:gap-4 lg:gap-5 ${gridCols}`}
+          >
+            <div className="min-w-0 w-full">{leftContent ?? defaultLeft}</div>
 
-          {showSearch ? (
-            <div className="flex flex-row items-center gap-1.5 sm:gap-2 min-w-0 w-full md:contents">
-              <div
-                className={`flex-1 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
-              >
-                <ShopHeroSearch
-                  placeholder={searchPlaceholder}
-                  value={searchValue}
-                  onChange={onSearchChange}
-                  onSubmit={onSearchSubmit}
-                  className={searchClassName}
-                  compactOnMobile
-                />
+            {showSearch ? (
+              <div className="flex flex-row items-center gap-1.5 sm:gap-2 min-w-0 w-full md:contents">
+                <div
+                  className={`flex-1 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
+                >
+                  <ShopHeroSearch
+                    placeholder={searchPlaceholder}
+                    value={searchValue}
+                    onChange={onSearchChange}
+                    onSubmit={onSearchSubmit}
+                    className={searchClassName}
+                    compactOnMobile
+                  />
+                </div>
+                <div
+                  className={`shrink-0 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
+                >
+                  {actions}
+                </div>
               </div>
+            ) : (
               <div
-                className={`shrink-0 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
+                className={`min-w-0 w-full lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
               >
                 {actions}
               </div>
-            </div>
-          ) : (
-            <div
-              className={`min-w-0 w-full lg:border-l lg:pl-5 flex flex-col justify-center ${borderClass}`}
-            >
-              {actions}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
+      <MessageTickerBar />
     </header>
   )
 }

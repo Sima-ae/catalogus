@@ -18,6 +18,7 @@ import {
   type LayoutBootstrapData,
   type ShopBootstrap,
 } from '@/lib/shop-bootstrap-shared'
+import { TickerMessagesProvider } from '@/lib/ticker-messages-context'
 import type { Locale } from '@/lib/i18n'
 
 type Props = {
@@ -48,6 +49,7 @@ export default function LayoutBootstrapGate({
   const [categoryMessages, setCategoryMessages] = useState(initialData.categoryMessages)
   const [tagMessages, setTagMessages] = useState(initialData.tagMessages)
   const [shopBootstrap, setShopBootstrap] = useState<ShopBootstrap>(initialData.shopBootstrap)
+  const [tickerMessages, setTickerMessages] = useState(initialData.tickerMessages)
   const [recovering, setRecovering] = useState(initialData.bootstrapDegraded)
 
   useEffect(() => {
@@ -77,6 +79,7 @@ export default function LayoutBootstrapGate({
           data.tagMessages && typeof data.tagMessages === 'object' ? data.tagMessages : {}
         )
         setShopBootstrap(data.bootstrap ?? getDefaultShopBootstrap(locale))
+        setTickerMessages(Array.isArray(data.tickerMessages) ? data.tickerMessages : [])
         setRecovering(false)
         return
       } catch {
@@ -103,11 +106,12 @@ export default function LayoutBootstrapGate({
   }
 
   return (
-    <I18nProvider
-      initialLocale={locale}
-      categoryMessages={categoryMessages}
-      tagMessages={tagMessages}
-    >
+    <TickerMessagesProvider initialMessages={tickerMessages}>
+      <I18nProvider
+        initialLocale={locale}
+        categoryMessages={categoryMessages}
+        tagMessages={tagMessages}
+      >
       <Suspense fallback={<BootstrapLoading text={loadingText} />}>
         <SiteAccessGuard>
           <LanguagePickerProvider>
@@ -132,6 +136,7 @@ export default function LayoutBootstrapGate({
           </LanguagePickerProvider>
         </SiteAccessGuard>
       </Suspense>
-    </I18nProvider>
+      </I18nProvider>
+    </TickerMessagesProvider>
   )
 }

@@ -521,3 +521,34 @@ body.app-protected [contenteditable='true'] {
     @apply px-8;
   }
 }
+
+@keyframes site-message-ticker-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.site-message-ticker-track {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: max-content;
+  min-height: 2.5rem;
+  align-items: center;
+  animation-name: site-message-ticker-marquee;
+  animation-duration: var(--site-ticker-duration, 45s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-message-ticker-track {
+    animation: none;
+    transform: translate3d(0, 0, 0);
+  }
+}

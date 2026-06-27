@@ -1,6 +1,7 @@
 import { DEFAULT_SHOP_CURRENCY } from '@/lib/currency'
 import { resolveSiteTagline } from '@/lib/site-tagline'
 import type { Locale } from '@/lib/i18n-locale-registry'
+import type { TickerMessagePublic } from '@/lib/site-ticker'
 
 export type ShopBootstrap = {
   catalogMode: boolean
@@ -14,6 +15,7 @@ export type LayoutBootstrapData = {
   categoryMessages: Record<string, string>
   tagMessages: Record<string, string>
   shopBootstrap: ShopBootstrap
+  tickerMessages: TickerMessagePublic[]
   /** True when server could not load shop settings from DB (client may retry). */
   bootstrapDegraded: boolean
 }

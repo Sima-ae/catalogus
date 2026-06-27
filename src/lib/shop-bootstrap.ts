@@ -6,6 +6,7 @@ import { resolveSiteTagline } from '@/lib/site-tagline'
 import type { Locale } from '@/lib/i18n-locale-registry'
 import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
+import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
 import { getCachedValue } from '@/lib/server-ttl-cache'
 
 const SHOP_BOOTSTRAP_CACHE_NS = 'shop-bootstrap'
@@ -55,10 +56,11 @@ export async function loadShopBootstrap(locale: Locale): Promise<ShopBootstrap> 
 
 /** Root layout bootstrap — never throws; uses safe defaults when DB is unavailable. */
 export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBootstrapData> {
-  const [categoryResult, tagResult, bootstrapResult] = await Promise.allSettled([
+  const [categoryResult, tagResult, bootstrapResult, tickerResult] = await Promise.allSettled([
     getCategoryTranslationMessages(locale),
     getTagTranslationMessages(locale),
     loadShopBootstrap(locale),
+    listActiveSiteTickerMessagesForLocale(locale),
   ])
 
   const categoryMessages =
@@ -69,6 +71,7 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
     bootstrapResult.status === 'fulfilled'
       ? bootstrapResult.value
       : getDefaultShopBootstrap(locale)
+  const tickerMessages = tickerResult.status === 'fulfilled' ? tickerResult.value : []
 
   if (bootstrapDegraded) {
     console.error(
@@ -77,5 +80,5 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
     )
   }
 
-  return { categoryMessages, tagMessages, shopBootstrap, bootstrapDegraded }
+  return { categoryMessages, tagMessages, shopBootstrap, tickerMessages, bootstrapDegraded }
 }
