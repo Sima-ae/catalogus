@@ -16,7 +16,11 @@ import {
   type ProductDashboardStats,
 } from '@/lib/catalog-products'
 import { loadActiveCategories } from '@/lib/categories-persistence'
-import { buildShopCategoryMenu } from '@/lib/shop-category-menu'
+import { buildShopCategoryMenu, buildShopTopCategoryNames } from '@/lib/shop-category-menu'
+import {
+  buildShopCategoryNavTree,
+  type ShopCategoryNavNode,
+} from '@/lib/shop-category-nav'
 import { formatCategoryDisplayName } from '@/lib/category-picker'
 import { syncTagTranslationsForTags } from '@/lib/tag-translations-db'
 import {
@@ -639,6 +643,7 @@ export type ShopSubcategoryOption = {
 
 const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu'
 const SHOP_CATEGORY_MENU_TTL_MS = 300_000
+const SHOP_CATEGORY_NAV_CACHE_NS = 'shop-category-nav'
 const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories'
 const SHOP_SUBCATEGORY_TTL_MS = 300_000
 const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
@@ -720,7 +725,7 @@ export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
         loadActiveCategories(),
         loadActiveProductCountBuckets(),
       ])
-      const candidates = buildShopCategoryMenu(categories).filter((name) => name !== 'All')
+      const candidates = buildShopTopCategoryNames(categories)
       const counts = candidates.map((name) => {
         const filter = resolveShopCategoryFilter(categories, { category: name })
         const count = filter?.categoryIds.length
@@ -729,6 +734,27 @@ export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
         return { name, count }
       })
       return ['All', ...counts.filter((row) => row.count > 0).map((row) => row.name)]
+    }
+  )
+}
+
+/** Sidebar hierarchy: top categories → subcategories → nested (no brands). */
+export async function listShopCategoryNavTree(): Promise<ShopCategoryNavNode[]> {
+  return getCachedValue(
+    SHOP_CATEGORY_NAV_CACHE_NS,
+    'tree',
+    SHOP_CATEGORY_MENU_TTL_MS,
+    async () => {
+      const [categories, buckets] = await Promise.all([
+        loadActiveCategories(),
+        loadActiveProductCountBuckets(),
+      ])
+      const roots = buildShopTopCategoryNames(categories)
+      const countFor = (filter: ShopCategoryFilterResult | undefined) =>
+        filter?.categoryIds.length ? sumCategoryFilterCounts(filter, buckets) : 0
+      return buildShopCategoryNavTree(categories, roots, countFor, (input) =>
+        resolveShopCategoryFilter(categories, input)
+      )
     }
   )
 }

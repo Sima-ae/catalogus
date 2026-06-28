@@ -2,6 +2,7 @@
 
 import { appPath } from '@/lib/paths'
 import type { CategoryTreeRow } from '@/lib/category-picker'
+import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
 
 type CategoryApiRow = CategoryTreeRow & { active?: boolean | number }
 
@@ -24,6 +25,31 @@ function normalizeCategoryRows(data: unknown): CategoryTreeRow[] {
 
 let cachedMenu: string[] | null = null
 let menuInflight: Promise<string[]> | null = null
+
+let cachedNav: ShopCategoryNavNode[] | null = null
+let navInflight: Promise<ShopCategoryNavNode[]> | null = null
+
+/** Hierarchical shop categories for sidebar (roots → sub → nested). */
+export function fetchShopCategoryNav(): Promise<ShopCategoryNavNode[]> {
+  if (cachedNav) return Promise.resolve(cachedNav)
+  if (navInflight) return navInflight
+
+  navInflight = fetch(appPath('/api/categories/shop-nav'))
+    .then((res) => (res.ok ? res.json() : { tree: [] }))
+    .then((data) => {
+      const tree = Array.isArray((data as { tree?: unknown }).tree)
+        ? ((data as { tree: ShopCategoryNavNode[] }).tree ?? [])
+        : []
+      cachedNav = tree
+      return cachedNav
+    })
+    .catch(() => [] as ShopCategoryNavNode[])
+    .finally(() => {
+      navInflight = null
+    })
+
+  return navInflight
+}
 
 /** Top-level category labels for shop pills — only categories with products. */
 export function fetchShopCategoryMenu(): Promise<string[]> {

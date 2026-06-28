@@ -92,3 +92,14 @@ export function shopBrandFilterUrl(brandName: string, basePath: string = appPath
   params.set('brand', name)
   return `${basePath}?${params.toString()}`
 }
+
+export function buildShopCategoryFilterHref(
+  basePath: string,
+  link: ShopCategoryFilterLink
+): string {
+  const params = new URLSearchParams()
+  params.set('category', link.category)
+  if (link.subcategory) params.set('subcategory', link.subcategory)
+  if (link.nested) params.set('nested', link.nested)
+  return `${basePath}?${params.toString()}`
+}

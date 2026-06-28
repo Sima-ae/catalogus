@@ -820,7 +820,7 @@ const PACKS: Record<string, LocaleTranslationPack> = {
   },
   slippers: {
     en: 'Slippers',
-    nl: 'Pantoffels',
+    nl: 'Slippers',
     de: 'Hausschuhe',
     fr: 'Chaussons',
     es: 'Zapatillas de casa',

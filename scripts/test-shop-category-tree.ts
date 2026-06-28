@@ -11,6 +11,7 @@ import {
   findCategoryShopPath,
 } from '../src/lib/shop-category-tree'
 import { buildShopCategoryMenu } from '../src/lib/shop-category-menu'
+import { filterDuplicateShopMenuRoots } from '../src/lib/shop-category-nav'
 import {
   categoryHasChildren,
   findParentCategoryName,
@@ -221,5 +222,18 @@ assert.deepEqual(clothesPath, {
   subcategory: 'SOCKS',
   nested: 'WOMEN',
 })
+
+const duplicateRoots: CategoryTreeRow[] = [
+  row('clothes', 'CLOTHES'),
+  row('underwear-socks-child', 'UNDERWEAR | SOCKS', 'clothes'),
+  row('underwear-socks-top', 'UNDERWEAR | SOCKS'),
+]
+assert.deepEqual(
+  filterDuplicateShopMenuRoots(
+    duplicateRoots.map((r) => ({ ...r, active: 1 })),
+    ['CLOTHES', 'UNDERWEAR | SOCKS']
+  ),
+  ['CLOTHES']
+)
 
 console.log('shop-category-tree: all assertions passed')
