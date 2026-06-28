@@ -41,12 +41,19 @@ export async function countSiteAccessCodes(): Promise<SiteAccessCodeStats> {
   }
 }
 
+/** Personal pool codes only unlock the gate when assigned to a buyer. */
+export function isSiteAccessCodeAssigned(
+  row: Pick<SiteAccessCodeRow, 'user_id'> | null | undefined
+): boolean {
+  return Boolean(row?.user_id)
+}
+
 export async function verifySiteAccessCode(rawInput: string): Promise<boolean> {
   const code = normalizeSiteAccessCode(rawInput)
   if (!code) return false
   try {
     const rows = await queryDb<{ id: string }[]>(
-      'SELECT id FROM site_access_codes WHERE code = ? LIMIT 1',
+      'SELECT id FROM site_access_codes WHERE code = ? AND user_id IS NOT NULL LIMIT 1',
       [code]
     )
     return Boolean(rows[0])
@@ -192,6 +199,24 @@ export async function assignSiteAccessCodeToUser(input: {
     )
     if (!rows[0]) throw new Error('CODE_NOT_FOUND')
     throw new Error('CODE_ALREADY_ASSIGNED')
+  }
+}
+
+/** Return a buyer's code to the free pool (no-op when none assigned). */
+export async function releaseSiteAccessCodeForUser(userId: string): Promise<void> {
+  try {
+    await queryDb(
+      `UPDATE site_access_codes
+       SET user_id = NULL, assigned_at = NULL
+       WHERE user_id = ?`,
+      [userId]
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes("doesn't exist") || message.includes('site_access_codes')) {
+      return
+    }
+    throw error
   }
 }
 

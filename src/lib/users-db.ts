@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import bcrypt from 'bcryptjs'
 import { queryDb } from '@/lib/db'
-import { getSiteAccessCodeForUser } from '@/lib/site-access-codes-db'
+import { getSiteAccessCodeForUser, releaseSiteAccessCodeForUser } from '@/lib/site-access-codes-db'
 import { clampBadgeRating, isSuperAdminUser, type UserListRow } from '@/lib/user-roles'
 
 export type CreateUserInput = {
@@ -276,6 +276,8 @@ export async function deleteUser(userId: string): Promise<void> {
   const existing = await getUserProfile(userId)
   if (!existing) throw new Error('NOT_FOUND')
   if (existing.is_super_admin) throw new Error('SUPER_ADMIN_DELETE')
+
+  await releaseSiteAccessCodeForUser(userId)
 
   try {
     await queryDb('DELETE FROM user_profiles WHERE id = ?', [userId])

@@ -11,7 +11,10 @@ import {
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 import { getSiteAccessConfig, verifySiteAccessPassword } from '@/lib/site-access'
-import { findSiteAccessCodeByInput } from '@/lib/site-access-codes-db'
+import {
+  findSiteAccessCodeByInput,
+  isSiteAccessCodeAssigned,
+} from '@/lib/site-access-codes-db'
 import { checkSiteAccessVerifyRateLimit } from '@/lib/site-access-verify-rate-limit'
 import { clientIp } from '@/lib/request-client-ip'
 
@@ -44,7 +47,8 @@ export async function POST(request: NextRequest) {
     }
 
     const codeRow = await findSiteAccessCodeByInput(password)
-    const valid = Boolean(codeRow) || (await verifySiteAccessPassword(password))
+    const valid =
+      isSiteAccessCodeAssigned(codeRow) || (await verifySiteAccessPassword(password))
     if (!valid) {
       return NextResponse.json({ error: 'Incorrect password or access code' }, { status: 401 })
     }
@@ -89,8 +93,8 @@ export async function POST(request: NextRequest) {
     )
     applySiteAccessActiveCookie(res, active)
 
-    if (codeRow) {
-      const codeToken = await createSiteAccessCodeToken(config.version, codeRow.id)
+    if (isSiteAccessCodeAssigned(codeRow)) {
+      const codeToken = await createSiteAccessCodeToken(config.version, codeRow!.id)
       if (codeToken) {
         res.cookies.set('rcc_site_code', codeToken.token, {
           httpOnly: true,

@@ -223,8 +223,9 @@ export default function SiteAccessSettings() {
               </p>
             )}
             <p className="form-hint">
-              Assign codes when creating buyers in Admin → Users. The gate accepts either the site
-              password or a valid personal code.
+              Assign codes when creating buyers in Admin → Users. Only assigned personal codes unlock
+              the gate; unassigned pool codes do not work. Deleting a buyer returns their code to the
+              available pool. Visitors can also use the shared site password.
             </p>
           </div>
 

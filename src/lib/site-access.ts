@@ -76,7 +76,7 @@ async function loadSiteAccessConfigUncached(): Promise<SiteAccessConfig> {
   }
 }
 
-/** Site password and personal pool codes are separate; either unlocks the gate. */
+/** Site password and assigned personal buyer codes are separate; either unlocks the gate. */
 export async function verifySiteAccessCredential(input: string): Promise<boolean> {
   const trimmed = input.trim()
   if (!trimmed) return false
