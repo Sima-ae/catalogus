@@ -207,6 +207,150 @@ function AdminProductsTableColumnsHeader({
   )
 }
 
+function AdminProductsBulkSelectionBar({
+  className = '',
+  selectedCount,
+  isAdmin,
+  bulkWorking,
+  statusFilter,
+  selectedIds,
+  onAddToPricelist,
+  onRemoveFromPricelist,
+  onBulkEdit,
+  onPublish,
+  onSetDraft,
+  onSetInactive,
+  onMoveToTrash,
+  onClearSelection,
+  t,
+  tr,
+}: {
+  className?: string
+  selectedCount: number
+  isAdmin: boolean
+  bulkWorking: boolean
+  statusFilter: StatusFilter
+  selectedIds: string[]
+  onAddToPricelist: (ids: string[]) => void
+  onRemoveFromPricelist: (ids: string[]) => void
+  onBulkEdit: () => void
+  onPublish: (ids: string[]) => void
+  onSetDraft: (ids: string[]) => void
+  onSetInactive: (ids: string[]) => void
+  onMoveToTrash: (ids: string[]) => void
+  onClearSelection: () => void
+  t: ReturnType<typeof useAppTheme>
+  tr: (key: string) => string
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${className}`.trim()}>
+      <span className={`text-sm font-medium ${t.heading}`}>
+        {formatMessage(tr('admin.products.selected'), { count: selectedCount })}
+      </span>
+      {isAdmin ? (
+        <div className="inline-flex flex-wrap items-center gap-1.5">
+          <PricelistTargetSelector inline label={tr('admin.products.pricelistTarget')} />
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onAddToPricelist(selectedIds)}
+          >
+            {tr('admin.products.addToPricelist')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onRemoveFromPricelist(selectedIds)}
+          >
+            {tr('admin.products.removeFromPricelist')}
+          </button>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onAddToPricelist(selectedIds)}
+          >
+            {tr('admin.products.addToPricelist')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onRemoveFromPricelist(selectedIds)}
+          >
+            {tr('admin.products.removeFromPricelist')}
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        className="btn-primary text-sm"
+        disabled={bulkWorking}
+        onClick={onBulkEdit}
+      >
+        {tr('admin.products.bulkEdit')}
+      </button>
+      {statusFilter === 'trash' ? (
+        <button
+          type="button"
+          className="btn-primary text-sm"
+          disabled={bulkWorking}
+          onClick={() => onPublish(selectedIds)}
+        >
+          {tr('admin.products.restoreToShop')}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="btn-primary text-sm"
+          disabled={bulkWorking}
+          onClick={() => onPublish(selectedIds)}
+        >
+          {tr('admin.products.publish')}
+        </button>
+      )}
+      <button
+        type="button"
+        className="btn-secondary text-sm"
+        disabled={bulkWorking}
+        onClick={() => onSetDraft(selectedIds)}
+      >
+        {tr('admin.products.setDraft')}
+      </button>
+      <button
+        type="button"
+        className="btn-secondary text-sm"
+        disabled={bulkWorking}
+        onClick={() => onSetInactive(selectedIds)}
+      >
+        {tr('admin.products.setInactive')}
+      </button>
+      {statusFilter !== 'trash' && (
+        <button
+          type="button"
+          className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+          disabled={bulkWorking}
+          onClick={() => onMoveToTrash(selectedIds)}
+        >
+          {tr('admin.products.moveToTrash')}
+        </button>
+      )}
+      <button
+        type="button"
+        className={`text-sm ${t.muted} hover:underline ml-auto`}
+        onClick={onClearSelection}
+      >
+        {tr('admin.products.clearSelection')}
+      </button>
+    </div>
+  )
+}
+
 export default function AdminProductsPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
@@ -782,6 +926,28 @@ export default function AdminProductsPage() {
   const allOnPageSelected =
     pageItems.length > 0 && pageItems.every((p) => selected.has(p.id))
 
+  const renderBulkSelectionBar = (className: string) =>
+    selected.size > 0 ? (
+      <AdminProductsBulkSelectionBar
+        className={className}
+        selectedCount={selected.size}
+        isAdmin={isAdmin}
+        bulkWorking={bulkWorking}
+        statusFilter={statusFilter}
+        selectedIds={selectedIds}
+        onAddToPricelist={(ids) => runBulkPricelist('add', ids)}
+        onRemoveFromPricelist={(ids) => runBulkPricelist('remove', ids)}
+        onBulkEdit={() => setBulkEditOpen(true)}
+        onPublish={(ids) => runBulkStatus('active', ids)}
+        onSetDraft={(ids) => runBulkStatus('draft', ids)}
+        onSetInactive={(ids) => runBulkStatus('inactive', ids)}
+        onMoveToTrash={(ids) => runBulkDelete(ids)}
+        onClearSelection={() => setSelected(new Set())}
+        t={t}
+        tr={tr}
+      />
+    ) : null
+
   return (
     <AdminPageShell
       titleKey="admin.nav.products"
@@ -1013,118 +1179,7 @@ export default function AdminProductsPage() {
           )}
         </p>
 
-        {selected.size > 0 && (
-          <div
-            className={`flex flex-wrap items-center gap-2 pt-3 border-t ${t.rowBorder}`}
-          >
-            <span className={`text-sm font-medium ${t.heading}`}>
-              {formatMessage(tr('admin.products.selected'), { count: selected.size })}
-            </span>
-            {isAdmin ? (
-              <div className="inline-flex flex-wrap items-center gap-1.5">
-                <PricelistTargetSelector
-                  inline
-                  label={tr('admin.products.pricelistTarget')}
-                />
-                <button
-                  type="button"
-                  className="btn-secondary text-sm"
-                  disabled={bulkWorking}
-                  onClick={() => runBulkPricelist('add', selectedIds)}
-                >
-                  {tr('admin.products.addToPricelist')}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary text-sm"
-                  disabled={bulkWorking}
-                  onClick={() => runBulkPricelist('remove', selectedIds)}
-                >
-                  {tr('admin.products.removeFromPricelist')}
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn-secondary text-sm"
-                  disabled={bulkWorking}
-                  onClick={() => runBulkPricelist('add', selectedIds)}
-                >
-                  {tr('admin.products.addToPricelist')}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary text-sm"
-                  disabled={bulkWorking}
-                  onClick={() => runBulkPricelist('remove', selectedIds)}
-                >
-                  {tr('admin.products.removeFromPricelist')}
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              className="btn-primary text-sm"
-              disabled={bulkWorking}
-              onClick={() => setBulkEditOpen(true)}
-            >
-              {tr('admin.products.bulkEdit')}
-            </button>
-            {statusFilter === 'trash' ? (
-              <button
-                type="button"
-                className="btn-primary text-sm"
-                disabled={bulkWorking}
-                onClick={() => runBulkStatus('active', selectedIds)}
-              >
-                {tr('admin.products.restoreToShop')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn-primary text-sm"
-                disabled={bulkWorking}
-                onClick={() => runBulkStatus('active', selectedIds)}
-              >
-                {tr('admin.products.publish')}
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn-secondary text-sm"
-              disabled={bulkWorking}
-              onClick={() => runBulkStatus('draft', selectedIds)}
-            >
-              {tr('admin.products.setDraft')}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary text-sm"
-              disabled={bulkWorking}
-              onClick={() => runBulkStatus('inactive', selectedIds)}
-            >
-              {tr('admin.products.setInactive')}
-            </button>
-            {statusFilter !== 'trash' && (
-              <button
-                type="button"
-                className="text-sm px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                disabled={bulkWorking}
-                onClick={() => runBulkDelete(selectedIds)}
-              >
-                {tr('admin.products.moveToTrash')}
-              </button>
-            )}
-            <button
-              type="button"
-              className={`text-sm ${t.muted} hover:underline ml-auto`}
-              onClick={() => setSelected(new Set())}
-            >
-              {tr('admin.products.clearSelection')}
-            </button>
-          </div>
-        )}
+        {renderBulkSelectionBar(`pt-3 border-t ${t.rowBorder}`)}
       </div>
 
       {loading ? (
@@ -1171,7 +1226,10 @@ export default function AdminProductsPage() {
               onPageChange={setCurrentPage}
             />
           </div>
-          <AdminTable className="table-fixed">
+          <AdminTable
+            className="table-fixed"
+            wrapperClassName={selected.size > 0 ? 'rounded-b-none border-b-0' : ''}
+          >
           {adminProductsColgroup}
           <AdminTableHead>
             <AdminProductsTableColumnsHeader
@@ -1308,6 +1366,11 @@ export default function AdminProductsPage() {
             />
           </AdminTableFoot>
         </AdminTable>
+          {selected.size > 0 ? (
+            <div className="card rounded-none border-t-0 border-b-0 px-4 py-3">
+              {renderBulkSelectionBar('')}
+            </div>
+          ) : null}
           <div className="card rounded-t-none border-t-0 pt-0">
             <CatalogPagination
               page={safePage}

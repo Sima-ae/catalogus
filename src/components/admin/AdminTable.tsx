@@ -7,12 +7,14 @@ import { useAppTheme } from '@/lib/theme-classes'
 export function AdminTable({
   children,
   className = '',
+  wrapperClassName = '',
 }: {
   children: ReactNode
   className?: string
+  wrapperClassName?: string
 }) {
   return (
-    <div className="card overflow-x-auto">
+    <div className={`card overflow-x-auto ${wrapperClassName}`.trim()}>
       <table className={`w-full text-sm ${className}`.trim()}>{children}</table>
     </div>
   )
