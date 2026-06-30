@@ -43,6 +43,7 @@ export type AdminMessageKey =
   | 'admin.products.statPublished'
   | 'admin.products.statDraft'
   | 'admin.products.statInactive'
+  | 'admin.products.statOutOfStock'
   | 'admin.products.statTrash'
   | 'admin.products.search'
   | 'admin.products.searchPlaceholder'
@@ -58,7 +59,9 @@ export type AdminMessageKey =
   | 'admin.products.filterCategoryPrefix'
   | 'admin.products.filterBrandPrefix'
   | 'admin.products.showWithPurchasePrice'
+  | 'admin.products.showOutOfStock'
   | 'admin.products.filterPurchasePricePrefix'
+  | 'admin.products.filterOutOfStockPrefix'
   | 'admin.products.selected'
   | 'admin.products.pricelistTarget'
   | 'admin.products.addToPricelist'
@@ -184,6 +187,7 @@ const EN: AdminMessages = {
   'admin.products.statPublished': "Published",
   'admin.products.statDraft': "Draft",
   'admin.products.statInactive': "Inactive",
+  'admin.products.statOutOfStock': "Out of stock",
   'admin.products.statTrash': "Trash",
   'admin.products.search': "Search",
   'admin.products.searchPlaceholder': "Name, SKU, category...",
@@ -199,7 +203,9 @@ const EN: AdminMessages = {
   'admin.products.filterCategoryPrefix': "category",
   'admin.products.filterBrandPrefix': "brand",
   'admin.products.showWithPurchasePrice': "With purchase price",
+  'admin.products.showOutOfStock': "Out of stock",
   'admin.products.filterPurchasePricePrefix': "purchase price filled (pricelist)",
+  'admin.products.filterOutOfStockPrefix': "out of stock (pricelist)",
   'admin.products.selected': "{count} selected",
   'admin.products.pricelistTarget': "Target pricelist",
   'admin.products.addToPricelist': "Add to pricelist",
@@ -329,6 +335,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.statPublished': "Gepubliceerd",
   'admin.products.statDraft': "Concept",
   'admin.products.statInactive': "Inactief",
+  'admin.products.statOutOfStock': "Uitverkocht",
   'admin.products.statTrash': "Prullenbak",
   'admin.products.search': "Zoeken",
   'admin.products.searchPlaceholder': "Naam, SKU, categorie...",
@@ -342,7 +349,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.filterCategoryPrefix': "categorie",
   'admin.products.filterBrandPrefix': "merk",
   'admin.products.showWithPurchasePrice': "Met inkoopprijs",
+  'admin.products.showOutOfStock': "Uitverkocht",
   'admin.products.filterPurchasePricePrefix': "inkoopprijs ingevuld (prijslijst)",
+  'admin.products.filterOutOfStockPrefix': "uitverkocht (prijslijst)",
   'admin.products.selected': "{count} geselecteerd",
   'admin.products.pricelistTarget': "Doelprijslijst",
   'admin.products.addToPricelist': "Toevoegen aan prijslijst",

@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
           categoryId: adminQuery.categoryId,
           brand: adminQuery.brand,
           filledPricesOnly: adminQuery.filledPricesOnly,
+          outOfStockOnly: adminQuery.outOfStockOnly,
           pricelistOwner: adminQuery.pricelistOwner,
         }),
         getProductDashboardStats(),

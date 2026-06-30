@@ -32,7 +32,10 @@ import {
 } from '@/lib/shop-category-tree'
 import { applyStorefrontSoldOutFromPlatformPricelist } from '@/lib/pricelist-db'
 import { markPricelistOutOfStockForProducts } from '@/lib/pricelist-catalog-status-sync'
-import { buildAdminProductFilledPricelistPriceSql } from '@/lib/pricelist-list-query'
+import {
+  buildAdminProductFilledPricelistPriceSql,
+  buildAdminProductOutOfStockPricelistSql,
+} from '@/lib/pricelist-list-query'
 import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
 import { serializeCatalogProductRow,
@@ -1558,6 +1561,7 @@ export async function listProductsPaginatedAdmin(
     categoryId?: string
     brand?: string
     filledPricesOnly?: boolean
+    outOfStockOnly?: boolean
     pricelistOwner?: string
   } = {}
 ): Promise<CatalogProductsPage> {
@@ -1581,16 +1585,32 @@ export async function listProductsPaginatedAdmin(
   let filledWhereSql = whereSql
   let filledParams = params
 
-  if (options.filledPricesOnly) {
-    const ownerId =
-      (await resolvePricelistOwnerId(options.pricelistOwner)) ?? PLATFORM_PRICELIST_OWNER_ID
-    const filled = buildAdminProductFilledPricelistPriceSql(ownerId)
+  const pricelistOwnerId =
+    options.filledPricesOnly || options.outOfStockOnly
+      ? (await resolvePricelistOwnerId(options.pricelistOwner)) ?? PLATFORM_PRICELIST_OWNER_ID
+      : null
+
+  if (options.filledPricesOnly && pricelistOwnerId) {
+    const filled = buildAdminProductFilledPricelistPriceSql(pricelistOwnerId)
     if (filled) {
       extraJoinSql = filled.joinSql
       filledParams = [...params, ...filled.params]
       filledWhereSql = filledWhereSql
         ? `${filledWhereSql} AND ${filled.whereSql}`
         : `WHERE ${filled.whereSql}`
+    }
+  }
+
+  if (options.outOfStockOnly && pricelistOwnerId) {
+    const outOfStock = buildAdminProductOutOfStockPricelistSql(pricelistOwnerId)
+    if (outOfStock) {
+      if (!extraJoinSql && outOfStock.joinSql) {
+        extraJoinSql = outOfStock.joinSql
+      }
+      filledParams = [...filledParams, ...outOfStock.params]
+      filledWhereSql = filledWhereSql
+        ? `${filledWhereSql} AND ${outOfStock.whereSql}`
+        : `WHERE ${outOfStock.whereSql}`
     }
   }
 
@@ -1658,6 +1678,8 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
     else if (status === 'trash') trash = count
   }
 
+  const outOfStock = await countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID)
+
   return {
     total: active + draft + inactive,
     active,
@@ -1665,6 +1687,29 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
     inactive,
     trash,
     importDrafts,
+    outOfStock,
+  }
+}
+
+async function countAdminProductsOutOfStock(listOwnerId: string): Promise<number> {
+  try {
+    const fragment = buildAdminProductOutOfStockPricelistSql(listOwnerId)
+    if (!fragment) return 0
+
+    const fromWithJoin = `FROM products p${fragment.joinSql}`
+    const whereSql = `WHERE p.status <> 'trash' AND ${fragment.whereSql}`
+
+    const rows = await queryDb<{ total: number }[]>(
+      `SELECT COUNT(DISTINCT p.id) AS total ${fromWithJoin} ${whereSql}`,
+      fragment.params
+    )
+    return Number(rows[0]?.total ?? 0)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : ''
+    if (message.includes("doesn't exist") || message.includes('seller_product_prices')) {
+      return 0
+    }
+    throw error
   }
 }
 

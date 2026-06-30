@@ -13,6 +13,7 @@ import {
   NoSymbolIcon,
   DocumentDuplicateIcon,
   MagnifyingGlassIcon,
+  ArchiveBoxXMarkIcon,
 } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import StatCard from '@/components/admin/StatCard'
@@ -20,6 +21,7 @@ import {
   AdminTable,
   AdminTableBody,
   AdminTableHead,
+  AdminTableFoot,
   AdminTd,
   AdminTh,
   AdminTr,
@@ -163,6 +165,48 @@ const adminProductsColgroup = (
   </colgroup>
 )
 
+function AdminProductsTableColumnsHeader({
+  allOnPageSelected,
+  onToggleAllOnPage,
+  tr,
+}: {
+  allOnPageSelected: boolean
+  onToggleAllOnPage: () => void
+  tr: (key: string) => string
+}) {
+  return (
+    <>
+      <AdminTh className="px-2">
+        <input
+          type="checkbox"
+          checked={allOnPageSelected}
+          onChange={onToggleAllOnPage}
+          aria-label={tr('adminProducts.selectAll')}
+          className="rounded border-gray-400"
+        />
+      </AdminTh>
+      <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
+      <AdminTh className="px-2">{tr('adminProducts.col.sku')}</AdminTh>
+      <AdminTh className="px-2">{tr('adminProducts.col.category')}</AdminTh>
+      <AdminTh className="px-2">{tr('adminProducts.col.brand')}</AdminTh>
+      <AdminTh className="px-2">Pricelist</AdminTh>
+      <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
+        {tr('productForm.purchasePrice')}
+      </AdminTh>
+      <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
+        {tr('productForm.shippingCost')}
+      </AdminTh>
+      <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
+        {tr('adminProducts.col.price')}
+      </AdminTh>
+      <AdminTh className="px-2">{tr('adminProducts.col.status')}</AdminTh>
+      <AdminTh align="right" className="px-2">
+        {tr('adminProducts.col.actions')}
+      </AdminTh>
+    </>
+  )
+}
+
 export default function AdminProductsPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
@@ -178,6 +222,7 @@ export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [brandFilter, setBrandFilter] = useState('all')
   const [filledPricesFilter, setFilledPricesFilter] = useState(false)
+  const [outOfStockFilter, setOutOfStockFilter] = useState(false)
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -283,7 +328,9 @@ export default function AdminProductsPage() {
         categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
         brand: brandFilter !== 'all' ? brandFilter : undefined,
         filledPricesOnly: filledPricesFilter || undefined,
-        pricelistOwner: filledPricesFilter ? pricelistTarget : undefined,
+        outOfStockOnly: outOfStockFilter || undefined,
+        pricelistOwner:
+          filledPricesFilter || outOfStockFilter ? pricelistTarget : undefined,
       }) + '&scope=admin'
 
     try {
@@ -324,7 +371,7 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, pricelistTarget])
+  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, outOfStockFilter, pricelistTarget])
 
   useEffect(() => {
     loadProducts()
@@ -332,7 +379,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, pricelistTarget])
+  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, outOfStockFilter, pricelistTarget])
 
   const stats = useMemo(() => {
     if (productStats) {
@@ -343,9 +390,10 @@ export default function AdminProductsPage() {
         inactive: productStats.inactive,
         trash: productStats.trash ?? 0,
         importDrafts: productStats.importDrafts,
+        outOfStock: productStats.outOfStock ?? 0,
       }
     }
-    return { total: 0, active: 0, draft: 0, inactive: 0, trash: 0, importDrafts: 0 }
+    return { total: 0, active: 0, draft: 0, inactive: 0, trash: 0, importDrafts: 0, outOfStock: 0 }
   }, [productStats])
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
@@ -790,7 +838,7 @@ export default function AdminProductsPage() {
         </>
       }
     >
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
         <StatCard
           title={tr('admin.products.statTotal')}
           value={stats.total}
@@ -822,6 +870,14 @@ export default function AdminProductsPage() {
           accentColor="bg-gray-500"
           active={statusFilter === 'inactive'}
           onClick={() => setStatusFilter('inactive')}
+        />
+        <StatCard
+          title={tr('admin.products.statOutOfStock')}
+          value={stats.outOfStock ?? 0}
+          icon={<ArchiveBoxXMarkIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-rose-500"
+          active={outOfStockFilter}
+          onClick={() => setOutOfStockFilter((current) => !current)}
         />
         <StatCard
           title={tr('admin.products.statTrash')}
@@ -902,6 +958,15 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className={`btn-secondary text-sm whitespace-nowrap ${
+                  outOfStockFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
+                }`}
+                onClick={() => setOutOfStockFilter((current) => !current)}
+              >
+                {tr('admin.products.showOutOfStock')}
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary text-sm whitespace-nowrap ${
                   filledPricesFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
                 }`}
                 onClick={() => setFilledPricesFilter((current) => !current)}
@@ -942,6 +1007,9 @@ export default function AdminProductsPage() {
           )}
           {filledPricesFilter && (
             <> · {tr('admin.products.filterPurchasePricePrefix')}</>
+          )}
+          {outOfStockFilter && (
+            <> · {tr('admin.products.filterOutOfStockPrefix')}</>
           )}
         </p>
 
@@ -1065,7 +1133,9 @@ export default function AdminProductsPage() {
         !debouncedSearch &&
         statusFilter === 'all' &&
         categoryFilter === 'all' &&
-        brandFilter === 'all' ? (
+        brandFilter === 'all' &&
+        !outOfStockFilter &&
+        !filledPricesFilter ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">{tr('admin.products.noProducts')}</p>
           <Link href={appPath('/admin/products/new')} className="btn-primary inline-flex items-center gap-2">
@@ -1085,6 +1155,7 @@ export default function AdminProductsPage() {
               setCategoryFilter('all')
               setBrandFilter('all')
               setFilledPricesFilter(false)
+              setOutOfStockFilter(false)
             }}
           >
             {tr('admin.products.clearFilters')}
@@ -1103,33 +1174,11 @@ export default function AdminProductsPage() {
           <AdminTable className="table-fixed">
           {adminProductsColgroup}
           <AdminTableHead>
-            <AdminTh className="px-2">
-              <input
-                type="checkbox"
-                checked={allOnPageSelected}
-                onChange={toggleAllOnPage}
-                aria-label={tr('adminProducts.selectAll')}
-                className="rounded border-gray-400"
-              />
-            </AdminTh>
-            <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
-            <AdminTh className="px-2">{tr('adminProducts.col.sku')}</AdminTh>
-            <AdminTh className="px-2">{tr('adminProducts.col.category')}</AdminTh>
-            <AdminTh className="px-2">{tr('adminProducts.col.brand')}</AdminTh>
-            <AdminTh className="px-2">Pricelist</AdminTh>
-            <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
-              {tr('productForm.purchasePrice')}
-            </AdminTh>
-            <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
-              {tr('productForm.shippingCost')}
-            </AdminTh>
-            <AdminTh className={`${adminProductsMoneyCol} text-[11px] leading-tight`}>
-              {tr('adminProducts.col.price')}
-            </AdminTh>
-            <AdminTh className="px-2">{tr('adminProducts.col.status')}</AdminTh>
-            <AdminTh align="right" className="px-2">
-              {tr('adminProducts.col.actions')}
-            </AdminTh>
+            <AdminProductsTableColumnsHeader
+              allOnPageSelected={allOnPageSelected}
+              onToggleAllOnPage={toggleAllOnPage}
+              tr={tr}
+            />
           </AdminTableHead>
           <AdminTableBody>
             {pageItems.map((p) => (
@@ -1251,6 +1300,13 @@ export default function AdminProductsPage() {
               </AdminTr>
             ))}
           </AdminTableBody>
+          <AdminTableFoot>
+            <AdminProductsTableColumnsHeader
+              allOnPageSelected={allOnPageSelected}
+              onToggleAllOnPage={toggleAllOnPage}
+              tr={tr}
+            />
+          </AdminTableFoot>
         </AdminTable>
           <div className="card rounded-t-none border-t-0 pt-0">
             <CatalogPagination

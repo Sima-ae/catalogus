@@ -88,6 +88,15 @@ export function AdminSortableTh({
   )
 }
 
+export function AdminTableFoot({ children }: { children: ReactNode }) {
+  const t = useAppTheme()
+  return (
+    <tfoot>
+      <tr className={`border-t ${t.rowBorder}`}>{children}</tr>
+    </tfoot>
+  )
+}
+
 export function AdminTableBody({ children }: { children: ReactNode }) {
   return <tbody>{children}</tbody>
 }

@@ -328,6 +328,42 @@ export function buildAdminProductFilledPricelistPriceSql(listOwnerId: string): {
   }
 }
 
+/** Admin products table: marked out of stock on a pricelist page. */
+export function buildAdminProductOutOfStockPricelistSql(listOwnerId: string): {
+  joinSql: string
+  whereSql: string
+  params: unknown[]
+} | null {
+  if (!listOwnerId) return null
+
+  if (isCuratedSupplierPricelist(listOwnerId)) {
+    const joins = { value: '' }
+    ensureCuratedPriceJoin(joins, listOwnerId)
+    return {
+      joinSql: joins.value,
+      whereSql: curatedOutOfStockSql(),
+      params: [],
+    }
+  }
+
+  return {
+    joinSql: '',
+    whereSql: `EXISTS (
+      SELECT 1 FROM seller_product_prices spp
+      WHERE spp.list_owner_id = ? AND spp.product_id = p.id
+        AND (
+          spp.stock_status IN ('out', 'temporary')
+          OR (
+            COALESCE(spp.stock_status, '') = ''
+            AND COALESCE(spp.out_of_stock, 0) <> 0
+            AND (spp.unit_price IS NULL OR spp.unit_price <= 0)
+          )
+        )
+    )`,
+    params: [listOwnerId],
+  }
+}
+
 export function buildPricelistListSql(
   listOwnerId: string,
   viewer: PricelistListViewer,
