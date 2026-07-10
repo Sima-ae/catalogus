@@ -13,6 +13,8 @@ import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 
 const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
 
+const HOMEPAGE_SHUFFLE_POOL_SIZE = 10_000
+
 type Candidate = { id: string; price: number }
 
 function weightedShuffle(items: Candidate[]): Candidate[] {
@@ -33,7 +35,9 @@ async function main() {
     `SELECT p.id, COALESCE(p.price, 0) AS price
      FROM products p
      WHERE p.status = 'active'
-     ORDER BY p.created_at DESC`
+     ORDER BY p.created_at DESC
+     LIMIT ?`,
+    [HOMEPAGE_SHUFFLE_POOL_SIZE]
   )
 
   if (!rows.length) {

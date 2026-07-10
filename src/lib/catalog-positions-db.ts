@@ -7,6 +7,7 @@ export const HOMEPAGE_SHUFFLE_SCOPE = 'global-shuffle'
 
 type GlobalSchema = typeof globalThis & {
   __catalogPositionsTableExists?: Promise<boolean>
+  __catalogPositionsScopeExists?: Map<string, Promise<boolean>>
 }
 
 async function catalogPositionsTableExists(): Promise<boolean> {
@@ -23,12 +24,33 @@ async function catalogPositionsTableExists(): Promise<boolean> {
 }
 
 export async function catalogPositionsExistForScope(scope: string): Promise<boolean> {
-  if (!(await catalogPositionsTableExists())) return false
-  const rows = await queryDb<{ hit: number }[]>(
-    `SELECT 1 AS hit FROM ${TABLE} WHERE scope = ? LIMIT 1`,
+  const g = globalThis as GlobalSchema
+  if (!g.__catalogPositionsScopeExists) {
+    g.__catalogPositionsScopeExists = new Map()
+  }
+  const cached = g.__catalogPositionsScopeExists.get(scope)
+  if (cached) return cached
+
+  const pending = (async () => {
+    if (!(await catalogPositionsTableExists())) return false
+    const rows = await queryDb<{ hit: number }[]>(
+      `SELECT 1 AS hit FROM ${TABLE} WHERE scope = ? LIMIT 1`,
+      [scope]
+    )
+    return rows.length > 0
+  })()
+
+  g.__catalogPositionsScopeExists.set(scope, pending)
+  return pending
+}
+
+export async function countPrecomputedShuffleScope(scope: string): Promise<number> {
+  if (!(await catalogPositionsExistForScope(scope))) return 0
+  const rows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(*) AS total FROM ${TABLE} WHERE scope = ?`,
     [scope]
   )
-  return rows.length > 0
+  return Number(rows[0]?.total ?? 0)
 }
 
 export async function saveCatalogProductOrder(
@@ -83,6 +105,25 @@ export type CatalogPositionJoin = {
   joinSql: string
   orderSql: string
   scopeParam: string | null
+}
+
+/** Read product ids from precomputed shuffle positions (indexed, fast). */
+export async function fetchPrecomputedShuffleProductIds(
+  scope: string,
+  limit: number,
+  offset: number
+): Promise<string[]> {
+  if (!(await catalogPositionsTableExists())) return []
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT p.id
+     FROM ${TABLE} cpp
+     INNER JOIN products p ON p.id = cpp.product_id AND p.status = 'active'
+     WHERE cpp.scope = ?
+     ORDER BY cpp.position ASC
+     LIMIT ? OFFSET ?`,
+    [scope, limit, offset]
+  )
+  return rows.map((row) => String(row.id))
 }
 
 /** LEFT JOIN + ORDER BY for scoped manual catalog sort (falls back to created_at). */

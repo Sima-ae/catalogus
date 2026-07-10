@@ -13,7 +13,10 @@ export default async function HomePage({
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', { shuffle: true })
   let initialCatalog = null
   try {
-    initialCatalog = await loadInitialShopCatalog(sp, 'all', { shuffle: true })
+    initialCatalog = await Promise.race([
+      loadInitialShopCatalog(sp, 'all', { shuffle: true }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+    ])
   } catch {
     // Client-side fetch fallback if DB is unavailable during SSR.
   }

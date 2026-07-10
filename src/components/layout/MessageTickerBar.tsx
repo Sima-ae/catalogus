@@ -86,7 +86,10 @@ export default function MessageTickerBar() {
 
   const joined = useMemo(() => {
     if (!items?.length) return ''
-    return items.map((i) => i.text).join(SEP)
+    return items
+      .map((i) => String(i?.text ?? '').trim())
+      .filter(Boolean)
+      .join(SEP)
   }, [items])
 
   const segment = useMemo(() => buildTickerSegment(joined, minRunChars), [joined, minRunChars])
