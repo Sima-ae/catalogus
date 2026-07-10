@@ -4,6 +4,8 @@ const TABLE = 'catalog_product_positions'
 
 /** Precomputed weighted-random homepage order (rebuilt nightly). */
 export const HOMEPAGE_SHUFFLE_SCOPE = 'global-shuffle'
+/** Featured products in the precomputed homepage shuffle pool; catalog total stays full size. */
+export const HOMEPAGE_SHUFFLE_POOL_SIZE = 10_000
 
 type GlobalSchema = typeof globalThis & {
   __catalogPositionsTableExists?: Promise<boolean>
@@ -124,6 +126,45 @@ export async function fetchPrecomputedShuffleProductIds(
     [scope, limit, offset]
   )
   return rows.map((row) => String(row.id))
+}
+
+/** Active catalog products not in the homepage shuffle pool (newest first). */
+export async function fetchActiveProductsBeyondShufflePool(
+  scope: string,
+  limit: number,
+  offset: number
+): Promise<string[]> {
+  if (!(await catalogPositionsTableExists())) return []
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT p.id
+     FROM products p
+     LEFT JOIN ${TABLE} cpp ON cpp.product_id = p.id AND cpp.scope = ?
+     WHERE p.status = 'active' AND cpp.product_id IS NULL
+     ORDER BY p.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [scope, limit, offset]
+  )
+  return rows.map((row) => String(row.id))
+}
+
+/** Homepage page ids: shuffled pool first, then remaining active products by date. */
+export async function fetchHomepageShufflePageProductIds(
+  scope: string,
+  poolSize: number,
+  limit: number,
+  offset: number
+): Promise<string[]> {
+  if (offset >= poolSize) {
+    return fetchActiveProductsBeyondShufflePool(scope, limit, offset - poolSize)
+  }
+
+  const fromPool = Math.min(limit, poolSize - offset)
+  const ids = await fetchPrecomputedShuffleProductIds(scope, fromPool, offset)
+  const remaining = limit - ids.length
+  if (remaining <= 0) return ids
+
+  const tail = await fetchActiveProductsBeyondShufflePool(scope, remaining, 0)
+  return [...ids, ...tail]
 }
 
 /** LEFT JOIN + ORDER BY for scoped manual catalog sort (falls back to created_at). */

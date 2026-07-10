@@ -57,7 +57,13 @@ import {
 import { getBrandSkuPrefixes, getAllBrandNames } from '@/lib/brand-sku-prefixes'
 import { polishProductTextForStorage, polishProductTitleForStorage } from '@/lib/product-brand-text'
 import { titleNeedsCjkCleanup } from '@/lib/yupoo/product-title'
-import { catalogPositionJoin, catalogPositionsExistForScope, countPrecomputedShuffleScope, fetchPrecomputedShuffleProductIds, HOMEPAGE_SHUFFLE_SCOPE } from '@/lib/catalog-positions-db'
+import {
+  catalogPositionJoin,
+  catalogPositionsExistForScope,
+  fetchHomepageShufflePageProductIds,
+  HOMEPAGE_SHUFFLE_POOL_SIZE,
+  HOMEPAGE_SHUFFLE_SCOPE,
+} from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
@@ -1493,15 +1499,13 @@ async function loadActiveProductsPaginatedFromDb(
   const { joinSql, orderSql, scopeParam } = positionJoin
   const idParams = scopeParam ? [scopeParam, ...params] : params
 
-  const totalPromise =
-    shuffle && usePrecomputedShuffle
-      ? countPrecomputedShuffleScope(HOMEPAGE_SHUFFLE_SCOPE)
-      : countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
+  const totalPromise = countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
 
   let idRows: { id: string }[]
   if (shuffle && usePrecomputedShuffle) {
-    const ids = await fetchPrecomputedShuffleProductIds(
+    const ids = await fetchHomepageShufflePageProductIds(
       HOMEPAGE_SHUFFLE_SCOPE,
+      HOMEPAGE_SHUFFLE_POOL_SIZE,
       limit,
       offset
     )

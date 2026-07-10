@@ -6,14 +6,13 @@
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { queryDb, resetDbPool } from '@/lib/db'
 import {
+  HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
   replaceCatalogScopePositions,
 } from '@/lib/catalog-positions-db'
 import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 
 const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
-
-const HOMEPAGE_SHUFFLE_POOL_SIZE = 10_000
 
 type Candidate = { id: string; price: number }
 
