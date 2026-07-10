@@ -111,6 +111,12 @@ async function fetchShopNestedSubcategories(
   return request
 }
 
+/** Warm subcategory cache on category hover/click. */
+export function prefetchShopSubcategories(selectedCategory: string): void {
+  if (!selectedCategory || selectedCategory === 'All') return
+  void fetchShopSubcategories(selectedCategory)
+}
+
 /** Clear client subcategory cache after taxonomy changes. */
 export function invalidateShopSubcategoryCache(): void {
   subcategoryCache.clear()
@@ -146,9 +152,10 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
     if (hit) {
       setSubcategories(hit)
       setLoading(false)
-    } else {
-      setLoading(true)
+      return
     }
+
+    setLoading(true)
 
     let cancelled = false
     fetchShopSubcategories(selectedCategory)
@@ -285,9 +292,10 @@ export function useShopNestedSubcategory(
     if (hit) {
       setNestedSubcategories(hit)
       setLoading(false)
-    } else {
-      setLoading(true)
+      return
     }
+
+    setLoading(true)
 
     let cancelled = false
     fetchShopNestedSubcategories(selectedCategory, selectedSubcategory)

@@ -1,6 +1,6 @@
 import {
   buildCatalogProductsUrl,
-  CATALOG_BATCH_SIZE,
+  CATALOG_PAGE_SIZE,
   catalogPageBaseOffset,
   isCatalogProductsPage,
   type CatalogProductsPage,
@@ -8,8 +8,19 @@ import {
 import { buildShopCatalogSignature } from '@/lib/shop-catalog-signature'
 import { appPath } from '@/lib/paths'
 
-const catalogCache = new Map<string, CatalogProductsPage>()
+type CatalogCacheEntry = {
+  page: CatalogProductsPage
+  fetchedAt: number
+  shuffle: boolean
+}
+
+const catalogCache = new Map<string, CatalogCacheEntry>()
 const catalogInflight = new Map<string, Promise<CatalogProductsPage | null>>()
+
+/** How long a cached catalog page is served without a network round-trip. */
+export const SHOP_CATALOG_CACHE_TTL_MS = 2 * 60 * 1000
+/** Shorter TTL for randomized homepage order — still avoids repeat fetches on back-nav. */
+export const SHOP_CATALOG_SHUFFLE_CACHE_TTL_MS = 90 * 1000
 
 export type ShopCatalogFilterPrefetch = {
   page?: number
@@ -21,6 +32,10 @@ export type ShopCatalogFilterPrefetch = {
   search?: string
   mode?: 'all' | 'new'
   shuffle?: boolean
+}
+
+function cacheTtlMs(entry: CatalogCacheEntry): number {
+  return entry.shuffle ? SHOP_CATALOG_SHUFFLE_CACHE_TTL_MS : SHOP_CATALOG_CACHE_TTL_MS
 }
 
 /** Stable key for a catalog page request (matches SSR signature). */
@@ -44,11 +59,25 @@ export function shopCatalogClientSignature(
 }
 
 export function getCachedShopCatalog(signature: string): CatalogProductsPage | undefined {
-  return catalogCache.get(signature)
+  return catalogCache.get(signature)?.page
 }
 
-export function setCachedShopCatalog(signature: string, page: CatalogProductsPage): void {
-  catalogCache.set(signature, page)
+export function isShopCatalogCacheFresh(signature: string): boolean {
+  const entry = catalogCache.get(signature)
+  if (!entry) return false
+  return Date.now() - entry.fetchedAt < cacheTtlMs(entry)
+}
+
+export function setCachedShopCatalog(
+  signature: string,
+  page: CatalogProductsPage,
+  options?: { shuffle?: boolean }
+): void {
+  catalogCache.set(signature, {
+    page,
+    fetchedAt: Date.now(),
+    shuffle: options?.shuffle === true,
+  })
 }
 
 export function invalidateShopCatalogCache(): void {
@@ -62,7 +91,7 @@ async function fetchShopCatalogPage(
   const page = filters.page ?? 1
   const url = buildCatalogProductsUrl(appPath('/api/products'), {
     page,
-    limit: CATALOG_BATCH_SIZE,
+    limit: CATALOG_PAGE_SIZE,
     offset: catalogPageBaseOffset(page),
     category: filters.category && filters.category !== 'All' ? filters.category : undefined,
     subcategory:
@@ -72,6 +101,7 @@ async function fetchShopCatalogPage(
     tag: filters.tag || undefined,
     search: filters.search || undefined,
     mode: filters.mode === 'new' ? 'new' : undefined,
+    shuffle: filters.shuffle ? true : undefined,
   })
 
   const response = await fetch(url, { method: 'GET' })
@@ -84,14 +114,16 @@ async function fetchShopCatalogPage(
 /** Warm catalog cache on category/brand hover or click (parallel with navigation). */
 export function prefetchShopCatalogFilter(filters: ShopCatalogFilterPrefetch): void {
   const signature = shopCatalogClientSignature(filters)
-  if (catalogCache.has(signature)) return
+  if (isShopCatalogCacheFresh(signature)) return
 
   const pending = catalogInflight.get(signature)
   if (pending) return
 
   const request = fetchShopCatalogPage(filters)
     .then((page) => {
-      if (page) catalogCache.set(signature, page)
+      if (page) {
+        setCachedShopCatalog(signature, page, { shuffle: filters.shuffle })
+      }
       return page
     })
     .finally(() => {
@@ -107,6 +139,6 @@ export function consumePrefetchedShopCatalog(
 ): CatalogProductsPage | null {
   const signature = shopCatalogClientSignature(filters)
   const cached = catalogCache.get(signature)
-  if (cached) return cached
+  if (cached) return cached.page
   return null
 }

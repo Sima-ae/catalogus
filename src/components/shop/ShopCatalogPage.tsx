@@ -8,9 +8,7 @@ import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
-import ShopCatalogListing, {
-  CATALOG_PAGE_SIZE,
-} from '@/components/shop/ShopCatalogListing'
+import ShopCatalogListing from '@/components/shop/ShopCatalogListing'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
@@ -26,7 +24,8 @@ import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
 import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
-import { invalidateShopBrandMenuCache } from '@/lib/use-shop-brand-list'
+import { invalidateShopBrandMenuCache, prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
+import { prefetchShopSubcategories } from '@/lib/use-shop-subcategory'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -40,7 +39,7 @@ import {
 import { type CatalogMode } from '@/lib/catalog'
 import {
   buildCatalogProductsUrl,
-  CATALOG_BATCH_SIZE,
+  CATALOG_PAGE_SIZE,
   catalogPageBaseOffset,
   isCatalogProductsPage,
   itemsOnCatalogPage,
@@ -50,6 +49,7 @@ import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import {
   consumePrefetchedShopCatalog,
   getCachedShopCatalog,
+  isShopCatalogCacheFresh,
   prefetchShopCatalogFilter,
   setCachedShopCatalog,
   shopCatalogClientSignature,
@@ -199,7 +199,7 @@ function ShopCatalogPageContent({
     (pageToLoad: number, rowOffset: number) =>
       buildCatalogProductsUrl(appPath('/api/products'), {
         page: pageToLoad,
-        limit: CATALOG_BATCH_SIZE,
+        limit: CATALOG_PAGE_SIZE,
         offset: rowOffset,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
         subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
@@ -263,8 +263,17 @@ function ShopCatalogPageContent({
   const beginFilterNavigation = useCallback(
     (prefetch?: ShopCatalogFilterPrefetch) => {
       setFilterNavigating(true)
-      setPageLoading(true)
-      if (prefetch) prefetchShopCatalogFilter(prefetch)
+      if (prefetch) {
+        if (prefetch.category) {
+          prefetchShopSubcategories(prefetch.category)
+          prefetchShopBrandMenu(
+            prefetch.category,
+            prefetch.subcategory ?? 'All',
+            prefetch.nested ?? 'All'
+          )
+        }
+        prefetchShopCatalogFilter(prefetch)
+      }
     },
     []
   )
@@ -343,16 +352,41 @@ function ShopCatalogPageContent({
 
   const prefetchCatalogHover = useCallback(
     (patch: Partial<ShopCatalogFilterPrefetch>) => {
+      const category =
+        patch.category ?? (selectedCategory !== 'All' ? selectedCategory : undefined)
+      const subcategory =
+        patch.subcategory ??
+        (selectedSubcategory !== 'All' ? selectedSubcategory : undefined)
+      const nested =
+        patch.nested ??
+        (selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined)
+
+      if (category) {
+        prefetchShopSubcategories(category)
+        prefetchShopBrandMenu(category, subcategory ?? 'All', nested ?? 'All')
+      }
+
+      const shuffleTarget =
+        patch.shuffle ??
+        (catalogShuffle &&
+        !patch.category &&
+        !patch.subcategory &&
+        !patch.nested &&
+        !patch.brand &&
+        !patch.search
+          ? true
+          : undefined)
+
       prefetchShopCatalogFilter({
-        page: 1,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-        nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
-        brand: brandQueryActive ? filterBrand : undefined,
-        tag: filterTag || undefined,
-        search: debouncedSearch || undefined,
-        mode: catalogMode,
-        ...patch,
+        page: patch.page ?? 1,
+        category,
+        subcategory,
+        nested,
+        brand: patch.brand ?? (brandQueryActive ? filterBrand : undefined),
+        tag: patch.tag ?? (filterTag || undefined),
+        search: patch.search ?? (debouncedSearch || undefined),
+        mode: patch.mode ?? catalogMode,
+        shuffle: shuffleTarget,
       })
     },
     [
@@ -537,9 +571,7 @@ function ShopCatalogPageContent({
     const applyCatalogPage = (data: CatalogProductsPage) => {
       setProducts(data.items)
       setTotalItems(data.total)
-      if (!catalogShuffle) {
-        setCachedShopCatalog(clientCatalogSignature, data)
-      }
+      setCachedShopCatalog(clientCatalogSignature, data, { shuffle: catalogShuffle })
       hasLoadedOnce.current = true
       if (data.page !== pageToLoad && data.page >= 1) {
         setCurrentPage(data.page)
@@ -556,21 +588,32 @@ function ShopCatalogPageContent({
     }
 
     const prefetched =
-      !catalogShuffle && reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
+      reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
     const cached =
-      !catalogShuffle && reloadToken === 0
+      reloadToken === 0
         ? prefetched ?? getCachedShopCatalog(clientCatalogSignature) ?? null
         : null
+    const cacheFresh = cached ? isShopCatalogCacheFresh(clientCatalogSignature) : false
 
     if (cached) {
       applyCatalogPage(cached)
       setLoading(false)
+      setPageLoading(false)
+      setFilterNavigating(false)
     } else if (!hasLoadedOnce.current) {
       setLoading(true)
+      setPageLoading(true)
+    } else {
+      setPageLoading(true)
     }
 
-    setPageLoading(true)
     setError(null)
+
+    if (cacheFresh) {
+      return () => {
+        cancelled = true
+      }
+    }
 
     async function loadProducts() {
       try {

@@ -4,8 +4,8 @@ import type { Product } from '@/lib/types'
 
 /** Products per pagination page (UI and total page count). */
 export const CATALOG_PAGE_SIZE = 24
-/** Initial fetch + each scroll batch on shop catalog pages. */
-export const CATALOG_BATCH_SIZE = 12
+/** Initial fetch size — matches page size so one request fills the grid. */
+export const CATALOG_BATCH_SIZE = CATALOG_PAGE_SIZE
 /** @deprecated Use CATALOG_PAGE_SIZE */
 export const DEFAULT_CATALOG_PAGE_SIZE = CATALOG_PAGE_SIZE
 export const MAX_CATALOG_PAGE_SIZE = 60

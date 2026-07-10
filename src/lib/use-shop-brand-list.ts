@@ -104,9 +104,10 @@ export function useShopBrandList(
     if (hit) {
       setBrands(hit)
       setLoading(false)
-    } else {
-      setLoading(true)
+      return
     }
+
+    setLoading(true)
 
     let cancelled = false
     fetchShopBrandMenu(selectedCategory, selectedSubcategory, selectedNested)

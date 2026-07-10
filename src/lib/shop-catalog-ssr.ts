@@ -1,5 +1,5 @@
 import {
-  CATALOG_BATCH_SIZE,
+  CATALOG_PAGE_SIZE,
   catalogPageBaseOffset,
   parseCatalogProductsQuery,
   type CatalogProductsPage,
@@ -25,7 +25,7 @@ export async function loadInitialShopCatalog(
   )
   const params = new URLSearchParams()
   params.set('page', String(page))
-  params.set('limit', String(CATALOG_BATCH_SIZE))
+  params.set('limit', String(CATALOG_PAGE_SIZE))
   params.set('offset', String(catalogPageBaseOffset(page)))
 
   const pick = (key: string): string | undefined => {
