@@ -478,13 +478,10 @@ export default function AdminProductsPage() {
       }) + '&scope=admin'
 
     try {
-      const [listRes, statsRes] = await Promise.all([
-        fetch(listUrl, { headers, cache: 'no-store' }),
-        fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
-      ])
+      const listRes = await fetch(listUrl, { headers, cache: 'no-store' })
 
       const listData = await parseJsonResponse<
-        { error?: string; items?: Product[] } | Product[]
+        { error?: string; items?: Product[]; dashboardStats?: ProductDashboardStats } | Product[]
       >(listRes)
       if (!listRes.ok) {
         throw new Error(
@@ -494,17 +491,7 @@ export default function AdminProductsPage() {
       if (!isCatalogProductsPage(listData)) throw new Error('Invalid response')
       setProducts(listData.items)
       setTotalItems(listData.total)
-
-      if (statsRes.ok) {
-        const statsData = await parseJsonResponse<
-          { error?: string; dashboardStats?: ProductDashboardStats } | Product[]
-        >(statsRes)
-        if (isCatalogProductsPage(statsData)) {
-          setProductStats(statsData.dashboardStats ?? null)
-        }
-      } else {
-        setProductStats(null)
-      }
+      setProductStats(listData.dashboardStats ?? null)
 
       setSelected(new Set())
     } catch (e) {

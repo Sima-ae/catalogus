@@ -149,9 +149,8 @@ export default function AdminDashboard() {
 
     try {
       const headers = adminAuthHeaders(user)
-      const [latestRes, statsRes, ordersRes, ordersSummaryRes, usersRes] = await Promise.all([
+      const [latestRes, ordersRes, ordersSummaryRes, usersRes] = await Promise.all([
         fetch(appPath('/api/products?page=1&limit=10&scope=admin'), { headers, cache: 'no-store' }),
-        fetch(appPath('/api/products?page=1&limit=1&scope=admin'), { headers, cache: 'no-store' }),
         fetch(appPath(`/api/orders?limit=${RECENT_ORDERS}`), { cache: 'no-store' }),
         fetch(appPath('/api/orders?summary=1'), { cache: 'no-store' }),
         fetch(appPath('/api/admin/users?count=1'), { headers, cache: 'no-store' }),
@@ -171,24 +170,12 @@ export default function AdminDashboard() {
 
       if (isCatalogProductsPage(latestData)) {
         setProducts(latestData.items)
+        setProductStats(latestData.dashboardStats ?? null)
       } else if (Array.isArray(latestData)) {
         setProducts(sortNewest(latestData).slice(0, LATEST_PRODUCTS))
+        setProductStats(null)
       } else {
         throw new Error('Failed to load products')
-      }
-
-      if (statsRes.ok) {
-        const statsData = await parseJsonResponse<
-          | { dashboardStats?: ProductDashboardStats; error?: string }
-          | Product[]
-        >(statsRes)
-        if (isCatalogProductsPage(statsData)) {
-          setProductStats(statsData.dashboardStats ?? null)
-        } else {
-          setProductStats(null)
-        }
-      } else {
-        setProductStats(null)
       }
 
       let ordersData: Order[] = []

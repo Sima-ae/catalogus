@@ -175,6 +175,64 @@ export function serializeProductRow(
   }
 }
 
+/** Lightweight admin table row — no gallery, description, or async CJK translation. */
+export function serializeAdminListProductRow(
+  row: Record<string, unknown>,
+  options?: SerializeProductRowOptions
+) {
+  const category = String(row.resolved_category_name ?? '').trim()
+  const brand = resolveProductBrandDisplay(row)
+  const sourceUrl = row.source_url != null ? String(row.source_url) : null
+  const main = storageProductImageUrl(String(row.image_url ?? ''))
+
+  const rawSku = row.sku != null ? String(row.sku).trim() : ''
+  const prefixes = options?.brandSkuPrefixes ?? []
+  const sku =
+    rawSku && prefixes.length ? stripAllBrandPrefixesFromSku(rawSku, prefixes) : rawSku
+
+  const purchasePrice =
+    row.purchase_price != null && row.purchase_price !== ''
+      ? Number(row.purchase_price)
+      : null
+  const shippingCost =
+    row.shipping_cost != null && row.shipping_cost !== ''
+      ? Number(row.shipping_cost)
+      : null
+
+  return {
+    id: String(row.id ?? ''),
+    name: sanitizeProductName(String(row.name ?? '').trim()),
+    description: '',
+    short_description: undefined,
+    sku,
+    image_url: main,
+    category,
+    category_id: row.category_id ?? row.resolved_category_id ?? null,
+    brand: brand || undefined,
+    brand_id: row.brand_id ?? row.resolved_brand_id ?? null,
+    tags: parseProductJsonField(row.tags),
+    product_options: options?.includePurchasePrice
+      ? parseProductOptions(row.product_options)
+      : stripProductOptionsInternalPricing(parseProductOptions(row.product_options)),
+    source_url: sourceUrl,
+    price: Number(row.price) || 0,
+    original_price:
+      row.original_price != null && row.original_price !== ''
+        ? Number(row.original_price)
+        : null,
+    ...(options?.includePurchasePrice
+      ? { purchase_price: purchasePrice, shipping_cost: shippingCost }
+      : {}),
+    status: String(row.status || 'active'),
+    supplier_pricelist_label:
+      row.supplier_pricelist_label != null ? String(row.supplier_pricelist_label) : undefined,
+    supplier_pricelist_slug:
+      row.supplier_pricelist_slug != null ? String(row.supplier_pricelist_slug) : undefined,
+    created_at: row.created_at != null ? String(row.created_at) : '',
+    updated_at: row.updated_at != null ? String(row.updated_at) : '',
+  }
+}
+
 /** Lightweight shop grid payload — skips description polish and heavy fields. */
 export function serializeCatalogProductRow(
   row: Record<string, unknown>,

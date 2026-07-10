@@ -6,6 +6,7 @@ import {
   buildAdminProductFilters,
   buildBulkArchiveProductFilters,
   buildProductBrandSegmentFilter,
+  catalogPageBaseOffset,
   CATALOG_PAGE_SIZE,
   catalogShuffleOrderSql,
   isCatalogShuffleEligible,
@@ -38,7 +39,9 @@ import {
 } from '@/lib/pricelist-list-query'
 import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
 import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
-import { serializeCatalogProductRow,
+import {
+  serializeAdminListProductRow,
+  serializeCatalogProductRow,
   serializeProductRow,
   parseProductJsonField,
   resolveProductBrandDisplay,
@@ -213,6 +216,7 @@ type ProductSchemaFlags = {
 
 const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
 const SELECT_SQL_CACHE_KEY = '__catalogusProductSelectSql'
+const ADMIN_SELECT_CACHE_KEY = '__catalogusAdminSelectSql'
 const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
 const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
 
@@ -226,6 +230,7 @@ function invalidateProductDashboardStatsCache() {
 type GlobalSchema = typeof globalThis & {
   [SCHEMA_CACHE_KEY]?: ProductSchemaFlags
   [SELECT_SQL_CACHE_KEY]?: string
+  [ADMIN_SELECT_CACHE_KEY]?: string
   [CATALOG_FROM_CACHE_KEY]?: string
   [CATALOG_SELECT_CACHE_KEY]?: string
 }
@@ -421,6 +426,46 @@ async function productSelectSql() {
   return g[SELECT_SQL_CACHE_KEY]
 }
 
+/** Slim SELECT for admin product table — skips description, gallery, features, etc. */
+async function adminProductSelectSql() {
+  const g = globalThis as GlobalSchema
+  if (g[ADMIN_SELECT_CACHE_KEY]) return g[ADMIN_SELECT_CACHE_KEY]
+
+  const [fromClause, { brandSelect }] = await Promise.all([
+    catalogListingFromSql(),
+    buildProductJoinFragments(),
+  ])
+
+  g[ADMIN_SELECT_CACHE_KEY] = `
+    SELECT
+      p.id,
+      p.name,
+      p.sku,
+      p.price,
+      p.original_price,
+      p.purchase_price,
+      p.shipping_cost,
+      p.image_url,
+      p.category,
+      p.category_id,
+      p.brand,
+      p.brand_id,
+      p.product_options,
+      p.tags,
+      p.status,
+      p.source_url,
+      p.created_at,
+      p.updated_at,
+      c.id AS resolved_category_id,
+      c.name AS resolved_category_name,
+      c.slug AS resolved_category_slug,
+      pp.label AS supplier_pricelist_label,
+      pp.slug AS supplier_pricelist_slug${brandSelect}
+    ${fromClause}
+  `
+  return g[ADMIN_SELECT_CACHE_KEY]
+}
+
 /** One row per product — guards against any residual join fan-out. */
 function dedupeProductRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
   const seen = new Set<string>()
@@ -436,13 +481,21 @@ function dedupeProductRows(rows: Record<string, unknown>[]): Record<string, unkn
 
 async function serializeProductRows(
   rows: Record<string, unknown>[],
-  options?: SerializeProductRowOptions & { catalog?: boolean }
+  options?: SerializeProductRowOptions & { catalog?: boolean; adminList?: boolean }
 ) {
   if (options?.catalog) {
     const brandSkuPrefixes =
       options.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
     return dedupeProductRows(rows).map((row) =>
       serializeCatalogProductRow(row, { brandSkuPrefixes, ...options })
+    )
+  }
+
+  if (options?.adminList) {
+    const brandSkuPrefixes =
+      options.brandSkuPrefixes ?? (await getBrandSkuPrefixes())
+    return dedupeProductRows(rows).map((row) =>
+      serializeAdminListProductRow(row, { brandSkuPrefixes, ...options })
     )
   }
 
@@ -478,10 +531,14 @@ async function serializeProductRows(
 
 async function fetchProductRowsByIds(
   ids: string[],
-  options?: { catalog?: boolean }
+  options?: { catalog?: boolean; adminList?: boolean }
 ): Promise<Record<string, unknown>[]> {
   if (!ids.length) return []
-  const select = options?.catalog ? await catalogProductSelectSql() : await productSelectSql()
+  const select = options?.catalog
+    ? await catalogProductSelectSql()
+    : options?.adminList
+      ? await adminProductSelectSql()
+      : await productSelectSql()
   const placeholders = ids.map(() => '?').join(', ')
   const rows = await queryDb<Record<string, unknown>[]>(
     `${select} WHERE p.id IN (${placeholders})`,
@@ -651,6 +708,13 @@ const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories'
 const SHOP_SUBCATEGORY_TTL_MS = 300_000
 const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
 const PRODUCT_COUNT_BUCKETS_TTL_MS = 300_000
+const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
+const SHOP_CATALOG_COUNT_TTL_MS = 300_000
+const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
+const SHOP_SHUFFLE_PAGE_TTL_MS = 120_000
+const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
+const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
+const SHUFFLE_CANDIDATE_POOL_SIZE = 800
 
 async function loadActiveProductCountBuckets(options?: {
   brand?: string
@@ -1241,6 +1305,96 @@ export async function listActiveProducts() {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
+  if (isCatalogShuffleEligible(query)) {
+    const cacheKey = `p${query.page}-l${query.limit}-o${query.offset ?? catalogPageBaseOffset(query.page)}`
+    return getCachedValue(
+      SHOP_SHUFFLE_PAGE_CACHE_NS,
+      cacheKey,
+      SHOP_SHUFFLE_PAGE_TTL_MS,
+      () => loadActiveProductsPaginatedFromDb(query)
+    )
+  }
+  return loadActiveProductsPaginatedFromDb(query)
+}
+
+function shopCatalogCountCacheKey(
+  fromClause: string,
+  joinSql: string,
+  whereSql: string,
+  idParams: unknown[]
+): string {
+  return `${fromClause}|${joinSql}|${whereSql}|${JSON.stringify(idParams)}`
+}
+
+async function getCachedActiveProductTotal(): Promise<number> {
+  return getCachedValue(
+    ACTIVE_PRODUCT_TOTAL_CACHE_NS,
+    'active',
+    ACTIVE_PRODUCT_TOTAL_TTL_MS,
+    async () => {
+      const rows = await queryDb<{ total: number }[]>(
+        `SELECT COUNT(*) AS total FROM products p WHERE p.status = 'active'`
+      )
+      return Number(rows[0]?.total ?? 0)
+    }
+  )
+}
+
+async function countShopCatalogProducts(
+  fromClause: string,
+  joinSql: string,
+  whereSql: string,
+  idParams: unknown[],
+  shuffle: boolean
+): Promise<number> {
+  if (shuffle) {
+    return getCachedActiveProductTotal()
+  }
+  const cacheKey = shopCatalogCountCacheKey(fromClause, joinSql, whereSql, idParams)
+  return getCachedValue(
+    SHOP_CATALOG_COUNT_CACHE_NS,
+    cacheKey,
+    SHOP_CATALOG_COUNT_TTL_MS,
+    async () => {
+      const countRows = await queryDb<{ total: number }[]>(
+        `SELECT COUNT(*) AS total ${fromClause} ${joinSql} ${whereSql}`,
+        idParams
+      )
+      return Number(countRows[0]?.total ?? 0)
+    }
+  )
+}
+
+type ShuffleCandidate = { id: string; price: number }
+
+function weightedShuffleCandidates(candidates: ShuffleCandidate[]): ShuffleCandidate[] {
+  return [...candidates].sort((a, b) => {
+    const scoreA = a.price > 0 ? Math.random() * 0.55 : 0.55 + Math.random() * 0.45
+    const scoreB = b.price > 0 ? Math.random() * 0.55 : 0.55 + Math.random() * 0.45
+    if (scoreA !== scoreB) return scoreA - scoreB
+    return a.id.localeCompare(b.id)
+  })
+}
+
+async function fetchShuffledActiveProductIds(
+  fromClause: string,
+  whereSql: string,
+  params: unknown[],
+  limit: number,
+  offset: number
+): Promise<string[]> {
+  const poolRows = await queryDb<ShuffleCandidate[]>(
+    `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
+     ORDER BY p.created_at DESC LIMIT ?`,
+    [...params, SHUFFLE_CANDIDATE_POOL_SIZE]
+  )
+  const shuffled = weightedShuffleCandidates(poolRows)
+  return shuffled.slice(offset, offset + limit).map((row) => row.id)
+}
+
+async function loadActiveProductsPaginatedFromDb(
+  query: CatalogProductsQuery
+): Promise<CatalogProductsPage> {
   const [categories, hasBrandsTable] = await Promise.all([
     loadActiveCategories(),
     brandsTableExists(),
@@ -1289,18 +1443,20 @@ export async function listActiveProductsPaginated(
   const { joinSql, orderSql, scopeParam } = positionJoin
   const idParams = scopeParam ? [scopeParam, ...params] : params
 
-  const [countRows, idRows] = await Promise.all([
-    queryDb<{ total: number }[]>(
-      `SELECT COUNT(*) AS total ${fromClause} ${joinSql} ${whereSql}`,
-      idParams
-    ),
-    queryDb<{ id: string }[]>(
+  const totalPromise = countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
+
+  let idRows: { id: string }[]
+  if (shuffle) {
+    const ids = await fetchShuffledActiveProductIds(fromClause, whereSql, idParams, limit, offset)
+    idRows = ids.map((id) => ({ id }))
+  } else {
+    idRows = await queryDb<{ id: string }[]>(
       `SELECT p.id ${fromClause} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idParams, limit, offset]
-    ),
-  ])
+    )
+  }
 
-  const total = Number(countRows[0]?.total ?? 0)
+  const total = await totalPromise
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)), { catalog: true })
   const serialized = await serializeProductRows(rows, { catalog: true })
   const items = await applyStorefrontSoldOutFromPlatformPricelist(
@@ -1630,10 +1786,15 @@ export async function listProductsPaginatedAdmin(
   ])
 
   const total = Number(countRows[0]?.total ?? 0)
-  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)))
+  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)), {
+    adminList: true,
+  })
 
   return {
-    items: (await serializeProductRows(rows, { includePurchasePrice: true })) as unknown as CatalogProductsPage['items'],
+    items: (await serializeProductRows(rows, {
+      includePurchasePrice: true,
+      adminList: true,
+    })) as unknown as CatalogProductsPage['items'],
     total,
     page: safePage,
     pageSize: safeLimit,
