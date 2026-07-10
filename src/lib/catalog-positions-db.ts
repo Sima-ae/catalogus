@@ -2,6 +2,9 @@ import { queryDb } from '@/lib/db'
 
 const TABLE = 'catalog_product_positions'
 
+/** Precomputed weighted-random homepage order (rebuilt nightly). */
+export const HOMEPAGE_SHUFFLE_SCOPE = 'global-shuffle'
+
 type GlobalSchema = typeof globalThis & {
   __catalogPositionsTableExists?: Promise<boolean>
 }
@@ -17,6 +20,15 @@ async function catalogPositionsTableExists(): Promise<boolean> {
     ).then((rows) => Number(rows[0]?.cnt ?? 0) > 0)
   }
   return g.__catalogPositionsTableExists
+}
+
+export async function catalogPositionsExistForScope(scope: string): Promise<boolean> {
+  if (!(await catalogPositionsTableExists())) return false
+  const rows = await queryDb<{ hit: number }[]>(
+    `SELECT 1 AS hit FROM ${TABLE} WHERE scope = ? LIMIT 1`,
+    [scope]
+  )
+  return rows.length > 0
 }
 
 export async function saveCatalogProductOrder(
@@ -38,6 +50,33 @@ export async function saveCatalogProductOrder(
     )
   )
   await Promise.all(statements)
+}
+
+/** Replace all positions for a scope in one transaction-friendly batch. */
+export async function replaceCatalogScopePositions(
+  scope: string,
+  productIds: string[]
+): Promise<number> {
+  if (!(await catalogPositionsTableExists())) return 0
+  await queryDb(`DELETE FROM ${TABLE} WHERE scope = ?`, [scope])
+  if (!productIds.length) return 0
+
+  const batchSize = 500
+  let written = 0
+  for (let i = 0; i < productIds.length; i += batchSize) {
+    const chunk = productIds.slice(i, i + batchSize)
+    const values = chunk.map(() => '(?, ?, ?)').join(', ')
+    const params: unknown[] = []
+    chunk.forEach((productId, index) => {
+      params.push(scope, productId, i + index)
+    })
+    await queryDb(
+      `INSERT INTO ${TABLE} (scope, product_id, position) VALUES ${values}`,
+      params
+    )
+    written += chunk.length
+  }
+  return written
 }
 
 export type CatalogPositionJoin = {

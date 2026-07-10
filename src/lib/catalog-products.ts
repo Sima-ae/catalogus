@@ -1,6 +1,7 @@
 import type { CatalogMode } from '@/lib/catalog'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import type { Product } from '@/lib/types'
+import { buildProductSearchFilter } from '@/lib/product-search-sql'
 
 /** Products per pagination page (UI and total page count). */
 export const CATALOG_PAGE_SIZE = 24
@@ -45,6 +46,8 @@ export type CatalogProductsQuery = {
   /** Homonymous subcategory ids under other parents — exclude from top-level roll-ups. */
   excludeCategoryIds?: string[]
   brand?: string
+  /** Resolved server-side from brand name — enables indexed brand_id filter. */
+  brandId?: string
   tag?: string
   search?: string
   mode?: CatalogMode
@@ -124,6 +127,14 @@ export type CatalogSqlFilters = {
   extraJoinSql?: string
 }
 
+/** Match legacy `products.category` text applies only when FK is unset (avoids KIDS › SHOES leaking into SHOES). */
+export const PRODUCT_CATEGORY_ID_UNSET_SQL =
+  '(p.category_id IS NULL OR TRIM(p.category_id) = \'\')'
+
+/** Legacy brand text applies only when brand_id FK is unset. */
+export const PRODUCT_BRAND_ID_UNSET_SQL =
+  '(p.brand_id IS NULL OR TRIM(p.brand_id) = \'\')'
+
 /** Match products whose sole or collab brand includes `brandName` (e.g. NIKE in "LOUIS VUITTON X NIKE"). */
 export function buildProductBrandSegmentFilter(
   brandName: string,
@@ -142,6 +153,21 @@ export function buildProductBrandSegmentFilter(
     params.push(lower)
   }
   return { sql: `(${clauses.join(' OR ')})`, params }
+}
+
+/** Prefer indexed brand_id when known; fall back to legacy text for collabs / missing FK. */
+export function buildProductBrandFilter(
+  brandName: string,
+  options: { brandId?: string; includeBrandJoin?: boolean } = {}
+): { sql: string; params: unknown[] } {
+  const textFilter = buildProductBrandSegmentFilter(brandName, {
+    includeBrandJoin: options.includeBrandJoin,
+  })
+  if (!options.brandId) return textFilter
+  return {
+    sql: `(p.brand_id = ? OR (${PRODUCT_BRAND_ID_UNSET_SQL} AND ${textFilter.sql}))`,
+    params: [options.brandId, ...textFilter.params],
+  }
 }
 
 function productBrandMatchInnerSql(): string {
@@ -194,10 +220,6 @@ export function buildQualifiedCategoryTextMatch(labels: string[]): {
   return { sql: `(${parts.join(' OR ')})`, params }
 }
 
-/** Legacy `products.category` text applies only when FK is unset (avoids KIDS › SHOES leaking into SHOES). */
-export const PRODUCT_CATEGORY_ID_UNSET_SQL =
-  '(p.category_id IS NULL OR TRIM(p.category_id) = \'\')'
-
 export function combineCategoryIdAndLegacyTextMatch(
   idClause: string,
   idParams: unknown[],
@@ -217,6 +239,10 @@ export type CatalogFilterOptions = {
   includeBrandJoin?: boolean
   /** Pricelist bulk-add includes inactive catalog products (shop stays active-only). */
   includeInactiveForPricelist?: boolean
+  /** Use FULLTEXT index for search (when available). */
+  useFulltextSearch?: boolean
+  /** Resolved brands.id for indexed brand filter. */
+  brandId?: string
 }
 
 /** Shared WHERE for paginated shop catalog queries. */
@@ -288,7 +314,8 @@ export function buildActiveCatalogFilters(
   }
 
   if (query.brand && query.brand !== 'All') {
-    const brandFilter = buildProductBrandSegmentFilter(query.brand, {
+    const brandFilter = buildProductBrandFilter(query.brand, {
+      brandId: options.brandId ?? query.brandId,
       includeBrandJoin: includeBrand,
     })
     where.push(brandFilter.sql)
@@ -305,24 +332,13 @@ export function buildActiveCatalogFilters(
 
   const searchTerm = query.search?.trim()
   if (searchTerm) {
-    const like = `%${searchTerm}%`
-    const searchParts = [
-      'p.name LIKE ?',
-      'p.sku LIKE ?',
-      'p.brand LIKE ?',
-      'p.description LIKE ?',
-      'p.short_description LIKE ?',
-      'p.category LIKE ?',
-      'c.name LIKE ?',
-      'p.tags LIKE ?',
-    ]
-    const searchParams = [like, like, like, like, like, like, like, like]
-    if (includeBrand) {
-      searchParts.push('b.name LIKE ?')
-      searchParams.push(like)
-    }
-    where.push(`(${searchParts.join(' OR ')})`)
-    params.push(...searchParams)
+    const searchFilter = buildProductSearchFilter(searchTerm, {
+      includeBrandJoin: includeBrand,
+      includeCategoryJoin: Boolean(categoryIds?.length),
+      useFulltext: options.useFulltextSearch,
+    })
+    where.push(searchFilter.sql)
+    params.push(...searchFilter.params)
   }
 
   return {
@@ -385,6 +401,8 @@ export type AdminProductFilterOptions = {
   /** @deprecated Use categoryIds — bare names collide (KIDS › SHOES vs SHOES). */
   category?: string
   brand?: string
+  /** Resolved server-side from brand name — enables indexed brand_id filter. */
+  brandId?: string
   includeBrandJoin?: boolean
   categoryIds?: string[]
   strictCategoryIdOnly?: boolean
@@ -392,6 +410,7 @@ export type AdminProductFilterOptions = {
   /** Qualified subcategory label for text + id matching. */
   categoryStorageLabel?: string
   excludeCategoryIds?: string[]
+  useFulltextSearch?: boolean
 }
 
 /** WHERE clause for admin product tables (status, search, category, brand). */
@@ -454,7 +473,8 @@ export function buildAdminProductFilters(
   }
 
   if (options.brand && options.brand !== 'All') {
-    const brandFilter = buildProductBrandSegmentFilter(options.brand, {
+    const brandFilter = buildProductBrandFilter(options.brand, {
+      brandId: options.brandId,
       includeBrandJoin: includeBrand,
     })
     where.push(brandFilter.sql)
@@ -463,24 +483,13 @@ export function buildAdminProductFilters(
 
   const searchTerm = options.search?.trim()
   if (searchTerm) {
-    const like = `%${searchTerm}%`
-    const searchParts = [
-      'p.name LIKE ?',
-      'p.sku LIKE ?',
-      'p.brand LIKE ?',
-      'p.description LIKE ?',
-      'p.short_description LIKE ?',
-      'p.category LIKE ?',
-      'c.name LIKE ?',
-      'p.tags LIKE ?',
-    ]
-    const searchParams = [like, like, like, like, like, like, like, like]
-    if (includeBrand) {
-      searchParts.push('b.name LIKE ?')
-      searchParams.push(like)
-    }
-    where.push(`(${searchParts.join(' OR ')})`)
-    params.push(...searchParams)
+    const searchFilter = buildProductSearchFilter(searchTerm, {
+      includeBrandJoin: includeBrand,
+      includeCategoryJoin: Boolean(categoryIds?.length || options.category),
+      useFulltext: options.useFulltextSearch,
+    })
+    where.push(searchFilter.sql)
+    params.push(...searchFilter.params)
   }
 
   return {

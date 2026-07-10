@@ -183,7 +183,7 @@ export function serializeAdminListProductRow(
   const category = String(row.resolved_category_name ?? '').trim()
   const brand = resolveProductBrandDisplay(row)
   const sourceUrl = row.source_url != null ? String(row.source_url) : null
-  const main = storageProductImageUrl(String(row.image_url ?? ''))
+  const { main } = resolveProductDisplayImages(String(row.image_url ?? ''), null, sourceUrl)
 
   const rawSku = row.sku != null ? String(row.sku).trim() : ''
   const prefixes = options?.brandSkuPrefixes ?? []

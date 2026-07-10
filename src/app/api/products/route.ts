@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         )
       }
+      const includeStats = request.nextUrl.searchParams.get('includeStats') !== '0'
       const [result, dashboardStats] = await Promise.all([
         listProductsPaginatedAdmin(adminQuery.page, adminQuery.limit, {
           status: adminQuery.status,
@@ -50,9 +51,12 @@ export async function GET(request: NextRequest) {
           outOfStockOnly: adminQuery.outOfStockOnly,
           pricelistOwner: adminQuery.pricelistOwner,
         }),
-        getProductDashboardStats(),
+        includeStats ? getProductDashboardStats() : Promise.resolve(undefined),
       ])
-      return NextResponse.json({ ...result, dashboardStats })
+      return NextResponse.json({
+        ...result,
+        ...(dashboardStats ? { dashboardStats } : {}),
+      })
     }
 
     const paginatedQuery = parseCatalogProductsQuery(request.nextUrl.searchParams)

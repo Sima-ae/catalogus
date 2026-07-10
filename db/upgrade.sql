@@ -705,3 +705,10 @@ CREATE TABLE IF NOT EXISTS site_ticker_messages (
   PRIMARY KEY (id),
   KEY idx_site_ticker_active_sort (is_active, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Catalog performance: FULLTEXT search + composite brand index
+ALTER TABLE products
+  ADD FULLTEXT INDEX IF NOT EXISTS ft_products_search (name, sku, brand, short_description, category);
+
+ALTER TABLE products
+  ADD KEY IF NOT EXISTS idx_products_status_brand_id (status, brand_id);

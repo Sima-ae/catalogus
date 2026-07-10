@@ -8,7 +8,6 @@ import {
   buildProductBrandSegmentFilter,
   catalogPageBaseOffset,
   CATALOG_PAGE_SIZE,
-  catalogShuffleOrderSql,
   isCatalogShuffleEligible,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
@@ -58,9 +57,11 @@ import {
 import { getBrandSkuPrefixes, getAllBrandNames } from '@/lib/brand-sku-prefixes'
 import { polishProductTextForStorage, polishProductTitleForStorage } from '@/lib/product-brand-text'
 import { titleNeedsCjkCleanup } from '@/lib/yupoo/product-title'
-import { catalogPositionJoin } from '@/lib/catalog-positions-db'
+import { catalogPositionJoin, catalogPositionsExistForScope, HOMEPAGE_SHUFFLE_SCOPE } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
+import { productsFulltextSearchAvailable } from '@/lib/product-search-sql'
+import { resolveBrandByName } from '@/lib/brands-db'
 import {
   DuplicateSkuError,
   MissingSkuError,
@@ -464,6 +465,48 @@ async function adminProductSelectSql() {
     ${fromClause}
   `
   return g[ADMIN_SELECT_CACHE_KEY]
+}
+
+async function adminListingFromSql(options: {
+  needsCategoryJoin: boolean
+  needsBrandJoin: boolean
+  needsPricelistJoin: boolean
+}): Promise<string> {
+  const parts = ['FROM products p']
+  if (options.needsCategoryJoin || options.needsBrandJoin) {
+    const { categoryJoin, brandJoin } = await buildProductJoinFragments()
+    if (options.needsCategoryJoin) parts.push(categoryJoin)
+    if (options.needsBrandJoin && brandJoin) parts.push(brandJoin)
+  }
+  if (options.needsPricelistJoin) {
+    parts.push('LEFT JOIN pricelist_pages pp ON pp.id = p.supplier_pricelist_id')
+  }
+  return parts.join('\n')
+}
+
+function adminListingNeedsCategoryJoin(
+  options: {
+    categoryId?: string
+    category?: string
+    search?: string
+  },
+  categoryFilterOpts: Awaited<ReturnType<typeof resolveAdminCategoryFilterOptions>>
+): boolean {
+  return Boolean(
+    options.categoryId ||
+      (options.category && options.category !== 'All') ||
+      categoryFilterOpts.categoryIds?.length ||
+      String(options.search ?? '').trim()
+  )
+}
+
+async function resolveCatalogQueryBrandId(
+  brandName: string | undefined
+): Promise<string | undefined> {
+  const trimmed = brandName?.trim()
+  if (!trimmed || trimmed === 'All') return undefined
+  const resolved = await resolveBrandByName(trimmed)
+  return resolved?.id
 }
 
 /** One row per product — guards against any residual join fan-out. */
@@ -1395,9 +1438,11 @@ async function fetchShuffledActiveProductIds(
 async function loadActiveProductsPaginatedFromDb(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  const [categories, hasBrandsTable] = await Promise.all([
+  const [categories, hasBrandsTable, useFulltext, brandId] = await Promise.all([
     loadActiveCategories(),
     brandsTableExists(),
+    productsFulltextSearchAvailable(),
+    resolveCatalogQueryBrandId(query.brand),
   ])
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
@@ -1425,20 +1470,25 @@ async function loadActiveProductsPaginatedFromDb(
   const { whereSql, params } = buildActiveCatalogFilters(
     {
       ...query,
+      brandId,
       categoryIds: categoryFilter?.categoryIds,
       legacyCategoryNames: categoryFilter?.legacyNames,
       strictCategoryIdOnly: categoryFilter?.strictIdOnly,
       categoryStorageLabel: categoryFilter?.categoryStorageLabel,
       excludeCategoryIds: categoryFilter?.excludeCategoryIds,
     },
-    { includeBrandJoin: needsBrandJoin }
+    { includeBrandJoin: needsBrandJoin, useFulltextSearch: useFulltext, brandId }
   )
   const limit = query.limit
   const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
   const sortScope = catalogSortScope(query)
   const shuffle = isCatalogShuffleEligible(query)
+  const usePrecomputedShuffle =
+    shuffle && (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE))
   const positionJoin = shuffle
-    ? { joinSql: '', orderSql: catalogShuffleOrderSql(), scopeParam: null }
+    ? usePrecomputedShuffle
+      ? await catalogPositionJoin(HOMEPAGE_SHUFFLE_SCOPE)
+      : { joinSql: '', orderSql: 'p.created_at DESC', scopeParam: null }
     : await catalogPositionJoin(sortScope)
   const { joinSql, orderSql, scopeParam } = positionJoin
   const idParams = scopeParam ? [scopeParam, ...params] : params
@@ -1446,7 +1496,7 @@ async function loadActiveProductsPaginatedFromDb(
   const totalPromise = countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
 
   let idRows: { id: string }[]
-  if (shuffle) {
+  if (shuffle && !usePrecomputedShuffle) {
     const ids = await fetchShuffledActiveProductIds(fromClause, whereSql, idParams, limit, offset)
     idRows = ids.map((id) => ({ id }))
   } else {
@@ -1725,16 +1775,29 @@ export async function listProductsPaginatedAdmin(
   const safePage = Math.max(1, page)
   const offset = (safePage - 1) * safeLimit
 
-  const categoryFilterOpts = await resolveAdminCategoryFilterOptions(options.categoryId)
+  const [categoryFilterOpts, hasBrandsTable, useFulltext, brandId] = await Promise.all([
+    resolveAdminCategoryFilterOptions(options.categoryId),
+    brandsTableExists(),
+    productsFulltextSearchAvailable(),
+    resolveCatalogQueryBrandId(options.brand),
+  ])
 
-  const [select, hasBrandsTable] = await Promise.all([productSelectSql(), brandsTableExists()])
+  const needsCategoryJoin = adminListingNeedsCategoryJoin(options, categoryFilterOpts)
+  const needsBrandJoin = Boolean(
+    hasBrandsTable &&
+      ((options.brand && options.brand !== 'All') || String(options.search ?? '').trim())
+  )
+  const needsPricelistJoin = false
+
   const { whereSql, params } = buildAdminProductFilters({
     status: options.status,
     search: options.search,
     brand: options.brand,
+    brandId,
     category: options.categoryId ? undefined : options.category,
     ...categoryFilterOpts,
-    includeBrandJoin: hasBrandsTable,
+    includeBrandJoin: needsBrandJoin,
+    useFulltextSearch: useFulltext,
   })
 
   let extraJoinSql = ''
@@ -1770,17 +1833,25 @@ export async function listProductsPaginatedAdmin(
     }
   }
 
-  const fromIndex = select.search(/\bFROM\b/i)
-  const fromClause = fromIndex >= 0 ? select.slice(fromIndex) : 'FROM products p'
+  const fromClause = await adminListingFromSql({
+    needsCategoryJoin,
+    needsBrandJoin,
+    needsPricelistJoin: Boolean(extraJoinSql),
+  })
   const fromWithJoin = `${fromClause}${extraJoinSql}`
+  const needsGroupBy = needsBrandJoin || Boolean(extraJoinSql)
 
   const [countRows, idRows] = await Promise.all([
     queryDb<{ total: number }[]>(
-      `SELECT COUNT(DISTINCT p.id) AS total ${fromWithJoin} ${filledWhereSql}`,
+      needsGroupBy
+        ? `SELECT COUNT(DISTINCT p.id) AS total ${fromWithJoin} ${filledWhereSql}`
+        : `SELECT COUNT(*) AS total ${fromWithJoin} ${filledWhereSql}`,
       filledParams
     ),
     queryDb<{ id: string }[]>(
-      `SELECT p.id ${fromWithJoin} ${filledWhereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`,
+      needsGroupBy
+        ? `SELECT p.id ${fromWithJoin} ${filledWhereSql} GROUP BY p.id ORDER BY MAX(p.created_at) DESC LIMIT ? OFFSET ?`
+        : `SELECT p.id ${fromWithJoin} ${filledWhereSql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
       [...filledParams, safeLimit, offset]
     ),
   ])

@@ -453,6 +453,25 @@ export default function AdminProductsPage() {
     return match ? getCategoryPickerLabel(match, tr) : categoryFilter
   }, [categoryFilter, categories, tr])
 
+  const loadProductStats = useCallback(async () => {
+    if (!user) return
+    try {
+      const res = await fetch(appPath('/api/products?page=1&limit=1&scope=admin'), {
+        headers: adminAuthHeaders(user),
+        cache: 'no-store',
+      })
+      if (!res.ok) return
+      const data = await parseJsonResponse<
+        { dashboardStats?: ProductDashboardStats } | Product[]
+      >(res)
+      if (isCatalogProductsPage(data)) {
+        setProductStats(data.dashboardStats ?? null)
+      }
+    } catch {
+      // Stats cards are non-blocking
+    }
+  }, [user])
+
   const loadProducts = useCallback(async () => {
     if (!user) {
       setLoading(false)
@@ -475,7 +494,7 @@ export default function AdminProductsPage() {
         outOfStockOnly: outOfStockFilter || undefined,
         pricelistOwner:
           filledPricesFilter || outOfStockFilter ? pricelistTarget : undefined,
-      }) + '&scope=admin'
+      }) + '&scope=admin&includeStats=0'
 
     try {
       const listRes = await fetch(listUrl, { headers, cache: 'no-store' })
@@ -491,7 +510,6 @@ export default function AdminProductsPage() {
       if (!isCatalogProductsPage(listData)) throw new Error('Invalid response')
       setProducts(listData.items)
       setTotalItems(listData.total)
-      setProductStats(listData.dashboardStats ?? null)
 
       setSelected(new Set())
     } catch (e) {
@@ -507,6 +525,10 @@ export default function AdminProductsPage() {
   useEffect(() => {
     loadProducts()
   }, [loadProducts])
+
+  useEffect(() => {
+    void loadProductStats()
+  }, [loadProductStats])
 
   useEffect(() => {
     setCurrentPage(1)
