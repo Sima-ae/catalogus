@@ -23,6 +23,11 @@ import { useShopNestedSubcategory, useShopSubcategory } from '@/lib/use-shop-sub
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
+import {
+  shouldDeferShopCatalogProductLoad,
+  shopNestedSubcategoryForApiQuery,
+  shopSubcategoryForApiQuery,
+} from '@/lib/shop-catalog-browse'
 import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
 import { invalidateShopBrandMenuCache, prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 import { prefetchShopSubcategories } from '@/lib/use-shop-subcategory'
@@ -103,6 +108,7 @@ function ShopCatalogPageContent({
     setSelectedSubcategory,
     hasSubcategories,
     loadingSubcategories,
+    needsSubcategoryPick,
   } = subcategoryState
   const nestedSubcategoryState = useShopNestedSubcategory(
     selectedCategory,
@@ -114,6 +120,7 @@ function ShopCatalogPageContent({
     hasNestedSubcategories,
     loadingNestedSubcategories,
     nestedSubcategoryOptions,
+    needsNestedSubcategoryPick,
   } = nestedSubcategoryState
   const { selectedBrand, setSelectedBrand } = useShopBrand({
     selectedCategory,
@@ -175,7 +182,14 @@ function ShopCatalogPageContent({
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const brandQueryActive = shouldPassBrandToCatalogQuery(filterBrand)
-  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
+  const catalogBrowseDeferred = shouldDeferShopCatalogProductLoad({
+    searchActive: Boolean(debouncedSearch.trim()),
+    loadingSubcategories,
+    needsSubcategoryPick,
+    loadingNestedSubcategories,
+    needsNestedSubcategoryPick,
+  })
+  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}|${catalogBrowseDeferred ? 'deferred' : 'ready'}`
 
   const catalogMode = config.mode === 'new' ? 'new' : 'all'
 
@@ -202,8 +216,8 @@ function ShopCatalogPageContent({
         limit: CATALOG_PAGE_SIZE,
         offset: rowOffset,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-        nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+        nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
         brand: brandQueryActive ? filterBrand : undefined,
         tag: filterTag || undefined,
         search: debouncedSearch || undefined,
@@ -281,14 +295,13 @@ function ShopCatalogPageContent({
   const handleCategoryChange = useCallback(
     (category: string) => {
       setOptimisticCategory(category)
-      beginFilterNavigation({
-        page: 1,
-        category: category !== 'All' ? category : undefined,
-        mode: catalogMode,
-      })
+      setFilterNavigating(true)
+      if (category !== 'All') {
+        prefetchShopSubcategories(category)
+      }
       setSelectedCategory(category)
     },
-    [beginFilterNavigation, catalogMode, setSelectedCategory]
+    [setSelectedCategory]
   )
 
   const handleSubcategoryChange = useCallback(
@@ -298,7 +311,7 @@ function ShopCatalogPageContent({
       beginFilterNavigation({
         page: 1,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: subcategory !== 'All' ? subcategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(subcategory),
         mode: catalogMode,
       })
       setSelectedSubcategory(subcategory)
@@ -312,8 +325,8 @@ function ShopCatalogPageContent({
       beginFilterNavigation({
         page: 1,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-        nested: nested !== 'All' ? nested : undefined,
+        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+        nested: shopNestedSubcategoryForApiQuery(nested),
         mode: catalogMode,
       })
       setSelectedNestedSubcategory(nested)
@@ -333,8 +346,8 @@ function ShopCatalogPageContent({
       beginFilterNavigation({
         page: 1,
         category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-        nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+        nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
         brand: brand !== 'All' ? brand : undefined,
         mode: catalogMode,
       })
@@ -356,10 +369,10 @@ function ShopCatalogPageContent({
         patch.category ?? (selectedCategory !== 'All' ? selectedCategory : undefined)
       const subcategory =
         patch.subcategory ??
-        (selectedSubcategory !== 'All' ? selectedSubcategory : undefined)
+        shopSubcategoryForApiQuery(selectedSubcategory)
       const nested =
         patch.nested ??
-        (selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined)
+        shopNestedSubcategoryForApiQuery(selectedNestedSubcategory)
 
       if (category) {
         prefetchShopSubcategories(category)
@@ -408,6 +421,7 @@ function ShopCatalogPageContent({
       subcategoryOptions: nestedSubcategoryState.nestedSubcategoryOptions,
       hasSubcategories: nestedSubcategoryState.hasNestedSubcategories,
       loadingSubcategories: nestedSubcategoryState.loadingNestedSubcategories,
+      needsSubcategoryPick: nestedSubcategoryState.needsNestedSubcategoryPick,
     }),
     [nestedSubcategoryState]
   )
@@ -423,7 +437,7 @@ function ShopCatalogPageContent({
   const reorderScope = catalogSortScope({
     mode: config.mode === 'new' ? 'new' : undefined,
     category: selectedCategory !== 'All' ? selectedCategory : undefined,
-    subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
+    subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
     brand: brandQueryActive ? filterBrand : undefined,
     tag: filterTag || undefined,
     search: debouncedSearch || undefined,
@@ -555,11 +569,23 @@ function ShopCatalogPageContent({
 
     const pageToLoad = currentPage
 
+    if (catalogBrowseDeferred) {
+      setProducts([])
+      setTotalItems(0)
+      setLoading(false)
+      setPageLoading(false)
+      setFilterNavigating(false)
+      setError(null)
+      return () => {
+        cancelled = true
+      }
+    }
+
     const fetchFilters: ShopCatalogFilterPrefetch = {
       page: pageToLoad,
       category: selectedCategory !== 'All' ? selectedCategory : undefined,
-      subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-      nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
+      subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+      nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
       brand: brandQueryActive ? filterBrand : undefined,
       tag: filterTag || undefined,
       search: debouncedSearch || undefined,
@@ -651,6 +677,7 @@ function ShopCatalogPageContent({
     }
   }, [
     brandQueryActive,
+    catalogBrowseDeferred,
     catalogMode,
     catalogShuffle,
     config.mode,
@@ -670,7 +697,7 @@ function ShopCatalogPageContent({
   ])
 
   useEffect(() => {
-    if (!isAdmin || !user) {
+    if (!isAdmin || !user || catalogBrowseDeferred) {
       setCategoryProductCount(null)
       setBrandProductCount(null)
       return
@@ -707,8 +734,8 @@ function ShopCatalogPageContent({
           tasks.push(
             fetchCount({
               category: selectedCategory,
-              subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-              nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
+              subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+              nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
             }).then((n) => {
               if (!cancelled) setCategoryProductCount(n)
             })
@@ -721,8 +748,8 @@ function ShopCatalogPageContent({
           tasks.push(
             fetchCount({
               category: selectedCategory !== 'All' ? selectedCategory : undefined,
-              subcategory: selectedSubcategory !== 'All' ? selectedSubcategory : undefined,
-              nested: selectedNestedSubcategory !== 'All' ? selectedNestedSubcategory : undefined,
+              subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+              nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
               brand: filterBrand,
             }).then((n) => {
               if (!cancelled) setBrandProductCount(n)
@@ -742,21 +769,42 @@ function ShopCatalogPageContent({
     }
   }, [
     brandQueryActive,
+    catalogBrowseDeferred,
     config.mode,
     filterBrand,
     isAdmin,
     reloadToken,
     selectedCategory,
+    selectedNestedSubcategory,
     selectedSubcategory,
     user,
   ])
+
+  const catalogBrowsePrompt = useMemo(() => {
+    if (!catalogBrowseDeferred) return null
+    if (loadingSubcategories || loadingNestedSubcategories) {
+      return tr('shop.catalog.loadingSubcategories')
+    }
+    if (needsSubcategoryPick) return tr('shop.catalog.pickSubcategory')
+    if (needsNestedSubcategoryPick) return tr('shop.catalog.pickNestedSubcategory')
+    return null
+  }, [
+    catalogBrowseDeferred,
+    loadingNestedSubcategories,
+    loadingSubcategories,
+    needsNestedSubcategoryPick,
+    needsSubcategoryPick,
+    tr,
+  ])
+  const showBrowsePrompt = Boolean(catalogBrowsePrompt)
 
   const isDark = theme === 'dark'
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
   const shellBg = isDark ? 'bg-dark-950' : 'bg-gray-50'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const resultsLoading = pageLoading || searchPending || filterNavigating
-  const showFullCatalogLoader = loading && products.length === 0
+  const resultsLoading =
+    !catalogBrowseDeferred && (pageLoading || searchPending || filterNavigating)
+  const showFullCatalogLoader = !catalogBrowseDeferred && loading && products.length === 0
   const showCatalogOverlay = resultsLoading && products.length > 0
 
   return (
@@ -794,13 +842,11 @@ function ShopCatalogPageContent({
                 selectedCategory={selectedCategory}
                 displayCategory={optimisticCategory ?? undefined}
                 onCategoryChange={handleCategoryChange}
-                onCategoryHover={(category) =>
-                  prefetchCatalogHover({
-                    category: category !== 'All' ? category : undefined,
-                    brand: undefined,
-                    subcategory: undefined,
-                  })
-                }
+                onCategoryHover={(category) => {
+                  if (category !== 'All') {
+                    prefetchShopSubcategories(category)
+                  }
+                }}
                 centered={config.centerCatalog}
               />
               <SubcategoryFilter
@@ -860,7 +906,24 @@ function ShopCatalogPageContent({
               />
             ) : null}
 
-            {showFullCatalogLoader ? (
+            {showBrowsePrompt ? (
+              <div
+                className={`text-center py-16 rounded-xl border ${
+                  isDark ? 'border-dark-800 bg-dark-900' : 'border-gray-200 bg-white'
+                }`}
+              >
+                <h2
+                  className={`text-xl font-semibold mb-2 ${
+                    isDark ? 'text-white' : 'text-gray-900'
+                  }`}
+                >
+                  {catalogBrowsePrompt}
+                </h2>
+                <p className={`${muted} max-w-md mx-auto`}>
+                  {tr('shop.catalog.pickSubcategoryHint')}
+                </p>
+              </div>
+            ) : showFullCatalogLoader ? (
               <CatalogLoadingIndicator />
             ) : error ? (
               <div className="text-center py-12">

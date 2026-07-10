@@ -33,6 +33,7 @@ export default function PricelistCatalogFilters() {
       subcategoryOptions: nestedSubcategoryState.nestedSubcategoryOptions,
       hasSubcategories: nestedSubcategoryState.hasNestedSubcategories,
       loadingSubcategories: nestedSubcategoryState.loadingNestedSubcategories,
+      needsSubcategoryPick: nestedSubcategoryState.needsNestedSubcategoryPick,
     }),
     [nestedSubcategoryState]
   )

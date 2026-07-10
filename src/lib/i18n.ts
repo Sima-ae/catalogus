@@ -104,6 +104,10 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'shop.new.searchPlaceholder': 'Search new products...',
     'shop.new.metaTitle': 'New Arrivals',
     'shop.new.metaDescription': 'Products added to the catalog this week (Sunday through Sunday).',
+    'shop.catalog.loadingSubcategories': 'Loading subcategories…',
+    'shop.catalog.pickSubcategory': 'Choose a subcategory',
+    'shop.catalog.pickNestedSubcategory': 'Choose a type',
+    'shop.catalog.pickSubcategoryHint': 'Pick a subcategory above to view products in this category.',
 
     // Pagination
     'pagination.showing': 'Showing {start}–{end} of {total}{pagePart}',
@@ -353,6 +357,10 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'shop.new.searchPlaceholder': 'Zoek nieuwe producten...',
     'shop.new.metaTitle': 'Nieuw binnen',
     'shop.new.metaDescription': 'Producten die deze week zijn toegevoegd (zondag t/m zondag).',
+    'shop.catalog.loadingSubcategories': 'Subcategorieën laden…',
+    'shop.catalog.pickSubcategory': 'Kies een subcategorie',
+    'shop.catalog.pickNestedSubcategory': 'Kies een type',
+    'shop.catalog.pickSubcategoryHint': 'Kies hierboven een subcategorie om producten in deze categorie te bekijken.',
 
     // Pagination
     'pagination.showing': 'Toont {start}–{end} van {total}{pagePart}',

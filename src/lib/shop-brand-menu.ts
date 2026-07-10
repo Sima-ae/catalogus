@@ -1,3 +1,5 @@
+import { isShopBrowseFilterPending } from '@/lib/shop-catalog-browse'
+
 export type BrandRow = {
   name?: string
   active?: boolean | number
@@ -16,7 +18,11 @@ export type ShopBrandFilterContext = {
 /** Show brand pills when a leaf filter is selected or no deeper pills remain. */
 export function shouldShowShopBrandFilter(ctx: ShopBrandFilterContext): boolean {
   if (!ctx.selectedCategory || ctx.selectedCategory === 'All') return false
-  if (ctx.selectedNestedSubcategory && ctx.selectedNestedSubcategory !== 'All') return true
+  if (isShopBrowseFilterPending(ctx.selectedSubcategory)) return false
+
+  const nested = ctx.selectedNestedSubcategory ?? 'All'
+  if (!isShopBrowseFilterPending(nested) && nested !== 'All') return true
+
   if (ctx.selectedSubcategory !== 'All') {
     if (ctx.loadingNestedSubcategories) return false
     return !ctx.hasNestedSubcategories

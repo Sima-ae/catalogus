@@ -24,6 +24,8 @@ export type ShopSubcategoryHookValue = {
   subcategoryOptions: string[]
   hasSubcategories: boolean
   loadingSubcategories: boolean
+  /** Parent category has subcategories but URL has no ?subcategory= yet. */
+  needsSubcategoryPick: boolean
 }
 
 export type ShopNestedSubcategoryHookValue = {
@@ -32,6 +34,8 @@ export type ShopNestedSubcategoryHookValue = {
   nestedSubcategoryOptions: string[]
   hasNestedSubcategories: boolean
   loadingNestedSubcategories: boolean
+  /** Subcategory has nested pills but URL has no ?nested= yet. */
+  needsNestedSubcategoryPick: boolean
 }
 
 const subcategoryCache = new Map<string, ShopSubcategoryRow[]>()
@@ -193,6 +197,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
   const selectedSubcategory = useMemo(() => {
     const raw = searchParams.get('subcategory')?.trim()
     if (raw) {
+      if (raw.toLowerCase() === 'all') return 'All'
       const match = subcategoryOptions.find(
         (name) => name.toLowerCase() === raw.toLowerCase()
       )
@@ -200,8 +205,13 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
     }
     if (legacySubcategoryFromCategoryParam) return legacySubcategoryFromCategoryParam
     if (!hasSubcategories) return 'All'
-    return 'All'
+    return ''
   }, [searchParams, subcategoryOptions, hasSubcategories, legacySubcategoryFromCategoryParam])
+
+  const needsSubcategoryPick = useMemo(
+    () => hasSubcategories && !loading && selectedSubcategory === '',
+    [hasSubcategories, loading, selectedSubcategory]
+  )
 
   const setSelectedSubcategory = useCallback(
     (subcategory: string) => {
@@ -212,7 +222,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       clearCatalogPageParam(params)
       clearShopSearchParam(params)
       if (subcategory === 'All') {
-        params.delete('subcategory')
+        params.set('subcategory', 'All')
       } else {
         params.set('subcategory', subcategory)
       }
@@ -228,6 +238,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
     if (!hasSubcategories || loading) return
     const raw = searchParams.get('subcategory')?.trim()
     if (!raw) return
+    if (raw.toLowerCase() === 'all') return
     const valid = subcategoryOptions.some(
       (name) => name.toLowerCase() === raw.toLowerCase()
     )
@@ -256,6 +267,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
     subcategoryOptions,
     hasSubcategories,
     loadingSubcategories: loading,
+    needsSubcategoryPick,
   }
 }
 
@@ -322,14 +334,20 @@ export function useShopNestedSubcategory(
   const selectedNestedSubcategory = useMemo(() => {
     const raw = searchParams.get('nested')?.trim()
     if (raw) {
+      if (raw.toLowerCase() === 'all') return 'All'
       const match = nestedSubcategoryOptions.find(
         (name) => name.toLowerCase() === raw.toLowerCase()
       )
       if (match) return match
     }
     if (!hasNestedSubcategories) return 'All'
-    return 'All'
+    return ''
   }, [searchParams, nestedSubcategoryOptions, hasNestedSubcategories])
+
+  const needsNestedSubcategoryPick = useMemo(
+    () => hasNestedSubcategories && !loading && selectedNestedSubcategory === '',
+    [hasNestedSubcategories, loading, selectedNestedSubcategory]
+  )
 
   const setSelectedNestedSubcategory = useCallback(
     (nested: string) => {
@@ -340,7 +358,7 @@ export function useShopNestedSubcategory(
       clearCatalogPageParam(params)
       clearShopSearchParam(params)
       if (nested === 'All') {
-        params.delete('nested')
+        params.set('nested', 'All')
       } else {
         params.set('nested', nested)
       }
@@ -355,6 +373,7 @@ export function useShopNestedSubcategory(
     if (!hasNestedSubcategories || loading) return
     const raw = searchParams.get('nested')?.trim()
     if (!raw) return
+    if (raw.toLowerCase() === 'all') return
     const valid = nestedSubcategoryOptions.some(
       (name) => name.toLowerCase() === raw.toLowerCase()
     )
@@ -382,5 +401,6 @@ export function useShopNestedSubcategory(
     nestedSubcategoryOptions,
     hasNestedSubcategories,
     loadingNestedSubcategories: loading,
+    needsNestedSubcategoryPick,
   }
 }
