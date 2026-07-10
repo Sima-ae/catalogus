@@ -60,7 +60,7 @@ import { titleNeedsCjkCleanup } from '@/lib/yupoo/product-title'
 import { catalogPositionJoin, catalogPositionsExistForScope, HOMEPAGE_SHUFFLE_SCOPE } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import { getCachedValue, invalidateCachedNamespace } from '@/lib/server-ttl-cache'
-import { productsFulltextSearchAvailable } from '@/lib/product-search-sql'
+import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
 import { resolveBrandByName } from '@/lib/brands-db'
 import {
   DuplicateSkuError,

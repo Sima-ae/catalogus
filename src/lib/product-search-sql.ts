@@ -1,28 +1,4 @@
-import { queryDb } from '@/lib/db'
-
 export const PRODUCTS_FULLTEXT_INDEX = 'ft_products_search'
-
-type GlobalSchema = typeof globalThis & {
-  __productsFulltextAvailable?: Promise<boolean>
-}
-
-/** Whether the catalog FULLTEXT index exists (cached for process lifetime). */
-export async function productsFulltextSearchAvailable(): Promise<boolean> {
-  const g = globalThis as GlobalSchema
-  if (!g.__productsFulltextAvailable) {
-    g.__productsFulltextAvailable = queryDb<{ cnt: number }[]>(
-      `SELECT COUNT(*) AS cnt
-       FROM information_schema.statistics
-       WHERE table_schema = DATABASE()
-         AND table_name = 'products'
-         AND index_name = ?`,
-      [PRODUCTS_FULLTEXT_INDEX]
-    )
-      .then((rows) => Number(rows[0]?.cnt ?? 0) > 0)
-      .catch(() => false)
-  }
-  return g.__productsFulltextAvailable
-}
 
 function escapeFulltextToken(token: string): string {
   return token.replace(/[+\-><()~*\"@]+/g, ' ').trim()
@@ -47,7 +23,7 @@ export type ProductSearchFilterOptions = {
 
 /**
  * Product search — FULLTEXT when index exists, otherwise legacy LIKE scan.
- * Shop/admin callers should pass useFulltext from productsFulltextSearchAvailable().
+ * Server callers should pass useFulltext from productsFulltextSearchAvailable().
  */
 export function buildProductSearchFilter(
   searchTerm: string,
