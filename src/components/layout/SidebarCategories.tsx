@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/lib/theme'
@@ -11,7 +12,7 @@ import { buildShopCategoryFilterHref } from '@/lib/shop-catalog-filter-url'
 import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
 import { TagIcon } from '@heroicons/react/24/outline'
 import { useI18n } from '@/lib/i18n-context'
-import { getTopCategoryLabel } from '@/lib/i18n-categories'
+import { getTopCategoryLabel, sortShopCategoryNavTree } from '@/lib/i18n-categories'
 
 type SidebarCategoriesProps = {
   isCollapsed: boolean
@@ -143,7 +144,11 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
     selectedSubcategory
   )
   const { tree, loading } = useShopCategoryNav()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const sortedTree = useMemo(
+    () => sortShopCategoryNavTree(tree, t, locale),
+    [tree, t, locale]
+  )
   const basePath = shopCatalogBasePath(pathname ?? '')
 
   if (isCollapsed) {
@@ -179,7 +184,7 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
           isActive={homeActive}
           onNavigate={onNavigate}
         />
-        {loading && tree.length === 0 ? (
+        {loading && sortedTree.length === 0 ? (
           <p
             className={`px-3 py-2 text-xs ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
@@ -188,7 +193,7 @@ export default function SidebarCategories({ isCollapsed, onNavigate }: SidebarCa
             …
           </p>
         ) : null}
-        {tree.map((root) => (
+        {sortedTree.map((root) => (
           <NavBranch
             key={root.name}
             node={root}

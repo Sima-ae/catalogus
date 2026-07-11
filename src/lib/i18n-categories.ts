@@ -1,5 +1,6 @@
 import { categoryI18nKey, sanitizeTranslationMarkup } from '@/lib/category-i18n-key'
 import type { Locale } from '@/lib/i18n'
+import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
 
 type Translator = (key: string) => string
 
@@ -138,4 +139,30 @@ export function sortShopCategoriesByLabel(
   const rest = categories.filter((category) => category !== 'All')
   rest.sort((a, b) => collator.compare(label(a), label(b)))
   return [...all, ...rest]
+}
+
+/** Sort sidebar nav tree A–Z by translated label at every level (matches header pills). */
+export function sortShopCategoryNavTree(
+  nodes: ShopCategoryNavNode[],
+  t: Translator,
+  locale: Locale | string,
+  opts?: { allStyle?: 'all' | 'home' }
+): ShopCategoryNavNode[] {
+  if (!nodes.length) return nodes
+
+  const sortedNames = sortShopCategoriesByLabel(
+    nodes.map((node) => node.name),
+    t,
+    locale,
+    opts
+  )
+  const byName = new Map(nodes.map((node) => [node.name, node]))
+
+  return sortedNames
+    .map((name) => byName.get(name))
+    .filter((node): node is ShopCategoryNavNode => node != null)
+    .map((node) => ({
+      ...node,
+      children: sortShopCategoryNavTree(node.children, t, locale, opts),
+    }))
 }
