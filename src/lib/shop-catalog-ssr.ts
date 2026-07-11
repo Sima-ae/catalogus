@@ -9,6 +9,40 @@ import { buildShopCatalogSignature } from '@/lib/shop-catalog-signature'
 
 export { buildShopCatalogSignature } from '@/lib/shop-catalog-signature'
 
+function pickSearchParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: string
+): string | undefined {
+  const raw = searchParams[key]
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const trimmed = value?.trim()
+  return trimmed || undefined
+}
+
+/** Any filter query param that should skip blocking SSR product loads. */
+export function searchParamsHaveShopCatalogFilters(
+  searchParams: Record<string, string | string[] | undefined>
+): boolean {
+  for (const key of ['category', 'subcategory', 'nested', 'brand', 'tag', 'search'] as const) {
+    const value = pickSearchParam(searchParams, key)
+    if (!value) continue
+    if (key !== 'search' && value.toLowerCase() === 'all') continue
+    return true
+  }
+  const page = pickSearchParam(searchParams, 'page')
+  return Boolean(page && page !== '1')
+}
+
+/**
+ * Only SSR the first unfiltered catalog page. Filter navigations are client-only
+ * so category/brand clicks are not blocked by a server DB query (often 5–60s).
+ */
+export function shouldServerRenderShopCatalog(
+  searchParams: Record<string, string | string[] | undefined>
+): boolean {
+  return !searchParamsHaveShopCatalogFilters(searchParams)
+}
+
 /** Server-render first catalog page from URL filters (avoids client double-fetch). */
 export async function loadInitialShopCatalog(
   searchParams: Record<string, string | string[] | undefined>,

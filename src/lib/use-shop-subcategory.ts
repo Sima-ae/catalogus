@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import type { CategoryTreeRow } from '@/lib/category-picker'
 import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
 import { useI18n } from '@/lib/i18n-context'
@@ -22,6 +22,7 @@ import {
   clearShopSearchParam,
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
+import { useCatalogRouterReplace } from '@/lib/use-catalog-router'
 
 export type ShopSubcategoryRow = {
   id: string
@@ -218,7 +219,7 @@ export function invalidateShopSubcategoryCache(): void {
 
 /** Subcategory pills for the current parent category — only rows with products in subtree. */
 export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHookValue {
-  const router = useRouter()
+  const { replace } = useCatalogRouterReplace()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t, locale } = useI18n()
@@ -334,9 +335,9 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       params.delete('nested')
       params.delete('brand')
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+      replace(qs ? `${basePath}?${qs}` : basePath)
     },
-    [pathname, router, searchParams]
+    [pathname, replace, searchParams]
   )
 
   useEffect(() => {
@@ -355,13 +356,13 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       params.delete('subcategory')
       params.delete('nested')
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath)
+      replace(qs ? `${basePath}?${qs}` : basePath)
     }
   }, [
     hasSubcategories,
     loading,
     pathname,
-    router,
+    replace,
     searchParams,
     subcategoryOptions,
   ])
@@ -381,7 +382,7 @@ export function useShopNestedSubcategory(
   selectedCategory: string,
   selectedSubcategory: string
 ): ShopNestedSubcategoryHookValue {
-  const router = useRouter()
+  const { replace } = useCatalogRouterReplace()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t, locale } = useI18n()
@@ -480,9 +481,9 @@ export function useShopNestedSubcategory(
       }
       params.delete('brand')
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+      replace(qs ? `${basePath}?${qs}` : basePath)
     },
-    [pathname, router, searchParams]
+    [pathname, replace, searchParams]
   )
 
   useEffect(() => {
@@ -500,14 +501,14 @@ export function useShopNestedSubcategory(
       )
       params.delete('nested')
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath)
+      replace(qs ? `${basePath}?${qs}` : basePath)
     }
   }, [
     hasNestedSubcategories,
     loading,
     nestedSubcategoryOptions,
     pathname,
-    router,
+    replace,
     searchParams,
   ])
 

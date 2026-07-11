@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useShopCategoryList } from '@/lib/use-shop-category-list'
 import { useShopCategories } from '@/lib/use-shop-categories'
 import {
@@ -16,9 +16,10 @@ import {
 } from '@/lib/shop-catalog-url'
 import { parseCompoundCategoryParam } from '@/lib/shop-catalog-filter-url'
 import { prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
+import { useCatalogRouterReplace } from '@/lib/use-catalog-router'
 
 export function useShopCategory() {
-  const router = useRouter()
+  const { replace } = useCatalogRouterReplace()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const categoryMenu = useShopCategoryList()
@@ -56,7 +57,7 @@ export function useShopCategory() {
       else params.delete('nested')
       params.delete('brand')
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath)
+      replace(qs ? `${basePath}?${qs}` : basePath)
       return
     }
 
@@ -75,7 +76,7 @@ export function useShopCategory() {
       else params.delete('nested')
       params.delete('brand')
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath)
+      replace(qs ? `${basePath}?${qs}` : basePath)
       return
     }
 
@@ -90,8 +91,8 @@ export function useShopCategory() {
     params.set('subcategory', raw)
     params.delete('brand')
     const qs = params.toString()
-    router.replace(qs ? `${basePath}?${qs}` : basePath)
-  }, [categoryMenu, categoryRows, pathname, router, searchParams])
+    replace(qs ? `${basePath}?${qs}` : basePath)
+  }, [categoryMenu, categoryRows, pathname, replace, searchParams])
 
   /** Drop ?category= when the category has no products and is hidden from the menu. */
   useEffect(() => {
@@ -112,8 +113,8 @@ export function useShopCategory() {
     params.delete('nested')
     params.delete('brand')
     const qs = params.toString()
-    router.replace(qs ? `${basePath}?${qs}` : basePath)
-  }, [categoryMenu, categoryRows, pathname, router, searchParams])
+    replace(qs ? `${basePath}?${qs}` : basePath)
+  }, [categoryMenu, categoryRows, pathname, replace, searchParams])
 
   useEffect(() => {
     const raw = searchParams.get('category')?.trim()
@@ -143,9 +144,9 @@ export function useShopCategory() {
         params.delete('brand')
       }
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+      replace(qs ? `${basePath}?${qs}` : basePath)
     },
-    [pathname, router, searchParams]
+    [pathname, replace, searchParams]
   )
 
   return { selectedCategory, setSelectedCategory }

@@ -2,6 +2,7 @@ import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
 import {
   buildShopCatalogSignature,
   loadInitialShopCatalog,
+  shouldServerRenderShopCatalog,
 } from '@/lib/shop-catalog-ssr'
 
 export default async function HomePage({
@@ -12,13 +13,15 @@ export default async function HomePage({
   const sp = await searchParams
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', { shuffle: true })
   let initialCatalog = null
-  try {
-    initialCatalog = await Promise.race([
-      loadInitialShopCatalog(sp, 'all', { shuffle: true }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
-    ])
-  } catch {
-    // Client-side fetch fallback if DB is unavailable during SSR.
+  if (shouldServerRenderShopCatalog(sp)) {
+    try {
+      initialCatalog = await Promise.race([
+        loadInitialShopCatalog(sp, 'all', { shuffle: true }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
+      ])
+    } catch {
+      // Client-side fetch fallback if DB is unavailable during SSR.
+    }
   }
 
   return (

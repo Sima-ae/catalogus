@@ -11,6 +11,7 @@ import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing from '@/components/shop/ShopCatalogListing'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
+import CatalogFilterProgress from '@/components/shop/CatalogFilterProgress'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
@@ -32,6 +33,7 @@ import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
 import { invalidateShopBrandMenuCache, prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 import { prefetchShopSubcategories } from '@/lib/use-shop-subcategory'
 import { prefetchShopCategoryTaxonomy } from '@/lib/shop-categories-client'
+import { categoryHasBrowseChildren } from '@/lib/shop-catalog-navigation'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -103,7 +105,14 @@ function ShopCatalogPageContent({
   const [products, setProducts] = useState<Product[]>(initialCatalog?.items ?? [])
   const [totalItems, setTotalItems] = useState(initialCatalog?.total ?? 0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
-  const subcategoryState = useShopSubcategory(selectedCategory)
+  const [optimisticCategory, setOptimisticCategory] = useState<string | null>(null)
+  const [optimisticSubcategory, setOptimisticSubcategory] = useState<string | null>(null)
+  const [optimisticNestedSubcategory, setOptimisticNestedSubcategory] = useState<string | null>(
+    null
+  )
+  const [optimisticBrand, setOptimisticBrand] = useState<string | null>(null)
+  const activeCategory = optimisticCategory ?? selectedCategory
+  const subcategoryState = useShopSubcategory(activeCategory)
   const {
     selectedSubcategory,
     setSelectedSubcategory,
@@ -111,9 +120,10 @@ function ShopCatalogPageContent({
     loadingSubcategories,
     needsSubcategoryPick,
   } = subcategoryState
+  const activeSubcategory = optimisticSubcategory ?? selectedSubcategory
   const nestedSubcategoryState = useShopNestedSubcategory(
-    selectedCategory,
-    selectedSubcategory
+    activeCategory,
+    activeSubcategory
   )
   const {
     selectedNestedSubcategory,
@@ -137,12 +147,6 @@ function ShopCatalogPageContent({
   const [reloadToken, setReloadToken] = useState(0)
   const [reorderSaving, setReorderSaving] = useState(false)
   const [filterNavigating, setFilterNavigating] = useState(false)
-  const [optimisticCategory, setOptimisticCategory] = useState<string | null>(null)
-  const [optimisticSubcategory, setOptimisticSubcategory] = useState<string | null>(null)
-  const [optimisticNestedSubcategory, setOptimisticNestedSubcategory] = useState<string | null>(
-    null
-  )
-  const [optimisticBrand, setOptimisticBrand] = useState<string | null>(null)
   const hasLoadedOnce = useRef(Boolean(initialCatalog))
   const productsRef = useRef(products)
   productsRef.current = products
@@ -279,6 +283,14 @@ function ShopCatalogPageContent({
     }
   }, [buildCatalogFetchUrl, currentPage, loadingMore, pageLoading, totalItems])
 
+  const beginInstantFilterFeedback = useCallback(() => {
+    setProducts([])
+    setTotalItems(0)
+    setPageLoading(true)
+    setFilterNavigating(true)
+    setError(null)
+  }, [])
+
   const beginFilterNavigation = useCallback(
     (prefetch?: ShopCatalogFilterPrefetch) => {
       setFilterNavigating(true)
@@ -299,60 +311,97 @@ function ShopCatalogPageContent({
 
   const handleCategoryChange = useCallback(
     (category: string) => {
+      beginInstantFilterFeedback()
       setOptimisticCategory(category)
-      setFilterNavigating(true)
+      setOptimisticSubcategory(null)
+      setOptimisticNestedSubcategory(null)
+      setOptimisticBrand(null)
       prefetchShopCategoryTaxonomy()
       if (category !== 'All') {
         prefetchShopSubcategories(category)
+        if (!categoryHasBrowseChildren(category)) {
+          beginFilterNavigation({
+            page: 1,
+            category,
+            mode: catalogMode,
+          })
+        }
+      } else if (config.shuffleCatalog) {
+        beginFilterNavigation({
+          page: 1,
+          mode: catalogMode,
+          shuffle: true,
+        })
+      } else {
+        beginFilterNavigation({
+          page: 1,
+          mode: catalogMode,
+        })
       }
       setSelectedCategory(category)
     },
-    [setSelectedCategory]
+    [
+      beginFilterNavigation,
+      beginInstantFilterFeedback,
+      catalogMode,
+      config.shuffleCatalog,
+      setSelectedCategory,
+    ]
   )
 
   const handleSubcategoryChange = useCallback(
     (subcategory: string) => {
+      beginInstantFilterFeedback()
       setOptimisticSubcategory(subcategory)
       setOptimisticNestedSubcategory(null)
       beginFilterNavigation({
         page: 1,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        category: activeCategory !== 'All' ? activeCategory : undefined,
         subcategory: shopSubcategoryForApiQuery(subcategory),
         mode: catalogMode,
       })
       setSelectedSubcategory(subcategory)
     },
-    [beginFilterNavigation, catalogMode, selectedCategory, setSelectedSubcategory]
+    [
+      activeCategory,
+      beginFilterNavigation,
+      beginInstantFilterFeedback,
+      catalogMode,
+      setSelectedSubcategory,
+    ]
   )
 
   const handleNestedSubcategoryChange = useCallback(
     (nested: string) => {
+      beginInstantFilterFeedback()
       setOptimisticNestedSubcategory(nested)
       beginFilterNavigation({
         page: 1,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+        category: activeCategory !== 'All' ? activeCategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(activeSubcategory),
         nested: shopNestedSubcategoryForApiQuery(nested),
         mode: catalogMode,
       })
       setSelectedNestedSubcategory(nested)
     },
     [
+      activeCategory,
+      activeSubcategory,
       beginFilterNavigation,
+      beginInstantFilterFeedback,
       catalogMode,
-      selectedCategory,
-      selectedSubcategory,
       setSelectedNestedSubcategory,
     ]
   )
 
   const handleBrandChange = useCallback(
     (brand: string) => {
+      beginInstantFilterFeedback()
       setOptimisticBrand(brand)
       beginFilterNavigation({
         page: 1,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+        category: activeCategory !== 'All' ? activeCategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(activeSubcategory),
         nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
         brand: brand !== 'All' ? brand : undefined,
         mode: catalogMode,
@@ -360,10 +409,11 @@ function ShopCatalogPageContent({
       setSelectedBrand(brand)
     },
     [
+      activeCategory,
+      activeSubcategory,
       beginFilterNavigation,
+      beginInstantFilterFeedback,
       catalogMode,
-      selectedCategory,
-      selectedSubcategory,
       selectedNestedSubcategory,
       setSelectedBrand,
     ]
@@ -437,7 +487,6 @@ function ShopCatalogPageContent({
     setOptimisticSubcategory(null)
     setOptimisticNestedSubcategory(null)
     setOptimisticBrand(null)
-    setFilterNavigating(false)
   }, [searchParams])
 
   const reorderScope = catalogSortScope({
@@ -810,7 +859,9 @@ function ShopCatalogPageContent({
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
   const resultsLoading =
     !catalogBrowseDeferred && (pageLoading || searchPending || filterNavigating)
-  const showFullCatalogLoader = !catalogBrowseDeferred && loading && products.length === 0
+  const showFilterProgress = filterNavigating || (pageLoading && products.length === 0)
+  const showFullCatalogLoader =
+    !catalogBrowseDeferred && !showFilterProgress && loading && products.length === 0
   const showCatalogOverlay = resultsLoading && products.length > 0
 
   return (
@@ -834,8 +885,9 @@ function ShopCatalogPageContent({
         />
 
         <main
-          className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${shellBg}`}
+          className={`relative flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${shellBg}`}
         >
+          <CatalogFilterProgress active={showFilterProgress} />
           <div className="max-w-full">
             <div
               className={
@@ -849,14 +901,20 @@ function ShopCatalogPageContent({
                 displayCategory={optimisticCategory ?? undefined}
                 onCategoryChange={handleCategoryChange}
                 onCategoryHover={(category) => {
-                  if (category !== 'All') {
-                    prefetchShopSubcategories(category)
+                  if (category === 'All') return
+                  prefetchShopSubcategories(category)
+                  if (!categoryHasBrowseChildren(category)) {
+                    prefetchShopCatalogFilter({
+                      page: 1,
+                      category,
+                      mode: catalogMode,
+                    })
                   }
                 }}
                 centered={config.centerCatalog}
               />
               <SubcategoryFilter
-                selectedCategory={selectedCategory}
+                selectedCategory={activeCategory}
                 displaySubcategory={optimisticSubcategory ?? undefined}
                 onSubcategoryChange={handleSubcategoryChange}
                 onSubcategoryHover={(subcategory) =>
@@ -870,7 +928,7 @@ function ShopCatalogPageContent({
                 subcategoryState={subcategoryState}
               />
               <SubcategoryFilter
-                selectedCategory={selectedSubcategory}
+                selectedCategory={activeSubcategory}
                 displaySubcategory={optimisticNestedSubcategory ?? undefined}
                 onSubcategoryChange={handleNestedSubcategoryChange}
                 onSubcategoryHover={(nested) =>
@@ -884,7 +942,7 @@ function ShopCatalogPageContent({
                 ariaLabel="Nested subcategories"
               />
               <BrandFilter
-                selectedCategory={selectedCategory}
+                selectedCategory={activeCategory}
                 selectedBrand={selectedBrand}
                 displayBrand={optimisticBrand ?? undefined}
                 onBrandChange={handleBrandChange}

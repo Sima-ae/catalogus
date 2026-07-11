@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useShopBrandList } from '@/lib/use-shop-brand-list'
 import type {
   ShopNestedSubcategoryHookValue,
@@ -17,6 +17,7 @@ import {
   clearShopSearchParam,
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
+import { useCatalogRouterReplace } from '@/lib/use-catalog-router'
 
 type UseShopBrandOptions = {
   selectedCategory: string
@@ -35,7 +36,7 @@ export function useShopBrand({
   subcategoryState,
   nestedSubcategoryState,
 }: UseShopBrandOptions) {
-  const router = useRouter()
+  const { replace } = useCatalogRouterReplace()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -95,7 +96,7 @@ export function useShopBrand({
     params.delete('brand')
     clearCatalogPageParam(params)
     const qs = params.toString()
-    router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+    replace(qs ? `${basePath}?${qs}` : basePath)
   }, [
     brandFilterActive,
     brandMenu,
@@ -103,7 +104,7 @@ export function useShopBrand({
     loadingNestedSubcategories,
     loadingSubcategories,
     pathname,
-    router,
+    replace,
     searchParams,
   ])
 
@@ -121,9 +122,9 @@ export function useShopBrand({
         params.set('brand', brand)
       }
       const qs = params.toString()
-      router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
+      replace(qs ? `${basePath}?${qs}` : basePath)
     },
-    [pathname, router, searchParams]
+    [pathname, replace, searchParams]
   )
 
   return { selectedBrand, setSelectedBrand }

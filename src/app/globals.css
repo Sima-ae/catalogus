@@ -552,3 +552,23 @@ body.app-protected [contenteditable='true'] {
     transform: translate3d(0, 0, 0);
   }
 }
+
+@keyframes catalog-filter-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.catalog-filter-progress {
+  animation: catalog-filter-progress 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-filter-progress {
+    animation: none;
+    width: 100%;
+  }
+}

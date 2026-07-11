@@ -5,6 +5,7 @@ import { getServerLocale } from '@/lib/i18n-server-locale'
 import {
   buildShopCatalogSignature,
   loadInitialShopCatalog,
+  shouldServerRenderShopCatalog,
 } from '@/lib/shop-catalog-ssr'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,10 +25,12 @@ export default async function NewProductsPage({
   const sp = await searchParams
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'new')
   let initialCatalog = null
-  try {
-    initialCatalog = await loadInitialShopCatalog(sp, 'new')
-  } catch {
-    // Client-side fetch fallback if DB is unavailable during SSR.
+  if (shouldServerRenderShopCatalog(sp)) {
+    try {
+      initialCatalog = await loadInitialShopCatalog(sp, 'new')
+    } catch {
+      // Client-side fetch fallback if DB is unavailable during SSR.
+    }
   }
 
   return (
