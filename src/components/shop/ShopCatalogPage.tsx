@@ -730,7 +730,7 @@ function ShopCatalogPageContent({
     const applyCatalogPage = (data: CatalogProductsPage) => {
       setProducts(data.items)
       const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
-      if (!data.skipTotal) {
+      if (data.total > 0 || !data.skipTotal) {
         setTotalItems(data.total)
       }
       setCachedShopCatalog(
@@ -767,7 +767,7 @@ function ShopCatalogPageContent({
       prefetched != null ||
       (cachedFromStore != null && isShopCatalogCacheFresh(clientCatalogSignature))
 
-    if (cacheFresh && cached && (cached.items.length > 0 || cached.total > 0)) {
+    if (cacheFresh && cached && cached.items.length > 0 && cached.total > 0) {
       applyCatalogPage(cached)
       setLoading(false)
       setPageLoading(false)
@@ -792,7 +792,7 @@ function ShopCatalogPageContent({
     }
 
     async function loadProducts() {
-      const shouldFetchTotal = pageToLoad === 1 && !catalogShuffle
+      const shouldFetchTotal = pageToLoad === 1 || totalItemsRef.current <= 0
       const totalUrl = shouldFetchTotal ? buildCatalogTotalUrl() : null
       const totalFetch =
         totalUrl != null
@@ -801,7 +801,7 @@ function ShopCatalogPageContent({
                 if (!res.ok || cancelled) return
                 const payload: unknown = await res.json()
                 if (!isCatalogProductsPage(payload) || cancelled) return
-                setTotalItems(payload.total)
+                if (payload.total > 0) setTotalItems(payload.total)
               })
               .catch(() => undefined)
           : null
@@ -817,7 +817,7 @@ function ShopCatalogPageContent({
         if (cancelled) return
 
         applyCatalogPage(data)
-        if (data.skipTotal && totalFetch) {
+        if (shouldFetchTotal && totalFetch) {
           void totalFetch
         }
       } catch (err) {
@@ -863,6 +863,35 @@ function ShopCatalogPageContent({
     buildCatalogFetchUrl,
     buildCatalogTotalUrl,
     catalogShuffle,
+  ])
+
+  /** Backfill total when products are visible but count was deferred (homepage shuffle, cold cache). */
+  useEffect(() => {
+    if (catalogBrowseDeferred || totalItems > 0 || products.length === 0) return
+    if (loading || pageLoading || filterNavigating) return
+
+    let cancelled = false
+    void fetch(buildCatalogTotalUrl(), { method: 'GET' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const payload: unknown = await res.json()
+        if (!isCatalogProductsPage(payload) || cancelled) return
+        if (payload.total > 0) setTotalItems(payload.total)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    buildCatalogTotalUrl,
+    catalogBrowseDeferred,
+    filterNavigating,
+    filterSignature,
+    loading,
+    pageLoading,
+    products.length,
+    totalItems,
   ])
 
   useEffect(() => {

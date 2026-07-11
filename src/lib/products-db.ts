@@ -66,6 +66,7 @@ import {
   HOMEPAGE_SHUFFLE_SCOPE,
 } from '@/lib/catalog-positions-db'
 import { catalogSortScope } from '@/lib/catalog-sort-scope'
+import { getCatalogWeekRange } from '@/lib/catalog'
 import { getCachedValue, invalidateCachedNamespace, peekCachedValue } from '@/lib/server-ttl-cache'
 import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
 import { resolveBrandByName } from '@/lib/brands-db'
@@ -796,6 +797,8 @@ const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
 const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
+const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total'
+const NEW_PRODUCTS_WEEK_TOTAL_TTL_MS = 300_000
 const SHUFFLE_CANDIDATE_POOL_SIZE = 800
 
 async function loadActiveProductCountBuckets(options?: {
@@ -928,7 +931,7 @@ async function resolveShopCatalogTotalFromBuckets(
 ): Promise<number | null> {
   if (query.search?.trim()) return null
   if (query.tag?.trim()) return null
-  if (query.mode === 'new') return null
+  if (query.mode === 'new') return getCachedNewProductsWeekTotal()
 
   const brand = query.brand && query.brand !== 'All' ? query.brand : undefined
   const buckets = await loadActiveProductCountBuckets({ brand, mode: query.mode })
@@ -977,7 +980,10 @@ function peekShopCatalogTotalFromBuckets(
 ): number | null {
   if (query.search?.trim()) return null
   if (query.tag?.trim()) return null
-  if (query.mode === 'new') return null
+  if (query.mode === 'new') {
+    const cached = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')
+    return cached ?? null
+  }
 
   const brand = query.brand && query.brand !== 'All' ? query.brand : undefined
   const buckets = peekProductCountBuckets({ brand, mode: query.mode })
@@ -1022,13 +1028,19 @@ export async function getShopCatalogProductTotal(
   const peek = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
   if (peek != null) return peek
   const resolved = await resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
-  return resolved ?? 0
+  if (resolved != null) return resolved
+  if (query.mode === 'new') return getCachedNewProductsWeekTotal()
+  if (!query.category || query.category === 'All') {
+    if (!query.brand || query.brand === 'All') return getCachedActiveProductTotal()
+  }
+  return 0
 }
 
 /** Pre-warm count buckets on shop boot so first category click is fast. */
 export function warmShopCatalogCountCaches(): void {
   void loadActiveProductCountBuckets()
   void getCachedActiveProductTotal()
+  void getCachedNewProductsWeekTotal()
 }
 
 /** Top-level shop categories with at least one active product in scope. */
@@ -1612,6 +1624,23 @@ async function getCachedActiveProductTotal(): Promise<number> {
   )
 }
 
+async function getCachedNewProductsWeekTotal(): Promise<number> {
+  return getCachedValue(
+    NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS,
+    'week',
+    NEW_PRODUCTS_WEEK_TOTAL_TTL_MS,
+    async () => {
+      const { start, end } = getCatalogWeekRange()
+      const rows = await queryDb<{ total: number }[]>(
+        `SELECT COUNT(*) AS total FROM products p
+         WHERE p.status = 'active' AND p.created_at >= ? AND p.created_at < ?`,
+        [start.toISOString().slice(0, 19).replace('T', ' '), end.toISOString().slice(0, 19).replace('T', ' ')]
+      )
+      return Number(rows[0]?.total ?? 0)
+    }
+  )
+}
+
 async function countShopCatalogProducts(
   fromClause: string,
   joinSql: string,
@@ -1779,7 +1808,14 @@ async function loadActiveProductsPaginatedFromDb(
 
   let total = 0
   let responseSkipTotal = true
-  if (!shuffle) {
+
+  if (shuffle) {
+    total = await getCachedActiveProductTotal()
+    responseSkipTotal = false
+  } else if (query.mode === 'new') {
+    total = await getCachedNewProductsWeekTotal()
+    responseSkipTotal = false
+  } else {
     const peekTotal = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
     if (peekTotal != null) {
       total = peekTotal
