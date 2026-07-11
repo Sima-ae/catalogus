@@ -31,11 +31,7 @@ import {
 import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
 import { invalidateShopBrandMenuCache, prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 import { prefetchShopSubcategories } from '@/lib/use-shop-subcategory'
-import {
-  hydrateShopCategoryNav,
-  prefetchShopCategoryTaxonomy,
-} from '@/lib/shop-categories-client'
-import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
+import { prefetchShopCategoryTaxonomy } from '@/lib/shop-categories-client'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -98,12 +94,10 @@ function ShopCatalogPageContent({
   config,
   initialCatalog,
   initialCatalogSignature,
-  initialCategoryNav,
 }: {
   config: ShopCatalogConfig
   initialCatalog?: CatalogProductsPage | null
   initialCatalogSignature?: string
-  initialCategoryNav?: ShopCategoryNavNode[] | null
 }) {
   const { t: tr } = useI18n()
   const [products, setProducts] = useState<Product[]>(initialCatalog?.items ?? [])
@@ -170,9 +164,8 @@ function ShopCatalogPageContent({
   } = useShopSidebar()
 
   useEffect(() => {
-    hydrateShopCategoryNav(initialCategoryNav)
     prefetchShopCategoryTaxonomy()
-  }, [initialCategoryNav])
+  }, [])
 
   const resolvedTitle = config.mode === 'new' ? tr('shop.new.title') : ''
   const searchPlaceholder =
@@ -1058,12 +1051,10 @@ export default function ShopCatalogPage({
   config,
   initialCatalog,
   initialCatalogSignature,
-  initialCategoryNav,
 }: {
   config: ShopCatalogConfig
   initialCatalog?: CatalogProductsPage | null
   initialCatalogSignature?: string
-  initialCategoryNav?: ShopCategoryNavNode[] | null
 }) {
   return (
     <Suspense fallback={null}>
@@ -1071,7 +1062,6 @@ export default function ShopCatalogPage({
         config={config}
         initialCatalog={initialCatalog}
         initialCatalogSignature={initialCatalogSignature}
-        initialCategoryNav={initialCategoryNav}
       />
     </Suspense>
   )

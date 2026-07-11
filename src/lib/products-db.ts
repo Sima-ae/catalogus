@@ -752,12 +752,12 @@ export type ShopSubcategoryOption = {
 }
 
 const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu'
-const SHOP_CATEGORY_MENU_TTL_MS = 300_000
+const SHOP_CATEGORY_MENU_TTL_MS = 1_800_000
 const SHOP_CATEGORY_NAV_CACHE_NS = 'shop-category-nav'
 const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories'
-const SHOP_SUBCATEGORY_TTL_MS = 300_000
+const SHOP_SUBCATEGORY_TTL_MS = 1_800_000
 const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
-const PRODUCT_COUNT_BUCKETS_TTL_MS = 300_000
+const PRODUCT_COUNT_BUCKETS_TTL_MS = 1_800_000
 const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
 const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
