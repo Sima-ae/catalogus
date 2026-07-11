@@ -5,6 +5,8 @@ import {
   shouldServerRenderShopCatalog,
 } from '@/lib/shop-catalog-ssr'
 
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage({
   searchParams,
 }: {

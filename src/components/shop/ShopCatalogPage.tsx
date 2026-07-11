@@ -727,22 +727,26 @@ function ShopCatalogPageContent({
     }
     const clientCatalogSignature = shopCatalogClientSignature(fetchFilters)
 
+    const skipShufflePageOneClientCache = catalogShuffle && pageToLoad === 1
+
     const applyCatalogPage = (data: CatalogProductsPage) => {
       setProducts(data.items)
       const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
       if (data.total > 0 || !data.skipTotal) {
         setTotalItems(data.total)
       }
-      setCachedShopCatalog(
-        clientCatalogSignature,
-        {
-          ...data,
-          total: resolvedTotal,
-          totalPages: Math.max(1, Math.ceil(resolvedTotal / CATALOG_PAGE_SIZE) || 1),
-          skipTotal: undefined,
-        },
-        { shuffle: catalogShuffle }
-      )
+      if (!skipShufflePageOneClientCache) {
+        setCachedShopCatalog(
+          clientCatalogSignature,
+          {
+            ...data,
+            total: resolvedTotal,
+            totalPages: Math.max(1, Math.ceil(resolvedTotal / CATALOG_PAGE_SIZE) || 1),
+            skipTotal: undefined,
+          },
+          { shuffle: catalogShuffle }
+        )
+      }
       hasLoadedOnce.current = true
       if (data.page !== pageToLoad && data.page >= 1) {
         setCurrentPage(data.page)
@@ -761,7 +765,9 @@ function ShopCatalogPageContent({
     const prefetched =
       reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
     const cachedFromStore =
-      reloadToken === 0 ? getCachedShopCatalog(clientCatalogSignature) : undefined
+      reloadToken === 0 && !skipShufflePageOneClientCache
+        ? getCachedShopCatalog(clientCatalogSignature)
+        : undefined
     const cached = prefetched ?? cachedFromStore ?? null
     const cacheFresh =
       prefetched != null ||

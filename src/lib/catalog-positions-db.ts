@@ -109,6 +109,47 @@ export type CatalogPositionJoin = {
   scopeParam: string | null
 }
 
+const HOMEPAGE_SHUFFLE_CANDIDATE_POOL = 800
+
+type ShuffleCandidate = { id: string; price: number }
+
+function weightedShuffleCandidates(candidates: ShuffleCandidate[]): ShuffleCandidate[] {
+  return [...candidates].sort((a, b) => {
+    const scoreA = a.price > 0 ? Math.random() * 0.55 : 0.55 + Math.random() * 0.45
+    const scoreB = b.price > 0 ? Math.random() * 0.55 : 0.55 + Math.random() * 0.45
+    if (scoreA !== scoreB) return scoreA - scoreB
+    return a.id.localeCompare(b.id)
+  })
+}
+
+/** Homepage page 1 — random window from precomputed pool + weighted shuffle per request. */
+export async function fetchRandomizedHomepageShufflePageProductIds(
+  scope: string,
+  poolSize: number,
+  limit: number
+): Promise<string[]> {
+  if (!(await catalogPositionsTableExists())) return []
+  const candidateCount = Math.min(HOMEPAGE_SHUFFLE_CANDIDATE_POOL, poolSize)
+  if (candidateCount <= 0) return []
+
+  const maxOffset = Math.max(0, poolSize - candidateCount)
+  const randomOffset = Math.floor(Math.random() * (maxOffset + 1))
+
+  const poolRows = await queryDb<ShuffleCandidate[]>(
+    `SELECT p.id, COALESCE(p.price, 0) AS price
+     FROM ${TABLE} cpp
+     INNER JOIN products p ON p.id = cpp.product_id AND p.status = 'active'
+     WHERE cpp.scope = ?
+     ORDER BY cpp.position ASC
+     LIMIT ? OFFSET ?`,
+    [scope, candidateCount, randomOffset]
+  )
+  if (!poolRows.length) return []
+
+  const shuffled = weightedShuffleCandidates(poolRows)
+  return shuffled.slice(0, limit).map((row) => String(row.id))
+}
+
 /** Read product ids from precomputed shuffle positions (indexed, fast). */
 export async function fetchPrecomputedShuffleProductIds(
   scope: string,

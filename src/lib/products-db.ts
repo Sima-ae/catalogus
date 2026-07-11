@@ -62,6 +62,7 @@ import {
   catalogPositionJoin,
   catalogPositionsExistForScope,
   fetchHomepageShufflePageProductIds,
+  fetchRandomizedHomepageShufflePageProductIds,
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
 } from '@/lib/catalog-positions-db'
@@ -791,8 +792,6 @@ const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
 const PRODUCT_COUNT_BUCKETS_TTL_MS = 1_800_000
 const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
-const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
-const SHOP_SHUFFLE_PAGE_TTL_MS = 120_000
 const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
 const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
@@ -1568,13 +1567,7 @@ export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
   if (isCatalogShuffleEligible(query)) {
-    const cacheKey = `p${query.page}-l${query.limit}-o${query.offset ?? catalogPageBaseOffset(query.page)}`
-    return getCachedValue(
-      SHOP_SHUFFLE_PAGE_CACHE_NS,
-      cacheKey,
-      SHOP_SHUFFLE_PAGE_TTL_MS,
-      () => loadActiveProductsPaginatedFromDb(query)
-    )
+    return loadActiveProductsPaginatedFromDb(query)
   }
   const cacheKey = shopCatalogPageCacheKey(query)
   return getCachedValue(
@@ -1779,12 +1772,19 @@ async function loadActiveProductsPaginatedFromDb(
       const usePrecomputedShuffle =
         (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
       if (usePrecomputedShuffle) {
-        const ids = await fetchHomepageShufflePageProductIds(
-          HOMEPAGE_SHUFFLE_SCOPE,
-          HOMEPAGE_SHUFFLE_POOL_SIZE,
-          limit,
-          offset
-        )
+        const ids =
+          offset === 0
+            ? await fetchRandomizedHomepageShufflePageProductIds(
+                HOMEPAGE_SHUFFLE_SCOPE,
+                HOMEPAGE_SHUFFLE_POOL_SIZE,
+                limit
+              )
+            : await fetchHomepageShufflePageProductIds(
+                HOMEPAGE_SHUFFLE_SCOPE,
+                HOMEPAGE_SHUFFLE_POOL_SIZE,
+                limit,
+                offset
+              )
         if (!ids.length) return []
         return fetchProductRowsByIds(ids, { catalog: true })
       }
