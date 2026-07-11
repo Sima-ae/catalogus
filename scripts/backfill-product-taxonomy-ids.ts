@@ -7,7 +7,7 @@
  */
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { queryDb, resetDbPool } from '@/lib/db'
-import { productsHaveBrandIdColumn } from '@/lib/brands-db'
+import { productsHaveBrandIdColumn } from '@/lib/product-schema-db'
 
 async function runUpdate(label: string, sql: string, dryRun: boolean): Promise<number> {
   if (dryRun) {
