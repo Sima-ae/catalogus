@@ -9,6 +9,7 @@ import {
   catalogPageBaseOffset,
   CATALOG_PAGE_SIZE,
   isCatalogShuffleEligible,
+  PRODUCT_CATEGORY_ID_UNSET_SQL,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
   type CatalogProductsPage,
@@ -775,14 +776,50 @@ async function loadActiveProductCountBuckets(options?: {
     cacheKey,
     PRODUCT_COUNT_BUCKETS_TTL_MS,
     async () => {
+      const brand = options?.brand?.trim()
+      const brandFilter = brand && brand !== 'All' ? brand : undefined
       const hasBrandsTable = await brandsTableExists()
-      const needsBrandJoin = Boolean(options?.brand && options.brand !== 'All')
+      const needsBrandJoin = Boolean(brandFilter && hasBrandsTable)
+      const hasCategoryId = await productsHaveCategoryIdColumn()
+      const buckets = new Map<string, number>()
+
+      if (hasCategoryId && !needsBrandJoin) {
+        const idRows = await queryDb<{ category_id: string; total: number }[]>(
+          `SELECT p.category_id AS category_id, COUNT(*) AS total
+           FROM products p
+           WHERE p.status = 'active'
+             AND p.category_id IS NOT NULL
+             AND TRIM(CAST(p.category_id AS CHAR)) != ''
+           GROUP BY p.category_id`
+        )
+        for (const row of idRows) {
+          const id = String(row.category_id ?? '').trim()
+          if (!id) continue
+          buckets.set(`id:${id}`, Number(row.total ?? 0))
+        }
+
+        const legacyRows = await queryDb<{ legacy_name: string; total: number }[]>(
+          `SELECT LOWER(TRIM(COALESCE(p.category, ''))) AS legacy_name, COUNT(*) AS total
+           FROM products p
+           WHERE p.status = 'active'
+             AND (${PRODUCT_CATEGORY_ID_UNSET_SQL})
+             AND TRIM(COALESCE(p.category, '')) != ''
+           GROUP BY legacy_name`
+        )
+        for (const row of legacyRows) {
+          const legacy = String(row.legacy_name ?? '').trim()
+          if (!legacy) continue
+          buckets.set(`legacy:${legacy}`, Number(row.total ?? 0))
+        }
+        return buckets
+      }
+
       const fromClause = await catalogListingFromSqlForQuery({
         needsCategoryJoin: true,
         needsBrandJoin: needsBrandJoin && hasBrandsTable,
       })
       const { whereSql, params } = buildActiveCatalogFilters(
-        { page: 1, limit: 1, brand: options?.brand, mode: options?.mode },
+        { page: 1, limit: 1, brand: brandFilter, mode: options?.mode },
         { includeBrandJoin: needsBrandJoin && hasBrandsTable }
       )
       const rows = await queryDb<{ bucket: string; total: number }[]>(
@@ -798,7 +835,6 @@ async function loadActiveProductCountBuckets(options?: {
         GROUP BY bucket`,
         params
       )
-      const buckets = new Map<string, number>()
       for (const row of rows) {
         const key = String(row.bucket ?? '').trim()
         if (!key || key === 'legacy:') continue

@@ -3,6 +3,10 @@
 import { appPath } from '@/lib/paths'
 import type { CategoryTreeRow } from '@/lib/category-picker'
 import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
+import {
+  resolveShopNestedSubcategoriesFromNav,
+  resolveShopSubcategoriesFromNav,
+} from '@/lib/shop-category-nav'
 
 type CategoryApiRow = CategoryTreeRow & { active?: boolean | number }
 
@@ -28,6 +32,40 @@ let menuInflight: Promise<string[]> | null = null
 
 let cachedNav: ShopCategoryNavNode[] | null = null
 let navInflight: Promise<ShopCategoryNavNode[]> | null = null
+
+/** Seed nav tree from SSR so subcategory pills render without waiting on /shop-nav. */
+export function hydrateShopCategoryNav(tree: ShopCategoryNavNode[] | null | undefined): void {
+  if (!Array.isArray(tree) || !tree.length) return
+  cachedNav = tree
+}
+
+/** Seed category rows from layout SSR — instant subcategory structure on first paint. */
+export function hydrateShopCategoryRows(rows: CategoryTreeRow[] | null | undefined): void {
+  if (!Array.isArray(rows) || !rows.length) return
+  cachedRows = normalizeCategoryRows(rows)
+}
+
+/** Nav tree already in memory (after fetch or SSR hydrate). */
+export function getCachedShopCategoryNavSync(): ShopCategoryNavNode[] {
+  return cachedNav ?? []
+}
+
+/** Category rows already in memory (after fetch). */
+export function getCachedShopCategoryRowsSync(): CategoryTreeRow[] {
+  return cachedRows ?? []
+}
+
+/** Warm nav tree as early as possible (homepage, category hover). */
+export function prefetchShopCategoryNav(): void {
+  void fetchShopCategoryNav()
+}
+
+/** Warm category rows + top menu in parallel. */
+export function prefetchShopCategoryTaxonomy(): void {
+  prefetchShopCategoryNav()
+  void fetchShopCategoryMenu()
+  void fetchShopCategoryRows()
+}
 
 /** Hierarchical shop categories for sidebar (roots → sub → nested). */
 export function fetchShopCategoryNav(): Promise<ShopCategoryNavNode[]> {
@@ -90,4 +128,9 @@ export function fetchShopCategoryRows(): Promise<CategoryTreeRow[]> {
     })
 
   return inflight
+}
+
+export {
+  resolveShopNestedSubcategoriesFromNav,
+  resolveShopSubcategoriesFromNav,
 }

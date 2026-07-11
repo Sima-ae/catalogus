@@ -2,9 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import type { CategoryTreeRow } from '@/lib/category-picker'
 import { sortShopCategoriesByLabel } from '@/lib/i18n-categories'
 import { useI18n } from '@/lib/i18n-context'
-import { appPath } from '@/lib/paths'
+import {
+  fetchShopCategoryNav,
+  fetchShopCategoryRows,
+  getCachedShopCategoryNavSync,
+  getCachedShopCategoryRowsSync,
+  prefetchShopCategoryNav,
+  resolveShopNestedSubcategoriesFromNav,
+  resolveShopSubcategoriesFromNav,
+} from '@/lib/shop-categories-client'
+import type { ShopSubcategoryOption } from '@/lib/products-db'
+import { getDirectChildCategories, getDirectChildCategoriesUnderPath } from '@/lib/shop-category-tree'
 import {
   catalogFilterBasePath,
   clearCatalogPageParam,
@@ -43,6 +54,78 @@ const subcategoryInflight = new Map<string, Promise<ShopSubcategoryRow[]>>()
 const nestedSubcategoryCache = new Map<string, ShopSubcategoryRow[]>()
 const nestedSubcategoryInflight = new Map<string, Promise<ShopSubcategoryRow[]>>()
 
+function mapSubcategoryOptions(rows: ShopSubcategoryOption[]): ShopSubcategoryRow[] {
+  return rows
+    .filter((row) => row?.name && (row.productCount ?? 0) > 0)
+    .map((row) => ({
+      id: String(row.id ?? row.name),
+      name: String(row.name),
+      productCount: Number(row.productCount ?? 0),
+    }))
+}
+
+function subcategoriesFromCategoryRows(
+  rows: CategoryTreeRow[],
+  parentCategoryName: string
+): ShopSubcategoryRow[] {
+  return getDirectChildCategories(rows, parentCategoryName).map((child) => ({
+    id: String(child.id),
+    name: String(child.name),
+    productCount: 1,
+  }))
+}
+
+function nestedFromCategoryRows(
+  rows: CategoryTreeRow[],
+  parentCategoryName: string,
+  subcategoryName: string
+): ShopSubcategoryRow[] {
+  return getDirectChildCategoriesUnderPath(rows, parentCategoryName, subcategoryName).map(
+    (child) => ({
+      id: String(child.id),
+      name: String(child.name),
+      productCount: 1,
+    })
+  )
+}
+
+function resolveSubcategoriesSync(selectedCategory: string): ShopSubcategoryRow[] | null {
+  const nav = getCachedShopCategoryNavSync()
+  if (nav.length) {
+    const fromNav = mapSubcategoryOptions(resolveShopSubcategoriesFromNav(nav, selectedCategory))
+    if (fromNav.length) return fromNav
+  }
+
+  const rows = getCachedShopCategoryRowsSync()
+  if (rows.length) {
+    const instant = subcategoriesFromCategoryRows(rows, selectedCategory)
+    if (instant.length) return instant
+  }
+
+  return null
+}
+
+function resolveNestedSubcategoriesSync(
+  selectedCategory: string,
+  selectedSubcategory: string
+): ShopSubcategoryRow[] | null {
+  const nav = getCachedShopCategoryNavSync()
+  if (nav.length) {
+    const fromNav = mapSubcategoryOptions(
+      resolveShopNestedSubcategoriesFromNav(nav, selectedCategory, selectedSubcategory)
+    )
+    if (fromNav.length) return fromNav
+  }
+
+  const rows = getCachedShopCategoryRowsSync()
+  if (rows.length) {
+    const instant = nestedFromCategoryRows(rows, selectedCategory, selectedSubcategory)
+    if (instant.length) return instant
+  }
+
+  return null
+}
+
 async function fetchShopSubcategories(selectedCategory: string): Promise<ShopSubcategoryRow[]> {
   const key = selectedCategory.trim().toLowerCase()
   const cached = subcategoryCache.get(key)
@@ -51,21 +134,23 @@ async function fetchShopSubcategories(selectedCategory: string): Promise<ShopSub
   const pending = subcategoryInflight.get(key)
   if (pending) return pending
 
-  const params = new URLSearchParams({ category: selectedCategory })
-  const request = fetch(appPath(`/api/categories/subcategories?${params.toString()}`))
-    .then((res) => (res.ok ? res.json() : { subcategories: [] }))
-    .then((data: unknown) => {
-      const rows =
-        data &&
-        typeof data === 'object' &&
-        Array.isArray((data as { subcategories?: unknown }).subcategories)
-          ? ((data as { subcategories: ShopSubcategoryRow[] }).subcategories ?? [])
-          : []
-      const filtered = rows.filter(
-        (row) => row?.name && (row.productCount ?? 0) > 0
-      ) as ShopSubcategoryRow[]
-      subcategoryCache.set(key, filtered)
-      return filtered
+  const syncHit = resolveSubcategoriesSync(selectedCategory)
+  if (syncHit?.length) {
+    subcategoryCache.set(key, syncHit)
+    return syncHit
+  }
+
+  const request = Promise.all([fetchShopCategoryNav(), fetchShopCategoryRows()])
+    .then(([nav]) => {
+      const refined = mapSubcategoryOptions(resolveShopSubcategoriesFromNav(nav, selectedCategory))
+      if (refined.length) {
+        subcategoryCache.set(key, refined)
+        return refined
+      }
+      const rows = getCachedShopCategoryRowsSync()
+      const fallback = subcategoriesFromCategoryRows(rows, selectedCategory)
+      subcategoryCache.set(key, fallback)
+      return fallback
     })
     .catch(() => [] as ShopSubcategoryRow[])
     .finally(() => {
@@ -87,24 +172,25 @@ async function fetchShopNestedSubcategories(
   const pending = nestedSubcategoryInflight.get(key)
   if (pending) return pending
 
-  const params = new URLSearchParams({
-    category: selectedCategory,
-    subcategory: selectedSubcategory,
-  })
-  const request = fetch(appPath(`/api/categories/subcategories?${params.toString()}`))
-    .then((res) => (res.ok ? res.json() : { subcategories: [] }))
-    .then((data: unknown) => {
-      const rows =
-        data &&
-        typeof data === 'object' &&
-        Array.isArray((data as { subcategories?: unknown }).subcategories)
-          ? ((data as { subcategories: ShopSubcategoryRow[] }).subcategories ?? [])
-          : []
-      const filtered = rows.filter(
-        (row) => row?.name && (row.productCount ?? 0) > 0
-      ) as ShopSubcategoryRow[]
-      nestedSubcategoryCache.set(key, filtered)
-      return filtered
+  const syncHit = resolveNestedSubcategoriesSync(selectedCategory, selectedSubcategory)
+  if (syncHit?.length) {
+    nestedSubcategoryCache.set(key, syncHit)
+    return syncHit
+  }
+
+  const request = fetchShopCategoryNav()
+    .then((nav) => {
+      const refined = mapSubcategoryOptions(
+        resolveShopNestedSubcategoriesFromNav(nav, selectedCategory, selectedSubcategory)
+      )
+      if (refined.length) {
+        nestedSubcategoryCache.set(key, refined)
+        return refined
+      }
+      const rows = getCachedShopCategoryRowsSync()
+      const fallback = nestedFromCategoryRows(rows, selectedCategory, selectedSubcategory)
+      nestedSubcategoryCache.set(key, fallback)
+      return fallback
     })
     .catch(() => [] as ShopSubcategoryRow[])
     .finally(() => {
@@ -118,6 +204,7 @@ async function fetchShopNestedSubcategories(
 /** Warm subcategory cache on category hover/click. */
 export function prefetchShopSubcategories(selectedCategory: string): void {
   if (!selectedCategory || selectedCategory === 'All') return
+  prefetchShopCategoryNav()
   void fetchShopSubcategories(selectedCategory)
 }
 
@@ -139,10 +226,22 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
   const cacheKey = selectedCategory.trim().toLowerCase()
   const cachedRows =
     selectedCategory && selectedCategory !== 'All' ? subcategoryCache.get(cacheKey) : undefined
+  const syncRows =
+    selectedCategory && selectedCategory !== 'All'
+      ? resolveSubcategoriesSync(selectedCategory)
+      : null
 
-  const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>(() => cachedRows ?? [])
+  const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>(
+    () => cachedRows ?? syncRows ?? []
+  )
   const [loading, setLoading] = useState(
-    () => Boolean(selectedCategory && selectedCategory !== 'All' && !cachedRows)
+    () =>
+      Boolean(
+        selectedCategory &&
+          selectedCategory !== 'All' &&
+          !cachedRows &&
+          !syncRows?.length
+      )
   )
 
   useEffect(() => {
@@ -159,7 +258,13 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       return
     }
 
-    setLoading(true)
+    const instant = resolveSubcategoriesSync(selectedCategory)
+    if (instant?.length) {
+      setSubcategories(instant)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
 
     let cancelled = false
     fetchShopSubcategories(selectedCategory)
@@ -287,11 +392,16 @@ export function useShopNestedSubcategory(
 
   const cacheKey = `${selectedCategory.trim().toLowerCase()}|${selectedSubcategory.trim().toLowerCase()}`
   const cachedRows = enabled ? nestedSubcategoryCache.get(cacheKey) : undefined
+  const syncRows = enabled
+    ? resolveNestedSubcategoriesSync(selectedCategory, selectedSubcategory)
+    : null
 
   const [nestedSubcategories, setNestedSubcategories] = useState<ShopSubcategoryRow[]>(
-    () => cachedRows ?? []
+    () => cachedRows ?? syncRows ?? []
   )
-  const [loading, setLoading] = useState(() => enabled && !cachedRows)
+  const [loading, setLoading] = useState(
+    () => Boolean(enabled && !cachedRows && !syncRows?.length)
+  )
 
   useEffect(() => {
     if (!enabled) {
@@ -307,7 +417,13 @@ export function useShopNestedSubcategory(
       return
     }
 
-    setLoading(true)
+    const instant = resolveNestedSubcategoriesSync(selectedCategory, selectedSubcategory)
+    if (instant?.length) {
+      setNestedSubcategories(instant)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
 
     let cancelled = false
     fetchShopNestedSubcategories(selectedCategory, selectedSubcategory)

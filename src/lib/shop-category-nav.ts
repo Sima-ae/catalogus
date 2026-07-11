@@ -146,3 +146,35 @@ export function shopCategoryNavToSubcategoryOptions(
     productCount: node.productCount,
   }))
 }
+
+function findNavNode(
+  tree: ShopCategoryNavNode[],
+  name: string
+): ShopCategoryNavNode | undefined {
+  const key = normalizeName(name)
+  return tree.find((node) => normalizeName(node.name) === key)
+}
+
+/** Subcategory pills from an already-loaded shop nav tree (no API round-trip). */
+export function resolveShopSubcategoriesFromNav(
+  tree: ShopCategoryNavNode[],
+  categoryName: string
+): ShopSubcategoryOption[] {
+  const node = findNavNode(tree, categoryName)
+  if (!node?.children.length) return []
+  return shopCategoryNavToSubcategoryOptions(node.children)
+}
+
+/** Nested pills from an already-loaded shop nav tree. */
+export function resolveShopNestedSubcategoriesFromNav(
+  tree: ShopCategoryNavNode[],
+  categoryName: string,
+  subcategoryName: string
+): ShopSubcategoryOption[] {
+  const parent = findNavNode(tree, categoryName)
+  const child = parent?.children.find(
+    (node) => normalizeName(node.name) === normalizeName(subcategoryName)
+  )
+  if (!child?.children.length) return []
+  return shopCategoryNavToSubcategoryOptions(child.children)
+}

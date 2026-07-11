@@ -20,6 +20,10 @@ import {
 } from '@/lib/shop-bootstrap-shared'
 import { TickerMessagesProvider } from '@/lib/ticker-messages-context'
 import type { Locale } from '@/lib/i18n'
+import {
+  hydrateShopCategoryRows,
+  prefetchShopCategoryNav,
+} from '@/lib/shop-categories-client'
 
 const ChatWidget = dynamic(() => import('@/components/chat/ChatWidget'), { ssr: false })
 
@@ -53,6 +57,11 @@ export default function LayoutBootstrapGate({
   const [shopBootstrap, setShopBootstrap] = useState<ShopBootstrap>(initialData.shopBootstrap)
   const [tickerMessages, setTickerMessages] = useState(initialData.tickerMessages)
   const [recovering, setRecovering] = useState(initialData.bootstrapDegraded)
+
+  useEffect(() => {
+    hydrateShopCategoryRows(initialData.categoryRows)
+    prefetchShopCategoryNav()
+  }, [initialData.categoryRows])
 
   useEffect(() => {
     if (!initialData.bootstrapDegraded) return

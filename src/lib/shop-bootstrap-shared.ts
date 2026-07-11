@@ -2,6 +2,7 @@ import { DEFAULT_SHOP_CURRENCY } from '@/lib/currency'
 import { resolveSiteTagline } from '@/lib/site-tagline'
 import type { Locale } from '@/lib/i18n-locale-registry'
 import type { TickerMessagePublic } from '@/lib/site-ticker'
+import type { CategoryTreeRow } from '@/lib/category-picker'
 
 export type ShopBootstrap = {
   catalogMode: boolean
@@ -16,6 +17,8 @@ export type LayoutBootstrapData = {
   tagMessages: Record<string, string>
   shopBootstrap: ShopBootstrap
   tickerMessages: TickerMessagePublic[]
+  /** Active category tree rows — instant subcategory pills without an extra round-trip. */
+  categoryRows: CategoryTreeRow[]
   /** True when server could not load shop settings from DB (client may retry). */
   bootstrapDegraded: boolean
 }

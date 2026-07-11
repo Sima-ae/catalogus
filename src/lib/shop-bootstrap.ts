@@ -8,6 +8,8 @@ import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
 import { getCachedValue } from '@/lib/server-ttl-cache'
+import { loadActiveCategories } from '@/lib/categories-persistence'
+import type { CategoryTreeRow } from '@/lib/category-picker'
 
 const SHOP_BOOTSTRAP_CACHE_NS = 'shop-bootstrap'
 const SHOP_BOOTSTRAP_CACHE_TTL_MS = 30_000
@@ -56,12 +58,14 @@ export async function loadShopBootstrap(locale: Locale): Promise<ShopBootstrap> 
 
 /** Root layout bootstrap — never throws; uses safe defaults when DB is unavailable. */
 export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBootstrapData> {
-  const [categoryResult, tagResult, bootstrapResult, tickerResult] = await Promise.allSettled([
-    getCategoryTranslationMessages(locale),
-    getTagTranslationMessages(locale),
-    loadShopBootstrap(locale),
-    listActiveSiteTickerMessagesForLocale(locale),
-  ])
+  const [categoryResult, tagResult, bootstrapResult, tickerResult, categoryRowsResult] =
+    await Promise.allSettled([
+      getCategoryTranslationMessages(locale),
+      getTagTranslationMessages(locale),
+      loadShopBootstrap(locale),
+      listActiveSiteTickerMessagesForLocale(locale),
+      loadActiveCategories(),
+    ])
 
   const categoryMessages =
     categoryResult.status === 'fulfilled' ? categoryResult.value : {}
@@ -72,6 +76,16 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
       ? bootstrapResult.value
       : getDefaultShopBootstrap(locale)
   const tickerMessages = tickerResult.status === 'fulfilled' ? tickerResult.value : []
+  const categoryRows: CategoryTreeRow[] =
+    categoryRowsResult.status === 'fulfilled'
+      ? categoryRowsResult.value.map((row) => ({
+          id: String(row.id ?? ''),
+          name: String(row.name ?? ''),
+          parent_id: row.parent_id ? String(row.parent_id) : null,
+          parent_name: row.parent_name ? String(row.parent_name) : null,
+          active: row.active,
+        }))
+      : []
 
   if (bootstrapDegraded) {
     console.error(
@@ -80,5 +94,5 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
     )
   }
 
-  return { categoryMessages, tagMessages, shopBootstrap, tickerMessages, bootstrapDegraded }
+  return { categoryMessages, tagMessages, shopBootstrap, tickerMessages, categoryRows, bootstrapDegraded }
 }
