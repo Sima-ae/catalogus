@@ -360,20 +360,19 @@ async function catalogListingFromSqlForQuery(options: CatalogListingJoinOptions)
 }
 
 function catalogListingNeedsCategoryJoin(
-  categoryFilter: ReturnType<typeof resolveShopCategoryFilter> | null | undefined,
-  query: Pick<CatalogProductsQuery, 'search'>
+  _categoryFilter: ReturnType<typeof resolveShopCategoryFilter> | null | undefined,
+  _query: Pick<CatalogProductsQuery, 'search'>
 ): boolean {
-  return Boolean(
-    categoryFilter?.categoryIds?.length || String(query.search ?? '').trim()
-  )
+  // Category filters use indexed p.category_id + legacy p.category text — no categories join.
+  return false
 }
 
 function catalogListingNeedsBrandJoin(
-  query: Pick<CatalogProductsQuery, 'brand' | 'search'>,
-  hasBrandsTable: boolean
+  _query: Pick<CatalogProductsQuery, 'brand' | 'search'>,
+  _hasBrandsTable: boolean
 ): boolean {
-  if (!hasBrandsTable) return false
-  return Boolean(query.brand && query.brand !== 'All')
+  // Brand filters use indexed p.brand_id + legacy p.brand text — no brands join.
+  return false
 }
 
 /** Lightweight SELECT for shop grid rows — skips description, gallery, tags, etc. */
@@ -864,6 +863,38 @@ function sumCategoryFilterCounts(
   }
 
   return total
+}
+
+/** Pre-aggregated counts — avoids a heavy COUNT(*) on every catalog page request. */
+async function resolveShopCatalogTotalFromBuckets(
+  categories: Awaited<ReturnType<typeof loadActiveCategories>>,
+  categoryFilter: ShopCategoryFilterResult | undefined,
+  query: Pick<CatalogProductsQuery, 'category' | 'brand' | 'search' | 'tag' | 'mode'>
+): Promise<number | null> {
+  if (query.search?.trim()) return null
+  if (query.tag?.trim()) return null
+  if (query.mode === 'new') return null
+
+  const brand = query.brand && query.brand !== 'All' ? query.brand : undefined
+  const buckets = await loadActiveProductCountBuckets({ brand, mode: query.mode })
+
+  if (categoryFilter?.categoryIds.length) {
+    return sumCategoryFilterCounts(categoryFilter, buckets)
+  }
+
+  if (brand) {
+    let total = 0
+    buckets.forEach((count) => {
+      total += count
+    })
+    return total
+  }
+
+  if (!query.category || query.category === 'All') {
+    return getCachedActiveProductTotal()
+  }
+
+  return null
 }
 
 /** Top-level shop categories with at least one active product in scope. */
@@ -1527,37 +1558,53 @@ async function loadActiveProductsPaginatedFromDb(
   const shuffle = isCatalogShuffleEligible(query)
   const usePrecomputedShuffle =
     shuffle && (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE))
+  const scopeHasManualOrder =
+    !shuffle && sortScope != null && (await catalogPositionsExistForScope(sortScope))
   const positionJoin = shuffle
     ? usePrecomputedShuffle
       ? await catalogPositionJoin(HOMEPAGE_SHUFFLE_SCOPE)
       : { joinSql: '', orderSql: 'p.created_at DESC', scopeParam: null }
-    : await catalogPositionJoin(sortScope)
+    : scopeHasManualOrder
+      ? await catalogPositionJoin(sortScope)
+      : { joinSql: '', orderSql: 'p.created_at DESC', scopeParam: null }
   const { joinSql, orderSql, scopeParam } = positionJoin
   const idParams = scopeParam ? [scopeParam, ...params] : params
 
   const totalPromise = countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
+  const fastTotalPromise = shuffle
+    ? Promise.resolve(null as number | null)
+    : resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
 
-  let idRows: { id: string }[]
-  if (shuffle && usePrecomputedShuffle) {
-    const ids = await fetchHomepageShufflePageProductIds(
-      HOMEPAGE_SHUFFLE_SCOPE,
-      HOMEPAGE_SHUFFLE_POOL_SIZE,
-      limit,
-      offset
-    )
-    idRows = ids.map((id) => ({ id }))
-  } else if (shuffle && !usePrecomputedShuffle) {
-    const ids = await fetchShuffledActiveProductIds(fromClause, whereSql, idParams, limit, offset)
-    idRows = ids.map((id) => ({ id }))
-  } else {
-    idRows = await queryDb<{ id: string }[]>(
+  async function fetchPageProductIds(): Promise<{ id: string }[]> {
+    if (shuffle && usePrecomputedShuffle) {
+      const ids = await fetchHomepageShufflePageProductIds(
+        HOMEPAGE_SHUFFLE_SCOPE,
+        HOMEPAGE_SHUFFLE_POOL_SIZE,
+        limit,
+        offset
+      )
+      return ids.map((id) => ({ id }))
+    }
+    if (shuffle && !usePrecomputedShuffle) {
+      const ids = await fetchShuffledActiveProductIds(fromClause, whereSql, idParams, limit, offset)
+      return ids.map((id) => ({ id }))
+    }
+    return queryDb<{ id: string }[]>(
       `SELECT p.id ${fromClause} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idParams, limit, offset]
     )
   }
 
-  const total = await totalPromise
+  const [fastTotal, idRows] = await Promise.all([fastTotalPromise, fetchPageProductIds()])
   const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)), { catalog: true })
+
+  let total = fastTotal
+  if (total == null) {
+    total = await totalPromise
+  } else {
+    void totalPromise
+  }
+
   const serialized = await serializeProductRows(rows, { catalog: true })
   const items = await applyStorefrontSoldOutFromPlatformPricelist(
     serialized as Array<{ id: string; sold_out?: boolean }>

@@ -11,7 +11,7 @@ import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing from '@/components/shop/ShopCatalogListing'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
-import CatalogFilterProgress from '@/components/shop/CatalogFilterProgress'
+import CatalogLoadingOverlay from '@/components/shop/CatalogLoadingOverlay'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
 import { useTheme } from '@/lib/theme'
@@ -865,8 +865,7 @@ function ShopCatalogPageContent({
   const catalogFetching =
     !catalogBrowseDeferred &&
     (loading || pageLoading || searchPending || filterNavigating)
-  const showFilterProgress = filterNavigating || (pageLoading && products.length === 0)
-  const showEmptyProductsLoader =
+  const showCatalogLoadingOverlay =
     !catalogBrowseDeferred && !showBrowsePrompt && catalogFetching && products.length === 0
   const showCatalogOverlay = catalogFetching && products.length > 0
 
@@ -893,7 +892,6 @@ function ShopCatalogPageContent({
         <main
           className={`relative flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 app-readable ${shellBg}`}
         >
-          <CatalogFilterProgress active={showFilterProgress} />
           <div className="max-w-full">
             <div
               className={
@@ -993,8 +991,8 @@ function ShopCatalogPageContent({
                   {tr('shop.catalog.pickSubcategoryHint')}
                 </p>
               </div>
-            ) : showEmptyProductsLoader ? (
-              <CatalogLoadingIndicator />
+            ) : showCatalogLoadingOverlay ? (
+              null
             ) : error ? (
               <div className="text-center py-12">
                 <div className="text-red-500 mb-4">
@@ -1107,6 +1105,8 @@ function ShopCatalogPageContent({
           ) : null}
         </main>
       </div>
+
+      <CatalogLoadingOverlay active={showCatalogLoadingOverlay} />
     </div>
   )
 }

@@ -268,7 +268,7 @@ export function buildActiveCatalogFilters(
 
   if (categoryIds?.length) {
     const idPlaceholders = categoryIds.map(() => '?').join(', ')
-    const idClause = `(p.category_id IN (${idPlaceholders}) OR c.id IN (${idPlaceholders}))`
+    const idClause = `p.category_id IN (${idPlaceholders})`
 
     if (query.strictCategoryIdOnly) {
       const labels = [
@@ -276,31 +276,23 @@ export function buildActiveCatalogFilters(
         ...(query.legacyCategoryNames ?? []),
       ].filter(Boolean) as string[]
       const textMatch = buildQualifiedCategoryTextMatch(labels)
-      const combined = combineCategoryIdAndLegacyTextMatch(
-        idClause,
-        [...categoryIds, ...categoryIds],
-        textMatch
-      )
+      const combined = combineCategoryIdAndLegacyTextMatch(idClause, categoryIds, textMatch)
       where.push(combined.sql)
       params.push(...combined.params)
     } else if (query.legacyCategoryNames?.length) {
       const legacyNames = query.legacyCategoryNames.filter(Boolean)
       if (legacyNames.length) {
         const legacy = buildQualifiedCategoryTextMatch(legacyNames)
-        const combined = combineCategoryIdAndLegacyTextMatch(
-          idClause,
-          [...categoryIds, ...categoryIds],
-          legacy
-        )
+        const combined = combineCategoryIdAndLegacyTextMatch(idClause, categoryIds, legacy)
         where.push(combined.sql)
         params.push(...combined.params)
       } else {
         where.push(idClause)
-        params.push(...categoryIds, ...categoryIds)
+        params.push(...categoryIds)
       }
     } else {
       where.push(idClause)
-      params.push(...categoryIds, ...categoryIds)
+      params.push(...categoryIds)
     }
   }
 
