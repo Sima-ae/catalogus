@@ -670,30 +670,35 @@ function ShopCatalogPageContent({
 
     const prefetched =
       reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
-    const cached =
-      reloadToken === 0
-        ? prefetched ?? getCachedShopCatalog(clientCatalogSignature) ?? null
-        : null
-    const cacheFresh = cached ? isShopCatalogCacheFresh(clientCatalogSignature) : false
+    const cachedFromStore =
+      reloadToken === 0 ? getCachedShopCatalog(clientCatalogSignature) : undefined
+    const cached = prefetched ?? cachedFromStore ?? null
+    const cacheFresh =
+      prefetched != null ||
+      (cachedFromStore != null && isShopCatalogCacheFresh(clientCatalogSignature))
 
-    if (cached) {
+    if (cacheFresh && cached && (cached.items.length > 0 || cached.total > 0)) {
       applyCatalogPage(cached)
       setLoading(false)
       setPageLoading(false)
       setFilterNavigating(false)
+      setError(null)
+      return () => {
+        cancelled = true
+      }
+    }
+
+    setError(null)
+
+    const cachedHasItems = cached != null && cached.items.length > 0
+    if (cachedHasItems) {
+      applyCatalogPage(cached)
+      setPageLoading(true)
     } else if (!hasLoadedOnce.current) {
       setLoading(true)
       setPageLoading(true)
     } else {
       setPageLoading(true)
-    }
-
-    setError(null)
-
-    if (cacheFresh) {
-      return () => {
-        cancelled = true
-      }
     }
 
     async function loadProducts() {
@@ -857,12 +862,13 @@ function ShopCatalogPageContent({
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
   const shellBg = isDark ? 'bg-dark-950' : 'bg-gray-50'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const resultsLoading =
-    !catalogBrowseDeferred && (pageLoading || searchPending || filterNavigating)
+  const catalogFetching =
+    !catalogBrowseDeferred &&
+    (loading || pageLoading || searchPending || filterNavigating)
   const showFilterProgress = filterNavigating || (pageLoading && products.length === 0)
-  const showFullCatalogLoader =
-    !catalogBrowseDeferred && !showFilterProgress && loading && products.length === 0
-  const showCatalogOverlay = resultsLoading && products.length > 0
+  const showEmptyProductsLoader =
+    !catalogBrowseDeferred && !showBrowsePrompt && catalogFetching && products.length === 0
+  const showCatalogOverlay = catalogFetching && products.length > 0
 
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
@@ -987,7 +993,7 @@ function ShopCatalogPageContent({
                   {tr('shop.catalog.pickSubcategoryHint')}
                 </p>
               </div>
-            ) : showFullCatalogLoader ? (
+            ) : showEmptyProductsLoader ? (
               <CatalogLoadingIndicator />
             ) : error ? (
               <div className="text-center py-12">
@@ -1023,7 +1029,7 @@ function ShopCatalogPageContent({
                   Try Again
                 </button>
               </div>
-            ) : products.length === 0 ? (
+            ) : products.length === 0 && !catalogFetching ? (
               emptyVariant === 'simple' ? (
                 <div className="text-center py-12">
                   <p className={`text-lg ${muted}`}>

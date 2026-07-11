@@ -486,6 +486,19 @@ export function useShopNestedSubcategory(
     [pathname, replace, searchParams]
   )
 
+  /** Skip an extra click when a subcategory has only one nested type (e.g. SPORT → MLB). */
+  useEffect(() => {
+    if (!enabled || loading || !needsNestedSubcategoryPick) return
+    if (nestedSubcategoryOptions.length !== 1) return
+    setSelectedNestedSubcategory(nestedSubcategoryOptions[0]!)
+  }, [
+    enabled,
+    loading,
+    needsNestedSubcategoryPick,
+    nestedSubcategoryOptions,
+    setSelectedNestedSubcategory,
+  ])
+
   useEffect(() => {
     if (!hasNestedSubcategories || loading) return
     const raw = searchParams.get('nested')?.trim()

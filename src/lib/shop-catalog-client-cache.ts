@@ -73,6 +73,7 @@ export function setCachedShopCatalog(
   page: CatalogProductsPage,
   options?: { shuffle?: boolean }
 ): void {
+  if (page.total <= 0 && page.items.length === 0) return
   catalogCache.set(signature, {
     page,
     fetchedAt: Date.now(),
