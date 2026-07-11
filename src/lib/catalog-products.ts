@@ -55,6 +55,8 @@ export type CatalogProductsQuery = {
   shuffle?: boolean
   /** Skip COUNT(*) — client already has total from page 1 (faster page 2+). */
   skipTotal?: boolean
+  /** Return only `{ total, totalPages }` (fast bucket count). */
+  countOnly?: boolean
 }
 
 export type CatalogProductsPage = {
@@ -250,6 +252,8 @@ export type CatalogFilterOptions = {
   brandId?: string
   /** Shop grid listing — indexed category_id only (legacy rows need backfill). */
   categoryListingIdOnly?: boolean
+  /** Shop grid listing — indexed brand_id only when FK is known. */
+  brandListingIdOnly?: boolean
 }
 
 /** Shared WHERE for paginated shop catalog queries. */
@@ -316,12 +320,17 @@ export function buildActiveCatalogFilters(
   }
 
   if (query.brand && query.brand !== 'All') {
-    const brandFilter = buildProductBrandFilter(query.brand, {
-      brandId: options.brandId ?? query.brandId,
-      includeBrandJoin: includeBrand,
-    })
-    where.push(brandFilter.sql)
-    params.push(...brandFilter.params)
+    if (options.brandListingIdOnly && options.brandId) {
+      where.push('p.brand_id = ?')
+      params.push(options.brandId)
+    } else {
+      const brandFilter = buildProductBrandFilter(query.brand, {
+        brandId: options.brandId ?? query.brandId,
+        includeBrandJoin: includeBrand,
+      })
+      where.push(brandFilter.sql)
+      params.push(...brandFilter.params)
+    }
   }
 
   const tag = query.tag?.trim()
@@ -618,6 +627,7 @@ export function buildCatalogProductsUrl(
   if (query.mode) params.set('mode', query.mode)
   if (query.shuffle) params.set('shuffle', '1')
   if (query.skipTotal) params.set('skipTotal', '1')
+  if (query.countOnly) params.set('countOnly', '1')
   return `${basePath}?${params.toString()}`
 }
 

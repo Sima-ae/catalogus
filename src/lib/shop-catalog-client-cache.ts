@@ -103,7 +103,7 @@ async function fetchShopCatalogPage(
     search: filters.search || undefined,
     mode: filters.mode === 'new' ? 'new' : undefined,
     shuffle: filters.shuffle ? true : undefined,
-    skipTotal: page > 1 ? true : undefined,
+    skipTotal: true,
   })
 
   const response = await fetch(url, { method: 'GET' })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   DuplicateSkuError,
   getProductDashboardStats,
+  getShopCatalogProductTotal,
   insertProduct,
   listActiveProductsPaginated,
   listProductsForSellerPaginated,
@@ -18,7 +19,12 @@ import {
   requireProductWrite,
   resolveCatalogAccess,
 } from '@/lib/product-api-auth'
-import { parseAdminProductsQuery, parseCatalogProductsQuery, MAX_ADMIN_PRODUCTS_PAGE_SIZE } from '@/lib/catalog-products'
+import {
+  parseAdminProductsQuery,
+  parseCatalogProductsQuery,
+  MAX_ADMIN_PRODUCTS_PAGE_SIZE,
+  CATALOG_PAGE_SIZE,
+} from '@/lib/catalog-products'
 import { omitProductInternalPricing } from '@/lib/product-serialize'
 
 export const dynamic = 'force-dynamic'
@@ -70,6 +76,24 @@ export async function GET(request: NextRequest) {
           paginatedQuery.limit
         )
         return NextResponse.json(result)
+      }
+
+      if (request.nextUrl.searchParams.get('countOnly') === '1') {
+        const total = await getShopCatalogProductTotal(paginatedQuery)
+        return NextResponse.json(
+          {
+            items: [],
+            total,
+            page: paginatedQuery.page,
+            pageSize: CATALOG_PAGE_SIZE,
+            totalPages: Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE) || 1),
+          },
+          {
+            headers: {
+              'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
+            },
+          }
+        )
       }
 
       const result = await listActiveProductsPaginated(paginatedQuery)

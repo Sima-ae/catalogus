@@ -25,7 +25,7 @@ function useSimulatedLoadProgress(active: boolean): { percent: number; visible: 
     const id = window.setInterval(() => {
       if (!activeRef.current) return
       const elapsed = Date.now() - start
-      const eased = Math.min(92, Math.round(92 * (1 - Math.exp(-elapsed / 3500))))
+      const eased = Math.min(88, Math.round(88 * (1 - Math.exp(-elapsed / 5000))))
       setPercent(eased)
     }, 80)
 

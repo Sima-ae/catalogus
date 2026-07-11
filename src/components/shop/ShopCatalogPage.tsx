@@ -233,13 +233,38 @@ function ShopCatalogPageContent({
         search: debouncedSearch || undefined,
         mode: catalogMode === 'new' ? 'new' : undefined,
         shuffle: catalogShuffle ? true : undefined,
-        skipTotal:
-          pageToLoad > 1 && totalItemsRef.current > 0 ? true : undefined,
+        skipTotal: true,
       }),
     [
       brandQueryActive,
       catalogMode,
       catalogShuffle,
+      debouncedSearch,
+      filterBrand,
+      filterTag,
+      selectedCategory,
+      selectedSubcategory,
+      selectedNestedSubcategory,
+    ]
+  )
+
+  const buildCatalogTotalUrl = useCallback(
+    () =>
+      buildCatalogProductsUrl(appPath('/api/products'), {
+        page: 1,
+        limit: 1,
+        category: selectedCategory !== 'All' ? selectedCategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+        nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
+        brand: brandQueryActive ? filterBrand : undefined,
+        tag: filterTag || undefined,
+        search: debouncedSearch || undefined,
+        mode: catalogMode === 'new' ? 'new' : undefined,
+        countOnly: true,
+      }),
+    [
+      brandQueryActive,
+      catalogMode,
       debouncedSearch,
       filterBrand,
       filterTag,
@@ -767,6 +792,20 @@ function ShopCatalogPageContent({
     }
 
     async function loadProducts() {
+      const shouldFetchTotal = pageToLoad === 1 && !catalogShuffle
+      const totalUrl = shouldFetchTotal ? buildCatalogTotalUrl() : null
+      const totalFetch =
+        totalUrl != null
+          ? fetch(totalUrl, { method: 'GET' })
+              .then(async (res) => {
+                if (!res.ok || cancelled) return
+                const payload: unknown = await res.json()
+                if (!isCatalogProductsPage(payload) || cancelled) return
+                setTotalItems(payload.total)
+              })
+              .catch(() => undefined)
+          : null
+
       try {
         const url = buildCatalogFetchUrl(pageToLoad, catalogPageBaseOffset(pageToLoad))
 
@@ -778,6 +817,9 @@ function ShopCatalogPageContent({
         if (cancelled) return
 
         applyCatalogPage(data)
+        if (data.skipTotal && totalFetch) {
+          void totalFetch
+        }
       } catch (err) {
         if (cancelled) return
         if (!cached) {
@@ -819,6 +861,8 @@ function ShopCatalogPageContent({
     selectedNestedSubcategory,
     setCurrentPage,
     buildCatalogFetchUrl,
+    buildCatalogTotalUrl,
+    catalogShuffle,
   ])
 
   useEffect(() => {
@@ -843,6 +887,7 @@ function ShopCatalogPageContent({
         limit: 1,
         ...params,
         mode: config.mode === 'new' ? 'new' : undefined,
+        countOnly: true,
       })
       const res = await fetch(url, { method: 'GET' })
       if (!res.ok) return 0

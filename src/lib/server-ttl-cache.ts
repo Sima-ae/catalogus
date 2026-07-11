@@ -40,3 +40,10 @@ export function invalidateCachedNamespace(namespace: string): void {
 export function invalidateCachedKey(namespace: string, key: string): void {
   getStore(namespace).delete(key)
 }
+
+/** Return a warm cache entry without running the loader (undefined if missing or expired). */
+export function peekCachedValue<T>(namespace: string, key: string): T | undefined {
+  const hit = getStore(namespace).get(key)
+  if (!hit || hit.expiresAt <= Date.now()) return undefined
+  return hit.value as T
+}
