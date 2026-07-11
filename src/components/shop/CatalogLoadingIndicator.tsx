@@ -8,6 +8,8 @@ type Props = {
   className?: string
   compact?: boolean
   isDark?: boolean
+  /** Simulated load progress 0–100 (catalog overlay). */
+  percent?: number
 }
 
 /** Spinner + localized loading text for catalog filter and pagination fetches. */
@@ -16,12 +18,14 @@ export default function CatalogLoadingIndicator({
   className = '',
   compact = false,
   isDark: isDarkProp,
+  percent,
 }: Props) {
   const { t } = useI18n()
   const { theme } = useTheme()
   const isDark = isDarkProp ?? theme === 'dark'
   const text = message ?? t('loading.products')
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const showPercent = typeof percent === 'number'
 
   return (
     <div
@@ -36,6 +40,15 @@ export default function CatalogLoadingIndicator({
         }`}
       />
       <p className={`${compact ? 'text-sm' : 'text-lg'} ${muted}`}>{text}</p>
+      {showPercent ? (
+        <p
+          className={`mt-3 text-2xl font-semibold tabular-nums tracking-tight ${
+            isDark ? 'text-white' : 'text-gray-900'
+          }`}
+        >
+          {percent}%
+        </p>
+      ) : null}
     </div>
   )
 }
