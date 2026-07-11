@@ -227,6 +227,7 @@ const SELECT_SQL_CACHE_KEY = '__catalogusProductSelectSql'
 const ADMIN_SELECT_CACHE_KEY = '__catalogusAdminSelectSql'
 const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
 const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
+const CATALOG_LISTING_SELECT_CACHE_KEY = '__catalogusCatalogListingSelectSql'
 
 const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats'
 const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 30_000
@@ -241,6 +242,7 @@ type GlobalSchema = typeof globalThis & {
   [ADMIN_SELECT_CACHE_KEY]?: string
   [CATALOG_FROM_CACHE_KEY]?: string
   [CATALOG_SELECT_CACHE_KEY]?: string
+  [CATALOG_LISTING_SELECT_CACHE_KEY]?: string
 }
 
 async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
@@ -373,6 +375,35 @@ function catalogListingNeedsBrandJoin(
 ): boolean {
   // Brand filters use indexed p.brand_id + legacy p.brand text — no brands join.
   return false
+}
+
+/** Lightweight SELECT for shop grid — no category/brand JOINs (uses p.category / p.brand). */
+async function catalogListingSelectSql(): Promise<string> {
+  const g = globalThis as GlobalSchema
+  if (g[CATALOG_LISTING_SELECT_CACHE_KEY]) return g[CATALOG_LISTING_SELECT_CACHE_KEY]
+
+  g[CATALOG_LISTING_SELECT_CACHE_KEY] = `
+    SELECT
+      p.id,
+      p.name,
+      p.short_description,
+      p.price,
+      p.original_price,
+      p.image_url,
+      p.category,
+      p.category_id,
+      p.brand,
+      p.brand_id,
+      p.product_options,
+      p.sold_out,
+      p.pre_order,
+      p.featured,
+      p.source_url,
+      p.author_id,
+      p.sku
+    FROM products p
+  `
+  return g[CATALOG_LISTING_SELECT_CACHE_KEY]
 }
 
 /** Lightweight SELECT for shop grid rows — skips description, gallery, tags, etc. */
@@ -761,6 +792,8 @@ const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
 const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
 const SHOP_SHUFFLE_PAGE_TTL_MS = 120_000
+const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
+const SHOP_CATALOG_PAGE_TTL_MS = 120_000
 const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
 const SHUFFLE_CANDIDATE_POOL_SIZE = 800
@@ -1430,7 +1463,29 @@ export async function listActiveProductsPaginated(
       () => loadActiveProductsPaginatedFromDb(query)
     )
   }
-  return loadActiveProductsPaginatedFromDb(query)
+  const cacheKey = shopCatalogPageCacheKey(query)
+  return getCachedValue(
+    SHOP_CATALOG_PAGE_CACHE_NS,
+    cacheKey,
+    SHOP_CATALOG_PAGE_TTL_MS,
+    () => loadActiveProductsPaginatedFromDb(query)
+  )
+}
+
+function shopCatalogPageCacheKey(query: CatalogProductsQuery): string {
+  return [
+    query.page,
+    query.limit,
+    query.offset ?? '',
+    query.category ?? '',
+    query.subcategory ?? '',
+    query.nested ?? '',
+    query.brand ?? '',
+    query.tag ?? '',
+    query.search ?? '',
+    query.mode ?? '',
+    query.skipTotal ? '1' : '0',
+  ].join('|')
 }
 
 function shopCatalogCountCacheKey(
@@ -1540,6 +1595,11 @@ async function loadActiveProductsPaginatedFromDb(
     needsBrandJoin,
   })
 
+  const useIndexedCategoryListing =
+    Boolean(categoryFilter?.categoryIds?.length) &&
+    !query.search?.trim() &&
+    !query.tag?.trim()
+
   const { whereSql, params } = buildActiveCatalogFilters(
     {
       ...query,
@@ -1550,7 +1610,12 @@ async function loadActiveProductsPaginatedFromDb(
       categoryStorageLabel: categoryFilter?.categoryStorageLabel,
       excludeCategoryIds: categoryFilter?.excludeCategoryIds,
     },
-    { includeBrandJoin: needsBrandJoin, useFulltextSearch: useFulltext, brandId }
+    {
+      includeBrandJoin: needsBrandJoin,
+      useFulltextSearch: useFulltext,
+      brandId,
+      categoryListingIdOnly: useIndexedCategoryListing,
+    }
   )
   const limit = query.limit
   const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
@@ -1570,12 +1635,19 @@ async function loadActiveProductsPaginatedFromDb(
   const { joinSql, orderSql, scopeParam } = positionJoin
   const idParams = scopeParam ? [scopeParam, ...params] : params
 
-  const totalPromise = countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
-  const fastTotalPromise = shuffle
-    ? Promise.resolve(null as number | null)
-    : resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
+  const skipTotalCount = query.skipTotal === true && query.page > 1 && !shuffle
+  const canUseBucketTotal =
+    !shuffle && !skipTotalCount && !query.search?.trim() && !query.tag?.trim() && query.mode !== 'new'
+  const totalPromise =
+    skipTotalCount || canUseBucketTotal
+      ? null
+      : countShopCatalogProducts(fromClause, joinSql, whereSql, idParams, shuffle)
+  const fastTotalPromise =
+    shuffle || skipTotalCount
+      ? Promise.resolve(null as number | null)
+      : resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
 
-  async function fetchPageProductIds(): Promise<{ id: string }[]> {
+  async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle && usePrecomputedShuffle) {
       const ids = await fetchHomepageShufflePageProductIds(
         HOMEPAGE_SHUFFLE_SCOPE,
@@ -1583,39 +1655,55 @@ async function loadActiveProductsPaginatedFromDb(
         limit,
         offset
       )
-      return ids.map((id) => ({ id }))
+      if (!ids.length) return []
+      return fetchProductRowsByIds(ids, { catalog: true })
     }
     if (shuffle && !usePrecomputedShuffle) {
       const ids = await fetchShuffledActiveProductIds(fromClause, whereSql, idParams, limit, offset)
-      return ids.map((id) => ({ id }))
+      if (!ids.length) return []
+      return fetchProductRowsByIds(ids, { catalog: true })
     }
-    return queryDb<{ id: string }[]>(
-      `SELECT p.id ${fromClause} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+    const listingSelect = await catalogListingSelectSql()
+    return queryDb<Record<string, unknown>[]>(
+      `${listingSelect} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idParams, limit, offset]
     )
   }
 
-  const [fastTotal, idRows] = await Promise.all([fastTotalPromise, fetchPageProductIds()])
-  const rows = await fetchProductRowsByIds(idRows.map((r) => String(r.id)), { catalog: true })
+  const [fastTotal, rows] = await Promise.all([fastTotalPromise, fetchPageProductRows()])
+
+  const soldOutStub = rows.map((r) => ({
+    id: String(r.id ?? ''),
+    sold_out: r.sold_out === 1 || r.sold_out === true,
+  }))
+  const [serialized, soldOutMerged] = await Promise.all([
+    serializeProductRows(rows, { catalog: true }),
+    applyStorefrontSoldOutFromPlatformPricelist(soldOutStub),
+  ])
+  const soldOutById = new Map(soldOutMerged.map((p) => [p.id, p.sold_out]))
+  const items = (serialized as Array<{ id: string; sold_out?: boolean }>).map((p) => ({
+    ...p,
+    sold_out: Boolean(soldOutById.get(p.id) ?? p.sold_out),
+  }))
 
   let total = fastTotal
-  if (total == null) {
-    total = await totalPromise
-  } else {
-    void totalPromise
+  if (skipTotalCount) {
+    total = 0
+  } else if (total == null) {
+    total = totalPromise ? await totalPromise : 0
   }
 
-  const serialized = await serializeProductRows(rows, { catalog: true })
-  const items = await applyStorefrontSoldOutFromPlatformPricelist(
-    serialized as Array<{ id: string; sold_out?: boolean }>
-  )
+  const pageTotal = skipTotalCount ? 0 : total
 
   return {
     items: items as unknown as CatalogProductsPage['items'],
-    total,
+    total: pageTotal,
     page: query.page,
     pageSize: CATALOG_PAGE_SIZE,
-    totalPages: Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE) || 1),
+    totalPages: skipTotalCount
+      ? 1
+      : Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE) || 1),
+    skipTotal: skipTotalCount || undefined,
   }
 }
 

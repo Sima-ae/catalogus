@@ -238,7 +238,7 @@ export function serializeCatalogProductRow(
   row: Record<string, unknown>,
   options?: SerializeProductRowOptions
 ) {
-  const category = String(row.resolved_category_name ?? '').trim()
+  const category = String(row.resolved_category_name ?? row.category ?? '').trim()
   const brand = resolveProductBrandDisplay(row)
   const sourceUrl = row.source_url != null ? String(row.source_url) : null
   const rawGallery = parseProductJsonField(row.gallery_images)

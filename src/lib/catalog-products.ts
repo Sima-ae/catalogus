@@ -53,6 +53,8 @@ export type CatalogProductsQuery = {
   mode?: CatalogMode
   /** Homepage-style random order (unfiltered global catalog only). */
   shuffle?: boolean
+  /** Skip COUNT(*) — client already has total from page 1 (faster page 2+). */
+  skipTotal?: boolean
 }
 
 export type CatalogProductsPage = {
@@ -61,6 +63,8 @@ export type CatalogProductsPage = {
   page: number
   pageSize: number
   totalPages: number
+  /** True when `total` was not recomputed (pagination fast path). */
+  skipTotal?: boolean
   dashboardStats?: ProductDashboardStats
 }
 
@@ -113,8 +117,9 @@ export function parseCatalogProductsQuery(
     modeRaw === 'new' || modeRaw === 'all' ? modeRaw : undefined
   const shuffleRaw = searchParams.get('shuffle')?.trim().toLowerCase()
   const shuffle = shuffleRaw === '1' || shuffleRaw === 'true'
+  const skipTotal = searchParams.get('skipTotal') === '1'
 
-  return { page, limit, offset, category, subcategory, nested, brand, tag, search, mode, shuffle }
+  return { page, limit, offset, category, subcategory, nested, brand, tag, search, mode, shuffle, skipTotal }
 }
 
 function toMysqlDatetime(d: Date): string {
@@ -243,6 +248,8 @@ export type CatalogFilterOptions = {
   useFulltextSearch?: boolean
   /** Resolved brands.id for indexed brand filter. */
   brandId?: string
+  /** Shop grid listing — indexed category_id only (legacy rows need backfill). */
+  categoryListingIdOnly?: boolean
 }
 
 /** Shared WHERE for paginated shop catalog queries. */
@@ -270,7 +277,10 @@ export function buildActiveCatalogFilters(
     const idPlaceholders = categoryIds.map(() => '?').join(', ')
     const idClause = `p.category_id IN (${idPlaceholders})`
 
-    if (query.strictCategoryIdOnly) {
+    if (options.categoryListingIdOnly) {
+      where.push(idClause)
+      params.push(...categoryIds)
+    } else if (query.strictCategoryIdOnly) {
       const labels = [
         query.categoryStorageLabel?.trim(),
         ...(query.legacyCategoryNames ?? []),
@@ -607,6 +617,7 @@ export function buildCatalogProductsUrl(
   if (query.search) params.set('search', query.search)
   if (query.mode) params.set('mode', query.mode)
   if (query.shuffle) params.set('shuffle', '1')
+  if (query.skipTotal) params.set('skipTotal', '1')
   return `${basePath}?${params.toString()}`
 }
 

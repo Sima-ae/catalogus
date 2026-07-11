@@ -10,7 +10,6 @@ import CategoryFilter from '@/components/shop/CategoryFilter'
 import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing from '@/components/shop/ShopCatalogListing'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
-import CatalogLoadingIndicator from '@/components/shop/CatalogLoadingIndicator'
 import CatalogLoadingOverlay from '@/components/shop/CatalogLoadingOverlay'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
@@ -150,6 +149,8 @@ function ShopCatalogPageContent({
   const hasLoadedOnce = useRef(Boolean(initialCatalog))
   const productsRef = useRef(products)
   productsRef.current = products
+  const totalItemsRef = useRef(totalItems)
+  totalItemsRef.current = totalItems
   const { user, isAdmin } = useAuth()
   const [categoryProductCount, setCategoryProductCount] = useState<number | null>(null)
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
@@ -232,6 +233,8 @@ function ShopCatalogPageContent({
         search: debouncedSearch || undefined,
         mode: catalogMode === 'new' ? 'new' : undefined,
         shuffle: catalogShuffle ? true : undefined,
+        skipTotal:
+          pageToLoad > 1 && totalItemsRef.current > 0 ? true : undefined,
       }),
     [
       brandQueryActive,
@@ -245,6 +248,56 @@ function ShopCatalogPageContent({
       selectedNestedSubcategory,
     ]
   )
+
+  const catalogFilterPrefetchBase = useMemo(
+    (): Omit<ShopCatalogFilterPrefetch, 'page'> => ({
+      category: selectedCategory !== 'All' ? selectedCategory : undefined,
+      subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
+      nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
+      brand: brandQueryActive ? filterBrand : undefined,
+      tag: filterTag || undefined,
+      search: debouncedSearch || undefined,
+      mode: catalogMode,
+      shuffle: catalogShuffle ? true : undefined,
+    }),
+    [
+      brandQueryActive,
+      catalogMode,
+      catalogShuffle,
+      debouncedSearch,
+      filterBrand,
+      filterTag,
+      selectedCategory,
+      selectedSubcategory,
+      selectedNestedSubcategory,
+    ]
+  )
+
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      setPageLoading(true)
+      setFilterNavigating(false)
+      setCurrentPage(nextPage)
+    },
+    [setCurrentPage]
+  )
+
+  useEffect(() => {
+    if (catalogBrowseDeferred || pageLoading || totalItems <= 0) return
+    const totalPages = Math.max(1, Math.ceil(totalItems / CATALOG_PAGE_SIZE))
+    if (currentPage + 1 <= totalPages) {
+      prefetchShopCatalogFilter({ ...catalogFilterPrefetchBase, page: currentPage + 1 })
+    }
+    if (currentPage > 1) {
+      prefetchShopCatalogFilter({ ...catalogFilterPrefetchBase, page: currentPage - 1 })
+    }
+  }, [
+    catalogBrowseDeferred,
+    catalogFilterPrefetchBase,
+    currentPage,
+    pageLoading,
+    totalItems,
+  ])
 
   const loadMoreProducts = useCallback(async () => {
     if (loadingMore || pageLoading) return
@@ -651,8 +704,20 @@ function ShopCatalogPageContent({
 
     const applyCatalogPage = (data: CatalogProductsPage) => {
       setProducts(data.items)
-      setTotalItems(data.total)
-      setCachedShopCatalog(clientCatalogSignature, data, { shuffle: catalogShuffle })
+      const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
+      if (!data.skipTotal) {
+        setTotalItems(data.total)
+      }
+      setCachedShopCatalog(
+        clientCatalogSignature,
+        {
+          ...data,
+          total: resolvedTotal,
+          totalPages: Math.max(1, Math.ceil(resolvedTotal / CATALOG_PAGE_SIZE) || 1),
+          skipTotal: undefined,
+        },
+        { shuffle: catalogShuffle }
+      )
       hasLoadedOnce.current = true
       if (data.page !== pageToLoad && data.page >= 1) {
         setCurrentPage(data.page)
@@ -866,8 +931,7 @@ function ShopCatalogPageContent({
     !catalogBrowseDeferred &&
     (loading || pageLoading || searchPending || filterNavigating)
   const showCatalogLoadingOverlay =
-    !catalogBrowseDeferred && !showBrowsePrompt && catalogFetching && products.length === 0
-  const showCatalogOverlay = catalogFetching && products.length > 0
+    !catalogBrowseDeferred && !showBrowsePrompt && catalogFetching
 
   return (
     <div className={`flex min-h-screen transition-colors duration-200 ${shellBg} overflow-x-hidden`}>
@@ -1059,40 +1123,21 @@ function ShopCatalogPageContent({
                 </div>
               )
             ) : (
-              <div className="relative">
-                {showCatalogOverlay ? (
-                  <div
-                    className="pointer-events-none absolute inset-0 z-10 flex justify-center pt-10"
-                    aria-hidden
-                  >
-                    <CatalogLoadingIndicator compact className="!py-0" />
-                  </div>
-                ) : null}
-                <div
-                  className={
-                    showCatalogOverlay
-                      ? 'pointer-events-none opacity-60 transition-opacity duration-150'
-                      : 'transition-opacity duration-150'
-                  }
-                  aria-busy={showCatalogOverlay}
-                >
-                  <ShopCatalogListing
-                    products={products}
-                    page={currentPage}
-                    totalItems={totalItems}
-                    onPageChange={setCurrentPage}
-                    onProductDeleted={handleProductDeleted}
-                    onProductQuickEditSaved={handleProductQuickEditSaved}
-                    onReorder={isAdmin ? handleReorder : undefined}
-                    reorderScope={isAdmin ? reorderScope : null}
-                    reorderSaving={reorderSaving}
-                    centered={config.centerCatalog}
-                    hasMoreOnPage={hasMoreOnPage}
-                    loadingMore={loadingMore}
-                    onLoadMore={() => void loadMoreProducts()}
-                  />
-                </div>
-              </div>
+              <ShopCatalogListing
+                products={products}
+                page={currentPage}
+                totalItems={totalItems}
+                onPageChange={handlePageChange}
+                onProductDeleted={handleProductDeleted}
+                onProductQuickEditSaved={handleProductQuickEditSaved}
+                onReorder={isAdmin ? handleReorder : undefined}
+                reorderScope={isAdmin ? reorderScope : null}
+                reorderSaving={reorderSaving}
+                centered={config.centerCatalog}
+                hasMoreOnPage={hasMoreOnPage}
+                loadingMore={loadingMore}
+                onLoadMore={() => void loadMoreProducts()}
+              />
             )}
           </div>
 
