@@ -15,20 +15,16 @@ export type ShopBrandFilterContext = {
   loadingNestedSubcategories?: boolean
 }
 
-/** Show brand pills when a leaf filter is selected or no deeper pills remain. */
+/** Show brand pills below category rows once browse picks are resolved (All or specific). */
 export function shouldShowShopBrandFilter(ctx: ShopBrandFilterContext): boolean {
   if (!ctx.selectedCategory || ctx.selectedCategory === 'All') return false
   if (isShopBrowseFilterPending(ctx.selectedSubcategory)) return false
 
   const nested = ctx.selectedNestedSubcategory ?? 'All'
-  if (!isShopBrowseFilterPending(nested) && nested !== 'All') return true
+  if (isShopBrowseFilterPending(nested)) return false
+  if (ctx.loadingSubcategories || ctx.loadingNestedSubcategories) return false
 
-  if (ctx.selectedSubcategory !== 'All') {
-    if (ctx.loadingNestedSubcategories) return false
-    return !ctx.hasNestedSubcategories
-  }
-  if (ctx.loadingSubcategories) return false
-  return !ctx.hasSubcategories
+  return true
 }
 
 /** Apply ?brand= to product queries only when brand pills would be visible. */

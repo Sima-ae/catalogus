@@ -1,7 +1,5 @@
-import { getDirectChildCategories } from '@/lib/shop-category-tree'
 import {
   getCachedShopCategoryNavSync,
-  getCachedShopCategoryRowsSync,
   resolveShopSubcategoriesFromNav,
 } from '@/lib/shop-categories-client'
 
@@ -13,7 +11,5 @@ export function categoryHasBrowseChildren(categoryName: string): boolean {
     getCachedShopCategoryNavSync(),
     categoryName
   )
-  if (fromNav.length > 0) return true
-
-  return getDirectChildCategories(getCachedShopCategoryRowsSync(), categoryName).length > 0
+  return fromNav.length > 0
 }

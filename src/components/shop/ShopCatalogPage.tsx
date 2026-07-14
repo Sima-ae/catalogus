@@ -23,6 +23,7 @@ import { useShopNestedSubcategory, useShopSubcategory } from '@/lib/use-shop-sub
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
+import { fetchCatalogJson } from '@/lib/catalog-fetch-client'
 import {
   shouldDeferShopCatalogProductLoad,
   shopNestedSubcategoryForApiQuery,
@@ -132,10 +133,18 @@ function ShopCatalogPageContent({
     nestedSubcategoryOptions,
     needsNestedSubcategoryPick,
   } = nestedSubcategoryState
+  const effectiveNestedSubcategory =
+    optimisticNestedSubcategory ?? selectedNestedSubcategory
   const { selectedBrand, setSelectedBrand } = useShopBrand({
-    selectedCategory,
-    subcategoryState,
-    nestedSubcategoryState,
+    selectedCategory: activeCategory,
+    subcategoryState: {
+      ...subcategoryState,
+      selectedSubcategory: activeSubcategory,
+    },
+    nestedSubcategoryState: {
+      ...nestedSubcategoryState,
+      selectedNestedSubcategory: effectiveNestedSubcategory,
+    },
   })
   const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
   const [loading, setLoading] = useState(!initialCatalog)
@@ -182,9 +191,9 @@ function ShopCatalogPageContent({
   const filterBrand = searchParams.get('brand')?.trim() || 'All'
   const filterTag = searchParams.get('tag')?.trim() || ''
   const brandFilterCtx = {
-    selectedCategory,
-    selectedSubcategory,
-    selectedNestedSubcategory,
+    selectedCategory: activeCategory,
+    selectedSubcategory: activeSubcategory,
+    selectedNestedSubcategory: effectiveNestedSubcategory,
     hasSubcategories,
     hasNestedSubcategories,
     loadingSubcategories,
@@ -192,14 +201,21 @@ function ShopCatalogPageContent({
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const brandQueryActive = shouldPassBrandToCatalogQuery(filterBrand)
+  const effectiveNeedsSubcategoryPick =
+    hasSubcategories && !loadingSubcategories && activeSubcategory === ''
+  const effectiveNeedsNestedSubcategoryPick =
+    hasNestedSubcategories &&
+    !loadingNestedSubcategories &&
+    activeSubcategory !== 'All' &&
+    effectiveNestedSubcategory === ''
   const catalogBrowseDeferred = shouldDeferShopCatalogProductLoad({
     searchActive: Boolean(debouncedSearch.trim()),
     loadingSubcategories,
-    needsSubcategoryPick,
+    needsSubcategoryPick: effectiveNeedsSubcategoryPick,
     loadingNestedSubcategories,
-    needsNestedSubcategoryPick,
+    needsNestedSubcategoryPick: effectiveNeedsNestedSubcategoryPick,
   })
-  const filterSignature = `${selectedCategory}|${selectedSubcategory}|${selectedNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}|${catalogBrowseDeferred ? 'deferred' : 'ready'}`
+  const filterSignature = `${activeCategory}|${activeSubcategory}|${effectiveNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}|${catalogBrowseDeferred ? 'deferred' : 'ready'}`
 
   const catalogMode = config.mode === 'new' ? 'new' : 'all'
 
@@ -225,9 +241,9 @@ function ShopCatalogPageContent({
         page: pageToLoad,
         limit: CATALOG_PAGE_SIZE,
         offset: rowOffset,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
-        nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
+        category: activeCategory !== 'All' ? activeCategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(activeSubcategory),
+        nested: shopNestedSubcategoryForApiQuery(effectiveNestedSubcategory),
         brand: brandQueryActive ? filterBrand : undefined,
         tag: filterTag || undefined,
         search: debouncedSearch || undefined,
@@ -236,15 +252,15 @@ function ShopCatalogPageContent({
         skipTotal: true,
       }),
     [
+      activeCategory,
+      activeSubcategory,
       brandQueryActive,
       catalogMode,
       catalogShuffle,
       debouncedSearch,
+      effectiveNestedSubcategory,
       filterBrand,
       filterTag,
-      selectedCategory,
-      selectedSubcategory,
-      selectedNestedSubcategory,
     ]
   )
 
@@ -253,9 +269,9 @@ function ShopCatalogPageContent({
       buildCatalogProductsUrl(appPath('/api/products'), {
         page: 1,
         limit: 1,
-        category: selectedCategory !== 'All' ? selectedCategory : undefined,
-        subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
-        nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
+        category: activeCategory !== 'All' ? activeCategory : undefined,
+        subcategory: shopSubcategoryForApiQuery(activeSubcategory),
+        nested: shopNestedSubcategoryForApiQuery(effectiveNestedSubcategory),
         brand: brandQueryActive ? filterBrand : undefined,
         tag: filterTag || undefined,
         search: debouncedSearch || undefined,
@@ -263,14 +279,14 @@ function ShopCatalogPageContent({
         countOnly: true,
       }),
     [
+      activeCategory,
+      activeSubcategory,
       brandQueryActive,
       catalogMode,
       debouncedSearch,
+      effectiveNestedSubcategory,
       filterBrand,
       filterTag,
-      selectedCategory,
-      selectedSubcategory,
-      selectedNestedSubcategory,
     ]
   )
 
@@ -716,9 +732,9 @@ function ShopCatalogPageContent({
 
     const fetchFilters: ShopCatalogFilterPrefetch = {
       page: pageToLoad,
-      category: selectedCategory !== 'All' ? selectedCategory : undefined,
-      subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
-      nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
+      category: activeCategory !== 'All' ? activeCategory : undefined,
+      subcategory: shopSubcategoryForApiQuery(activeSubcategory),
+      nested: shopNestedSubcategoryForApiQuery(effectiveNestedSubcategory),
       brand: brandQueryActive ? filterBrand : undefined,
       tag: filterTag || undefined,
       search: debouncedSearch || undefined,
@@ -797,16 +813,17 @@ function ShopCatalogPageContent({
       setPageLoading(true)
     }
 
+    const abortController = new AbortController()
+
     async function loadProducts() {
       const shouldFetchTotal = pageToLoad === 1 || totalItemsRef.current <= 0
       const totalUrl = shouldFetchTotal ? buildCatalogTotalUrl() : null
       const totalFetch =
         totalUrl != null
-          ? fetch(totalUrl, { method: 'GET' })
-              .then(async (res) => {
-                if (!res.ok || cancelled) return
-                const payload: unknown = await res.json()
-                if (!isCatalogProductsPage(payload) || cancelled) return
+          ? fetchCatalogJson(totalUrl, { signal: abortController.signal })
+              .then((payload) => {
+                if (cancelled) return
+                if (!isCatalogProductsPage(payload)) return
                 if (payload.total > 0) setTotalItems(payload.total)
               })
               .catch(() => undefined)
@@ -814,11 +831,7 @@ function ShopCatalogPageContent({
 
       try {
         const url = buildCatalogFetchUrl(pageToLoad, catalogPageBaseOffset(pageToLoad))
-
-        const response = await fetch(url, { method: 'GET' })
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-
-        const data: unknown = await response.json()
+        const data: unknown = await fetchCatalogJson(url, { signal: abortController.signal })
         if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
         if (cancelled) return
 
@@ -828,10 +841,10 @@ function ShopCatalogPageContent({
         }
       } catch (err) {
         if (cancelled) return
+        setError(
+          `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
+        )
         if (!cached) {
-          setError(
-            `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
-          )
           setProducts([])
           setTotalItems(0)
         }
@@ -847,8 +860,11 @@ function ShopCatalogPageContent({
     void loadProducts()
     return () => {
       cancelled = true
+      abortController.abort()
     }
   }, [
+    activeCategory,
+    activeSubcategory,
     brandQueryActive,
     catalogBrowseDeferred,
     catalogMode,
@@ -856,15 +872,13 @@ function ShopCatalogPageContent({
     config.mode,
     currentPage,
     debouncedSearch,
+    effectiveNestedSubcategory,
     filterSignature,
     filterBrand,
     filterTag,
     initialCatalog,
     initialCatalogSignature,
     reloadToken,
-    selectedCategory,
-    selectedSubcategory,
-    selectedNestedSubcategory,
     setCurrentPage,
     buildCatalogFetchUrl,
     buildCatalogTotalUrl,
@@ -990,15 +1004,15 @@ function ShopCatalogPageContent({
     if (loadingSubcategories || loadingNestedSubcategories) {
       return tr('shop.catalog.loadingSubcategories')
     }
-    if (needsSubcategoryPick) return tr('shop.catalog.pickSubcategory')
-    if (needsNestedSubcategoryPick) return tr('shop.catalog.pickNestedSubcategory')
+    if (effectiveNeedsSubcategoryPick) return tr('shop.catalog.pickSubcategory')
+    if (effectiveNeedsNestedSubcategoryPick) return tr('shop.catalog.pickNestedSubcategory')
     return null
   }, [
     catalogBrowseDeferred,
+    effectiveNeedsNestedSubcategoryPick,
+    effectiveNeedsSubcategoryPick,
     loadingNestedSubcategories,
     loadingSubcategories,
-    needsNestedSubcategoryPick,
-    needsSubcategoryPick,
     tr,
   ])
   const showBrowsePrompt = Boolean(catalogBrowsePrompt)
@@ -1094,6 +1108,8 @@ function ShopCatalogPageContent({
                 selectedBrand={selectedBrand}
                 displayBrand={optimisticBrand ?? undefined}
                 onBrandChange={handleBrandChange}
+                browseSubcategory={activeSubcategory}
+                browseNested={effectiveNestedSubcategory}
                 onBrandHover={(brand) =>
                   prefetchCatalogHover({
                     brand: brand !== 'All' ? brand : undefined,

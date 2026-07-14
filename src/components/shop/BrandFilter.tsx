@@ -16,6 +16,8 @@ interface BrandFilterProps {
   centered?: boolean
   displayBrand?: string
   onBrandHover?: (brand: string) => void
+  browseSubcategory?: string
+  browseNested?: string
   subcategoryState: Pick<
     ShopSubcategoryHookValue,
     'selectedSubcategory' | 'hasSubcategories' | 'loadingSubcategories'
@@ -33,6 +35,8 @@ export default function BrandFilter({
   centered = false,
   displayBrand,
   onBrandHover,
+  browseSubcategory,
+  browseNested,
   subcategoryState,
   nestedSubcategoryState,
 }: BrandFilterProps) {
@@ -48,10 +52,13 @@ export default function BrandFilter({
   const loadingNestedSubcategories =
     nestedSubcategoryState?.loadingNestedSubcategories ?? false
 
+  const subcategoryForBrowse = browseSubcategory ?? selectedSubcategory
+  const nestedForBrowse = browseNested ?? selectedNestedSubcategory
+
   const showBrandRow = shouldShowShopBrandFilter({
     selectedCategory,
-    selectedSubcategory,
-    selectedNestedSubcategory,
+    selectedSubcategory: subcategoryForBrowse,
+    selectedNestedSubcategory: nestedForBrowse,
     hasSubcategories,
     hasNestedSubcategories,
     loadingSubcategories,
@@ -60,8 +67,8 @@ export default function BrandFilter({
 
   const { brands, loading } = useShopBrandList(
     selectedCategory,
-    selectedSubcategory,
-    selectedNestedSubcategory,
+    subcategoryForBrowse,
+    nestedForBrowse,
     showBrandRow
   )
 
