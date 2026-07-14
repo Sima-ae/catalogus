@@ -10,6 +10,12 @@ import {
 } from '@/lib/pricelist-stock-status'
 import type { PricelistRow } from '@/lib/pricelist-db'
 import { formatPrice } from '@/lib/format-price'
+import {
+  editablePriceSeed,
+  editableShippingSeed,
+  parsePriceInput,
+  rowStockStatus,
+} from '@/lib/pricelist-row-price'
 import { useShopCurrency } from '@/lib/shop-currency-context'
 import PricelistProductThumb from '@/components/pricelist/PricelistProductThumb'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
@@ -51,33 +57,6 @@ type Props = {
   onToggleSelectAllPage?: () => void
   allOnPageSelected?: boolean
   someOnPageSelected?: boolean
-}
-
-function rowStockStatus(row: PricelistRow): PricelistStockStatus | null {
-  const price = row.seller_unit_price ?? row.display_unit_price
-  if (price != null && Number(price) > 0) return null
-  return row.seller_stock_status ?? row.display_stock_status ?? null
-}
-
-function editablePriceSeed(row: PricelistRow): string {
-  if (rowStockStatus(row)) return ''
-  const raw = row.seller_unit_price ?? row.display_unit_price
-  if (raw == null || !Number.isFinite(Number(raw))) return ''
-  return String(raw)
-}
-
-function parsePriceInput(value: string): number | null {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const n = parseFloat(trimmed.replace(',', '.'))
-  if (!Number.isFinite(n) || n < 0) return null
-  return Math.round(n * 100) / 100
-}
-
-function editableShippingSeed(row: PricelistRow): string {
-  const raw = row.seller_shipping_cost ?? row.display_shipping_cost
-  if (raw == null || !Number.isFinite(Number(raw))) return ''
-  return String(raw)
 }
 
 function readOnlyShippingDisplay(row: PricelistRow): string {

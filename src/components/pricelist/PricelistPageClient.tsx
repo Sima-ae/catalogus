@@ -801,7 +801,17 @@ export default function PricelistPageClient() {
       ) : (
         <>
           <CatalogPagination {...paginationProps} />
-          <PricelistGrid items={items} isDark={isDark} onOpenGallery={openGallery} />
+          <PricelistGrid
+            items={items}
+            isDark={isDark}
+            onOpenGallery={openGallery}
+            canEditPrices={canEditPrices}
+            isSeller={isSeller}
+            canClearPrice={Boolean(isSuperAdmin)}
+            onSavePrice={savePrice}
+            onSetStockStatus={setStockStatus}
+            onClearPrice={isSuperAdmin ? clearPrice : undefined}
+          />
           <CatalogPagination {...paginationProps} />
           <AppFooter />
         </>
