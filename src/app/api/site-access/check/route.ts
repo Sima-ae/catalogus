@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     const res = NextResponse.json({
       required: config.required,
       allowed,
+      version: config.version,
     })
     applySiteAccessCookies(res, {
       required: config.required,
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     return res
   } catch (error) {
     console.error('Site access check error:', error)
-    const res = NextResponse.json({ required: false, allowed: true })
+    const res = NextResponse.json({ required: false, allowed: true, version: 0 })
     applySiteAccessCookies(res, { required: false, version: 0 })
     return res
   }

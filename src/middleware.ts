@@ -4,6 +4,7 @@ import {
   SITE_ACCESS_COOKIE,
   SITE_ACCESS_META_REQUIRED,
   SITE_ACCESS_META_VERSION,
+  applySiteAccessCookies,
   getCookieSecret,
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
@@ -16,6 +17,7 @@ import {
   resolveLocaleFromCookie,
 } from '@/lib/i18n-routing'
 import { applyNoIndexHeaders } from '@/lib/no-index'
+import { isJunkBotPath, isLikelyBotUserAgent } from '@/lib/bot-traffic'
 
 const GATE_PATH = '/site-access-gate'
 const LOCALE_HEADER = 'x-catalogus-locale'
@@ -115,6 +117,7 @@ async function siteAccessFromCookies(request: NextRequest): Promise<{
 async function siteAccessFromApi(request: NextRequest): Promise<{
   required: boolean
   allowed: boolean
+  version: number
 }> {
   const checkUrl = new URL('/api/site-access/check', request.nextUrl.origin)
   try {
@@ -122,11 +125,31 @@ async function siteAccessFromApi(request: NextRequest): Promise<{
       headers: { cookie: request.headers.get('cookie') || '' },
       cache: 'no-store',
     })
-    if (!res.ok) return { required: false, allowed: true }
-    return res.json()
+    if (!res.ok) return { required: false, allowed: true, version: 0 }
+    const data = (await res.json()) as {
+      required?: boolean
+      allowed?: boolean
+      version?: number
+    }
+    return {
+      required: Boolean(data.required),
+      allowed: data.allowed !== false,
+      version: Number(data.version) || 0,
+    }
   } catch {
-    return { required: false, allowed: true }
+    return { required: false, allowed: true, version: 0 }
   }
+}
+
+function attachSiteAccessMeta(
+  response: NextResponse,
+  meta: { required: boolean; version: number }
+): NextResponse {
+  applySiteAccessCookies(response, {
+    required: meta.required,
+    version: meta.version,
+  })
+  return response
 }
 
 /** Permanent redirect legacy /catalogus URLs to site root. Enforce site-wide access password. */
@@ -134,6 +157,18 @@ export async function middleware(request: NextRequest) {
   const finish = (response: NextResponse) => applyNoIndexHeaders(response)
 
   const { pathname, search } = request.nextUrl
+  const ua = request.headers.get('user-agent')
+  const isBot = isLikelyBotUserAgent(ua)
+
+  // Bots hammering WordPress/Laravel/etc. paths — never hit Next/DB/locale.
+  if (isJunkBotPath(pathname)) {
+    return finish(
+      new NextResponse(null, {
+        status: 404,
+        headers: { 'Cache-Control': 'public, max-age=86400' },
+      })
+    )
+  }
 
   if (process.env.NODE_ENV === 'production' && pathname === '/debug') {
     const home = request.nextUrl.clone()
@@ -160,42 +195,73 @@ export async function middleware(request: NextRequest) {
     return finish(NextResponse.next())
   }
 
+  // Known bots with no site-access meta cookie: do not self-fetch check API (DB).
+  // Site is noindex; crawlers should not burn CPU. Humans still run the full check.
+  if (isBot && !request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value) {
+    return finish(
+      new NextResponse(null, {
+        status: 404,
+        headers: { 'Cache-Control': 'public, max-age=3600' },
+      })
+    )
+  }
+
   let required = false
   let allowed = true
+  let accessVersion = 0
+  let shouldSetMetaCookies = false
   try {
     const fromCookies = await siteAccessFromCookies(request)
-    const access = fromCookies ?? (await siteAccessFromApi(request))
-    required = access.required
-    allowed = access.allowed
+    if (fromCookies) {
+      required = fromCookies.required
+      allowed = fromCookies.allowed
+    } else {
+      const access = await siteAccessFromApi(request)
+      required = access.required
+      allowed = access.allowed
+      accessVersion = access.version
+      shouldSetMetaCookies = true
+    }
   } catch (error) {
     console.error('[middleware] site access check failed:', error)
     required = false
     allowed = true
   }
 
+  const withMeta = (response: NextResponse) => {
+    if (shouldSetMetaCookies) {
+      return attachSiteAccessMeta(response, { required, version: accessVersion })
+    }
+    return response
+  }
+
   if (!required || allowed) {
+    // Bots: skip locale redirect (avoids double-hit / → /en/ → rewrite).
+    if (isBot) {
+      return finish(withMeta(NextResponse.next()))
+    }
     const localeResponse = applyLocaleRouting(request)
-    return finish(localeResponse ?? NextResponse.next())
+    return finish(withMeta(localeResponse ?? NextResponse.next()))
   }
 
   if (pathname === GATE_PATH) {
-    return finish(NextResponse.next())
+    return finish(withMeta(NextResponse.next()))
   }
 
   if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
-    return finish(NextResponse.next())
+    return finish(withMeta(NextResponse.next()))
   }
 
   if (pathname.startsWith('/api/')) {
     return finish(
-      NextResponse.json({ error: 'Site access password required' }, { status: 401 })
+      withMeta(NextResponse.json({ error: 'Site access password required' }, { status: 401 }))
     )
   }
 
   const gate = request.nextUrl.clone()
   gate.pathname = GATE_PATH
   gate.searchParams.set('from', pathname + search)
-  const res = NextResponse.redirect(gate)
+  const res = withMeta(NextResponse.redirect(gate))
   const { locale: fromLocale } = parseLocaleFromPathname(pathname)
   if (fromLocale) {
     res.cookies.set(LOCALE_COOKIE, fromLocale, {

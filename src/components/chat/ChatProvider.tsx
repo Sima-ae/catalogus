@@ -147,10 +147,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     [user, pricelistOwnerParam]
   )
 
-  useEffect(() => {
-    void loadBootstrap({ silent: true })
-  }, [loadBootstrap])
-
+  // Only connect chat when the widget opens — avoid /api/chat/bootstrap on every page load.
   useEffect(() => {
     if (!open) return
     void loadBootstrap({ silent: Boolean(bootstrapRef.current) })

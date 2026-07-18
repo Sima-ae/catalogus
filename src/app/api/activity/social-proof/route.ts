@@ -72,30 +72,19 @@ function rowToProduct(row: ProductRow, seenLabels: Set<string>): SocialProofProd
 }
 
 async function loadSocialProofProducts(): Promise<SocialProofProduct[]> {
+  // Avoid ORDER BY RAND() over the full products table (full scan + sort = CPU spike).
+  // Take a recent indexed window, then partition / shuffle in JS.
   const rows = await queryDb<ProductRow[]>(
-    `SELECT id, name, sku, image_url, category, source_url, rn FROM (
-       SELECT
-         id,
-         name,
-         sku,
-         image_url,
-         category,
-         source_url,
-         ROW_NUMBER() OVER (
-           PARTITION BY TRIM(COALESCE(category, 'Other'))
-           ORDER BY RAND()
-         ) AS rn
-       FROM products
-       WHERE ${PRODUCT_BASE_WHERE}
-     ) ranked
-     WHERE rn <= ?
-     ORDER BY RAND()
+    `SELECT id, name, sku, image_url, category, source_url, 0 AS rn
+     FROM products
+     WHERE ${PRODUCT_BASE_WHERE}
+     ORDER BY created_at DESC
      LIMIT ?`,
-    [PER_CATEGORY_LIMIT, POOL_TARGET * 2]
+    [POOL_TARGET * 8]
   )
 
   const byCategory = new Map<string, SocialProofProduct[]>()
-  for (const row of rows) {
+  for (const row of shuffleRows(rows)) {
     const category = row.category?.trim() || 'Other'
     const bucket = byCategory.get(category) ?? []
     if (bucket.length >= PER_CATEGORY_LIMIT) continue
@@ -123,7 +112,7 @@ export async function GET() {
   try {
     const products = await getCachedValue(
       SOCIAL_PROOF_CACHE_NS,
-      'pool-v7',
+      'pool-v8',
       SOCIAL_PROOF_CACHE_TTL_MS,
       loadSocialProofProducts
     )

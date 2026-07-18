@@ -25,5 +25,6 @@ export async function saveSiteSettings(
 ): Promise<SettingsSaveResult> {
   const settings = await upsertSettingsToDb(updates)
   invalidateCachedNamespace('shop-bootstrap')
+  invalidateCachedNamespace('site-seo')
   return { settings, storage: 'database' }
 }

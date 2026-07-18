@@ -9,7 +9,6 @@ import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
 import { getCachedValue } from '@/lib/server-ttl-cache'
 import { loadActiveCategories } from '@/lib/categories-persistence'
-import { listShopCategoryNavTree, warmShopCatalogCountCaches } from '@/lib/products-db'
 import type { CategoryTreeRow } from '@/lib/category-picker'
 
 const SHOP_BOOTSTRAP_CACHE_NS = 'shop-bootstrap'
@@ -95,8 +94,8 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
     )
   }
 
-  void listShopCategoryNavTree()
-  warmShopCatalogCountCaches()
+  // Do NOT warm catalog count buckets / nav tree here — layout runs on every HTML
+  // response (including 404s and bots). Warm on first shop-nav / catalog API hit instead.
 
   return { categoryMessages, tagMessages, shopBootstrap, tickerMessages, categoryRows, bootstrapDegraded }
 }
