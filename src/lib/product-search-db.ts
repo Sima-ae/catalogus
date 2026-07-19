@@ -1,5 +1,3 @@
-import 'server-only'
-
 import { queryDb } from '@/lib/db'
 import { PRODUCTS_FULLTEXT_INDEX } from '@/lib/product-search-sql'
 
