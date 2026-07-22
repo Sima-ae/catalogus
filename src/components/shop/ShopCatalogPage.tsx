@@ -754,10 +754,12 @@ function ShopCatalogPageContent({
 
     const applyCatalogPage = (data: CatalogProductsPage) => {
       setProducts(data.items)
-      const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
-      if (data.total > 0 || !data.skipTotal) {
+      // skipTotal payloads use total=0 as a placeholder — never treat that as the real count.
+      // Search/tag totals come from the parallel countOnly request.
+      if (!data.skipTotal) {
         setTotalItems(data.total)
       }
+      const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
       if (!skipShufflePageOneClientCache) {
         setCachedShopCatalog(
           clientCatalogSignature,
@@ -802,6 +804,17 @@ function ShopCatalogPageContent({
       setPageLoading(false)
       setFilterNavigating(false)
       setError(null)
+      // Cached pages may still hold a stale unfiltered total from before search counts worked.
+      if (debouncedSearch.trim() || filterTag) {
+        setTotalItems(0)
+        void fetchCatalogJson(buildCatalogTotalUrl())
+          .then((payload) => {
+            if (cancelled) return
+            if (!isCatalogProductsPage(payload)) return
+            if (typeof payload.total === 'number') setTotalItems(payload.total)
+          })
+          .catch(() => undefined)
+      }
       return () => {
         cancelled = true
       }

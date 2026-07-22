@@ -1008,7 +1008,7 @@ function peekShopCatalogTotalFromBuckets(
   return null
 }
 
-/** Count-only catalog endpoint — uses warm buckets, never blocks product rows. */
+/** Count-only catalog endpoint — warm buckets when possible; SQL COUNT for search/tag. */
 export async function getShopCatalogProductTotal(
   query: Pick<
     CatalogProductsQuery,
@@ -1024,6 +1024,12 @@ export async function getShopCatalogProductTotal(
   if (query.category && query.category !== 'All' && !categoryFilter?.categoryIds.length) {
     return 0
   }
+
+  // Bucket totals ignore text search / tags — must COUNT with the same filters as the grid.
+  if (query.search?.trim() || query.tag?.trim()) {
+    return countActiveProductsForCatalogQuery(query)
+  }
+
   const peek = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
   if (peek != null) return peek
   const resolved = await resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
@@ -1985,9 +1991,12 @@ export async function listActiveProductIdsForCatalogQuery(
 export async function countActiveProductsForCatalogQuery(
   query: Omit<CatalogProductsQuery, 'page' | 'limit'>
 ): Promise<number> {
-  const [categories, hasBrandsTable] = await Promise.all([
+  const searchActive = Boolean(query.search?.trim())
+  const [categories, hasBrandsTable, brandId, useFulltext] = await Promise.all([
     loadActiveCategories(),
     brandsTableExists(),
+    resolveCatalogQueryBrandId(query.brand),
+    searchActive ? productsFulltextSearchAvailable() : Promise.resolve(false),
   ])
   const categoryFilter = resolveShopCategoryFilter(categories, {
     category: query.category,
@@ -2006,25 +2015,44 @@ export async function countActiveProductsForCatalogQuery(
     needsBrandJoin,
   })
 
+  const useIndexedCategoryListing =
+    Boolean(categoryFilter?.categoryIds?.length) && !searchActive && !query.tag?.trim()
+  const useIndexedBrandListing = Boolean(brandId && query.brand && query.brand !== 'All')
+
   const { whereSql, params } = buildActiveCatalogFilters(
     {
       ...query,
       page: 1,
       limit: 1,
+      brandId,
       categoryIds: categoryFilter?.categoryIds,
       legacyCategoryNames: categoryFilter?.legacyNames,
       strictCategoryIdOnly: categoryFilter?.strictIdOnly,
       categoryStorageLabel: categoryFilter?.categoryStorageLabel,
       excludeCategoryIds: categoryFilter?.excludeCategoryIds,
     },
-    { includeBrandJoin: needsBrandJoin }
+    {
+      includeBrandJoin: needsBrandJoin,
+      useFulltextSearch: useFulltext,
+      brandId,
+      categoryListingIdOnly: useIndexedCategoryListing,
+      brandListingIdOnly: useIndexedBrandListing,
+    }
   )
 
-  const countRows = await queryDb<{ total: number }[]>(
-    `SELECT COUNT(*) AS total ${fromClause} ${whereSql}`,
-    params
+  const cacheKey = shopCatalogCountCacheKey(fromClause, '', whereSql, params)
+  return getCachedValue(
+    SHOP_CATALOG_COUNT_CACHE_NS,
+    cacheKey,
+    SHOP_CATALOG_COUNT_TTL_MS,
+    async () => {
+      const countRows = await queryDb<{ total: number }[]>(
+        `SELECT COUNT(*) AS total ${fromClause} ${whereSql}`,
+        params
+      )
+      return Number(countRows[0]?.total ?? 0)
+    }
   )
-  return Number(countRows[0]?.total ?? 0)
 }
 
 /** Paginated all products (admin dashboard snippets). */
