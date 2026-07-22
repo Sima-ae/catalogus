@@ -244,6 +244,11 @@ export function combineCategoryIdAndLegacyTextMatch(
 export type CatalogFilterOptions = {
   /** Include brands.name in search / brand filter (when brands table is joined). */
   includeBrandJoin?: boolean
+  /**
+   * Include categories.name in search (only when categories is actually joined).
+   * Shop listings use p.category_id / p.category — keep false there.
+   */
+  includeCategoryJoin?: boolean
   /** Pricelist bulk-add includes inactive catalog products (shop stays active-only). */
   includeInactiveForPricelist?: boolean
   /** Use FULLTEXT index for search (when available). */
@@ -345,7 +350,9 @@ export function buildActiveCatalogFilters(
   if (searchTerm) {
     const searchFilter = buildProductSearchFilter(searchTerm, {
       includeBrandJoin: includeBrand,
-      includeCategoryJoin: Boolean(categoryIds?.length),
+      // Never infer this from categoryIds — shop queries filter via p.category_id
+      // without joining `categories`, so `c.name` would 503 the products API.
+      includeCategoryJoin: options.includeCategoryJoin === true,
       useFulltext: options.useFulltextSearch,
     })
     where.push(searchFilter.sql)

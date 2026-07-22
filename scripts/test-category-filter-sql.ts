@@ -48,4 +48,21 @@ const kidsShoesFilter = buildActiveCatalogFilters({
 assert.ok(kidsShoesFilter.params.includes('KIDS › SHOES'))
 assert.ok(kidsShoesFilter.whereSql.includes(PRODUCT_CATEGORY_ID_UNSET_SQL))
 
+// Search inside a category must not reference `c.name` — shop listings do not join categories.
+const categorySearchFilter = buildActiveCatalogFilters(
+  {
+    page: 1,
+    limit: 24,
+    categoryIds: ['watches-top'],
+    search: 'rolex daytona',
+  },
+  { useFulltextSearch: true }
+)
+assert.ok(!categorySearchFilter.whereSql.includes('c.name'), 'search must not use c.name without join')
+assert.ok(
+  categorySearchFilter.whereSql.includes('MATCH(') ||
+    categorySearchFilter.whereSql.includes('p.name LIKE'),
+  'search clause should be present'
+)
+
 console.log('category-filter-sql: all assertions passed')
