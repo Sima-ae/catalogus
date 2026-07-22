@@ -9,7 +9,7 @@ type Props = {
   message?: string
 }
 
-/** Ease 0 → ~92% while loading; snap to 100% briefly when done. */
+/** Ease 0 → ~88% while loading; snap to 100% briefly when done. */
 function useSimulatedLoadProgress(active: boolean): { percent: number; visible: boolean } {
   const [percent, setPercent] = useState(0)
   const [visible, setVisible] = useState(false)
@@ -37,8 +37,12 @@ function useSimulatedLoadProgress(active: boolean): { percent: number; visible: 
 
     setPercent(100)
     const id = window.setTimeout(() => {
-      setVisible(false)
-      setPercent(0)
+      // Only hide if we are still inactive — avoids getting stuck at 100% when
+      // catalogFetching flickers during search + category navigation.
+      if (!activeRef.current) {
+        setVisible(false)
+        setPercent(0)
+      }
     }, 220)
     return () => window.clearTimeout(id)
   }, [active, visible])

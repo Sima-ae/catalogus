@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { clearCatalogPageParam, isShopCatalogPath, shopCatalogBasePath } from '@/lib/shop-catalog-url'
 
@@ -11,6 +11,8 @@ export function useShopSearch() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const searchParamsRef = useRef(searchParams)
+  searchParamsRef.current = searchParams
 
   const urlSearch = useMemo(
     () => searchParams.get('search')?.trim() || '',
@@ -20,6 +22,7 @@ export function useShopSearch() {
   const [searchQuery, setSearchQuery] = useState(urlSearch)
   const [debouncedSearch, setDebouncedSearch] = useState(urlSearch)
 
+  // URL is source of truth when navigation clears/changes ?search= (e.g. shared links).
   useEffect(() => {
     setSearchQuery(urlSearch)
     setDebouncedSearch(urlSearch)
@@ -32,20 +35,22 @@ export function useShopSearch() {
     return () => window.clearTimeout(timer)
   }, [searchQuery])
 
+  // Push debounced local search → URL. Do NOT re-run on searchParams changes or we fight
+  // category/brand navigations that temporarily differ from React state (infinite replace loop).
   useEffect(() => {
     if (!isShopCatalogPath(pathname)) return
-    const current = searchParams.get('search')?.trim() || ''
+    const params = new URLSearchParams(searchParamsRef.current.toString())
+    const current = params.get('search')?.trim() || ''
     if (current === debouncedSearch) return
 
     const basePath = shopCatalogBasePath(pathname)
-    const params = new URLSearchParams(searchParams.toString())
     clearCatalogPageParam(params)
     if (debouncedSearch) params.set('search', debouncedSearch)
     else params.delete('search')
 
     const qs = params.toString()
     router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false })
-  }, [debouncedSearch, pathname, router, searchParams])
+  }, [debouncedSearch, pathname, router])
 
   const searchPending = searchQuery.trim() !== debouncedSearch
 

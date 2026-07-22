@@ -15,7 +15,6 @@ import type { ShopSubcategoryOption } from '@/lib/products-db'
 import {
   catalogFilterBasePath,
   clearCatalogPageParam,
-  clearShopSearchParam,
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 import { useCatalogRouterReplace } from '@/lib/use-catalog-router'
@@ -265,7 +264,6 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
         isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
-      clearShopSearchParam(params)
       if (subcategory === 'All') {
         params.set('subcategory', 'All')
       } else {
@@ -412,7 +410,6 @@ export function useShopNestedSubcategory(
         isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
-      clearShopSearchParam(params)
       if (nested === 'All') {
         params.set('nested', 'All')
       } else {

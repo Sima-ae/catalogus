@@ -24,6 +24,10 @@ type Props = {
   hasMoreOnPage?: boolean
   loadingMore?: boolean
   onLoadMore?: () => void
+  /** Active header/catalog search — shows “N results for …” when set. */
+  searchQuery?: string
+  /** Exact total still loading (e.g. countOnly in flight). */
+  countPending?: boolean
 }
 
 /** Shared product grid with server-backed pagination. */
@@ -42,6 +46,8 @@ export default function ShopCatalogListing({
   hasMoreOnPage = false,
   loadingMore = false,
   onLoadMore,
+  searchQuery,
+  countPending = false,
 }: Props) {
   const { user, loading: authLoading } = useAuth()
   const isCatalogAdmin = isCatalogAdminUser(user)
@@ -89,9 +95,18 @@ export default function ShopCatalogListing({
     </>
   )
 
+  const countBlock = (
+    <CatalogProductCount
+      count={totalItems}
+      searchQuery={searchQuery}
+      centered={centered}
+      pending={countPending}
+    />
+  )
+
   return (
     <>
-      {!centered ? <CatalogProductCount count={totalItems} /> : null}
+      {countBlock}
       {centered ? (
         <div className="flex flex-col gap-6 pb-6">{listingBody}</div>
       ) : (

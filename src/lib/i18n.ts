@@ -108,6 +108,11 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'shop.catalog.pickSubcategory': 'Choose a subcategory',
     'shop.catalog.pickNestedSubcategory': 'Choose a type',
     'shop.catalog.pickSubcategoryHint': 'Pick a subcategory above to view products in this category.',
+    'shop.catalog.productCount': '{count} products',
+    'shop.catalog.productCountOne': '1 product',
+    'shop.catalog.searchResults': '{count} results for “{query}”',
+    'shop.catalog.searchResultOne': '1 result for “{query}”',
+    'shop.catalog.searchResultsPending': 'Finding results…',
 
     // Pagination
     'pagination.showing': 'Showing {start}–{end} of {total}{pagePart}',
@@ -361,6 +366,11 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'shop.catalog.pickSubcategory': 'Kies een subcategorie',
     'shop.catalog.pickNestedSubcategory': 'Kies een type',
     'shop.catalog.pickSubcategoryHint': 'Kies hierboven een subcategorie om producten in deze categorie te bekijken.',
+    'shop.catalog.productCount': '{count} producten',
+    'shop.catalog.productCountOne': '1 product',
+    'shop.catalog.searchResults': '{count} resultaten voor “{query}”',
+    'shop.catalog.searchResultOne': '1 resultaat voor “{query}”',
+    'shop.catalog.searchResultsPending': 'Resultaten zoeken…',
 
     // Pagination
     'pagination.showing': 'Toont {start}–{end} van {total}{pagePart}',

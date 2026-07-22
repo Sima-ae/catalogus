@@ -59,7 +59,7 @@ export function clearCatalogPageParam(params: URLSearchParams): void {
   params.delete('page')
 }
 
-/** Drop catalog text search when the user picks a category, subcategory, or brand. */
+/** Previously cleared ?search= on category/brand picks; search is now kept across filters. */
 export function clearShopSearchParam(params: URLSearchParams): void {
   params.delete('search')
 }

@@ -14,7 +14,6 @@ import {
 import {
   catalogFilterBasePath,
   clearCatalogPageParam,
-  clearShopSearchParam,
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 import { useCatalogRouterReplace } from '@/lib/use-catalog-router'
@@ -115,7 +114,6 @@ export function useShopBrand({
         isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
-      clearShopSearchParam(params)
       if (brand === 'All') {
         params.delete('brand')
       } else {

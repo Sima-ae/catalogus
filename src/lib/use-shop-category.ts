@@ -11,7 +11,6 @@ import {
 import {
   catalogFilterBasePath,
   clearCatalogPageParam,
-  clearShopSearchParam,
   isCatalogFilterPath,
 } from '@/lib/shop-catalog-url'
 import { parseCompoundCategoryParam } from '@/lib/shop-catalog-filter-url'
@@ -131,7 +130,6 @@ export function useShopCategory() {
         isCatalogFilterPath(pathname) ? searchParams.toString() : ''
       )
       clearCatalogPageParam(params)
-      clearShopSearchParam(params)
       if (category === 'All') {
         params.delete('category')
         params.delete('subcategory')

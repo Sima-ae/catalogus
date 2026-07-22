@@ -707,13 +707,20 @@ function ShopCatalogPageContent({
     let cancelled = false
     const filtersChanged =
       prevFilterRef.current !== null && prevFilterRef.current !== filterSignature
-    prevFilterRef.current = filterSignature
 
+    // Reset page first without consuming filtersChanged — otherwise loading flags from
+    // beginInstantFilterFeedback stay true and the overlay loops forever.
     if (filtersChanged && currentPage !== 1) {
+      setTotalItems(0)
       setCurrentPage(1)
       return () => {
         cancelled = true
       }
+    }
+
+    prevFilterRef.current = filterSignature
+    if (filtersChanged) {
+      setTotalItems(0)
     }
 
     const pageToLoad = currentPage
@@ -824,7 +831,7 @@ function ShopCatalogPageContent({
               .then((payload) => {
                 if (cancelled) return
                 if (!isCatalogProductsPage(payload)) return
-                if (payload.total > 0) setTotalItems(payload.total)
+                if (typeof payload.total === 'number') setTotalItems(payload.total)
               })
               .catch(() => undefined)
           : null
@@ -896,7 +903,7 @@ function ShopCatalogPageContent({
         if (!res.ok || cancelled) return
         const payload: unknown = await res.json()
         if (!isCatalogProductsPage(payload) || cancelled) return
-        if (payload.total > 0) setTotalItems(payload.total)
+        if (typeof payload.total === 'number') setTotalItems(payload.total)
       })
       .catch(() => undefined)
 
@@ -1233,6 +1240,8 @@ function ShopCatalogPageContent({
                 hasMoreOnPage={hasMoreOnPage}
                 loadingMore={loadingMore}
                 onLoadMore={() => void loadMoreProducts()}
+                searchQuery={debouncedSearch}
+                countPending={Boolean(debouncedSearch.trim()) && totalItems <= 0 && products.length > 0}
               />
             )}
           </div>
