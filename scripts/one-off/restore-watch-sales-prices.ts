@@ -130,7 +130,7 @@ function skuAliases(sku: string | null | undefined): string[] {
   const aliases = new Set<string>([raw])
   const stripped = raw.replace(/^wc[-_]?/i, '')
   if (stripped && stripped !== raw) aliases.add(stripped)
-  return [...aliases]
+  return Array.from(aliases)
 }
 
 function sourceKey(url: string | null | undefined): string {

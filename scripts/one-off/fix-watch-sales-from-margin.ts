@@ -115,7 +115,9 @@ async function main() {
     }
     console.log(
       'Sales restore map (purchase → sales):',
-      Object.fromEntries([...salesByPurchase.entries()].map(([k, v]) => [k.toFixed(2), v.toFixed(2)]))
+      Object.fromEntries(
+        Array.from(salesByPurchase.entries()).map(([k, v]) => [k.toFixed(2), v.toFixed(2)])
+      )
     )
 
     // 3) Find damaged rows: sales == purchase
