@@ -34,6 +34,8 @@
     "db:seed-site-access-codes": "tsx scripts/seed-site-access-codes.ts",
     "db:sync-purchase-prices": "tsx scripts/sync-purchase-prices-from-pricelist.ts",
     "db:clear-imported-sales-prices": "tsx scripts/clear-imported-sales-prices.ts",
+    "db:restore-watch-sales-prices": "tsx scripts/one-off/restore-watch-sales-prices.ts",
+    "db:fix-watch-sales-from-margin": "tsx scripts/one-off/fix-watch-sales-from-margin.ts",
     "db:zero-draft-purchase-prices": "tsx scripts/zero-draft-purchase-prices.ts",
     "db:investigate-pricelist-600": "tsx scripts/investigate-pricelist-price-600.ts",
     "db:undo-bulk-pricelist-600": "tsx scripts/undo-bulk-pricelist-600.ts",
