@@ -12,7 +12,7 @@ type Props = {
   stallTimeoutMs?: number
 }
 
-const DEFAULT_STALL_MS = 25_000
+const DEFAULT_STALL_MS = 55_000
 
 /** Ease 0 → ~88% while loading; snap to 100% briefly when done. */
 function useSimulatedLoadProgress(

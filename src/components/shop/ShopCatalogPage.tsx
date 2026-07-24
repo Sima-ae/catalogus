@@ -165,6 +165,8 @@ function ShopCatalogPageContent({
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
   const prevFilterRef = useRef<string | null>(null)
   const catalogLoadGenRef = useRef(0)
+  const emptyRetrySignatureRef = useRef<string | null>(null)
+  const stallRetrySignatureRef = useRef<string | null>(null)
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const listingScrollKey = catalogListingKey(pathname ?? '', searchParams)
@@ -202,6 +204,13 @@ function ShopCatalogPageContent({
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const brandQueryActive = shouldPassBrandToCatalogQuery(filterBrand)
+  // Only block the grid while subcategory menus load when this category actually has
+  // browse children. Categories like WATCHES (brands only) must not clear products.
+  const categoryMayHaveSubcategories = categoryHasBrowseChildren(activeCategory)
+  const categoryMayHaveNestedSubcategories =
+    categoryMayHaveSubcategories &&
+    activeSubcategory !== 'All' &&
+    activeSubcategory !== ''
   const effectiveNeedsSubcategoryPick =
     hasSubcategories && !loadingSubcategories && activeSubcategory === ''
   const effectiveNeedsNestedSubcategoryPick =
@@ -211,9 +220,10 @@ function ShopCatalogPageContent({
     effectiveNestedSubcategory === ''
   const catalogBrowseDeferred = shouldDeferShopCatalogProductLoad({
     searchActive: Boolean(debouncedSearch.trim()),
-    loadingSubcategories,
+    loadingSubcategories: loadingSubcategories && categoryMayHaveSubcategories,
     needsSubcategoryPick: effectiveNeedsSubcategoryPick,
-    loadingNestedSubcategories,
+    loadingNestedSubcategories:
+      loadingNestedSubcategories && categoryMayHaveNestedSubcategories,
     needsNestedSubcategoryPick: effectiveNeedsNestedSubcategoryPick,
   })
   const filterSignature = `${activeCategory}|${activeSubcategory}|${effectiveNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}|${catalogBrowseDeferred ? 'deferred' : 'ready'}`
@@ -299,7 +309,7 @@ function ShopCatalogPageContent({
       brand: brandQueryActive ? filterBrand : undefined,
       tag: filterTag || undefined,
       search: debouncedSearch || undefined,
-      mode: catalogMode,
+      mode: catalogMode === 'new' ? 'new' : undefined,
       shuffle: catalogShuffle ? true : undefined,
     }),
     [
@@ -731,8 +741,12 @@ function ShopCatalogPageContent({
     }
 
     if (catalogBrowseDeferred) {
-      setProducts([])
-      setTotalItems(0)
+      // Only clear the grid when the user must pick a subcategory/nested pill.
+      // Clearing during "loading subcategories" wiped WATCHES (and similar) results.
+      if (effectiveNeedsSubcategoryPick || effectiveNeedsNestedSubcategoryPick) {
+        setProducts([])
+        setTotalItems(0)
+      }
       clearLoadingFlags()
       setError(null)
       return () => {
@@ -748,7 +762,7 @@ function ShopCatalogPageContent({
       brand: brandQueryActive ? filterBrand : undefined,
       tag: filterTag || undefined,
       search: debouncedSearch || undefined,
-      mode: catalogMode,
+      mode: catalogMode === 'new' ? 'new' : undefined,
       shuffle: catalogShuffle ? true : undefined,
     }
     const clientCatalogSignature = shopCatalogClientSignature(fetchFilters)
@@ -756,11 +770,14 @@ function ShopCatalogPageContent({
     const skipShufflePageOneClientCache = catalogShuffle && pageToLoad === 1
 
     const applyCatalogPage = (data: CatalogProductsPage) => {
-      setProducts(data.items)
+      setProducts(Array.isArray(data.items) ? data.items : [])
       // skipTotal payloads use total=0 as a placeholder — never treat that as the real count.
       // Search/tag totals come from the parallel countOnly request.
       if (!data.skipTotal) {
         setTotalItems(data.total)
+      } else if (data.items.length > 0 && totalItemsRef.current <= 0) {
+        // Keep the empty-state from showing when items arrived but total is deferred.
+        setTotalItems(data.items.length)
       }
       const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
       if (!skipShufflePageOneClientCache) {
@@ -942,6 +959,28 @@ function ShopCatalogPageContent({
     totalItems,
   ])
 
+  /** If a category is selected but the grid stayed empty after loading, force one refetch. */
+  useEffect(() => {
+    if (catalogBrowseDeferred || loading || pageLoading || filterNavigating) return
+    if (activeCategory === 'All') return
+    if (products.length > 0 || error) return
+    if (emptyRetrySignatureRef.current === filterSignature) return
+    emptyRetrySignatureRef.current = filterSignature
+    const timer = window.setTimeout(() => {
+      setReloadToken((token) => token + 1)
+    }, 150)
+    return () => window.clearTimeout(timer)
+  }, [
+    activeCategory,
+    catalogBrowseDeferred,
+    error,
+    filterNavigating,
+    filterSignature,
+    loading,
+    pageLoading,
+    products.length,
+  ])
+
   useEffect(() => {
     if (!isAdmin || !user || catalogBrowseDeferred) {
       setCategoryProductCount(null)
@@ -1046,10 +1085,16 @@ function ShopCatalogPageContent({
   const showBrowsePrompt = Boolean(catalogBrowsePrompt)
 
   const handleCatalogLoadStall = useCallback(() => {
-    setLoading(false)
-    setPageLoading(false)
-    setFilterNavigating(false)
-  }, [])
+    // Avoid a false empty state when the overlay gives up — retry once per filter set.
+    if (stallRetrySignatureRef.current === filterSignature) {
+      setLoading(false)
+      setPageLoading(false)
+      setFilterNavigating(false)
+      return
+    }
+    stallRetrySignatureRef.current = filterSignature
+    setReloadToken((token) => token + 1)
+  }, [filterSignature])
 
   const isDark = theme === 'dark'
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
@@ -1227,7 +1272,9 @@ function ShopCatalogPageContent({
                   <p className={`text-lg ${muted}`}>
                     {debouncedSearch.trim()
                       ? 'No products match your search.'
-                      : 'No products found in this category.'}
+                      : totalItems > 0 || (categoryProductCount ?? 0) > 0
+                        ? tr('loading.products')
+                        : 'No products found in this category.'}
                   </p>
                 </div>
               ) : (

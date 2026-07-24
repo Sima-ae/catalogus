@@ -115,8 +115,9 @@ export function parseCatalogProductsQuery(
   const tag = searchParams.get('tag')?.trim() || undefined
   const search = searchParams.get('search')?.trim() || undefined
   const modeRaw = searchParams.get('mode')?.trim()
-  const mode: CatalogMode | undefined =
-    modeRaw === 'new' || modeRaw === 'all' ? modeRaw : undefined
+  // Treat mode=all as the default catalog (omit from cache keys / filters).
+  // Passing mode=all used a separate page-cache key that could hang behind a stuck entry.
+  const mode: CatalogMode | undefined = modeRaw === 'new' ? 'new' : undefined
   const shuffleRaw = searchParams.get('shuffle')?.trim().toLowerCase()
   const shuffle = shuffleRaw === '1' || shuffleRaw === 'true'
   const skipTotal = searchParams.get('skipTotal') === '1'

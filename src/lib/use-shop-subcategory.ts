@@ -250,14 +250,11 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
       if (match) return match
     }
     if (legacySubcategoryFromCategoryParam) return legacySubcategoryFromCategoryParam
-    if (!hasSubcategories) return 'All'
-    return ''
+    // Default to All so parent categories (e.g. PERFUMES) show products immediately.
+    return 'All'
   }, [searchParams, subcategoryOptions, hasSubcategories, legacySubcategoryFromCategoryParam])
 
-  const needsSubcategoryPick = useMemo(
-    () => hasSubcategories && !loading && selectedSubcategory === '',
-    [hasSubcategories, loading, selectedSubcategory]
-  )
+  const needsSubcategoryPick = false
 
   const setSelectedSubcategory = useCallback(
     (subcategory: string) => {
@@ -397,13 +394,11 @@ export function useShopNestedSubcategory(
       if (match) return match
     }
     if (!hasNestedSubcategories) return 'All'
-    return ''
+    // Default to All — nested pills are optional filters, not a required pick.
+    return 'All'
   }, [searchParams, nestedSubcategoryOptions, hasNestedSubcategories])
 
-  const needsNestedSubcategoryPick = useMemo(
-    () => hasNestedSubcategories && !loading && selectedNestedSubcategory === '',
-    [hasNestedSubcategories, loading, selectedNestedSubcategory]
-  )
+  const needsNestedSubcategoryPick = false
 
   const setSelectedNestedSubcategory = useCallback(
     (nested: string) => {
@@ -423,19 +418,6 @@ export function useShopNestedSubcategory(
     },
     [pathname, replace, searchParams]
   )
-
-  /** Skip an extra click when a subcategory has only one nested type (e.g. SPORT → MLB). */
-  useEffect(() => {
-    if (!enabled || loading || !needsNestedSubcategoryPick) return
-    if (nestedSubcategoryOptions.length !== 1) return
-    setSelectedNestedSubcategory(nestedSubcategoryOptions[0]!)
-  }, [
-    enabled,
-    loading,
-    needsNestedSubcategoryPick,
-    nestedSubcategoryOptions,
-    setSelectedNestedSubcategory,
-  ])
 
   useEffect(() => {
     if (!hasNestedSubcategories || loading) return

@@ -1761,7 +1761,15 @@ async function loadActiveProductsPaginatedFromDb(
       orderSql = positionJoin.orderSql
       scopeParam = positionJoin.scopeParam
     }
-  } else if (sortScope != null && (await catalogPositionsExistForScope(sortScope))) {
+  } else if (
+    // Indexed category/brand listings must stay on (status, category_id|brand_id, created_at).
+    // LEFT JOIN catalog_product_positions forces a filesort over the whole filter and can take
+    // 20–60s for large categories (PERFUMES, WATCHES, …).
+    !useIndexedCategoryListing &&
+    !useIndexedBrandListing &&
+    sortScope != null &&
+    (await catalogPositionsExistForScope(sortScope))
+  ) {
     const positionJoin = await catalogPositionJoin(sortScope)
     joinSql = positionJoin.joinSql
     orderSql = positionJoin.orderSql

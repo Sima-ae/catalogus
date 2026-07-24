@@ -11,5 +11,6 @@ export function categoryHasBrowseChildren(categoryName: string): boolean {
     getCachedShopCategoryNavSync(),
     categoryName
   )
-  return fromNav.length > 0
+  // Match subcategory pills: zero-count children (e.g. empty "- BOX -" under WATCHES) do not defer.
+  return fromNav.some((child) => (child.productCount ?? 0) > 0)
 }
