@@ -29,6 +29,16 @@ const BOT_UA_SNIPPETS = [
   'ia_archiver',
   'zoominfobot',
   'dataforseobot',
+  'scrapy',
+  'python-requests',
+  'python-urllib',
+  'go-http-client',
+  'httpclient',
+  'libwww-perl',
+  'phantomjs',
+  'headlesschrome',
+  'puppeteer',
+  'playwright',
 ]
 
 /** Paths bots hammer that are not part of this app — cheap 404, no locale/DB. */
@@ -52,6 +62,9 @@ const JUNK_PATH_PREFIXES = [
   '/composer',
 ]
 
+/** High-CPU API routes bots must not stampede (catalog + image proxy). */
+const BOT_BLOCKED_API_PREFIXES = ['/api/products', '/api/yupoo-image', '/api/categories']
+
 export function isLikelyBotUserAgent(userAgent: string | null | undefined): boolean {
   if (!userAgent) return false
   const ua = userAgent.toLowerCase()
@@ -69,5 +82,13 @@ export function isJunkBotPath(pathname: string): boolean {
   }
   return JUNK_PATH_PREFIXES.some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(prefix)
+  )
+}
+
+/** Catalog/image APIs that should 404 for known bots (site is noindex). */
+export function isBotBlockedApiPath(pathname: string): boolean {
+  const path = pathname.toLowerCase()
+  return BOT_BLOCKED_API_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
   )
 }

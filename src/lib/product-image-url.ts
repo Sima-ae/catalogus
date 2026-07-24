@@ -452,7 +452,8 @@ export function yupooImageUrlFallbackChain(url: string): string[] {
 
 /**
  * Yupoo CDN blocks hotlinking — serve through our proxy using the album URL as Referer.
- * Raw Yupoo URLs stay in the database; this is for display only.
+ * Prefer already-mirrored /images/ URLs (nginx static) so catalog grids skip Node entirely.
+ * Raw Yupoo URLs stay in the database; proxy wrapping is for display only.
  */
 export function toDisplayProductImageUrl(
   url: string | null | undefined,
@@ -462,6 +463,11 @@ export function toDisplayProductImageUrl(
   if (!normalized) return ''
 
   if (normalized.includes('/api/yupoo-image')) {
+    return normalized
+  }
+
+  // Self-hosted mirrors — never wrap through the Yupoo proxy.
+  if (isCatalogHostedImage(normalized)) {
     return normalized
   }
 

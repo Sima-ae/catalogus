@@ -66,7 +66,6 @@ import {
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
 } from '@/lib/catalog-positions-db'
-import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import { getCachedValue, invalidateCachedNamespace, peekCachedValue } from '@/lib/server-ttl-cache'
 import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
@@ -1745,7 +1744,6 @@ async function loadActiveProductsPaginatedFromDb(
   )
   const limit = query.limit
   const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
-  const sortScope = catalogSortScope(query)
   const shuffle = isCatalogShuffleEligible(query)
 
   let joinSql = ''
@@ -1761,22 +1759,18 @@ async function loadActiveProductsPaginatedFromDb(
       orderSql = positionJoin.orderSql
       scopeParam = positionJoin.scopeParam
     }
-  } else if (
-    // Indexed category/brand listings must stay on (status, category_id|brand_id, created_at).
-    // LEFT JOIN catalog_product_positions forces a filesort over the whole filter and can take
-    // 20–60s for large categories (PERFUMES, WATCHES, …).
-    !useIndexedCategoryListing &&
-    !useIndexedBrandListing &&
-    sortScope != null &&
-    (await catalogPositionsExistForScope(sortScope))
-  ) {
-    const positionJoin = await catalogPositionJoin(sortScope)
-    joinSql = positionJoin.joinSql
-    orderSql = positionJoin.orderSql
-    scopeParam = positionJoin.scopeParam
   }
+  // Never LEFT JOIN catalog_product_positions for filtered shop listings — that join
+  // filesorts the whole category/brand set (WATCHES/PERFUMES often 20–60s). Homepage
+  // shuffle above is the only shop path that uses precomputed positions.
 
   const idParams = scopeParam ? [scopeParam, ...params] : params
+
+  const forceIndexSql = useIndexedCategoryListing
+    ? ' FORCE INDEX (idx_products_status_category_created)'
+    : useIndexedBrandListing
+      ? ' FORCE INDEX (idx_products_status_brand_created)'
+      : ''
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
@@ -1809,7 +1803,7 @@ async function loadActiveProductsPaginatedFromDb(
     }
 
     const idRows = await queryDb<{ id: string }[]>(
-      `SELECT p.id FROM products p ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+      `SELECT p.id FROM products p${forceIndexSql} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idParams, limit, offset]
     )
     const ids = idRows.map((row) => String(row.id)).filter(Boolean)

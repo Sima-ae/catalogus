@@ -17,7 +17,12 @@ import {
   resolveLocaleFromCookie,
 } from '@/lib/i18n-routing'
 import { applyNoIndexHeaders } from '@/lib/no-index'
-import { isJunkBotPath, isLikelyBotUserAgent } from '@/lib/bot-traffic'
+import {
+  isBotBlockedApiPath,
+  isJunkBotPath,
+  isLikelyBotUserAgent,
+} from '@/lib/bot-traffic'
+import { resolveCategoryForHost } from '@/lib/category-host-map'
 
 const GATE_PATH = '/site-access-gate'
 const LOCALE_HEADER = 'x-catalogus-locale'
@@ -76,7 +81,7 @@ function isChatApi(pathname: string): boolean {
   return pathname.startsWith('/api/chat/')
 }
 
-/** Deploy/diagnostics only — must not require the site-access cookie. */
+/** Deploy/diagnostics + image proxy — humans may load without gate round-trip; bots blocked above. */
 function isPublicApi(pathname: string): boolean {
   return pathname === '/api/health/db' || pathname === '/api/yupoo-image'
 }
@@ -168,6 +173,39 @@ export async function middleware(request: NextRequest) {
         headers: { 'Cache-Control': 'public, max-age=86400' },
       })
     )
+  }
+
+  // Known bots must not stampede catalog/image APIs (high MariaDB + Node CPU).
+  if (isBot && isBotBlockedApiPath(pathname)) {
+    return finish(
+      new NextResponse(null, {
+        status: 404,
+        headers: { 'Cache-Control': 'public, max-age=3600' },
+      })
+    )
+  }
+
+  // Optional marketing hosts: watches.example.com → ?category=WATCHES when unset.
+  const hostCategory = resolveCategoryForHost(request.nextUrl.hostname)
+  if (
+    hostCategory &&
+    !shouldSkipLocaleRouting(pathname) &&
+    !request.nextUrl.searchParams.get('category')
+  ) {
+    const { locale: pathLocale, pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+    if (
+      pathnameWithoutLocale === '/' ||
+      pathnameWithoutLocale === '/new' ||
+      pathnameWithoutLocale === '/pricelist'
+    ) {
+      const url = request.nextUrl.clone()
+      url.searchParams.set('category', hostCategory)
+      // Keep locale prefix in the public URL when present.
+      if (pathLocale) {
+        url.pathname = pathname
+      }
+      return finish(NextResponse.redirect(url, 307))
+    }
   }
 
   if (process.env.NODE_ENV === 'production' && pathname === '/debug') {

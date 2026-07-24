@@ -1,0 +1,40 @@
+# systemd unit — import worker with CPU/nice caps (same VPS as catalogus).
+# Install:
+#   sudo cp deploy/catalogus-import-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#
+# Run a job (off-peak):
+#   sudo systemctl start catalogus-import-worker@JOBUUID
+#
+# Or one-shot:
+#   sudo systemd-run --uid=root --slice=catalogus-import.slice \
+#     -p CPUQuota=30% -p Nice=10 \
+#     /bin/bash -c 'cd /var/www/superclones.cloud && set -a && . ./.env && set +a && npm run import:worker -- --job=<uuid>'
+#
+# Prefer IMPORT_WORKER_ALLOWED_HOURS=1-6 in .env so peak shop hours refuse to start.
+
+[Unit]
+Description=Catalogus import worker (CPU-capped)
+After=network.target mariadb.service mysql.service catalogus.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/var/www/superclones.cloud
+Environment=NODE_ENV=production
+EnvironmentFile=-/var/www/superclones.cloud/.env
+# Soft cap — leave headroom for Next.js + MariaDB on the same box.
+CPUQuota=30%
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# Kill if a runaway job pegs the box for too long (6h).
+TimeoutStartSec=21600
+ExecStart=/bin/bash -c 'set -a && [ -f .env ] && . ./.env && set +a && exec npm run import:worker -- --job=%i'
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=catalogus-import
+
+[Install]
+WantedBy=multi-user.target

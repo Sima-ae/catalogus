@@ -1,3 +1,10 @@
+import {
+  isRedisCacheEnabled,
+  redisDel,
+  redisGetJson,
+  redisSetJson,
+} from '@/lib/redis-cache'
+
 type CacheEntry<T> = {
   value: T
   expiresAt: number
@@ -20,7 +27,14 @@ function inflightKey(namespace: string, key: string): string {
   return `${namespace}::${key}`
 }
 
-/** In-process TTL cache for read-heavy server data (categories, site access, etc.). */
+function redisKey(namespace: string, key: string): string {
+  return `catalogus:ttl:${namespace}:${key}`
+}
+
+/**
+ * Shared TTL cache for read-heavy server data (categories, catalog pages, site access).
+ * Uses Redis when REDIS_URL is set; always keeps an in-process layer for hot hits.
+ */
 export async function getCachedValue<T>(
   namespace: string,
   key: string,
@@ -42,8 +56,19 @@ export async function getCachedValue<T>(
 
   const pending = (async () => {
     try {
+      if (isRedisCacheEnabled()) {
+        const remote = await redisGetJson<T>(redisKey(namespace, key))
+        if (remote !== undefined) {
+          store.set(key, { value: remote, expiresAt: Date.now() + ttlMs })
+          return remote
+        }
+      }
+
       const value = await loader()
       store.set(key, { value, expiresAt: Date.now() + ttlMs })
+      if (isRedisCacheEnabled()) {
+        void redisSetJson(redisKey(namespace, key), value, ttlMs)
+      }
       return value
     } finally {
       inflight.delete(pendingKey)
@@ -64,6 +89,9 @@ export function invalidateCachedNamespace(namespace: string): void {
 export function invalidateCachedKey(namespace: string, key: string): void {
   getStore(namespace).delete(key)
   inflight.delete(inflightKey(namespace, key))
+  if (isRedisCacheEnabled()) {
+    void redisDel(redisKey(namespace, key))
+  }
 }
 
 /** Return a warm cache entry without running the loader (undefined if missing or expired). */

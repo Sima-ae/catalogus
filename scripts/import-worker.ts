@@ -9,12 +9,14 @@
  *   npm run import:worker -- --job=<uuid> --refresh --retry-all
  *   npm run import:worker -- --job=<uuid> --concurrency=3
  *   npm run import:worker -- --job=<uuid> --fast
+ *   npm run import:worker -- --job=<uuid> --force
  *
  * --refresh  re-fetch source data and update existing products (status unchanged).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
  * --password  overrides Yupoo access password for this run.
  * --concurrency=N  parallel products (WeCatalog default 3; keep ≤3 on shared VPS).
- * --fast  WeCatalog: concurrency 4, skip title translation, minimal translate delays.
+ * --fast  WeCatalog: concurrency ≤3 (or --concurrency), skip title translation, minimal translate delays.
+ * --force  bypass IMPORT_WORKER_ALLOWED_HOURS off-peak guard.
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
@@ -117,12 +119,55 @@ function parseArgInt(name: string, defaultValue: number): number {
 
 function workerFlags() {
   const fast = process.argv.includes('--fast')
+  const force = process.argv.includes('--force')
   return {
     refresh: process.argv.includes('--refresh'),
     retryAll: process.argv.includes('--retry-all'),
     retrySkipped: process.argv.includes('--retry-skipped'),
     fast,
-    concurrency: fast ? 4 : parseArgInt('--concurrency', 0),
+    force,
+    // Cap --fast at 3 unless explicitly overridden — shared VPS cannot absorb 4+ heavy workers.
+    concurrency: fast
+      ? Math.min(4, parseArgInt('--concurrency', 3))
+      : parseArgInt('--concurrency', 0),
+  }
+}
+
+/**
+ * IMPORT_WORKER_ALLOWED_HOURS=1-6 (UTC, inclusive start, exclusive end)
+ * or comma list: 1,2,3,4,5. Empty = always allowed. Pass --force to bypass.
+ */
+function assertImportWorkerScheduleAllowed(force: boolean): void {
+  if (force) return
+  const raw = process.env.IMPORT_WORKER_ALLOWED_HOURS?.trim()
+  if (!raw) return
+
+  const hour = new Date().getUTCHours()
+  let allowed = false
+
+  if (raw.includes('-')) {
+    const [startRaw, endRaw] = raw.split('-', 2)
+    const start = Number.parseInt(String(startRaw).trim(), 10)
+    const end = Number.parseInt(String(endRaw).trim(), 10)
+    if (Number.isFinite(start) && Number.isFinite(end)) {
+      allowed = start <= end ? hour >= start && hour < end : hour >= start || hour < end
+    }
+  } else {
+    const hours = new Set(
+      raw
+        .split(',')
+        .map((p) => Number.parseInt(p.trim(), 10))
+        .filter((n) => Number.isFinite(n) && n >= 0 && n <= 23)
+    )
+    allowed = hours.has(hour)
+  }
+
+  if (!allowed) {
+    console.error(
+      `Import worker blocked outside IMPORT_WORKER_ALLOWED_HOURS=${raw} (current UTC hour=${hour}). ` +
+        `Re-run with --force to override, or wait for the off-peak window.`
+    )
+    process.exit(2)
   }
 }
 
@@ -909,6 +954,9 @@ async function processJob(jobId: string) {
 async function main() {
   loadDotEnv()
   ensureEnvLoaded()
+
+  const flags = workerFlags()
+  assertImportWorkerScheduleAllowed(flags.force)
 
   try {
     console.log(`==> Image storage: ${describeCatalogImagesWriteTarget()}`)
