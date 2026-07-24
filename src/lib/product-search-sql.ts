@@ -53,17 +53,18 @@ export function buildProductSearchFilter(
     }
   }
 
+  // Legacy LIKE fallback — keep narrow (no description) to avoid full-table scans
+  // on ~100k+ products when FULLTEXT is missing. Prefer applying ft_products_search.
   const like = `%${trimmed}%`
   const searchParts = [
     'p.name LIKE ?',
     'p.sku LIKE ?',
     'p.brand LIKE ?',
-    'p.description LIKE ?',
     'p.short_description LIKE ?',
     'p.category LIKE ?',
     'p.tags LIKE ?',
   ]
-  const params: unknown[] = [like, like, like, like, like, like, like]
+  const params: unknown[] = [like, like, like, like, like, like]
   if (options.includeCategoryJoin) {
     searchParts.push('c.name LIKE ?')
     params.push(like)

@@ -7,14 +7,14 @@
  *   npm run import:worker -- --job=<uuid> --password=<yupoo-store-access-code>
  *   npm run import:worker -- --job=<uuid> --refresh
  *   npm run import:worker -- --job=<uuid> --refresh --retry-all
- *   npm run import:worker -- --job=<uuid> --concurrency=6
+ *   npm run import:worker -- --job=<uuid> --concurrency=3
  *   npm run import:worker -- --job=<uuid> --fast
  *
  * --refresh  re-fetch source data and update existing products (status unchanged).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
  * --password  overrides Yupoo access password for this run.
- * --concurrency=N  parallel products (WeCatalog default 6).
- * --fast  WeCatalog: concurrency 8, skip title translation, minimal translate delays.
+ * --concurrency=N  parallel products (WeCatalog default 3; keep ≤3 on shared VPS).
+ * --fast  WeCatalog: concurrency 4, skip title translation, minimal translate delays.
  */
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
@@ -122,7 +122,7 @@ function workerFlags() {
     retryAll: process.argv.includes('--retry-all'),
     retrySkipped: process.argv.includes('--retry-skipped'),
     fast,
-    concurrency: fast ? 8 : parseArgInt('--concurrency', 0),
+    concurrency: fast ? 4 : parseArgInt('--concurrency', 0),
   }
 }
 
@@ -639,7 +639,8 @@ async function processWecatalogJob(
   let refreshed = 0
   const counters = { processed, imported, skipped, failed, refreshed }
 
-  const concurrency = flags.concurrency || 6
+  // Default 3 — higher concurrency on a shared VPS pegs MariaDB + Node together.
+  const concurrency = flags.concurrency || 3
   const translateTitle = !flags.fast
   if (flags.fast) {
     setCjkTranslateDelayMs(0)

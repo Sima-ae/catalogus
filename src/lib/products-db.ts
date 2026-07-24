@@ -844,7 +844,7 @@ async function loadActiveProductCountBuckets(options?: {
            FROM products p
            WHERE p.status = 'active'
              AND p.category_id IS NOT NULL
-             AND TRIM(CAST(p.category_id AS CHAR)) != ''
+             AND p.category_id != ''
            GROUP BY p.category_id`
         )
         for (const row of idRows) {
@@ -1551,21 +1551,18 @@ function syncPricelistAfterCatalogStatusChange(
   })
 }
 
-export async function listProducts() {
-  const select = await productSelectSql()
-  const rows = await queryDb<Record<string, unknown>[]>(
-    `${select} ORDER BY p.created_at DESC`
+/** @deprecated Unbounded — use listActiveProductsPaginated / admin paginated APIs. */
+export async function listProducts(): Promise<never> {
+  throw new Error(
+    'listProducts() is disabled (unbounded catalog load). Use a paginated products API instead.'
   )
-  return await serializeProductRows(rows)
 }
 
-/** Active products only — public shop catalog. */
-export async function listActiveProducts() {
-  const select = await productSelectSql()
-  const rows = await queryDb<Record<string, unknown>[]>(
-    `${select} WHERE p.status = 'active' ORDER BY p.created_at DESC`
+/** @deprecated Unbounded — use listActiveProductsPaginated. */
+export async function listActiveProducts(): Promise<never> {
+  throw new Error(
+    'listActiveProducts() is disabled (unbounded catalog load). Use listActiveProductsPaginated().'
   )
-  return await serializeProductRows(rows)
 }
 
 /** Paginated active catalog — filters applied in SQL for fast first paint. */
@@ -2319,15 +2316,14 @@ async function buildSellerProductFilters(
   }
 }
 
-/** Products owned by a seller (author_id or legacy author name match). */
-export async function listProductsForSeller(sellerId: string, sellerName: string) {
-  const select = await productSelectSql()
-  const { whereSql, params } = await buildSellerProductFilters(sellerId, sellerName)
-  const rows = await queryDb<Record<string, unknown>[]>(
-    `${select} ${whereSql} ORDER BY p.created_at DESC`,
-    params
+/** @deprecated Unbounded — use listProductsForSellerPaginated. */
+export async function listProductsForSeller(
+  _sellerId: string,
+  _sellerName: string
+): Promise<never> {
+  throw new Error(
+    'listProductsForSeller() is disabled (unbounded load). Use listProductsForSellerPaginated().'
   )
-  return await serializeProductRows(rows)
 }
 
 /** Paginated seller-owned products — avoids loading the full catalog into memory. */

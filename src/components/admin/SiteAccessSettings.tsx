@@ -214,8 +214,10 @@ export default function SiteAccessSettings() {
             <p className="form-hint">
               Codes live in the database table <code className="text-xs">site_access_codes</code>.
               Seed file on the server:{' '}
-              <code className="text-xs">db/site_access_codes_seed.txt</code> — run{' '}
-              <code className="text-xs">npm run db:seed-site-access-codes</code> after deploy.
+              <code className="text-xs">db/site_access_codes_seed.txt</code> (private,
+              not in git — see <code className="text-xs">db/site_access_codes_seed.example.txt</code>
+              ) — run <code className="text-xs">npm run db:seed-site-access-codes</code> after
+              deploy.
             </p>
             {stats && (
               <p className="form-hint">

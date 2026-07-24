@@ -1,0 +1,5 @@
+# Copy to db/site_access_codes_seed.txt (gitignored) and fill real codes privately.
+# One 4-digit code per line.
+1001
+1002
+1003

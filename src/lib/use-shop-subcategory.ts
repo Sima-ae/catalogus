@@ -173,13 +173,15 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
   const [subcategories, setSubcategories] = useState<ShopSubcategoryRow[]>(
     () => cachedRows ?? syncRows ?? []
   )
+  // Only show loading when nav cache has not resolved yet (null). Empty [] means
+  // "known: no subcategory pills" — must not flip catalogBrowseDeferred.
   const [loading, setLoading] = useState(
     () =>
       Boolean(
         selectedCategory &&
           selectedCategory !== 'All' &&
           !cachedRows &&
-          !syncRows?.length
+          syncRows == null
       )
   )
 
@@ -338,7 +340,7 @@ export function useShopNestedSubcategory(
     () => cachedRows ?? syncRows ?? []
   )
   const [loading, setLoading] = useState(
-    () => Boolean(enabled && !cachedRows && !syncRows?.length)
+    () => Boolean(enabled && !cachedRows && syncRows == null)
   )
 
   useEffect(() => {

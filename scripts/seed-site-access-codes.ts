@@ -33,6 +33,9 @@ async function main() {
   const seedPath = resolve(process.cwd(), 'db/site_access_codes_seed.txt')
   if (!existsSync(seedPath)) {
     console.error('Missing seed file:', seedPath)
+    console.error(
+      'Copy db/site_access_codes_seed.example.txt → db/site_access_codes_seed.txt and fill real codes (file is gitignored).'
+    )
     process.exit(1)
   }
 

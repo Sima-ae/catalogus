@@ -14,7 +14,8 @@ const globalDb = globalThis as GlobalDb
 function defaultConnectionLimit(): number {
   const fromEnv = Number(process.env.DB_CONNECTION_LIMIT)
   if (Number.isFinite(fromEnv) && fromEnv > 0) return Math.min(fromEnv, 30)
-  return process.env.NODE_ENV === 'production' ? 15 : 4
+  // Keep production pool modest so Next + import worker don't exhaust MariaDB.
+  return process.env.NODE_ENV === 'production' ? 8 : 4
 }
 
 /** Build mysql:// URL from DATABASE_URL or legacy DB_* variables */

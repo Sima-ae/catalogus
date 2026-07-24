@@ -29,9 +29,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Local env files
-.env*.local
+# Local env files (never commit secrets)
 .env
+.env.*
+!.env*.example
+!.env.local.example
+!.env.vps.example
+
+# Site access codes seed (private; keep local/untracked only)
+db/site_access_codes_seed.txt
 
 # Vercel
 .vercel

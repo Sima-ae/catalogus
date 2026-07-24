@@ -23,7 +23,7 @@ import { useShopNestedSubcategory, useShopSubcategory } from '@/lib/use-shop-sub
 import { useShopCatalogPage } from '@/lib/use-shop-catalog-page'
 import { catalogListingKey } from '@/lib/shop-catalog-url'
 import { shouldApplyShopBrandFilter, shouldPassBrandToCatalogQuery } from '@/lib/shop-brand-menu'
-import { fetchCatalogJson } from '@/lib/catalog-fetch-client'
+import { fetchCatalogJson, isCatalogFetchAbortError } from '@/lib/catalog-fetch-client'
 import {
   shouldDeferShopCatalogProductLoad,
   shopNestedSubcategoryForApiQuery,
@@ -164,6 +164,7 @@ function ShopCatalogPageContent({
   const [categoryProductCount, setCategoryProductCount] = useState<number | null>(null)
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
   const prevFilterRef = useRef<string | null>(null)
+  const catalogLoadGenRef = useRef(0)
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const listingScrollKey = catalogListingKey(pathname ?? '', searchParams)
@@ -705,17 +706,16 @@ function ShopCatalogPageContent({
 
   useEffect(() => {
     let cancelled = false
+    const loadGen = ++catalogLoadGenRef.current
     const filtersChanged =
       prevFilterRef.current !== null && prevFilterRef.current !== filterSignature
 
-    // Reset page first without consuming filtersChanged — otherwise loading flags from
-    // beginInstantFilterFeedback stay true and the overlay loops forever.
+    // Load page 1 immediately when filters change — do not early-return (that aborted the
+    // in-flight request and left pageLoading/filterNavigating stuck at the 88% overlay).
+    const pageToLoad = filtersChanged ? 1 : currentPage
     if (filtersChanged && currentPage !== 1) {
       setTotalItems(0)
       setCurrentPage(1)
-      return () => {
-        cancelled = true
-      }
     }
 
     prevFilterRef.current = filterSignature
@@ -723,14 +723,17 @@ function ShopCatalogPageContent({
       setTotalItems(0)
     }
 
-    const pageToLoad = currentPage
+    const clearLoadingFlags = () => {
+      if (cancelled || loadGen !== catalogLoadGenRef.current) return
+      setLoading(false)
+      setPageLoading(false)
+      setFilterNavigating(false)
+    }
 
     if (catalogBrowseDeferred) {
       setProducts([])
       setTotalItems(0)
-      setLoading(false)
-      setPageLoading(false)
-      setFilterNavigating(false)
+      clearLoadingFlags()
       setError(null)
       return () => {
         cancelled = true
@@ -773,18 +776,18 @@ function ShopCatalogPageContent({
         )
       }
       hasLoadedOnce.current = true
-      if (data.page !== pageToLoad && data.page >= 1) {
+      if (data.page !== pageToLoad && data.page >= 1 && !filtersChanged) {
         setCurrentPage(data.page)
       }
     }
 
     if (reloadToken === 0 && initialCatalog && initialCatalogSignature === clientCatalogSignature) {
       applyCatalogPage(initialCatalog)
-      setLoading(false)
-      setPageLoading(false)
-      setFilterNavigating(false)
+      clearLoadingFlags()
       setError(null)
-      return
+      return () => {
+        cancelled = true
+      }
     }
 
     const prefetched =
@@ -800,9 +803,7 @@ function ShopCatalogPageContent({
 
     if (cacheFresh && cached && cached.items.length > 0 && cached.total > 0) {
       applyCatalogPage(cached)
-      setLoading(false)
-      setPageLoading(false)
-      setFilterNavigating(false)
+      clearLoadingFlags()
       setError(null)
       // Cached pages may still hold a stale unfiltered total from before search counts worked.
       if (debouncedSearch.trim() || filterTag) {
@@ -846,7 +847,10 @@ function ShopCatalogPageContent({
                 if (!isCatalogProductsPage(payload)) return
                 if (typeof payload.total === 'number') setTotalItems(payload.total)
               })
-              .catch(() => undefined)
+              .catch((err) => {
+                if (isCatalogFetchAbortError(err)) return
+                return undefined
+              })
           : null
 
       try {
@@ -860,7 +864,7 @@ function ShopCatalogPageContent({
           void totalFetch
         }
       } catch (err) {
-        if (cancelled) return
+        if (cancelled || isCatalogFetchAbortError(err)) return
         setError(
           `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
         )
@@ -869,11 +873,7 @@ function ShopCatalogPageContent({
           setTotalItems(0)
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-          setPageLoading(false)
-          setFilterNavigating(false)
-        }
+        clearLoadingFlags()
       }
     }
 
@@ -881,6 +881,15 @@ function ShopCatalogPageContent({
     return () => {
       cancelled = true
       abortController.abort()
+      // If nothing replaced this load (unmount / stalled), drop the overlay so we
+      // cannot stay stuck at 88% and keep hammering the VPS.
+      queueMicrotask(() => {
+        if (loadGen === catalogLoadGenRef.current) {
+          setLoading(false)
+          setPageLoading(false)
+          setFilterNavigating(false)
+        }
+      })
     }
   }, [
     activeCategory,
@@ -902,7 +911,6 @@ function ShopCatalogPageContent({
     setCurrentPage,
     buildCatalogFetchUrl,
     buildCatalogTotalUrl,
-    catalogShuffle,
   ])
 
   /** Backfill total when products are visible but count was deferred (homepage shuffle, cold cache). */
@@ -1036,6 +1044,12 @@ function ShopCatalogPageContent({
     tr,
   ])
   const showBrowsePrompt = Boolean(catalogBrowsePrompt)
+
+  const handleCatalogLoadStall = useCallback(() => {
+    setLoading(false)
+    setPageLoading(false)
+    setFilterNavigating(false)
+  }, [])
 
   const isDark = theme === 'dark'
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon
@@ -1269,7 +1283,10 @@ function ShopCatalogPageContent({
         </main>
       </div>
 
-      <CatalogLoadingOverlay active={showCatalogLoadingOverlay} />
+      <CatalogLoadingOverlay
+        active={showCatalogLoadingOverlay}
+        onStall={handleCatalogLoadStall}
+      />
     </div>
   )
 }

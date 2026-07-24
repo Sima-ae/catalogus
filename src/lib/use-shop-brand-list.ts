@@ -126,6 +126,7 @@ export function useShopBrandList(
 
     return () => {
       cancelled = true
+      setLoading(false)
     }
   }, [cacheKey, selectedCategory, selectedSubcategory, selectedNested, enabled])
 

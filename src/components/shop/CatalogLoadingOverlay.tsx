@@ -7,17 +7,32 @@ import { useTheme } from '@/lib/theme'
 type Props = {
   active: boolean
   message?: string
+  /** Fired once if loading stays active too long — parent should clear stuck flags. */
+  onStall?: () => void
+  stallTimeoutMs?: number
 }
 
+const DEFAULT_STALL_MS = 25_000
+
 /** Ease 0 → ~88% while loading; snap to 100% briefly when done. */
-function useSimulatedLoadProgress(active: boolean): { percent: number; visible: boolean } {
+function useSimulatedLoadProgress(
+  active: boolean,
+  onStall?: () => void,
+  stallTimeoutMs: number = DEFAULT_STALL_MS
+): { percent: number; visible: boolean } {
   const [percent, setPercent] = useState(0)
   const [visible, setVisible] = useState(false)
   const activeRef = useRef(active)
   activeRef.current = active
+  const onStallRef = useRef(onStall)
+  onStallRef.current = onStall
+  const stalledRef = useRef(false)
 
   useEffect(() => {
-    if (!active) return
+    if (!active) {
+      stalledRef.current = false
+      return
+    }
 
     setVisible(true)
     setPercent(0)
@@ -27,10 +42,19 @@ function useSimulatedLoadProgress(active: boolean): { percent: number; visible: 
       const elapsed = Date.now() - start
       const eased = Math.min(88, Math.round(88 * (1 - Math.exp(-elapsed / 5000))))
       setPercent(eased)
-    }, 80)
+    }, 200)
 
-    return () => window.clearInterval(id)
-  }, [active])
+    const stallId = window.setTimeout(() => {
+      if (!activeRef.current || stalledRef.current) return
+      stalledRef.current = true
+      onStallRef.current?.()
+    }, stallTimeoutMs)
+
+    return () => {
+      window.clearInterval(id)
+      window.clearTimeout(stallId)
+    }
+  }, [active, stallTimeoutMs])
 
   useEffect(() => {
     if (active || !visible) return
@@ -51,23 +75,24 @@ function useSimulatedLoadProgress(active: boolean): { percent: number; visible: 
 }
 
 /** Full-viewport loading overlay — sits above the sticky header and message ticker. */
-export default function CatalogLoadingOverlay({ active, message }: Props) {
+export default function CatalogLoadingOverlay({
+  active,
+  message,
+  onStall,
+  stallTimeoutMs,
+}: Props) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const { percent, visible } = useSimulatedLoadProgress(active)
+  const { percent, visible } = useSimulatedLoadProgress(active, onStall, stallTimeoutMs)
 
   if (!visible) return null
 
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-busy={percent < 100}
+      role="status"
       aria-live="polite"
-      aria-valuenow={percent}
-      aria-valuemin={0}
-      aria-valuemax={100}
+      aria-busy={percent < 100}
     >
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" aria-hidden />
       <div
