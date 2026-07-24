@@ -31,6 +31,11 @@ assert.equal(isBotBlockedApiPath('/api/health/db'), false)
 
 assert.equal(isLikelyBotUserAgent('Mozilla/5.0 (compatible; Googlebot/2.1)'), true)
 assert.equal(isLikelyBotUserAgent('python-requests/2.31.0'), true)
+assert.equal(isLikelyBotUserAgent(''), true)
+assert.equal(isLikelyBotUserAgent(null), true)
 assert.equal(isLikelyBotUserAgent('Mozilla/5.0 (Macintosh) Chrome/120'), false)
+
+assert.equal(isBotBlockedApiPath('/api/shop/bootstrap'), true)
+assert.equal(isBotBlockedApiPath('/api/activity/social-proof'), true)
 
 console.log('vps-cpu-guards ok')

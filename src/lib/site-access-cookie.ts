@@ -197,6 +197,23 @@ export async function verifyUnlockToken(
   return true
 }
 
+/** Read version embedded in an unlock token (unsigned peek — always verify after). */
+export function peekUnlockTokenVersion(token: string | null | undefined): number | null {
+  const raw = String(token ?? '').trim()
+  if (!raw) return null
+  const dot = raw.indexOf('.')
+  if (dot === -1) return null
+  try {
+    const payload = base64UrlToString(raw.slice(0, dot))
+    const parts = payload.split('.')
+    if (parts.length !== 3 || parts[0] !== 'v1') return null
+    const version = Number.parseInt(parts[1] || '', 10)
+    return Number.isFinite(version) ? version : null
+  } catch {
+    return null
+  }
+}
+
 export async function createActiveSessionToken(
   version: number
 ): Promise<{ token: string; maxAge: number } | null> {

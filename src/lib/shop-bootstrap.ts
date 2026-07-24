@@ -99,3 +99,15 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
 
   return { categoryMessages, tagMessages, shopBootstrap, tickerMessages, categoryRows, bootstrapDegraded }
 }
+
+/** Gate / locked traffic — no MariaDB. Prevents scrapers redirected to the gate from burning CPU. */
+export function getLightLayoutBootstrapData(locale: Locale): LayoutBootstrapData {
+  return {
+    categoryMessages: {},
+    tagMessages: {},
+    shopBootstrap: getDefaultShopBootstrap(locale),
+    tickerMessages: [],
+    categoryRows: [],
+    bootstrapDegraded: false,
+  }
+}

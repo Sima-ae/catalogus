@@ -6,6 +6,7 @@ import {
   SITE_ACCESS_META_VERSION,
   applySiteAccessCookies,
   getCookieSecret,
+  peekUnlockTokenVersion,
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 
@@ -18,9 +19,11 @@ import {
 } from '@/lib/i18n-routing'
 import { applyNoIndexHeaders } from '@/lib/no-index'
 import {
+  CATALOGUS_LIGHT_HEADER,
   isBotBlockedApiPath,
   isJunkBotPath,
   isLikelyBotUserAgent,
+  isRateLimitedIp,
 } from '@/lib/bot-traffic'
 import { resolveCategoryForHost } from '@/lib/category-host-map'
 
@@ -81,69 +84,62 @@ function isChatApi(pathname: string): boolean {
   return pathname.startsWith('/api/chat/')
 }
 
-/** Deploy/diagnostics + image proxy — humans may load without gate round-trip; bots blocked above. */
 function isPublicApi(pathname: string): boolean {
-  return pathname === '/api/health/db' || pathname === '/api/yupoo-image'
+  return pathname === '/api/health/db'
 }
 
-/** Edge-safe check using cookies set by verify/status/check (no self-fetch). */
-async function siteAccessFromCookies(request: NextRequest): Promise<{
-  required: boolean
-  allowed: boolean
-} | null> {
-  const requiredFlag = request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value
-  if (requiredFlag === '0') {
-    return { required: false, allowed: true }
-  }
-  if (requiredFlag !== '1') {
-    return null
-  }
-
-  // Edge middleware cannot read .env at runtime — verify via /api/site-access/check (Node) instead.
-  if (!getCookieSecret()) {
-    return null
-  }
-
-  const version =
-    Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '0', 10) || 0
-  const token = request.cookies.get(SITE_ACCESS_COOKIE)?.value
-  let allowed = false
-  try {
-    allowed = await verifyUnlockToken(token, version)
-  } catch {
-    allowed = false
-  }
-  return {
-    required: true,
-    allowed,
-  }
+function clientIp(request: NextRequest): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip')?.trim() ||
+    'unknown'
+  )
 }
 
-async function siteAccessFromApi(request: NextRequest): Promise<{
+function withLightHeader(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(CATALOGUS_LIGHT_HEADER, '1')
+  return NextResponse.next({ request: { headers: requestHeaders } })
+}
+
+/**
+ * Edge-only site access — NEVER self-fetches /api/site-access/check (that doubled every
+ * cookieless probe into a Node+MariaDB hit and was the main idle-CPU burn).
+ */
+async function resolveSiteAccess(request: NextRequest): Promise<{
   required: boolean
   allowed: boolean
   version: number
+  setMeta: boolean
 }> {
-  const checkUrl = new URL('/api/site-access/check', request.nextUrl.origin)
-  try {
-    const res = await fetch(checkUrl, {
-      headers: { cookie: request.headers.get('cookie') || '' },
-      cache: 'no-store',
-    })
-    if (!res.ok) return { required: false, allowed: true, version: 0 }
-    const data = (await res.json()) as {
-      required?: boolean
-      allowed?: boolean
-      version?: number
-    }
-    return {
-      required: Boolean(data.required),
-      allowed: data.allowed !== false,
-      version: Number(data.version) || 0,
-    }
-  } catch {
-    return { required: false, allowed: true, version: 0 }
+  const requiredFlag = request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value
+  if (requiredFlag === '0') {
+    return { required: false, allowed: true, version: 0, setMeta: false }
   }
+
+  const metaVersion =
+    Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '', 10) || 0
+  const unlock = request.cookies.get(SITE_ACCESS_COOKIE)?.value
+  const secretOk = Boolean(getCookieSecret())
+
+  if (requiredFlag === '1') {
+    if (!secretOk || !unlock) {
+      return { required: true, allowed: false, version: metaVersion, setMeta: false }
+    }
+    const allowed = await verifyUnlockToken(unlock, metaVersion)
+    return { required: true, allowed, version: metaVersion, setMeta: false }
+  }
+
+  // No meta cookie yet. Prefer unlock token (version is embedded) — still no DB.
+  if (unlock && secretOk) {
+    const version = peekUnlockTokenVersion(unlock) ?? 0
+    const allowed = await verifyUnlockToken(unlock, version)
+    return { required: true, allowed, version, setMeta: true }
+  }
+
+  // Locked by default until the gate (or status API) sets meta cookies.
+  // Gate page is the only place that may hit MariaDB for site-access config.
+  return { required: true, allowed: false, version: 0, setMeta: false }
 }
 
 function attachSiteAccessMeta(
@@ -157,7 +153,7 @@ function attachSiteAccessMeta(
   return response
 }
 
-/** Permanent redirect legacy /catalogus URLs to site root. Enforce site-wide access password. */
+/** Permanent redirect legacy /catalogus URLs. Enforce site-wide access without DB self-fetch. */
 export async function middleware(request: NextRequest) {
   const finish = (response: NextResponse) => applyNoIndexHeaders(response)
 
@@ -165,7 +161,6 @@ export async function middleware(request: NextRequest) {
   const ua = request.headers.get('user-agent')
   const isBot = isLikelyBotUserAgent(ua)
 
-  // Bots hammering WordPress/Laravel/etc. paths — never hit Next/DB/locale.
   if (isJunkBotPath(pathname)) {
     return finish(
       new NextResponse(null, {
@@ -175,12 +170,29 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  // Known bots must not stampede catalog/image APIs (high MariaDB + Node CPU).
-  if (isBot && isBotBlockedApiPath(pathname)) {
+  // Health only — never run locale/gate/bootstrap for monitors.
+  if (isPublicApi(pathname)) {
+    return finish(NextResponse.next())
+  }
+
+  // Site is noindex: bots never get HTML or heavy APIs.
+  if (isBot) {
+    if (isSiteAccessApi(pathname)) {
+      return finish(NextResponse.next())
+    }
     return finish(
       new NextResponse(null, {
         status: 404,
         headers: { 'Cache-Control': 'public, max-age=3600' },
+      })
+    )
+  }
+
+  if (isBotBlockedApiPath(pathname) && isRateLimitedIp(clientIp(request), 60, 60_000)) {
+    return finish(
+      new NextResponse(null, {
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' },
       })
     )
   }
@@ -200,7 +212,6 @@ export async function middleware(request: NextRequest) {
     ) {
       const url = request.nextUrl.clone()
       url.searchParams.set('category', hostCategory)
-      // Keep locale prefix in the public URL when present.
       if (pathLocale) {
         url.pathname = pathname
       }
@@ -227,88 +238,76 @@ export async function middleware(request: NextRequest) {
     isStaticAsset(pathname) ||
     isSiteAccessApi(pathname) ||
     isPricelistApiPath(pathname) ||
-    isChatApi(pathname) ||
-    isPublicApi(pathname)
+    isChatApi(pathname)
   ) {
     return finish(NextResponse.next())
   }
 
-  // Known bots with no site-access meta cookie: do not self-fetch check API (DB).
-  // Site is noindex; crawlers should not burn CPU. Humans still run the full check.
-  if (isBot && !request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value) {
+  // Cookieless scrapers pretending to be browsers — hard cap.
+  const hasMeta = Boolean(request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value)
+  const hasUnlock = Boolean(request.cookies.get(SITE_ACCESS_COOKIE)?.value)
+  if (!hasMeta && !hasUnlock && isRateLimitedIp(clientIp(request), 20, 60_000)) {
     return finish(
       new NextResponse(null, {
-        status: 404,
-        headers: { 'Cache-Control': 'public, max-age=3600' },
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' },
       })
     )
   }
 
-  let required = false
-  let allowed = true
-  let accessVersion = 0
-  let shouldSetMetaCookies = false
-  try {
-    const fromCookies = await siteAccessFromCookies(request)
-    if (fromCookies) {
-      required = fromCookies.required
-      allowed = fromCookies.allowed
-    } else {
-      const access = await siteAccessFromApi(request)
-      required = access.required
-      allowed = access.allowed
-      accessVersion = access.version
-      shouldSetMetaCookies = true
-    }
-  } catch (error) {
-    console.error('[middleware] site access check failed:', error)
-    required = false
-    allowed = true
-  }
+  const access = await resolveSiteAccess(request)
 
   const withMeta = (response: NextResponse) => {
-    if (shouldSetMetaCookies) {
-      return attachSiteAccessMeta(response, { required, version: accessVersion })
+    if (access.setMeta) {
+      return attachSiteAccessMeta(response, {
+        required: access.required,
+        version: access.version,
+      })
     }
     return response
   }
 
-  if (!required || allowed) {
-    // Bots: skip locale redirect (avoids double-hit / → /en/ → rewrite).
-    if (isBot) {
-      return finish(withMeta(NextResponse.next()))
+  const onGate = pathname === GATE_PATH || pathname.startsWith(`${GATE_PATH}/`)
+
+  // Gate + locked traffic: skip heavy category/translation bootstrap in layout.
+  if (onGate || (access.required && !access.allowed)) {
+    if (onGate) {
+      return finish(withMeta(withLightHeader(request)))
     }
+
+    if (pathname.startsWith('/api/')) {
+      return finish(
+        withMeta(
+          NextResponse.json({ error: 'Site access password required' }, { status: 401 })
+        )
+      )
+    }
+
+    if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
+      return finish(withMeta(withLightHeader(request)))
+    }
+
+    const gate = request.nextUrl.clone()
+    gate.pathname = GATE_PATH
+    gate.searchParams.set('from', pathname + search)
+    const res = withMeta(NextResponse.redirect(gate))
+    const { locale: fromLocale } = parseLocaleFromPathname(pathname)
+    if (fromLocale) {
+      res.cookies.set(LOCALE_COOKIE, fromLocale, {
+        path: '/',
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: 'lax',
+      })
+    }
+    return finish(res)
+  }
+
+  if (!access.required || access.allowed) {
     const localeResponse = applyLocaleRouting(request)
     return finish(withMeta(localeResponse ?? NextResponse.next()))
   }
 
-  if (pathname === GATE_PATH) {
-    return finish(withMeta(NextResponse.next()))
-  }
-
-  if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
-    return finish(withMeta(NextResponse.next()))
-  }
-
-  if (pathname.startsWith('/api/')) {
-    return finish(
-      withMeta(NextResponse.json({ error: 'Site access password required' }, { status: 401 }))
-    )
-  }
-
-  const gate = request.nextUrl.clone()
-  gate.pathname = GATE_PATH
-  gate.searchParams.set('from', pathname + search)
-  const res = withMeta(NextResponse.redirect(gate))
-  const { locale: fromLocale } = parseLocaleFromPathname(pathname)
-  if (fromLocale) {
-    res.cookies.set(LOCALE_COOKIE, fromLocale, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 365,
-      sameSite: 'lax',
-    })
-  }
-  return finish(res)
+  return finish(withMeta(NextResponse.next()))
 }
 
 export const config = {

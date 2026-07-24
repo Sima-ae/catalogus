@@ -2,11 +2,7 @@ import type { Metadata } from 'next'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
 import { buildPageMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
-import {
-  buildShopCatalogSignature,
-  loadInitialShopCatalog,
-  shouldServerRenderShopCatalog,
-} from '@/lib/shop-catalog-ssr'
+import { buildShopCatalogSignature } from '@/lib/shop-catalog-ssr'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
@@ -17,6 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   )
 }
 
+/** Client-only catalog load — avoid SSR DB work on every navigation. */
 export default async function NewProductsPage({
   searchParams,
 }: {
@@ -24,14 +21,6 @@ export default async function NewProductsPage({
 }) {
   const sp = await searchParams
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'new')
-  let initialCatalog = null
-  if (shouldServerRenderShopCatalog(sp)) {
-    try {
-      initialCatalog = await loadInitialShopCatalog(sp, 'new')
-    } catch {
-      // Client-side fetch fallback if DB is unavailable during SSR.
-    }
-  }
 
   return (
     <ShopCatalogPage
@@ -48,7 +37,7 @@ export default async function NewProductsPage({
           'Nothing was added during the current catalog week yet. The list resets every Sunday at midnight. Browse the full catalog on Home in the meantime.',
         centerCatalog: true,
       }}
-      initialCatalog={initialCatalog}
+      initialCatalog={null}
       initialCatalogSignature={initialCatalogSignature}
     />
   )

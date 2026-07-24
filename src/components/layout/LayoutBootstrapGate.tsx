@@ -59,6 +59,7 @@ export default function LayoutBootstrapGate({
   const [recovering, setRecovering] = useState(initialData.bootstrapDegraded)
 
   useEffect(() => {
+    if (!initialData.categoryRows.length) return
     hydrateShopCategoryRows(initialData.categoryRows)
     prefetchShopCategoryNav()
   }, [initialData.categoryRows])

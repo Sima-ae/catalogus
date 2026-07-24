@@ -9,7 +9,11 @@ import { buildRootMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
 import { cookies, headers } from 'next/headers'
 import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
-import { loadLayoutBootstrapData } from '@/lib/shop-bootstrap'
+import {
+  getLightLayoutBootstrapData,
+  loadLayoutBootstrapData,
+} from '@/lib/shop-bootstrap'
+import { CATALOGUS_LIGHT_HEADER } from '@/lib/bot-traffic'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -33,7 +37,10 @@ export default async function RootLayout({
       ? rawLocale
       : DEFAULT_LOCALE
   const messages = getMessages(locale)
-  const layoutBootstrap = await loadLayoutBootstrapData(locale)
+  const light = headerStore.get(CATALOGUS_LIGHT_HEADER) === '1'
+  const layoutBootstrap = light
+    ? getLightLayoutBootstrapData(locale)
+    : await loadLayoutBootstrapData(locale)
   const preloadText = messages['loading.generic'] || 'Loading…'
 
   return (

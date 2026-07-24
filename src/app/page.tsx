@@ -1,14 +1,13 @@
-import { headers } from 'next/headers'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
-import {
-  buildShopCatalogSignature,
-  loadInitialShopCatalog,
-  shouldServerRenderShopCatalog,
-} from '@/lib/shop-catalog-ssr'
-import { isLikelyBotUserAgent } from '@/lib/bot-traffic'
+import { buildShopCatalogSignature } from '@/lib/shop-catalog-ssr'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Homepage: never SSR the shuffled catalog. Shuffle queries (10k pool) were a major
+ * MariaDB/CPU burn for any request that reached this page. Client fetch is fast with
+ * the category listing indexes.
+ */
 export default async function HomePage({
   searchParams,
 }: {
@@ -16,21 +15,6 @@ export default async function HomePage({
 }) {
   const sp = await searchParams
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', { shuffle: true })
-  const ua = headers().get('user-agent')
-  const skipHeavySsr = isLikelyBotUserAgent(ua)
-
-  let initialCatalog = null
-  // Bots must not trigger shuffle catalog SSR (multi-query, no-store) on every crawl of /.
-  if (!skipHeavySsr && shouldServerRenderShopCatalog(sp)) {
-    try {
-      initialCatalog = await Promise.race([
-        loadInitialShopCatalog(sp, 'all', { shuffle: true }),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 12_000)),
-      ])
-    } catch {
-      // Client-side fetch fallback if DB is unavailable during SSR.
-    }
-  }
 
   return (
     <ShopCatalogPage
@@ -38,13 +22,13 @@ export default async function HomePage({
         mode: 'all',
         title: 'WELCOME',
         searchPlaceholder: 'Search products...',
-        showSocialProof: !skipHeavySsr,
+        showSocialProof: true,
         showFooterTagline: false,
         emptyVariant: 'simple',
         centerCatalog: true,
         shuffleCatalog: true,
       }}
-      initialCatalog={initialCatalog}
+      initialCatalog={null}
       initialCatalogSignature={initialCatalogSignature}
     />
   )
