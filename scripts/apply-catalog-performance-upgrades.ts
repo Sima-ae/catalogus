@@ -44,6 +44,26 @@ async function main() {
     console.log('idx_products_status_brand_id already exists.')
   }
 
+  if (!(await indexExists('products', 'idx_products_status_category_created'))) {
+    console.log('Adding idx_products_status_category_created…')
+    await queryDb(
+      `ALTER TABLE products ADD KEY idx_products_status_category_created (status, category_id, created_at)`
+    )
+    console.log('Category listing index created.')
+  } else {
+    console.log('idx_products_status_category_created already exists.')
+  }
+
+  if (!(await indexExists('products', 'idx_products_status_brand_created'))) {
+    console.log('Adding idx_products_status_brand_created…')
+    await queryDb(
+      `ALTER TABLE products ADD KEY idx_products_status_brand_created (status, brand_id, created_at)`
+    )
+    console.log('Brand listing index created.')
+  } else {
+    console.log('idx_products_status_brand_created already exists.')
+  }
+
   console.log('Done.')
 }
 

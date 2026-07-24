@@ -362,6 +362,13 @@ ALTER TABLE products
 ALTER TABLE products
   ADD KEY IF NOT EXISTS idx_products_status_category (status, category_id);
 
+-- Category / brand listing with ORDER BY created_at (avoids full status_created scans)
+ALTER TABLE products
+  ADD KEY IF NOT EXISTS idx_products_status_category_created (status, category_id, created_at);
+
+ALTER TABLE products
+  ADD KEY IF NOT EXISTS idx_products_status_brand_created (status, brand_id, created_at);
+
 -- Localized category labels (auto-generated when categories are created/updated)
 CREATE TABLE IF NOT EXISTS category_translations (
   category_id VARCHAR(36) NOT NULL,

@@ -1800,10 +1800,13 @@ async function loadActiveProductsPaginatedFromDb(
       return fetchProductRowsByIds(ids, { catalog: true })
     }
 
-    return queryDb<Record<string, unknown>[]>(
-      `${listingSelect} ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+    const idRows = await queryDb<{ id: string }[]>(
+      `SELECT p.id FROM products p ${joinSql} ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idParams, limit, offset]
     )
+    const ids = idRows.map((row) => String(row.id)).filter(Boolean)
+    if (!ids.length) return []
+    return fetchProductRowsByIds(ids, { catalog: true })
   }
 
   const rows = await fetchPageProductRows()

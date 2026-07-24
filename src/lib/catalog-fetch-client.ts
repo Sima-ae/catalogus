@@ -1,4 +1,4 @@
-const DEFAULT_CATALOG_FETCH_TIMEOUT_MS = 45_000
+const DEFAULT_CATALOG_FETCH_TIMEOUT_MS = 60_000
 
 const inflightCatalogFetches = new Map<string, Promise<unknown>>()
 
