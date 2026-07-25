@@ -24,7 +24,9 @@ import {
   isJunkBotPath,
   isLikelyBotUserAgent,
   isRateLimitedIp,
+  isScrapeTokenMintPath,
 } from '@/lib/bot-traffic'
+import { hasAuthorizedScrapeAccess } from '@/lib/scrape-access'
 import { resolveCategoryForHost } from '@/lib/category-host-map'
 
 const GATE_PATH = '/site-access-gate'
@@ -160,6 +162,7 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const ua = request.headers.get('user-agent')
   const isBot = isLikelyBotUserAgent(ua)
+  const scrapeAuthorized = await hasAuthorizedScrapeAccess(request.headers)
 
   if (isJunkBotPath(pathname)) {
     return finish(
@@ -175,17 +178,37 @@ export async function middleware(request: NextRequest) {
     return finish(NextResponse.next())
   }
 
-  // Site is noindex: bots never get HTML or heavy APIs.
-  if (isBot) {
-    if (isSiteAccessApi(pathname)) {
-      return finish(NextResponse.next())
+  // Own apps: mint a scrape token with super-admin password (rate-limited).
+  if (isScrapeTokenMintPath(pathname)) {
+    if (isRateLimitedIp(`mint:${clientIp(request)}`, 10, 60_000)) {
+      return finish(
+        new NextResponse(null, {
+          status: 429,
+          headers: { 'Cache-Control': 'no-store', 'Retry-After': '60' },
+        })
+      )
     }
+    return finish(NextResponse.next())
+  }
+
+  // Third-party scrapers + search crawlers: permanent cheap 404 (no HTML, no APIs).
+  // Only our apps with a valid scrape token / SCRAPE_BYPASS_SECRET may automate.
+  if (isBot && !scrapeAuthorized) {
     return finish(
       new NextResponse(null, {
         status: 404,
         headers: { 'Cache-Control': 'public, max-age=3600' },
       })
     )
+  }
+
+  // Authorized own-app scrapers skip the human site-access gate.
+  if (scrapeAuthorized) {
+    if (pathname.startsWith('/api/')) {
+      return finish(NextResponse.next())
+    }
+    const localeResponse = applyLocaleRouting(request)
+    return finish(localeResponse ?? NextResponse.next())
   }
 
   if (isBotBlockedApiPath(pathname) && isRateLimitedIp(clientIp(request), 60, 60_000)) {
