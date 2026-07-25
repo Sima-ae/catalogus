@@ -1629,7 +1629,6 @@ async function getCachedNewProductsWeekTotal(): Promise<number> {
       const { start, end } = getCatalogWeekRange()
       const rows = await queryDb<{ total: number }[]>(
         `SELECT COUNT(*) AS total FROM products p
-        `SELECT COUNT(*) AS total FROM products p
          WHERE p.status = 'active'
            AND COALESCE(p.sold_out, 0) = 0
            AND p.created_at >= ? AND p.created_at < ?`,
