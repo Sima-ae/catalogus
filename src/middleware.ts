@@ -211,7 +211,18 @@ export async function middleware(request: NextRequest) {
     return finish(localeResponse ?? NextResponse.next())
   }
 
-  if (isBotBlockedApiPath(pathname) && isRateLimitedIp(clientIp(request), 60, 60_000)) {
+  const hasMeta = Boolean(request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value)
+  const hasUnlock = Boolean(request.cookies.get(SITE_ACCESS_COOKIE)?.value)
+
+  // Heavy catalog APIs: only rate-limit anonymous / locked traffic.
+  // Unlocked shoppers load product grids + many /api/yupoo-image calls — a flat
+  // 60/min cap was returning HTTP 429 on category clicks (e.g. Kleding).
+  // Bots without a scrape token already got 404 above.
+  if (
+    isBotBlockedApiPath(pathname) &&
+    !hasUnlock &&
+    isRateLimitedIp(`anon-api:${clientIp(request)}`, 40, 60_000)
+  ) {
     return finish(
       new NextResponse(null, {
         status: 429,
@@ -267,9 +278,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Cookieless scrapers pretending to be browsers — hard cap.
-  const hasMeta = Boolean(request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value)
-  const hasUnlock = Boolean(request.cookies.get(SITE_ACCESS_COOKIE)?.value)
-  if (!hasMeta && !hasUnlock && isRateLimitedIp(clientIp(request), 20, 60_000)) {
+  if (!hasMeta && !hasUnlock && isRateLimitedIp(`anon:${clientIp(request)}`, 20, 60_000)) {
     return finish(
       new NextResponse(null, {
         status: 429,
