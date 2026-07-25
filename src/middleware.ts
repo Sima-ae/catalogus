@@ -39,7 +39,10 @@ function isStaticAsset(pathname: string): boolean {
   if (pathname.startsWith('/images/')) {
     return true
   }
-  if (pathname === '/favicon.ico') return true
+  if (pathname === '/favicon.ico' || pathname === '/manifest.webmanifest') return true
+  if (pathname.startsWith('/flags/')) return true
+  // Brand logos in /public (WEBLOGO-*.png)
+  if (/^\/WEBLOGO/i.test(pathname)) return true
   const publicExt = ['.ico', '.png', '.svg', '.webp', '.jpg', '.jpeg', '.gif', '.woff2', '.woff']
   return publicExt.some((ext) => pathname.endsWith(ext))
 }
@@ -173,6 +176,13 @@ export async function middleware(request: NextRequest) {
     )
   }
 
+  // Static logos + /images/** MUST bypass bot checks. Next.js Image optimizer
+  // fetches them with an Undici/Node UA; blocking that returned HTTP 404 and
+  // broke BrandLogo + catalog photos ("The requested resource isn't a valid image").
+  if (isStaticAsset(pathname)) {
+    return finish(NextResponse.next())
+  }
+
   // Health only — never run locale/gate/bootstrap for monitors.
   if (isPublicApi(pathname)) {
     return finish(NextResponse.next())
@@ -269,7 +279,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (
-    isStaticAsset(pathname) ||
     isSiteAccessApi(pathname) ||
     isPricelistApiPath(pathname) ||
     isChatApi(pathname)

@@ -46,7 +46,11 @@ assert.equal(isLikelyBotUserAgent('curl/8.0.0'), true)
 assert.equal(isLikelyBotUserAgent('SomeCustomSpider/1.0'), true)
 assert.equal(isLikelyBotUserAgent(''), true)
 assert.equal(isLikelyBotUserAgent(null), true)
+assert.equal(isLikelyBotUserAgent('undici'), true)
 assert.equal(isLikelyBotUserAgent('Mozilla/5.0 (Macintosh) Chrome/120'), false)
+
+// Next Image optimizer uses Undici; static assets must still be served (middleware bypass).
+// Regression: blocking Undici on /WEBLOGO*.png and /images/** blanked the logo + product photos.
 
 assert.equal(isBotBlockedApiPath('/api/shop/bootstrap'), true)
 assert.equal(isBotBlockedApiPath('/api/activity/social-proof'), true)

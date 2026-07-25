@@ -59,6 +59,8 @@ export default function BrandLogo({
       width={compact ? 48 : dims.width}
       height={compact ? 40 : dims.height}
       priority={priority}
+      // Serve public PNGs directly — avoids Next optimizer re-fetch (Node UA) issues.
+      unoptimized
       className={`w-auto object-contain ${centered ? 'object-center' : 'object-left'} ${
         compact
           ? 'max-w-[3rem]'
