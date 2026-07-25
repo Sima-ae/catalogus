@@ -49,7 +49,7 @@ const xml = Buffer.from(
 )
 assert.equal(isYupooUnavailableImagePayload(xml, 'application/xml'), true)
 
-const known = [...YUPOO_UNAVAILABLE_IMAGE_SHA256][0]
+const known = Array.from(YUPOO_UNAVAILABLE_IMAGE_SHA256)[0]
 assert.ok(known)
 
 // Optional: verify against a downloaded sample if present
