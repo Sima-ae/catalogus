@@ -5,6 +5,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { NO_INDEX_RESPONSE_HEADERS } from '@/lib/no-index'
 import { yupooImageUrlFallbackChain } from '@/lib/product-image-url'
 import { DEFAULT_FETCH_UA } from '@/lib/yupoo/client'
+import { isYupooUnavailableImagePayload } from '@/lib/yupoo/unavailable'
+import {
+  markProductsSoldOutByImageUrl,
+  markProductsSoldOutBySourceUrl,
+} from '@/lib/mark-source-unavailable'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -49,10 +54,13 @@ async function readDiskCache(
     ])
     if (Date.now() - stat.mtimeMs > CACHE_MAX_AGE_MS) return null
     const meta = JSON.parse(metaRaw) as { contentType?: string }
-    return {
-      body,
-      contentType: meta.contentType || 'image/jpeg',
+    const contentType = meta.contentType || 'image/jpeg'
+    // Never re-serve cached Yupoo “no image” placeholders
+    if (isYupooUnavailableImagePayload(body, contentType)) {
+      await Promise.allSettled([fs.unlink(bodyPath), fs.unlink(metaPath)])
+      return null
     }
+    return { body, contentType }
   } catch {
     return null
   }
@@ -89,32 +97,17 @@ function imageResponse(body: Buffer, contentType: string): NextResponse {
   })
 }
 
-async function fetchYupooImage(
-  remoteUrl: string,
-  referer: string
-): Promise<NextResponse | null> {
-  const cached = await readDiskCache(remoteUrl)
-  if (cached) return imageResponse(cached.body, cached.contentType)
-
-  try {
-    const upstream = await fetch(remoteUrl, {
-      headers: {
-        'User-Agent': DEFAULT_FETCH_UA,
-        Referer: referer,
-        Accept: 'image/*,*/*;q=0.8',
-      },
-      redirect: 'follow',
-      cache: 'force-cache',
-    })
-    if (!upstream.ok) return null
-
-    const contentType = upstream.headers.get('content-type') || 'image/jpeg'
-    const body = Buffer.from(await upstream.arrayBuffer())
-    void writeDiskCache(remoteUrl, body, contentType)
-    return imageResponse(body, contentType)
-  } catch {
-    return null
-  }
+function queueMarkUnavailable(remoteUrl: string, albumRef: string | null): void {
+  void (async () => {
+    try {
+      if (albumRef) {
+        await markProductsSoldOutBySourceUrl(albumRef, 'yupoo_image_proxy_album')
+      }
+      await markProductsSoldOutByImageUrl(remoteUrl, 'yupoo_image_proxy')
+    } catch (err) {
+      console.warn('[yupoo-image] mark sold_out failed', err)
+    }
+  })()
 }
 
 /** Stream Yupoo CDN images with the Referer header their CDN requires. */
@@ -128,11 +121,53 @@ export async function GET(request: NextRequest) {
   const referer =
     refParam && isAllowedReferer(refParam) ? refParam : 'https://x.yupoo.com/'
 
+  let sawUnavailablePayload = false
+
   for (const candidate of yupooImageUrlFallbackChain(remoteUrl)) {
     if (!isAllowedYupooImageUrl(candidate)) continue
-    const response = await fetchYupooImage(candidate, referer)
-    if (response) return response
+    const cached = await readDiskCache(candidate)
+    if (cached) {
+      return imageResponse(cached.body, cached.contentType)
+    }
+
+    try {
+      const upstream = await fetch(candidate, {
+        headers: {
+          'User-Agent': DEFAULT_FETCH_UA,
+          Referer: referer,
+          Accept: 'image/*,*/*;q=0.8',
+        },
+        redirect: 'follow',
+        cache: 'no-store',
+      })
+      if (!upstream.ok) continue
+
+      const contentType = upstream.headers.get('content-type') || 'image/jpeg'
+      const body = Buffer.from(await upstream.arrayBuffer())
+      if (isYupooUnavailableImagePayload(body, contentType)) {
+        sawUnavailablePayload = true
+        continue
+      }
+      void writeDiskCache(candidate, body, contentType)
+      // Still mark when Yupoo served the “no image” graphic on another size —
+      // album is usually deleted even if a smaller variant remains.
+      if (sawUnavailablePayload) {
+        queueMarkUnavailable(
+          remoteUrl,
+          refParam && isAllowedReferer(refParam) ? refParam : null
+        )
+      }
+      return imageResponse(body, contentType)
+    } catch {
+      // try next size
+    }
   }
 
-  return new NextResponse('Image unavailable', { status: 404 })
+  // Every size failed or was the Yupoo “no image” placeholder → hide from catalog.
+  queueMarkUnavailable(remoteUrl, refParam && isAllowedReferer(refParam) ? refParam : null)
+
+  return new NextResponse('Image unavailable', {
+    status: 404,
+    headers: { ...NO_INDEX_RESPONSE_HEADERS, 'Cache-Control': 'no-store' },
+  })
 }

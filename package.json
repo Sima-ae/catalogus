@@ -63,6 +63,7 @@
     "db:restore-images": "tsx scripts/restore-product-images.ts",
     "db:rebuild-yupoo-gallery": "tsx scripts/rebuild-yupoo-product-gallery.ts",
     "db:backfill-yupoo-dates": "tsx scripts/backfill-yupoo-album-dates.ts",
+    "db:mark-unavailable-sources": "tsx scripts/mark-unavailable-source-products.ts",
     "db:sync-inactive-pricelist-stock": "tsx scripts/sync-inactive-pricelist-stock.ts",
     "test:parse-album-date": "tsx scripts/test-parse-album-date.ts",
     "test:vps-cpu-guards": "tsx scripts/test-vps-cpu-guards.ts"

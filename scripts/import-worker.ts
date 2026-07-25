@@ -30,6 +30,8 @@ import {
   YUPOO_PASSWORD_REQUIRED_MSG,
   type YupooFetchContext,
 } from '@/lib/yupoo/session'
+import { classifySourcePageAvailability } from '@/lib/yupoo/unavailable'
+import { markProductsSoldOutUnavailable, markProductsSoldOutBySourceUrl } from '@/lib/mark-source-unavailable'
 import { translateProductText } from '@/lib/translate'
 import {
   describeCatalogImagesWriteTarget,
@@ -202,6 +204,34 @@ function assertNotPasswordGated(html: string, hasPassword: boolean) {
   }
 }
 
+async function markImportItemSourceUnavailable(
+  item: ImportJobItemRow,
+  reason: string
+): Promise<void> {
+  try {
+    if (item.product_id) {
+      await markProductsSoldOutUnavailable([String(item.product_id)], reason)
+      return
+    }
+    if (item.album_url) {
+      await markProductsSoldOutBySourceUrl(String(item.album_url), reason)
+    }
+  } catch (err) {
+    console.warn('[import-worker] mark sold_out failed', item.album_id, err)
+  }
+}
+
+function isSourceGoneErrorMessage(message: string): boolean {
+  return (
+    /HTTP\s+404\b/i.test(message) ||
+    /HTTP\s+410\b/i.test(message) ||
+    /No images found/i.test(message) ||
+    /Source unavailable/i.test(message) ||
+    /yupoo_album_not_found/i.test(message) ||
+    /album may be removed/i.test(message)
+  )
+}
+
 function inputForRefresh(input: ProductInput): Partial<ProductInput> {
   const { status: _status, featured: _featured, ...rest } = input
   return rest
@@ -213,12 +243,37 @@ async function buildYupooImportInput(
   fetchPage: (url: string) => Promise<string>,
   hasPassword: boolean
 ) {
-  const html = await fetchPage(item.album_url)
+  let html: string
+  try {
+    html = await fetchPage(item.album_url)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (isSourceGoneErrorMessage(message)) {
+      await markImportItemSourceUnavailable(item, 'yupoo_http_gone')
+    }
+    throw err
+  }
+
   assertNotPasswordGated(html, hasPassword)
 
   const album = parseAlbumPage(html, item.album_url, item.album_id)
+  const availability = classifySourcePageAvailability({
+    status: 200,
+    html,
+    imageCount: album.images.length,
+    hostHint: item.album_url,
+  })
+  if (!availability.ok) {
+    await markImportItemSourceUnavailable(item, availability.reason)
+    throw new Error(
+      availability.reason === 'yupoo_no_images'
+        ? 'No images found on album page'
+        : `Source unavailable: ${availability.reason}`
+    )
+  }
 
   if (!album.images.length) {
+    await markImportItemSourceUnavailable(item, 'yupoo_no_images')
     throw new Error('No images found on album page')
   }
 
@@ -234,6 +289,7 @@ async function buildYupooImportInput(
   )
 
   if (!input.image_url) {
+    await markImportItemSourceUnavailable(item, 'yupoo_no_images')
     throw new Error('No images found on album page')
   }
 
@@ -446,6 +502,9 @@ async function processYupooJob(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('FAIL:', item.album_id, message)
+      if (isSourceGoneErrorMessage(message)) {
+        await markImportItemSourceUnavailable(item, 'yupoo_import_gone')
+      }
       await updateJobItem(item.id, { status: 'failed', error_message: message })
       await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
       counters.failed++

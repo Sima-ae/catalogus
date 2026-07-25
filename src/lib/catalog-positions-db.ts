@@ -138,7 +138,7 @@ export async function fetchRandomizedHomepageShufflePageProductIds(
   const poolRows = await queryDb<ShuffleCandidate[]>(
     `SELECT p.id, COALESCE(p.price, 0) AS price
      FROM ${TABLE} cpp
-     INNER JOIN products p ON p.id = cpp.product_id AND p.status = 'active'
+     INNER JOIN products p ON p.id = cpp.product_id AND p.status = 'active' AND COALESCE(p.sold_out, 0) = 0
      WHERE cpp.scope = ?
      ORDER BY cpp.position ASC
      LIMIT ? OFFSET ?`,
@@ -160,7 +160,7 @@ export async function fetchPrecomputedShuffleProductIds(
   const rows = await queryDb<{ id: string }[]>(
     `SELECT p.id
      FROM ${TABLE} cpp
-     INNER JOIN products p ON p.id = cpp.product_id AND p.status = 'active'
+     INNER JOIN products p ON p.id = cpp.product_id AND p.status = 'active' AND COALESCE(p.sold_out, 0) = 0
      WHERE cpp.scope = ?
      ORDER BY cpp.position ASC
      LIMIT ? OFFSET ?`,
@@ -180,7 +180,7 @@ export async function fetchActiveProductsBeyondShufflePool(
     `SELECT p.id
      FROM products p
      LEFT JOIN ${TABLE} cpp ON cpp.product_id = p.id AND cpp.scope = ?
-     WHERE p.status = 'active' AND cpp.product_id IS NULL
+     WHERE p.status = 'active' AND COALESCE(p.sold_out, 0) = 0 AND cpp.product_id IS NULL
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?`,
     [scope, limit, offset]

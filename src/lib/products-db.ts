@@ -1612,7 +1612,8 @@ async function getCachedActiveProductTotal(): Promise<number> {
     ACTIVE_PRODUCT_TOTAL_TTL_MS,
     async () => {
       const rows = await queryDb<{ total: number }[]>(
-        `SELECT COUNT(*) AS total FROM products p WHERE p.status = 'active'`
+        `SELECT COUNT(*) AS total FROM products p
+         WHERE p.status = 'active' AND COALESCE(p.sold_out, 0) = 0`
       )
       return Number(rows[0]?.total ?? 0)
     }
@@ -1628,7 +1629,10 @@ async function getCachedNewProductsWeekTotal(): Promise<number> {
       const { start, end } = getCatalogWeekRange()
       const rows = await queryDb<{ total: number }[]>(
         `SELECT COUNT(*) AS total FROM products p
-         WHERE p.status = 'active' AND p.created_at >= ? AND p.created_at < ?`,
+        `SELECT COUNT(*) AS total FROM products p
+         WHERE p.status = 'active'
+           AND COALESCE(p.sold_out, 0) = 0
+           AND p.created_at >= ? AND p.created_at < ?`,
         [start.toISOString().slice(0, 19).replace('T', ' '), end.toISOString().slice(0, 19).replace('T', ' ')]
       )
       return Number(rows[0]?.total ?? 0)

@@ -36,6 +36,7 @@ function shuffleRows<T>(items: T[]): T[] {
 
 const PRODUCT_BASE_WHERE = `
   status = 'active'
+  AND COALESCE(sold_out, 0) = 0
   AND image_url IS NOT NULL AND TRIM(image_url) <> ''
   AND (
     (name IS NOT NULL AND TRIM(name) <> '')
