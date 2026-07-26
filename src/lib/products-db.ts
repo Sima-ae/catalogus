@@ -793,6 +793,8 @@ const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
 const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
+/** Homepage shuffle: short shared TTL so concurrent visitors share one DB/pool hit. */
+const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = 45_000
 const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
 const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total'
@@ -1568,14 +1570,16 @@ export async function listActiveProducts(): Promise<never> {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  if (isCatalogShuffleEligible(query)) {
-    return loadActiveProductsPaginatedFromDb(query)
-  }
   const cacheKey = shopCatalogPageCacheKey(query)
+  // Homepage shuffle used to bypass cache (fresh random every hit) — that stampeded
+  // MariaDB under concurrent visitors. Short TTL keeps variety while sharing work.
+  const ttlMs = isCatalogShuffleEligible(query)
+    ? SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS
+    : SHOP_CATALOG_PAGE_TTL_MS
   return getCachedValue(
     SHOP_CATALOG_PAGE_CACHE_NS,
     cacheKey,
-    SHOP_CATALOG_PAGE_TTL_MS,
+    ttlMs,
     () => loadActiveProductsPaginatedFromDb(query)
   )
 }
@@ -1593,6 +1597,7 @@ function shopCatalogPageCacheKey(query: CatalogProductsQuery): string {
     query.search ?? '',
     query.mode ?? '',
     query.skipTotal ? '1' : '0',
+    query.shuffle ? 'shuffle' : '',
   ].join('|')
 }
 
@@ -1752,9 +1757,10 @@ async function loadActiveProductsPaginatedFromDb(
   let joinSql = ''
   let orderSql = 'p.created_at DESC'
   let scopeParam: string | null = null
+  let usePrecomputedShuffle = false
 
   if (shuffle) {
-    const usePrecomputedShuffle =
+    usePrecomputedShuffle =
       (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
     if (usePrecomputedShuffle) {
       const positionJoin = await catalogPositionJoin(HOMEPAGE_SHUFFLE_SCOPE)
@@ -1777,8 +1783,6 @@ async function loadActiveProductsPaginatedFromDb(
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
-      const usePrecomputedShuffle =
-        (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
       if (usePrecomputedShuffle) {
         const ids =
           offset === 0

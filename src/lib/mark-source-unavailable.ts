@@ -57,18 +57,20 @@ export async function markProductsSoldOutUnavailable(
   )
   const marked = Number(result?.affectedRows ?? 0)
 
-  if (marked > 0) {
+    if (marked > 0) {
     try {
       await markPricelistOutOfStockForProducts(fresh)
     } catch {
       // Pricelist sync is best-effort — sold_out already set.
     }
     invalidateShopCatalogCaches()
-    console.info(
-      `[source-unavailable] marked ${marked} product(s) sold_out (${reason}): ${fresh.slice(0, 8).join(',')}${
-        fresh.length > 8 ? '…' : ''
-      }`
-    )
+    if (process.env.SOURCE_UNAVAILABLE_LOG === '1') {
+      console.info(
+        `[source-unavailable] marked ${marked} product(s) sold_out (${reason}): ${fresh.slice(0, 8).join(',')}${
+          fresh.length > 8 ? '…' : ''
+        }`
+      )
+    }
   }
 
   return { marked, ids: fresh }

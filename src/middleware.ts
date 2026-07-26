@@ -165,7 +165,10 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const ua = request.headers.get('user-agent')
   const isBot = isLikelyBotUserAgent(ua)
-  const scrapeAuthorized = await hasAuthorizedScrapeAccess(request.headers)
+  // Only verify scrape tokens for bot/automation UAs — humans never send them.
+  const scrapeAuthorized = isBot
+    ? await hasAuthorizedScrapeAccess(request.headers)
+    : false
 
   if (isJunkBotPath(pathname)) {
     return finish(
@@ -223,6 +226,19 @@ export async function middleware(request: NextRequest) {
 
   const hasMeta = Boolean(request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value)
   const hasUnlock = Boolean(request.cookies.get(SITE_ACCESS_COOKIE)?.value)
+
+  // Hot catalog APIs for unlocked shoppers: verify unlock once (memoized HMAC),
+  // then skip locale/gate/bootstrap work. Forged cookies still fail verify.
+  if (hasUnlock && pathname.startsWith('/api/')) {
+    const unlock = request.cookies.get(SITE_ACCESS_COOKIE)?.value
+    const metaVersion =
+      Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '', 10) ||
+      peekUnlockTokenVersion(unlock) ||
+      0
+    if (unlock && (await verifyUnlockToken(unlock, metaVersion))) {
+      return finish(NextResponse.next())
+    }
+  }
 
   // Heavy catalog APIs: only rate-limit anonymous / locked traffic.
   // Unlocked shoppers load product grids + many /api/yupoo-image calls — a flat

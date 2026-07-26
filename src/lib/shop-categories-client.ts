@@ -60,11 +60,11 @@ export function prefetchShopCategoryNav(): void {
   void fetchShopCategoryNav()
 }
 
-/** Warm category rows + top menu in parallel. */
+/** Warm category taxonomy — skip endpoints already hydrated from layout SSR. */
 export function prefetchShopCategoryTaxonomy(): void {
-  prefetchShopCategoryNav()
-  void fetchShopCategoryMenu()
-  void fetchShopCategoryRows()
+  if (!cachedNav) prefetchShopCategoryNav()
+  if (!cachedMenu) void fetchShopCategoryMenu()
+  if (!cachedRows) void fetchShopCategoryRows()
 }
 
 /** Hierarchical shop categories for sidebar (roots → sub → nested). */

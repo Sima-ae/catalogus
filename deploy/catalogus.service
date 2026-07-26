@@ -23,9 +23,14 @@ EnvironmentFile=-/var/www/superclones.cloud/.env
 ExecStart=/bin/bash -c 'set -a && [ -f .env ] && . ./.env && set +a && exec npm run start -- -p 3001'
 Restart=on-failure
 RestartSec=5
+# Soft CPU cap so a stampede cannot starve MariaDB / inkoop on the same VPS.
+CPUQuota=80%
+Nice=0
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=catalogus
 
+# Single process only (npm run start). Do not switch to PM2 cluster — that
+# doubles CPU and splits the in-process TTL cache. Use REDIS_URL instead.
 [Install]
 WantedBy=multi-user.target

@@ -30,11 +30,21 @@ if command -v pm2 >/dev/null 2>&1; then
 fi
 echo ""
 
-echo "=== Stuck DB / import / backfill scripts? (KILL THESE if idle shop is pegged) ==="
-ps aux | grep -E '[t]sx|[n]ode.*(backfill|import|rebuild|shuffle|mirror|translate)' || echo "  (none obvious)"
+echo "=== Redis (shared TTL cache) ==="
+if command -v redis-cli >/dev/null 2>&1; then
+  redis-cli ping 2>/dev/null || echo "  redis-cli present but ping failed"
+else
+  echo "  redis-cli not installed — set REDIS_URL after: apt install redis-server"
+fi
+if [[ -f /var/www/superclones.cloud/.env ]] && grep -q '^REDIS_URL=' /var/www/superclones.cloud/.env 2>/dev/null; then
+  echo "  REDIS_URL is set in catalogus .env"
+else
+  echo "  WARN: REDIS_URL missing — catalog TTL cache is in-process only"
+fi
 echo ""
-echo "=== Import worker template units ==="
-systemctl list-units 'catalogus-import-worker@*' --all --no-pager 2>/dev/null || echo "  (none)"
+
+echo "=== Catalogus process model (should be ONE next start, not PM2 cluster) ==="
+ps aux | grep -E '[n]ext-server|[n]ode.*next' | head -10 || true
 echo ""
 
 echo "=== MariaDB threads (if mysql client available) ==="

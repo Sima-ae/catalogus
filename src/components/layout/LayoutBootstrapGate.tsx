@@ -76,7 +76,7 @@ export default function LayoutBootstrapGate({
       try {
         const res = await fetch(
           appPath(`/api/shop/bootstrap?locale=${encodeURIComponent(locale)}`),
-          { cache: 'no-store' }
+          { cache: 'default' }
         )
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Bootstrap unavailable')

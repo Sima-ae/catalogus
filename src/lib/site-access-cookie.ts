@@ -163,12 +163,21 @@ export async function createUnlockToken(
   return { token: `${stringToBase64Url(payload)}.${sig}`, maxAge }
 }
 
+/** Memoize successful unlock verifies (Edge isolate) — image/API storms reuse one HMAC. */
+const unlockVerifyCache = new Map<string, number>()
+const UNLOCK_VERIFY_CACHE_TTL_MS = 5 * 60 * 1000
+const UNLOCK_VERIFY_CACHE_MAX = 2_000
+
 export async function verifyUnlockToken(
   token: string | undefined,
   currentVersion: number
 ): Promise<boolean> {
   if (!token) return false
   if (!getCookieSecret()) return false
+
+  const cacheKey = `${currentVersion}:${token}`
+  const cachedUntil = unlockVerifyCache.get(cacheKey)
+  if (cachedUntil && cachedUntil > Date.now()) return true
 
   const dot = token.indexOf('.')
   if (dot === -1) return false
@@ -193,6 +202,14 @@ export async function verifyUnlockToken(
   const exp = Number.parseInt(parts[2], 10)
   if (version !== currentVersion) return false
   if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false
+
+  unlockVerifyCache.set(cacheKey, Date.now() + UNLOCK_VERIFY_CACHE_TTL_MS)
+  if (unlockVerifyCache.size > UNLOCK_VERIFY_CACHE_MAX) {
+    const now = Date.now()
+    for (const [k, until] of Array.from(unlockVerifyCache.entries())) {
+      if (until <= now) unlockVerifyCache.delete(k)
+    }
+  }
 
   return true
 }

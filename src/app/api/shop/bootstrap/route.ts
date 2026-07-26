@@ -5,6 +5,7 @@ import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { loadShopBootstrap } from '@/lib/shop-bootstrap'
 import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
+import { CATALOG_METADATA_CACHE_CONTROL, jsonCached } from '@/lib/http-cache'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -20,7 +21,10 @@ export async function GET(request: NextRequest) {
       loadShopBootstrap(locale),
       listActiveSiteTickerMessagesForLocale(locale),
     ])
-    return NextResponse.json({ categoryMessages, tagMessages, bootstrap, tickerMessages })
+    return jsonCached(
+      { categoryMessages, tagMessages, bootstrap, tickerMessages },
+      CATALOG_METADATA_CACHE_CONTROL
+    )
   } catch (error) {
     console.error('Shop bootstrap API:', error)
     return NextResponse.json(

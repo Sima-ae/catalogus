@@ -97,8 +97,9 @@ export async function GET(request: NextRequest) {
       }
 
       const result = await listActiveProductsPaginated(paginatedQuery)
+      // Shuffle shares a short server TTL — allow brief shared edge/browser cache.
       const cacheControl = paginatedQuery.shuffle
-        ? 'private, no-store'
+        ? 'public, max-age=15, s-maxage=45, stale-while-revalidate=120'
         : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300'
       return NextResponse.json(result, {
         headers: {
