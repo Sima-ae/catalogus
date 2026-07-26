@@ -34,7 +34,9 @@ echo "=== Redis (shared TTL cache) ==="
 if command -v redis-cli >/dev/null 2>&1; then
   redis-cli ping 2>/dev/null || echo "  redis-cli present but ping failed"
 else
-  echo "  redis-cli not installed — set REDIS_URL after: apt install redis-server"
+  echo "  redis-cli not installed — set REDIS_URL after installing Redis"
+  echo "    Alma/RHEL: dnf install -y redis && systemctl enable --now redis"
+  echo "    Debian/Ubuntu: apt install redis-server && systemctl enable --now redis-server"
 fi
 if [[ -f /var/www/superclones.cloud/.env ]] && grep -q '^REDIS_URL=' /var/www/superclones.cloud/.env 2>/dev/null; then
   echo "  REDIS_URL is set in catalogus .env"
