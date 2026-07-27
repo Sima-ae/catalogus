@@ -35,12 +35,19 @@ export async function GET(request: NextRequest) {
       )
     )
 
-    const { items, total } = await listImportSourcesPaginated({ page, limit })
+    const search = request.nextUrl.searchParams.get('search')?.trim() || ''
+
+    const { items, total } = await listImportSourcesPaginated({
+      page,
+      limit,
+      search: search || null,
+    })
     return NextResponse.json({
       items: items.map(toImportSourcePublic),
       total,
       page,
       limit,
+      search,
     })
   } catch (error) {
     console.error('Import sources fetch error:', error)

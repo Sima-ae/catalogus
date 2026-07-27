@@ -593,9 +593,16 @@ export async function listImportSources(): Promise<ImportSourceRow[]> {
 
 export const IMPORT_SOURCES_DEFAULT_PAGE_SIZE = IMPORT_SOURCES_PAGE_SIZE
 
-export async function countImportSources(): Promise<number> {
+export async function countImportSources(search?: string | null): Promise<number> {
+  const { whereSql, params } = importSourcesSearchClause(search)
   const rows = await queryDb<{ count: number }[]>(
-    `SELECT COUNT(*) AS count FROM import_sources`
+    `SELECT COUNT(*) AS count
+     FROM import_sources s
+     LEFT JOIN categories c ON c.id = s.catalog_category_id
+     LEFT JOIN categories cp ON cp.id = c.parent_id
+     LEFT JOIN brands b ON b.id = s.catalog_brand_id
+     ${whereSql}`,
+    params
   )
   return Number(rows[0]?.count ?? 0)
 }
@@ -603,22 +610,47 @@ export async function countImportSources(): Promise<number> {
 export async function listImportSourcesPaginated(options: {
   page: number
   limit: number
+  search?: string | null
 }): Promise<{ items: ImportSourceRow[]; total: number }> {
   const limit = Math.min(100, Math.max(1, options.limit))
   const page = Math.max(1, options.page)
   const offset = (page - 1) * limit
+  const { whereSql, params } = importSourcesSearchClause(options.search)
 
   const [items, total] = await Promise.all([
     queryDb<ImportSourceRow[]>(
       `${importSourcesSelectSql()}
+       ${whereSql}
        ORDER BY s.created_at DESC
        LIMIT ? OFFSET ?`,
-      [limit, offset]
+      [...params, limit, offset]
     ),
-    countImportSources(),
+    countImportSources(options.search),
   ])
 
   return { items, total }
+}
+
+/** Match brand, category (incl. parent), source name, or source URL. */
+function importSourcesSearchClause(search?: string | null): {
+  whereSql: string
+  params: string[]
+} {
+  const q = String(search ?? '').trim()
+  if (!q) return { whereSql: '', params: [] }
+  const like = `%${q}%`
+  return {
+    whereSql: `WHERE (
+      s.name LIKE ?
+      OR COALESCE(b.name, '') LIKE ?
+      OR COALESCE(c.name, '') LIKE ?
+      OR COALESCE(cp.name, '') LIKE ?
+      OR COALESCE(s.yupoo_category_url, '') LIKE ?
+      OR COALESCE(s.woocommerce_store_url, '') LIKE ?
+      OR COALESCE(s.catalog_list_url, '') LIKE ?
+    )`,
+    params: [like, like, like, like, like, like, like],
+  }
 }
 
 function importSourcesSelectSql(): string {
@@ -639,6 +671,7 @@ function importSourcesSelectSql(): string {
             ) AS skipped_items
      FROM import_sources s
      LEFT JOIN categories c ON c.id = s.catalog_category_id
+     LEFT JOIN categories cp ON cp.id = c.parent_id
      LEFT JOIN brands b ON b.id = s.catalog_brand_id`
 }
 

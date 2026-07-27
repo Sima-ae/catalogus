@@ -143,24 +143,33 @@ export default function AdminImportPage() {
   const [copiedJobId, setCopiedJobId] = useState(false)
   const [productUrlBySource, setProductUrlBySource] = useState<Record<string, string>>({})
   const [importingUrlId, setImportingUrlId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
   const loadSources = useCallback(
-    (opts?: { silent?: boolean; page?: number }) => {
+    (opts?: { silent?: boolean; page?: number; search?: string }) => {
       if (!user || !isAdmin) return
 
       const page = opts?.page ?? currentPage
+      const q = opts?.search ?? debouncedSearch
       if (!opts?.silent) setLoading(true)
       setError('')
 
-      fetch(
-        appPath(
-          `/api/admin/import/sources?page=${page}&limit=${IMPORT_SOURCES_PAGE_SIZE}`
-        ),
-        {
-          headers: adminAuthHeaders(user),
-          cache: 'no-store',
-        }
-      )
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(IMPORT_SOURCES_PAGE_SIZE),
+      })
+      if (q) params.set('search', q)
+
+      fetch(appPath(`/api/admin/import/sources?${params.toString()}`), {
+        headers: adminAuthHeaders(user),
+        cache: 'no-store',
+      })
         .then(async (r) => {
           const data = await parseJsonResponse<{ error?: string } | ImportSourcesResponse>(r)
           if (!r.ok) {
@@ -183,7 +192,7 @@ export default function AdminImportPage() {
           if (!opts?.silent) setLoading(false)
         })
     },
-    [user, isAdmin, currentPage]
+    [user, isAdmin, currentPage, debouncedSearch]
   )
 
   const totalPages = Math.max(
@@ -239,8 +248,11 @@ export default function AdminImportPage() {
   useEffect(() => {
     if (authLoading || !isAdmin || !user) return
     loadSources()
-  }, [authLoading, isAdmin, user, currentPage, loadSources])
+  }, [authLoading, isAdmin, user, currentPage, debouncedSearch, loadSources])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch])
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
       await navigator.clipboard.writeText(text)
@@ -669,7 +681,20 @@ export default function AdminImportPage() {
       ) : null}
 
       <section>
-        <h2 className="card-section-title mb-4">Import sources</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="card-section-title mb-0">Import sources</h2>
+          <label className="w-full sm:w-80 space-y-1">
+            <span className={`text-sm font-medium ${t.muted}`}>Search</span>
+            <input
+              type="search"
+              className="input w-full"
+              placeholder="Brand, category, or source name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search import sources by brand, category, or name"
+            />
+          </label>
+        </div>
         {totalItems > 0 ? (
           <CatalogPagination
             page={safePage}
@@ -682,7 +707,11 @@ export default function AdminImportPage() {
         {loading ? (
           <p className={t.muted}>Loading...</p>
         ) : sources.length === 0 ? (
-          <p className={t.muted}>No import sources yet.</p>
+          <p className={t.muted}>
+            {debouncedSearch
+              ? `No import sources match “${debouncedSearch}”.`
+              : 'No import sources yet.'}
+          </p>
         ) : (
           <>
           <AdminTable>
