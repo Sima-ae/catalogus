@@ -7,7 +7,15 @@ export type FetchHtmlOptions = {
   cookieHeader?: string
 }
 
-export async function fetchHtml(url: string, options?: FetchHtmlOptions): Promise<string> {
+export type FetchHtmlResult = {
+  status: number
+  html: string
+}
+
+export async function fetchHtmlResult(
+  url: string,
+  options?: FetchHtmlOptions
+): Promise<FetchHtmlResult> {
   const headers: Record<string, string> = {
     'User-Agent': DEFAULT_UA,
     Accept: 'text/html,application/xhtml+xml',
@@ -22,11 +30,16 @@ export async function fetchHtml(url: string, options?: FetchHtmlOptions): Promis
     redirect: 'follow',
   })
 
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} fetching ${url}`)
-  }
+  const html = await res.text()
+  return { status: res.status, html }
+}
 
-  return res.text()
+export async function fetchHtml(url: string, options?: FetchHtmlOptions): Promise<string> {
+  const { status, html } = await fetchHtmlResult(url, options)
+  if (status < 200 || status >= 300) {
+    throw new Error(`HTTP ${status} fetching ${url}`)
+  }
+  return html
 }
 
 export function sleep(ms: number): Promise<void> {

@@ -47,6 +47,7 @@ import {
   shopBrandFilterUrl,
   shopCategoryFilterUrl,
 } from '@/lib/shop-catalog-filter-url'
+import { reportProductSourceUnavailable } from '@/lib/report-product-unavailable'
 
 type ProductReview = {
   id: string
@@ -98,6 +99,9 @@ export default function ProductPageClient() {
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const canEditProduct = !authLoading && (isAdmin || isSuperAdmin)
   const [editOpen, setEditOpen] = useState(false)
+  const [brokenGalleryIndexes, setBrokenGalleryIndexes] = useState<Set<number>>(
+    () => new Set()
+  )
   const thumbListRef = useRef<HTMLDivElement>(null)
   const mainGalleryRef = useRef<HTMLDivElement>(null)
   const [thumbColumnHeight, setThumbColumnHeight] = useState<number | null>(null)
@@ -220,6 +224,7 @@ export default function ProductPageClient() {
         setSelectedSize('')
         setSelectedColor('')
         setVariantError(null)
+        setBrokenGalleryIndexes(new Set())
       })
       .catch((e) => {
         if (controller.signal.aborted) return
@@ -232,6 +237,19 @@ export default function ProductPageClient() {
 
     return () => controller.abort()
   }, [productId])
+
+  const markGalleryImageBroken = useCallback(
+    (index: number) => {
+      setBrokenGalleryIndexes((prev) => {
+        if (prev.has(index)) return prev
+        const next = new Set(prev)
+        next.add(index)
+        return next
+      })
+      if (productId) reportProductSourceUnavailable(productId)
+    },
+    [productId]
+  )
 
   useEffect(() => {
     if (!productId) return
@@ -526,7 +544,10 @@ export default function ProductPageClient() {
                 role="tablist"
                 aria-label="Product images"
               >
-                {product.gallery.map((image, index) => (
+                {product.gallery.map((image, index) => {
+                  const thumbSrc = catalogDetailImageSrc(image, product.source_url)
+                  const thumbBroken = brokenGalleryIndexes.has(index) || !thumbSrc
+                  return (
                   <button
                     key={`${image}-${index}`}
                     type="button"
@@ -539,16 +560,20 @@ export default function ProductPageClient() {
                     onClick={() => setSelectedImage(index)}
                     className="product-gallery-thumb-btn"
                   >
-                    <Image
-                      src={catalogDetailImageSrc(image, product.source_url)}
-                      alt=""
-                      fill
-                      sizes="84px"
-                      className="object-contain p-1"
-                      unoptimized={shouldUnoptimizeProductImage(image)}
-                    />
+                    {thumbBroken ? null : (
+                      <Image
+                        src={thumbSrc}
+                        alt=""
+                        fill
+                        sizes="84px"
+                        className="object-contain p-1"
+                        unoptimized={shouldUnoptimizeProductImage(image)}
+                        onError={() => markGalleryImageBroken(index)}
+                      />
+                    )}
                   </button>
-                ))}
+                  )
+                })}
               </div>
             ) : null}
 
@@ -566,7 +591,9 @@ export default function ProductPageClient() {
               <div className="absolute top-3 right-3 z-20">
                 <PricelistStarButton productId={product.id} />
               </div>
-              {product.gallery[selectedImage] ? (
+              {product.gallery[selectedImage] &&
+              !brokenGalleryIndexes.has(selectedImage) &&
+              catalogDetailImageSrc(product.gallery[selectedImage], product.source_url) ? (
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
@@ -583,6 +610,7 @@ export default function ProductPageClient() {
                     className="relative z-0 object-contain p-2 pointer-events-none"
                     priority
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
+                    onError={() => markGalleryImageBroken(selectedImage)}
                   />
                   {product.featured ? <ProductFeaturedTipBadge variant="gallery" /> : null}
                   <ProductImageWatermark variant="gallery" />
@@ -596,7 +624,7 @@ export default function ProductPageClient() {
                   {t('product.noImage')}
                 </div>
               )}
-              {product.gallery[selectedImage] && product.sold_out ? (
+              {product.sold_out ? (
                 <ProductRibbon kind="soldOut" variant="gallery" />
               ) : product.gallery[selectedImage] && product.pre_order ? (
                 <ProductRibbon kind="preOrder" variant="gallery" />
@@ -604,7 +632,10 @@ export default function ProductPageClient() {
             </div>
           </div>
 
-          {lightboxOpen && product.gallery[selectedImage] ? (
+          {lightboxOpen &&
+          product.gallery[selectedImage] &&
+          !brokenGalleryIndexes.has(selectedImage) &&
+          catalogDetailImageSrc(product.gallery[selectedImage], product.source_url) ? (
             <div
               ref={lightboxRef}
               tabIndex={-1}
@@ -663,6 +694,7 @@ export default function ProductPageClient() {
                   alt={`${product.name} — image ${selectedImage + 1}`}
                   className="relative z-0 max-h-[92vh] max-w-full w-auto h-auto object-contain select-none pointer-events-none"
                   draggable={false}
+                  onError={() => markGalleryImageBroken(selectedImage)}
                 />
                 <ProductImageWatermark variant="lightbox" />
               </div>

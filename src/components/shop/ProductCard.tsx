@@ -40,7 +40,8 @@ import {
 } from '@/lib/product-options'
 import { useI18n } from '@/lib/i18n-context'
 import { isCatalogAdminUser, useAuth } from '@/lib/auth-local'
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
+import { reportProductSourceUnavailable } from '@/lib/report-product-unavailable'
 
 interface ProductCardProps {
   product: Product
@@ -64,6 +65,11 @@ function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = fal
   const { t } = useI18n()
   const [isAdding, setIsAdding] = useState(false)
   const [optionError, setOptionError] = useState<string | null>(null)
+  const [imageFailed, setImageFailed] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [product.id, product.image_url])
 
   const shopProductOptions = useMemo(
     () => getShopProductOptions(product.product_options),
@@ -159,16 +165,22 @@ function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = fal
           theme === 'dark' ? 'bg-dark-900' : 'bg-white'
         }`}>
           <div className="absolute inset-x-0 top-9 bottom-0.5 sm:top-10 sm:bottom-1">
-            <Image
-              src={mainImage}
-              alt={product.name}
-              fill
-              priority={imagePriority}
-              loading={imagePriority ? undefined : 'lazy'}
-              sizes="(max-width: 640px) 46vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
-              className="product-card-image-el object-contain"
-              unoptimized={shouldUnoptimizeProductImage(mainImage)}
-            />
+            {mainImage && !imageFailed ? (
+              <Image
+                src={mainImage}
+                alt={product.name}
+                fill
+                priority={imagePriority}
+                loading={imagePriority ? undefined : 'lazy'}
+                sizes="(max-width: 640px) 46vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
+                className="product-card-image-el object-contain"
+                unoptimized={shouldUnoptimizeProductImage(mainImage)}
+                onError={() => {
+                  setImageFailed(true)
+                  reportProductSourceUnavailable(product.id)
+                }}
+              />
+            ) : null}
           </div>
           {product.featured ? <ProductFeaturedTipBadge /> : null}
           <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">

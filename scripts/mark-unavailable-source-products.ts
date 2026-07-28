@@ -12,7 +12,7 @@
 import { readFileSync, existsSync } from 'fs'
 import { resolve } from 'path'
 import { queryDb, resetDbPool } from '@/lib/db'
-import { fetchHtml, sleep } from '@/lib/yupoo/client'
+import { fetchHtmlResult, sleep } from '@/lib/yupoo/client'
 import {
   createYupooFetchContext,
   isYupooPasswordGateHtml,
@@ -64,6 +64,7 @@ type Row = {
 
 type FetchCtx = {
   fetchHtml: (url: string) => Promise<string>
+  fetchHtmlResult: (url: string) => Promise<{ status: number; html: string }>
 }
 
 async function loadPasswordByOrigin(): Promise<Map<string, string>> {
@@ -102,7 +103,7 @@ async function fetchAlbumHtml(
   }
 
   const password = origin ? passwords.get(origin) : undefined
-  let fetchPage = (u: string) => fetchHtml(u)
+  let fetchPage = (u: string) => fetchHtmlResult(u)
 
   if (password && origin) {
     let ctx = ctxCache.get(origin)
@@ -110,13 +111,13 @@ async function fetchAlbumHtml(
       ctx = await createYupooFetchContext(origin, password)
       ctxCache.set(origin, ctx)
     }
-    fetchPage = ctx.fetchHtml
+    fetchPage = ctx.fetchHtmlResult
   }
 
   try {
-    const html = await fetchPage(url)
+    const { status, html } = await fetchPage(url)
     return {
-      status: 200,
+      status,
       html,
       passwordGate: isYupooPasswordGateHtml(html),
     }

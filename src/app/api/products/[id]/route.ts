@@ -25,6 +25,10 @@ import {
   resolveCatalogAccess,
   sellerOwnsProductOrForbidden,
 } from '@/lib/product-api-auth'
+import {
+  checkAndMarkYupooSourceUnavailable,
+  markProductsSoldOutUnavailable,
+} from '@/lib/mark-source-unavailable'
 
 function ownershipOf(product: Record<string, unknown>): ProductOwnershipRow {
   return {
@@ -64,6 +68,46 @@ export async function GET(
     let payload = includePurchasePrice ? product : omitProductInternalPricing(product)
     if (access.kind === 'public') {
       ;[payload] = await applyStorefrontSoldOutFromPlatformPricelist([payload])
+    }
+
+    // Re-check Yupoo albums on PDP load so deleted supplier pages go OOS
+    // without waiting for the batch scanner / image-proxy hit.
+    if (access.kind === 'public') {
+      const sourceUrl =
+        payload.source_url != null ? String(payload.source_url) : ''
+      const imageUrl = payload.image_url != null ? String(payload.image_url) : ''
+      const galleryRaw = payload.gallery_images
+      const galleryText =
+        typeof galleryRaw === 'string'
+          ? galleryRaw
+          : Array.isArray(galleryRaw)
+            ? galleryRaw.map(String).join('\n')
+            : ''
+      const isYupoo =
+        /yupoo\.com/i.test(sourceUrl) ||
+        /yupoo\.com/i.test(imageUrl) ||
+        /yupoo\.com/i.test(galleryText) ||
+        imageUrl.includes('/api/yupoo-image') ||
+        galleryText.includes('/api/yupoo-image')
+      const alreadySoldOut = Boolean(payload.sold_out)
+      const stillHasYupooImages =
+        /yupoo\.com/i.test(imageUrl) ||
+        /yupoo\.com/i.test(galleryText) ||
+        imageUrl.includes('/api/yupoo-image') ||
+        galleryText.includes('/api/yupoo-image')
+
+      if (isYupoo && sourceUrl && /yupoo\.com/i.test(sourceUrl) && !alreadySoldOut) {
+        void checkAndMarkYupooSourceUnavailable(
+          String(payload.id),
+          sourceUrl,
+          'product_view'
+        )
+      } else if (isYupoo && alreadySoldOut && stillHasYupooImages) {
+        void markProductsSoldOutUnavailable(
+          [String(payload.id)],
+          'clear_sold_out_yupoo_images'
+        )
+      }
     }
 
     return NextResponse.json(payload)

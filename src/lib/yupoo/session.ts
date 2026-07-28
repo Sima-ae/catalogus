@@ -1,4 +1,8 @@
-import { DEFAULT_FETCH_UA } from '@/lib/yupoo/client'
+import {
+  DEFAULT_FETCH_UA,
+  fetchHtmlResult,
+  type FetchHtmlResult,
+} from '@/lib/yupoo/client'
 
 const INDEX_LOCK_COOKIE = 'indexlockcode'
 
@@ -6,6 +10,7 @@ export type YupooFetchContext = {
   origin: string
   owner: string
   fetchHtml: (url: string) => Promise<string>
+  fetchHtmlResult: (url: string) => Promise<FetchHtmlResult>
 }
 
 /** Subdomain store id from *.x.yupoo.com URLs (matches window.OWNER on Yupoo pages). */
@@ -65,21 +70,11 @@ export const YUPOO_PASSWORD_REQUIRED_MSG =
   'Yupoo store is password-protected; set access password on import source or pass --password='
 
 async function fetchHtmlWithCookie(url: string, cookieHeader: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': DEFAULT_FETCH_UA,
-      Accept: 'text/html,application/xhtml+xml',
-      'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8',
-      Cookie: cookieHeader,
-    },
-    redirect: 'follow',
-  })
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} fetching ${url}`)
+  const { status, html } = await fetchHtmlResult(url, { cookieHeader })
+  if (status < 200 || status >= 300) {
+    throw new Error(`HTTP ${status} fetching ${url}`)
   }
-
-  return res.text()
+  return html
 }
 
 /** Authenticated Yupoo fetches for a password-protected store (homepage lock). */
@@ -106,5 +101,6 @@ export async function createYupooFetchContext(
     origin,
     owner,
     fetchHtml: (url: string) => fetchHtmlWithCookie(url, cookieHeader),
+    fetchHtmlResult: (url: string) => fetchHtmlResult(url, { cookieHeader }),
   }
 }

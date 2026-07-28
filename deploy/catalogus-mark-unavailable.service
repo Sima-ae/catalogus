@@ -1,0 +1,25 @@
+# Oneshoot: scan Yupoo/supplier albums and mark gone products sold out.
+# Install with the matching timer:
+#   sudo cp deploy/catalogus-mark-unavailable.service /etc/systemd/system/
+#   sudo cp deploy/catalogus-mark-unavailable.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now catalogus-mark-unavailable.timer
+
+[Unit]
+Description=Catalogus mark unavailable Yupoo/source products sold out
+After=network.target mariadb.service mysql.service catalogus.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/var/www/superclones.cloud
+Environment=NODE_ENV=production
+EnvironmentFile=-/var/www/superclones.cloud/.env
+# Modest batch so CPU stays calm; timer runs often enough to catch deletions.
+ExecStart=/bin/bash -c 'set -a && [ -f .env ] && . ./.env && set +a && exec npx tsx scripts/mark-unavailable-source-products.ts --apply --limit=400 --concurrency=2 --delay-ms=600'
+Nice=10
+CPUQuota=40%
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=catalogus-mark-unavailable
