@@ -20,6 +20,8 @@ type Props = {
   loading: boolean
   applying: boolean
   error: string
+  /** Admin “Per page” size — used as scan batch size (50 / 100 / 250 / 500). */
+  batchLimit: number
   result: UnavailableSourceScanResult | null
   onClose: () => void
   onRescan: () => void
@@ -75,6 +77,7 @@ export default function UnavailableSourcesScanModal({
   loading,
   applying,
   error,
+  batchLimit,
   result,
   onClose,
   onRescan,
@@ -175,7 +178,9 @@ export default function UnavailableSourcesScanModal({
               {tr('admin.products.oosScanTitle')}
             </h2>
             <p className={`mt-0.5 text-xs sm:text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              {tr('admin.products.oosScanHint')}
+              {formatMessage(tr('admin.products.oosScanHint'), {
+                limit: result?.limit ?? batchLimit,
+              })}
             </p>
           </div>
           <button
@@ -194,7 +199,9 @@ export default function UnavailableSourcesScanModal({
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
           {loading ? (
             <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              {tr('admin.products.oosScanLoading')}
+              {formatMessage(tr('admin.products.oosScanLoading'), {
+                limit: batchLimit,
+              })}
             </p>
           ) : null}
 
@@ -205,14 +212,22 @@ export default function UnavailableSourcesScanModal({
           ) : null}
 
           {!loading && result ? (
-            <p className={`mb-3 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              {formatMessage(tr('admin.products.oosScanSummary'), {
-                scanned: result.scanned,
-                unavailable: result.candidates.length,
-                ok: result.ok,
-                errors: result.errors,
-              })}
-            </p>
+            <>
+              <p className={`mb-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                {formatMessage(tr('admin.products.oosScanSummary'), {
+                  scanned: result.scanned,
+                  unavailable: result.candidates.length,
+                  ok: result.ok,
+                  errors: result.errors,
+                  remaining: Math.max(0, result.eligibleTotal - result.scanned),
+                })}
+              </p>
+              <p className={`mb-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                {formatMessage(tr('admin.products.oosScanBatchNote'), {
+                  limit: result.limit,
+                })}
+              </p>
+            </>
           ) : null}
 
           {!loading && result && candidates.length === 0 ? (

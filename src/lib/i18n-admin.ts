@@ -100,6 +100,7 @@ export type AdminMessageKey =
   | 'admin.products.oosScanLoading'
   | 'admin.products.oosScanEmpty'
   | 'admin.products.oosScanSummary'
+  | 'admin.products.oosScanBatchNote'
   | 'admin.products.oosScanSelectAll'
   | 'admin.products.oosScanRescan'
   | 'admin.products.oosScanClose'
@@ -255,14 +256,17 @@ const EN: AdminMessages = {
   'admin.products.oosScan': "Scan for Out of Stock",
   'admin.products.oosScanTitle': "Unavailable supplier products",
   'admin.products.oosScanHint':
-    "Checks Yupoo/supplier pages. Review the list, then approve to mark selected products out of stock (hidden from the shop).",
+    "Checks Yupoo/supplier pages in batches sized by “Per page” ({limit} right now). Approve to mark selected products out of stock (hidden from the shop). Change Per page to 50 / 100 / 250 / 500 before scanning.",
   'admin.products.oosScanLoading':
-    "Scanning supplier pages… this can take a few minutes.",
-  'admin.products.oosScanEmpty': "No unavailable products found in this batch.",
+    "Scanning ~{limit} supplier pages… larger batches take longer.",
+  'admin.products.oosScanEmpty':
+    "No unavailable products in this batch. Click “Scan next batch” to check more.",
   'admin.products.oosScanSummary':
-    "{scanned} scanned · {unavailable} unavailable · {ok} still live · {errors} errors",
+    "Batch: {scanned} checked · {unavailable} unavailable · {ok} still live · {errors} errors · ~{remaining} left to check",
+  'admin.products.oosScanBatchNote':
+    "Batch size follows Per page ({limit}). Full catalog coverage needs multiple batches or the daily midnight scan.",
   'admin.products.oosScanSelectAll': "Select all ({count})",
-  'admin.products.oosScanRescan': "Scan again",
+  'admin.products.oosScanRescan': "Scan next batch",
   'admin.products.oosScanClose': "Close",
   'admin.products.oosScanApply': "Mark {count} out of stock",
   'admin.products.oosScanFailed': "Out of stock scan failed",
@@ -419,14 +423,17 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.oosScan': "Scan op uitverkocht",
   'admin.products.oosScanTitle': "Niet-beschikbare leveranciersproducten",
   'admin.products.oosScanHint':
-    "Controleert Yupoo-/leverancierspagina's. Bekijk de lijst en keur goed om geselecteerde producten op uitverkocht te zetten (verborgen in de shop).",
+    "Controleert Yupoo-/leverancierspagina's in batches ter grootte van “Per pagina” (nu {limit}). Keur goed om geselecteerde producten op uitverkocht te zetten (verborgen in de shop). Zet Per pagina op 50 / 100 / 250 / 500 vóór het scannen.",
   'admin.products.oosScanLoading':
-    "Leverancierspagina's scannen… dit kan enkele minuten duren.",
-  'admin.products.oosScanEmpty': "Geen niet-beschikbare producten gevonden in deze batch.",
+    "Ongeveer {limit} leverancierspagina's scannen… grotere batches duren langer.",
+  'admin.products.oosScanEmpty':
+    "Geen niet-beschikbare producten in deze batch. Klik op “Volgende batch” om meer te controleren.",
   'admin.products.oosScanSummary':
-    "{scanned} gescand · {unavailable} niet beschikbaar · {ok} nog live · {errors} fouten",
+    "Batch: {scanned} gecontroleerd · {unavailable} niet beschikbaar · {ok} nog live · {errors} fouten · ~{remaining} nog te checken",
+  'admin.products.oosScanBatchNote':
+    "Batchgrootte volgt Per pagina ({limit}). De hele catalogus dekt je met meerdere batches of via de nachtelijke scan om middernacht.",
   'admin.products.oosScanSelectAll': "Alles selecteren ({count})",
-  'admin.products.oosScanRescan': "Opnieuw scannen",
+  'admin.products.oosScanRescan': "Volgende batch",
   'admin.products.oosScanClose': "Sluiten",
   'admin.products.oosScanApply': "{count} op uitverkocht zetten",
   'admin.products.oosScanFailed': "Uitverkocht-scan mislukt",

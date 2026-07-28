@@ -29,6 +29,8 @@ export type UnavailableSourceScanResult = {
   passwordGate: number
   errors: number
   limit: number
+  /** Active in-stock products with a supplier URL still to rotate through. */
+  eligibleTotal: number
   candidates: UnavailableSourceCandidate[]
 }
 
@@ -125,10 +127,7 @@ export async function scanUnavailableSourceProducts(
   const delayMs = Math.min(2000, Math.max(0, Math.floor(options.delayMs ?? 500)))
   const rotateChecked = options.rotateChecked !== false
 
-  const rows = await queryDb<Row[]>(
-    `SELECT id, name, sku, image_url, source_url, brand
-     FROM products
-     WHERE status = 'active'
+  const eligibleWhere = `status = 'active'
        AND COALESCE(sold_out, 0) = 0
        AND source_url IS NOT NULL
        AND TRIM(source_url) <> ''
@@ -138,11 +137,22 @@ export async function scanUnavailableSourceProducts(
          OR source_url LIKE '%lkxox%'
          OR source_url LIKE '%facebook.com%'
          OR source_url LIKE '%fb.watch%'
-       )
+       )`
+
+  const [eligibleRows, rows] = await Promise.all([
+    queryDb<{ total: number }[]>(
+      `SELECT COUNT(*) AS total FROM products WHERE ${eligibleWhere}`
+    ),
+    queryDb<Row[]>(
+      `SELECT id, name, sku, image_url, source_url, brand
+     FROM products
+     WHERE ${eligibleWhere}
      ORDER BY updated_at ASC
      LIMIT ?`,
-    [limit]
-  )
+      [limit]
+    ),
+  ])
+  const eligibleTotal = Number(eligibleRows[0]?.total ?? 0)
 
   const passwords = await loadPasswordByOrigin()
   const ctxCache = new Map<string, FetchCtx>()
@@ -242,6 +252,7 @@ export async function scanUnavailableSourceProducts(
     passwordGate,
     errors,
     limit,
+    eligibleTotal,
     candidates,
   }
 }

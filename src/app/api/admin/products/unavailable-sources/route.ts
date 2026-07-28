@@ -19,12 +19,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const limitParam = Number(request.nextUrl.searchParams.get('limit') || '80')
-    const limit = Math.min(120, Math.max(1, Number.isFinite(limitParam) ? limitParam : 80))
+    const limitParam = Number(request.nextUrl.searchParams.get('limit') || '100')
+    // Match admin products page sizes: 50 / 100 / 250 / 500
+    const allowed = new Set([50, 100, 250, 500])
+    const raw = Number.isFinite(limitParam) ? Math.floor(limitParam) : 100
+    const limit = allowed.has(raw) ? raw : Math.min(500, Math.max(50, raw))
+    // Larger batches: slightly tighter pacing so 500 stays under proxy timeouts.
+    const delayMs = limit >= 500 ? 250 : limit >= 250 ? 300 : 400
     const result = await scanUnavailableSourceProducts({
       limit,
       concurrency: 2,
-      delayMs: 450,
+      delayMs,
       rotateChecked: true,
     })
     return NextResponse.json(result)

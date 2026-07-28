@@ -892,10 +892,14 @@ export default function AdminProductsPage() {
     setOosScanLoading(true)
     setOosScanError('')
     try {
-      const res = await fetch(appPath('/api/admin/products/unavailable-sources?limit=80'), {
-        headers: adminAuthHeaders(user),
-        cache: 'no-store',
-      })
+      const batchSize = PAGE_SIZES.includes(pageSize) ? pageSize : 100
+      const res = await fetch(
+        appPath(`/api/admin/products/unavailable-sources?limit=${batchSize}`),
+        {
+          headers: adminAuthHeaders(user),
+          cache: 'no-store',
+        }
+      )
       const data = await parseJsonResponse<UnavailableSourceScanResult & { error?: string }>(res)
       if (!res.ok) {
         throw new Error(data.error || tr('admin.products.oosScanFailed'))
@@ -909,7 +913,7 @@ export default function AdminProductsPage() {
     } finally {
       setOosScanLoading(false)
     }
-  }, [user, tr])
+  }, [user, tr, pageSize])
 
   const openOosScan = () => {
     setOosScanOpen(true)
@@ -1504,6 +1508,7 @@ export default function AdminProductsPage() {
         loading={oosScanLoading}
         applying={oosScanApplying}
         error={oosScanError}
+        batchLimit={pageSize}
         result={oosScanResult}
         onClose={() => {
           if (oosScanLoading || oosScanApplying) return
