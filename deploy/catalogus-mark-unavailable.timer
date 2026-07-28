@@ -1,16 +1,14 @@
-# Every 6 hours — catches deleted Yupoo albums and marks products sold out.
+# Daily at 00:00 Europe/Amsterdam (CET/CEST) — mark gone Yupoo/source products sold out.
 #
 #   sudo systemctl enable --now catalogus-mark-unavailable.timer
 #   systemctl list-timers | grep mark-unavailable
 
 [Unit]
-Description=Run Catalogus unavailable-source scan every 6 hours
+Description=Run Catalogus unavailable-source scan daily at midnight CET
 
 [Timer]
-OnBootSec=15min
-OnUnitActiveSec=6h
+OnCalendar=*-*-* 00:00:00 Europe/Amsterdam
 Persistent=true
-RandomizedDelaySec=10min
 
 [Install]
 WantedBy=timers.target
