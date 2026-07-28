@@ -37,6 +37,7 @@ import {
   type PricelistListViewer,
 } from '@/lib/pricelist-list-query'
 import { PRICELIST_PAGE_SIZE, MAX_PRICELIST_PAGE_SIZE } from '@/lib/pricelist-constants'
+import { hideSoldOutProductsFromShop } from '@/lib/shop-catalog-cache'
 
 export type { PricelistStockStatus } from '@/lib/pricelist-stock-status'
 
@@ -279,6 +280,7 @@ export async function persistProductSoldOutFromPricelistQuote(
   const status = row?.stock_status ?? null
   if (status !== 'out' && status !== 'temporary') return false
   await queryDb(`UPDATE products SET sold_out = 1 WHERE id = ?`, [productId])
+  await hideSoldOutProductsFromShop([productId])
   return true
 }
 
@@ -700,6 +702,7 @@ export async function setSellerProductStockStatus(input: {
   )
   if (input.syncProductSoldOut) {
     await queryDb(`UPDATE products SET sold_out = 1 WHERE id = ?`, [input.productId])
+    await hideSoldOutProductsFromShop([input.productId])
   }
 }
 

@@ -68,6 +68,10 @@ export async function GET(
     let payload = includePurchasePrice ? product : omitProductInternalPricing(product)
     if (access.kind === 'public') {
       ;[payload] = await applyStorefrontSoldOutFromPlatformPricelist([payload])
+      // Sold-out products stay in admin/backend only — hide from public PDP.
+      if (Boolean(payload.sold_out)) {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      }
     }
 
     // Re-check Yupoo albums on PDP load so deleted supplier pages go OOS

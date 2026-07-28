@@ -68,6 +68,10 @@ import {
 } from '@/lib/catalog-positions-db'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import { getCachedValue, invalidateCachedNamespace, peekCachedValue } from '@/lib/server-ttl-cache'
+import {
+  hideSoldOutProductsFromShop,
+  invalidateShopCatalogCaches,
+} from '@/lib/shop-catalog-cache'
 import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
 import { resolveBrandByName } from '@/lib/brands-db'
 import {
@@ -825,6 +829,7 @@ async function loadActiveProductCountBuckets(options?: {
               `SELECT p.category_id AS category_id, COUNT(*) AS total
                FROM products p
                WHERE p.status = 'active'
+                 AND COALESCE(p.sold_out, 0) = 0
                  AND p.brand_id = ?
                  AND p.category_id IS NOT NULL
                  AND TRIM(CAST(p.category_id AS CHAR)) != ''
@@ -844,6 +849,7 @@ async function loadActiveProductCountBuckets(options?: {
           `SELECT p.category_id AS category_id, COUNT(*) AS total
            FROM products p
            WHERE p.status = 'active'
+             AND COALESCE(p.sold_out, 0) = 0
              AND p.category_id IS NOT NULL
              AND p.category_id != ''
            GROUP BY p.category_id`
@@ -858,6 +864,7 @@ async function loadActiveProductCountBuckets(options?: {
           `SELECT LOWER(TRIM(COALESCE(p.category, ''))) AS legacy_name, COUNT(*) AS total
            FROM products p
            WHERE p.status = 'active'
+             AND COALESCE(p.sold_out, 0) = 0
              AND (${PRODUCT_CATEGORY_ID_UNSET_SQL})
              AND TRIM(COALESCE(p.category, '')) != ''
            GROUP BY legacy_name`
@@ -1534,6 +1541,12 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 
   syncPricelistAfterCatalogStatusChange([id], input.status)
 
+  if (input.sold_out === true) {
+    void hideSoldOutProductsFromShop([id])
+  } else if (input.sold_out === false || input.status !== undefined) {
+    invalidateShopCatalogCaches()
+  }
+
   invalidateProductDashboardStatsCache()
   return fetchProductRow(id, { includePurchasePrice: true, storageImages: true })
 }
@@ -1819,7 +1832,12 @@ async function loadActiveProductsPaginatedFromDb(
   }
 
   const rows = await fetchPageProductRows()
-  const items = serializeProductRowsSync(rows, brandSkuPrefixes)
+  // Defense: never return sold_out rows to the shop grid (stale shuffle ids, etc.).
+  const inStockRows = rows.filter((row) => {
+    const flag = row.sold_out
+    return !(flag === 1 || flag === true || flag === '1')
+  })
+  const items = serializeProductRowsSync(inStockRows, brandSkuPrefixes)
 
   let total = 0
   let responseSkipTotal = true

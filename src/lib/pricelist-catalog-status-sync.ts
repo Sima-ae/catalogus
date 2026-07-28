@@ -1,6 +1,7 @@
 import { queryDb } from '@/lib/db'
 import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
 import { isCuratedSupplierPricelist } from '@/lib/pricelist-pages-db'
+import { hideSoldOutProductsFromShop } from '@/lib/shop-catalog-cache'
 
 const SYNC_ACTOR = 'catalog-status-sync'
 const RESTORE_ACTOR = 'inactive-pricelist-restore'
@@ -91,6 +92,8 @@ export async function markPricelistOutOfStockForProducts(
        )`,
     [...ids, PLATFORM_PRICELIST_OWNER_ID]
   )
+
+  await hideSoldOutProductsFromShop(ids)
 
   return { updated, inserted }
 }

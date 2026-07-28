@@ -94,6 +94,20 @@ export type AdminMessageKey =
   | 'admin.products.duplicateScanRescan'
   | 'admin.products.duplicateScanClose'
   | 'admin.products.duplicateScanFailed'
+  | 'admin.products.oosScan'
+  | 'admin.products.oosScanTitle'
+  | 'admin.products.oosScanHint'
+  | 'admin.products.oosScanLoading'
+  | 'admin.products.oosScanEmpty'
+  | 'admin.products.oosScanSummary'
+  | 'admin.products.oosScanSelectAll'
+  | 'admin.products.oosScanRescan'
+  | 'admin.products.oosScanClose'
+  | 'admin.products.oosScanApply'
+  | 'admin.products.oosScanFailed'
+  | 'admin.products.oosScanApplyFailed'
+  | 'admin.products.oosScanApplyDone'
+  | 'admin.products.oosScanConfirmApply'
   | 'admin.products.duplicateTitleScan'
   | 'admin.products.duplicateTitleScanTitle'
   | 'admin.products.duplicateTitleScanHint'
@@ -238,6 +252,24 @@ const EN: AdminMessages = {
   'admin.products.duplicateScanRescan': "Scan again",
   'admin.products.duplicateScanClose': "Close",
   'admin.products.duplicateScanFailed': "Duplicate scan failed",
+  'admin.products.oosScan': "Scan for Out of Stock",
+  'admin.products.oosScanTitle': "Unavailable supplier products",
+  'admin.products.oosScanHint':
+    "Checks Yupoo/supplier pages. Review the list, then approve to mark selected products out of stock (hidden from the shop).",
+  'admin.products.oosScanLoading':
+    "Scanning supplier pages… this can take a few minutes.",
+  'admin.products.oosScanEmpty': "No unavailable products found in this batch.",
+  'admin.products.oosScanSummary':
+    "{scanned} scanned · {unavailable} unavailable · {ok} still live · {errors} errors",
+  'admin.products.oosScanSelectAll': "Select all ({count})",
+  'admin.products.oosScanRescan': "Scan again",
+  'admin.products.oosScanClose': "Close",
+  'admin.products.oosScanApply': "Mark {count} out of stock",
+  'admin.products.oosScanFailed': "Out of stock scan failed",
+  'admin.products.oosScanApplyFailed': "Failed to mark products out of stock",
+  'admin.products.oosScanApplyDone': "{count} product(s) marked out of stock.",
+  'admin.products.oosScanConfirmApply':
+    "Mark {count} product(s) as out of stock? They will be hidden from the shop catalog.",
   'admin.products.duplicateTitleScan': "Scan duplicate titles",
   'admin.products.duplicateTitleScanTitle': "Possible duplicate titles",
   'admin.products.duplicateTitleScanHint': "Products grouped by matching title keywords (model nicknames, references, or distinctive words).",
@@ -384,6 +416,24 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.duplicateScanRescan': "Opnieuw scannen",
   'admin.products.duplicateScanClose': "Sluiten",
   'admin.products.duplicateScanFailed': "Duplicaatscan mislukt",
+  'admin.products.oosScan': "Scan op uitverkocht",
+  'admin.products.oosScanTitle': "Niet-beschikbare leveranciersproducten",
+  'admin.products.oosScanHint':
+    "Controleert Yupoo-/leverancierspagina's. Bekijk de lijst en keur goed om geselecteerde producten op uitverkocht te zetten (verborgen in de shop).",
+  'admin.products.oosScanLoading':
+    "Leverancierspagina's scannen… dit kan enkele minuten duren.",
+  'admin.products.oosScanEmpty': "Geen niet-beschikbare producten gevonden in deze batch.",
+  'admin.products.oosScanSummary':
+    "{scanned} gescand · {unavailable} niet beschikbaar · {ok} nog live · {errors} fouten",
+  'admin.products.oosScanSelectAll': "Alles selecteren ({count})",
+  'admin.products.oosScanRescan': "Opnieuw scannen",
+  'admin.products.oosScanClose': "Sluiten",
+  'admin.products.oosScanApply': "{count} op uitverkocht zetten",
+  'admin.products.oosScanFailed': "Uitverkocht-scan mislukt",
+  'admin.products.oosScanApplyFailed': "Producten op uitverkocht zetten mislukt",
+  'admin.products.oosScanApplyDone': "{count} product(en) op uitverkocht gezet.",
+  'admin.products.oosScanConfirmApply':
+    "{count} product(en) op uitverkocht zetten? Ze verdwijnen uit de shopcatalogus.",
   'admin.products.duplicateTitleScan': "Duplicaten scannen (titel)",
   'admin.products.duplicateTitleScanTitle': "Mogelijke dubbele titels",
   'admin.products.duplicateTitleScanHint': "Producten gegroepeerd op overeenkomende titel-trefwoorden (modelnamen, referenties of onderscheidende woorden).",

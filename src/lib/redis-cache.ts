@@ -96,3 +96,31 @@ export async function redisDel(key: string): Promise<void> {
     /* ignore */
   }
 }
+
+/** Delete all keys matching a prefix (SCAN). Used when invalidating a TTL namespace. */
+export async function redisDelByPrefix(prefix: string): Promise<void> {
+  const client = await getRedisClient()
+  if (!client) return
+  const pattern = `${prefix}*`
+  try {
+    const anyClient = client as RedisLike & {
+      scan?: (
+        cursor: string,
+        matchToken: string,
+        match: string,
+        countToken: string,
+        count: number
+      ) => Promise<[string, string[]]>
+    }
+    if (typeof anyClient.scan !== 'function') return
+
+    let cursor = '0'
+    do {
+      const [next, keys] = await anyClient.scan(cursor, 'MATCH', pattern, 'COUNT', 200)
+      cursor = String(next)
+      if (keys.length) await client.del(...keys)
+    } while (cursor !== '0')
+  } catch {
+    /* ignore — memory cache still cleared by caller */
+  }
+}

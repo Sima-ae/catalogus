@@ -44,6 +44,7 @@ import AdminBulkEditModal, { type BulkEditPayload } from '@/components/admin/Adm
 import DuplicateProductsModal, {
   type DuplicateScanMode,
 } from '@/components/admin/DuplicateProductsModal'
+import UnavailableSourcesScanModal from '@/components/admin/UnavailableSourcesScanModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import AdminProductSalePriceCell from '@/components/admin/AdminProductSalePriceCell'
 import CatalogPagination from '@/components/shop/CatalogPagination'
@@ -56,6 +57,7 @@ import { formatMessage } from '@/lib/i18n'
 import { adminListDisplaySalePrice } from '@/lib/product-options'
 import type { ImageDuplicateScanResult } from '@/lib/product-image-duplicates'
 import type { TitleDuplicateScanResult } from '@/lib/product-title-duplicates'
+import type { UnavailableSourceScanResult } from '@/lib/scan-unavailable-sources'
 
 type StatusFilter = 'all' | 'active' | 'draft' | 'inactive' | 'trash'
 
@@ -382,6 +384,11 @@ export default function AdminProductsPage() {
     ImageDuplicateScanResult | TitleDuplicateScanResult | null
   >(null)
   const [deletingDuplicateIds, setDeletingDuplicateIds] = useState<Set<string>>(new Set())
+  const [oosScanOpen, setOosScanOpen] = useState(false)
+  const [oosScanLoading, setOosScanLoading] = useState(false)
+  const [oosScanApplying, setOosScanApplying] = useState(false)
+  const [oosScanError, setOosScanError] = useState('')
+  const [oosScanResult, setOosScanResult] = useState<UnavailableSourceScanResult | null>(null)
   const [successMessage, setSuccessMessage] = useState('')
   const [categories, setCategories] = useState<CategoryPickerOption[]>([])
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([])
@@ -880,6 +887,76 @@ export default function AdminProductsPage() {
     void runDuplicateScan(mode)
   }
 
+  const runOosScan = useCallback(async () => {
+    if (!user) return
+    setOosScanLoading(true)
+    setOosScanError('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/unavailable-sources?limit=80'), {
+        headers: adminAuthHeaders(user),
+        cache: 'no-store',
+      })
+      const data = await parseJsonResponse<UnavailableSourceScanResult & { error?: string }>(res)
+      if (!res.ok) {
+        throw new Error(data.error || tr('admin.products.oosScanFailed'))
+      }
+      setOosScanResult(data)
+    } catch (e) {
+      setOosScanError(
+        e instanceof Error ? e.message : tr('admin.products.oosScanFailed')
+      )
+      setOosScanResult(null)
+    } finally {
+      setOosScanLoading(false)
+    }
+  }, [user, tr])
+
+  const openOosScan = () => {
+    setOosScanOpen(true)
+    void runOosScan()
+  }
+
+  const handleOosScanApply = async (productIds: string[]) => {
+    if (!user || productIds.length === 0 || oosScanApplying) return
+    if (
+      !confirm(
+        formatMessage(tr('admin.products.oosScanConfirmApply'), { count: productIds.length })
+      )
+    ) {
+      return
+    }
+
+    setOosScanApplying(true)
+    setOosScanError('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/unavailable-sources'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds }),
+      })
+      const data = await parseJsonResponse<{ marked?: number; error?: string }>(res)
+      if (!res.ok) {
+        throw new Error(data.error || tr('admin.products.oosScanApplyFailed'))
+      }
+      const marked = Number(data.marked ?? productIds.length)
+      setSuccessMessage(
+        formatMessage(tr('admin.products.oosScanApplyDone'), { count: marked })
+      )
+      setOosScanOpen(false)
+      setOosScanResult(null)
+      loadProducts()
+    } catch (e) {
+      setOosScanError(
+        e instanceof Error ? e.message : tr('admin.products.oosScanApplyFailed')
+      )
+    } finally {
+      setOosScanApplying(false)
+    }
+  }
+
   const removeProductFromDuplicateScanResult = useCallback((productId: string) => {
     setDuplicateScanResult((prev) => {
       if (!prev) return prev
@@ -967,7 +1044,16 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className="btn-secondary flex items-center gap-2 text-sm"
-                disabled={duplicateScanLoading}
+                disabled={oosScanLoading || duplicateScanLoading}
+                onClick={openOosScan}
+              >
+                <ArchiveBoxXMarkIcon className="h-5 w-5" />
+                {tr('admin.products.oosScan')}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 text-sm"
+                disabled={duplicateScanLoading || oosScanLoading}
                 onClick={() => openDuplicateScan('image')}
               >
                 <DocumentDuplicateIcon className="h-5 w-5" />
@@ -976,7 +1062,7 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className="btn-secondary flex items-center gap-2 text-sm"
-                disabled={duplicateScanLoading}
+                disabled={duplicateScanLoading || oosScanLoading}
                 onClick={() => openDuplicateScan('title')}
               >
                 <MagnifyingGlassIcon className="h-5 w-5" />
@@ -1412,6 +1498,19 @@ export default function AdminProductsPage() {
         }}
         onRescan={() => void runDuplicateScan(duplicateScanMode)}
         onDeleteProduct={(productId) => void handleDuplicateProductDelete(productId)}
+      />
+      <UnavailableSourcesScanModal
+        open={oosScanOpen}
+        loading={oosScanLoading}
+        applying={oosScanApplying}
+        error={oosScanError}
+        result={oosScanResult}
+        onClose={() => {
+          if (oosScanLoading || oosScanApplying) return
+          setOosScanOpen(false)
+        }}
+        onRescan={() => void runOosScan()}
+        onApply={(ids) => void handleOosScanApply(ids)}
       />
     </AdminPageShell>
   )

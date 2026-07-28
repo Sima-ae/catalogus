@@ -1,6 +1,6 @@
 import { queryDb } from '@/lib/db'
 import { markPricelistOutOfStockForProducts } from '@/lib/pricelist-catalog-status-sync'
-import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
+import { hideSoldOutProductsFromShop } from '@/lib/shop-catalog-cache'
 import { fetchHtmlResult } from '@/lib/yupoo/client'
 import { parseAlbumPage } from '@/lib/yupoo/parse-album'
 import {
@@ -9,22 +9,10 @@ import {
 } from '@/lib/yupoo/unavailable'
 import { isYupooPasswordGateHtml } from '@/lib/yupoo/session'
 
-const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
-const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
-const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
-const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total'
-
 /** In-process debounce so image-proxy storms do not hammer UPDATE. */
 const recentlyMarked = new Map<string, number>()
 const MARK_DEBOUNCE_MS = 10 * 60 * 1000
 const CHECK_DEBOUNCE_MS = 30 * 60 * 1000
-
-function invalidateShopCatalogCaches(): void {
-  invalidateCachedNamespace(SHOP_CATALOG_PAGE_CACHE_NS)
-  invalidateCachedNamespace(SHOP_CATALOG_COUNT_CACHE_NS)
-  invalidateCachedNamespace(ACTIVE_PRODUCT_TOTAL_CACHE_NS)
-  invalidateCachedNamespace(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS)
-}
 
 function peekDebounced(key: string, ttlMs = MARK_DEBOUNCE_MS): boolean {
   const now = Date.now()
@@ -103,7 +91,7 @@ export async function markProductsSoldOutUnavailable(
     } catch {
       // Pricelist sync is best-effort — sold_out already set.
     }
-    invalidateShopCatalogCaches()
+    await hideSoldOutProductsFromShop(fresh)
     if (process.env.SOURCE_UNAVAILABLE_LOG === '1') {
       console.info(
         `[source-unavailable] marked ${marked} product(s) sold_out (${reason}): ${fresh.slice(0, 8).join(',')}${

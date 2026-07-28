@@ -1,6 +1,7 @@
 import {
   isRedisCacheEnabled,
   redisDel,
+  redisDelByPrefix,
   redisGetJson,
   redisSetJson,
 } from '@/lib/redis-cache'
@@ -83,6 +84,9 @@ export function invalidateCachedNamespace(namespace: string): void {
   stores.delete(namespace)
   for (const key of Array.from(inflight.keys())) {
     if (key.startsWith(`${namespace}::`)) inflight.delete(key)
+  }
+  if (isRedisCacheEnabled()) {
+    void redisDelByPrefix(`catalogus:ttl:${namespace}:`)
   }
 }
 
