@@ -28,12 +28,14 @@ import {
 } from '@/components/admin/AdminTable'
 import { useAppTheme } from '@/lib/theme-classes'
 import { formatPrice } from '@/lib/format-price'
-import { productImageSrc } from '@/lib/product-image-url'
+import { adminProductImageDisplaySrc, productImageSrc } from '@/lib/product-image-url'
 import type { Product } from '@/lib/types'
 import { useAuth } from '@/lib/auth-local'
 import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { parseJsonResponse } from '@/lib/fetch-json'
 import { appPath } from '@/lib/paths'
+import { useLocalizedPath } from '@/lib/use-localized-path'
+import PricelistProductLightbox from '@/components/pricelist/PricelistProductLightbox'
 import {
   buildAdminProductsUrl,
   isCatalogProductsPage,
@@ -357,6 +359,7 @@ export default function AdminProductsPage() {
   const t = useAppTheme()
   const { t: tr } = useI18n()
   const { user, isAdmin, isSuperAdmin } = useAuth()
+  const toLocalizedPath = useLocalizedPath()
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
@@ -375,6 +378,10 @@ export default function AdminProductsPage() {
   const [bulkWorking, setBulkWorking] = useState(false)
   const [publishDraftsWorking, setPublishDraftsWorking] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [imagePreview, setImagePreview] = useState<{
+    name: string
+    images: string[]
+  } | null>(null)
   const [duplicateScanOpen, setDuplicateScanOpen] = useState(false)
   const [duplicateScanMode, setDuplicateScanMode] = useState<DuplicateScanMode>('image')
   const [duplicateScanLoading, setDuplicateScanLoading] = useState(false)
@@ -1352,18 +1359,42 @@ export default function AdminProductsPage() {
                 <AdminTd className="min-w-0">
                   <div className="flex items-center gap-3 min-w-0">
                     {p.image_url ? (
-                      <Image
-                        src={productImageSrc(p.image_url)}
-                        alt=""
-                        width={40}
-                        height={40}
-                        className="w-10 h-10 rounded object-cover shrink-0 bg-gray-100"
-                        unoptimized
-                      />
+                      <button
+                        type="button"
+                        className="relative w-10 h-10 rounded overflow-hidden shrink-0 bg-gray-100 dark:bg-dark-700 ring-offset-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        onClick={() =>
+                          setImagePreview({
+                            name: p.name,
+                            images: [p.image_url],
+                          })
+                        }
+                        aria-label={formatMessage(tr('admin.products.previewImage'), {
+                          name: p.name,
+                        })}
+                      >
+                        <Image
+                          src={productImageSrc(p.image_url)}
+                          alt=""
+                          width={40}
+                          height={40}
+                          className="w-10 h-10 object-cover"
+                          unoptimized
+                        />
+                      </button>
                     ) : (
                       <div className="w-10 h-10 rounded bg-gray-200 dark:bg-dark-700 shrink-0" />
                     )}
-                    <span className="font-medium line-clamp-2">{p.name}</span>
+                    <Link
+                      href={toLocalizedPath(`/product/${p.id}`)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`font-medium line-clamp-2 hover:underline ${
+                        t.isDark ? 'text-white' : 'text-gray-900'
+                      }`}
+                      title={p.name}
+                    >
+                      {p.name}
+                    </Link>
                   </div>
                 </AdminTd>
                 <AdminTd className="px-2 align-top">
@@ -1516,6 +1547,13 @@ export default function AdminProductsPage() {
         }}
         onRescan={() => void runOosScan()}
         onApply={(ids) => void handleOosScanApply(ids)}
+      />
+      <PricelistProductLightbox
+        open={Boolean(imagePreview)}
+        productName={imagePreview?.name ?? ''}
+        images={imagePreview?.images ?? []}
+        onClose={() => setImagePreview(null)}
+        resolveImageSrc={(url) => adminProductImageDisplaySrc(url) || productImageSrc(url)}
       />
     </AdminPageShell>
   )

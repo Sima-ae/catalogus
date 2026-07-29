@@ -47,6 +47,7 @@ export type AdminMessageKey =
   | 'admin.products.statTrash'
   | 'admin.products.search'
   | 'admin.products.searchPlaceholder'
+  | 'admin.products.previewImage'
   | 'admin.products.filterStatus'
   | 'admin.products.allStatuses'
   | 'admin.products.filterCategory'
@@ -206,6 +207,7 @@ const EN: AdminMessages = {
   'admin.products.statTrash': "Trash",
   'admin.products.search': "Search",
   'admin.products.searchPlaceholder': "Name, SKU, category...",
+  'admin.products.previewImage': "Preview image for {name}",
   'admin.products.filterStatus': "Status",
   'admin.products.allStatuses': "All statuses",
   'admin.products.filterCategory': "Category",
@@ -375,6 +377,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.statTrash': "Prullenbak",
   'admin.products.search': "Zoeken",
   'admin.products.searchPlaceholder': "Naam, SKU, categorie...",
+  'admin.products.previewImage': "Afbeelding bekijken voor {name}",
   'admin.products.allStatuses': "Alle statussen",
   'admin.products.filterCategory': "Categorie",
   'admin.products.allCategories': "Alle categorieën",
