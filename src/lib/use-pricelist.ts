@@ -392,7 +392,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
   }
 
   const bulkUpdate = async (
-    action: 'stockStatus' | 'price' | 'shipping',
+    action: 'stockStatus' | 'price' | 'shipping' | 'clearForPricing',
     bulkItems: PricelistBulkItem[],
     payload: {
       stockStatus?: PricelistStockStatus

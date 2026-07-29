@@ -435,6 +435,35 @@ export default function PricelistPageClient() {
     }
   }
 
+  const runBulkClearForPricing = async () => {
+    const applyToFilters = resolveBulkApplyToFilters()
+    if (!selectedIds.size && !applyToFilters) return
+    setBulkWorking(true)
+    setBulkMessage(null)
+    try {
+      const result = await bulkUpdate(
+        'clearForPricing',
+        applyToFilters ? [] : toBulkItems(selectedIds),
+        { applyToFilters }
+      )
+      setSelectedIds(new Set())
+      if (result.skipped > 0) {
+        setBulkMessage(
+          formatMessage(t('pricelist.bulk.partial'), {
+            updated: result.updated,
+            skipped: result.skipped,
+          })
+        )
+      } else {
+        setBulkMessage(formatMessage(t('pricelist.bulk.done'), { count: result.updated }))
+      }
+    } catch (e) {
+      setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
   const runBulkPrice = async (unitPrice: number) => {
     const applyToFilters = resolveBulkApplyToFilters()
     if (!bulkPriceTargetIds.length && !applyToFilters) return
@@ -763,6 +792,7 @@ export default function PricelistPageClient() {
               onClearSelection={() => setSelectedIds(new Set())}
               onSetOutOfStock={() => void runBulkStockStatus('out')}
               onSetTemporarilyOutOfStock={() => void runBulkStockStatus('temporary')}
+              onClearForPricing={() => void runBulkClearForPricing()}
               onOpenSetPrice={() => setBulkPriceOpen(true)}
               onOpenSetShipping={() => setBulkShippingOpen(true)}
               showDelete={canRemoveItems}

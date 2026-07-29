@@ -6,6 +6,7 @@ import { PRICELIST_MAX_SELECTION_IDS } from '@/lib/pricelist-constants'
 import {
   parseUnitPrice,
   setSellerProductStockStatus,
+  clearSellerProductStockForPricing,
   syncProductPurchasePriceFromPricelist,
   syncProductShippingCostsFromPricelist,
   upsertSellerProductPrice,
@@ -34,6 +35,7 @@ import {
   restrictAdminOnlyPricelistFilters,
   type PricelistClientFilterInput,
 } from '@/lib/pricelist-api-query'
+import { invalidateShopCatalogCaches } from '@/lib/shop-catalog-cache'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -112,7 +114,7 @@ async function resolveBulkItemList(
 async function processBulkItems(
   items: BulkItem[],
   opts: {
-    action: 'stockStatus' | 'price' | 'shipping'
+    action: 'stockStatus' | 'price' | 'shipping' | 'clearForPricing'
     stockStatus: PricelistStockStatus | null
     unitPrice: number | null
     shippingCost: number | null
@@ -136,6 +138,7 @@ async function processBulkItems(
   let updated = 0
   let skipped = 0
   const errors: string[] = []
+  let clearedSoldOut = false
 
   if (action === 'shipping' && shippingCost !== null) {
     const productIds = items.map((item) => item.productId)
@@ -192,6 +195,19 @@ async function processBulkItems(
             updatedBy,
             syncProductSoldOut: isCuratedSupplierPricelist(access.ownerId),
           })
+        } else if (action === 'clearForPricing') {
+          await clearSellerProductStockForPricing({
+            listOwnerId: access.ownerId,
+            sellerId: targetSellerId,
+            productId: item.productId,
+            currency,
+            updatedBy,
+            clearProductSoldOut: isCuratedSupplierPricelist(access.ownerId),
+          })
+          if (isCuratedSupplierPricelist(access.ownerId)) {
+            clearedSoldOut = true
+            await syncProductPurchasePriceFromPricelist(item.productId, access.ownerId)
+          }
         } else if (action === 'price' && unitPrice !== null) {
           await upsertSellerProductPrice({
             listOwnerId: access.ownerId,
@@ -206,7 +222,7 @@ async function processBulkItems(
           }
         }
 
-        if (isSellerActor && action === 'price') {
+        if (isSellerActor && (action === 'price' || action === 'clearForPricing')) {
           await lockSellerPriceAfterSave(access.ownerId, targetSellerId, item.productId)
         }
         if (isAdminActor && item.sellerId && item.sellerId !== access.actor!.userId) {
@@ -219,6 +235,10 @@ async function processBulkItems(
         )
       }
     }
+  }
+
+  if (clearedSoldOut) {
+    invalidateShopCatalogCaches()
   }
 
   return { updated, skipped, failed: errors.length, errors }
@@ -251,6 +271,8 @@ export async function POST(request: NextRequest) {
     if (!stockStatus) {
       return NextResponse.json({ error: 'Valid stockStatus is required' }, { status: 400 })
     }
+  } else if (action === 'clearForPricing') {
+    // no extra payload — clears OOS / temporary OOS and resets unit price to 0
   } else if (action === 'price') {
     if (unitPrice === null) {
       return NextResponse.json({ error: 'Valid unit price is required' }, { status: 400 })
@@ -261,7 +283,7 @@ export async function POST(request: NextRequest) {
     }
   } else {
     return NextResponse.json(
-      { error: 'action must be stockStatus, price, or shipping' },
+      { error: 'action must be stockStatus, clearForPricing, price, or shipping' },
       { status: 400 }
     )
   }
@@ -290,7 +312,7 @@ export async function POST(request: NextRequest) {
 
     const currency = await getShopCurrency()
     const result = await processBulkItems(items, {
-      action: action as 'stockStatus' | 'price' | 'shipping',
+      action: action as 'stockStatus' | 'price' | 'shipping' | 'clearForPricing',
       stockStatus,
       unitPrice,
       shippingCost,

@@ -706,6 +706,43 @@ export async function setSellerProductStockStatus(input: {
   }
 }
 
+/**
+ * Reset “Uitverkocht” / “Tijdelijk uitverkocht” so the row is ready for a new price
+ * (“Prijs invoeren”). Clears stock flags, sets unit_price to 0, and unsold_out on catalog.
+ */
+export async function clearSellerProductStockForPricing(input: {
+  listOwnerId: string
+  sellerId: string
+  productId: string
+  currency: string
+  updatedBy: string
+  /** Clear products.sold_out when leaving curated-list OOS. */
+  clearProductSoldOut?: boolean
+}): Promise<void> {
+  await queryDb(
+    `INSERT INTO seller_product_prices (list_owner_id, seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
+     VALUES (?, ?, ?, 0, ?, ?, 0, NULL)
+     ON DUPLICATE KEY UPDATE
+       unit_price = 0,
+       currency = VALUES(currency),
+       updated_by = VALUES(updated_by),
+       out_of_stock = 0,
+       stock_status = NULL,
+       updated_at = CURRENT_TIMESTAMP`,
+    [
+      input.listOwnerId,
+      input.sellerId,
+      input.productId,
+      input.currency,
+      input.updatedBy,
+    ]
+  )
+
+  if (input.clearProductSoldOut) {
+    await queryDb(`UPDATE products SET sold_out = 0 WHERE id = ?`, [input.productId])
+  }
+}
+
 const BULK_SHIPPING_CHUNK_SIZE = 500
 
 /** Seller row that owns the displayed purchase price (same ROW_NUMBER order as list queries). */

@@ -17,6 +17,7 @@ type Props = {
   onClearSelection: () => void
   onSetOutOfStock: () => void
   onSetTemporarilyOutOfStock: () => void
+  onClearForPricing: () => void
   onOpenSetPrice: () => void
   onOpenSetShipping: () => void
   showDelete?: boolean
@@ -37,6 +38,7 @@ export default function PricelistBulkActionsBar({
   onClearSelection,
   onSetOutOfStock,
   onSetTemporarilyOutOfStock,
+  onClearForPricing,
   onOpenSetPrice,
   onOpenSetShipping,
   showDelete = false,
@@ -103,6 +105,14 @@ export default function PricelistBulkActionsBar({
             onClick={onSetTemporarilyOutOfStock}
           >
             {t('pricelist.bulk.setTemporarilyOutOfStock')}
+          </button>
+          <button
+            type="button"
+            className="btn-primary text-sm"
+            disabled={busy}
+            onClick={onClearForPricing}
+          >
+            {t('pricelist.stockStatusSetPrice')}
           </button>
           <button
             type="button"
