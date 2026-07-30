@@ -243,3 +243,31 @@ export async function checkAndMarkYupooSourceUnavailable(
     return { marked: false, reason: 'check_failed' }
   }
 }
+
+/**
+ * Active products with a Yupoo source but no primary image — leftover after
+ * image clears without sold_out, or restock without restoring photos.
+ * Mark them sold_out so they leave the shop grid.
+ */
+export async function markBlankImageYupooProductsSoldOut(
+  limit = 500
+): Promise<{ marked: number; ids: string[] }> {
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT id FROM products
+     WHERE status IN ('active', 'draft')
+       AND COALESCE(sold_out, 0) = 0
+       AND NULLIF(TRIM(COALESCE(image_url, '')), '') IS NULL
+       AND (
+         COALESCE(source_url, '') LIKE '%yupoo.com%'
+         OR COALESCE(gallery_images, '') LIKE '%yupoo.com%'
+         OR COALESCE(gallery_images, '') LIKE '%/api/yupoo-image%'
+       )
+     ORDER BY updated_at ASC
+     LIMIT ?`,
+    [Math.max(1, Math.min(limit, 2000))]
+  )
+  const ids = rows.map((r) => String(r.id)).filter(Boolean)
+  if (!ids.length) return { marked: 0, ids: [] }
+  return markProductsSoldOutUnavailable(ids, 'blank_yupoo_image')
+}
+

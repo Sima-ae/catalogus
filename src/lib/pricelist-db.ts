@@ -739,7 +739,15 @@ export async function clearSellerProductStockForPricing(input: {
   )
 
   if (input.clearProductSoldOut) {
-    await queryDb(`UPDATE products SET sold_out = 0 WHERE id = ?`, [input.productId])
+    // Only restock in the shop when a primary image still exists. Cleared Yupoo
+    // images mean the album is gone — clearing sold_out would show blank cards.
+    await queryDb(
+      `UPDATE products
+       SET sold_out = 0
+       WHERE id = ?
+         AND NULLIF(TRIM(image_url), '') IS NOT NULL`,
+      [input.productId]
+    )
   }
 }
 

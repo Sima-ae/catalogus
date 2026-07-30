@@ -116,6 +116,7 @@ async function listActiveBrandsByProductsInCategory(
      INNER JOIN brands b ON ${brandJoinOn}
      WHERE p.status = 'active'
        AND COALESCE(p.sold_out, 0) = 0
+       AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
        AND ${categoryMatch}${excludeSql}
      ORDER BY COALESCE(b.sort_order, 9999), b.name ASC`,
     params

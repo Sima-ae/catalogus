@@ -46,12 +46,20 @@ import { reportProductSourceUnavailable } from '@/lib/report-product-unavailable
 interface ProductCardProps {
   product: Product
   onDeleted?: (productId: string) => void
+  /** Hide from the live shop grid when the product is blank / unavailable. */
+  onUnavailable?: (productId: string) => void
   onQuickEditSaved?: (saved: ProductQuickEditSaved) => void
   /** Preload above-the-fold card images for faster first paint. */
   imagePriority?: boolean
 }
 
-function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = false }: ProductCardProps) {
+function ProductCard({
+  product,
+  onDeleted,
+  onUnavailable,
+  onQuickEditSaved,
+  imagePriority = false,
+}: ProductCardProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const localizedPath = useLocalizedPath()
@@ -70,6 +78,14 @@ function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = fal
   useEffect(() => {
     setImageFailed(false)
   }, [product.id, product.image_url])
+
+  const mainImage = catalogCardImageSrc(product.image_url, product.source_url)
+
+  // Blank cards (cleared Yupoo images) never fire <Image onError> — report once.
+  useEffect(() => {
+    if (mainImage) return
+    reportProductSourceUnavailable(product.id)
+  }, [mainImage, product.id])
 
   const shopProductOptions = useMemo(
     () => getShopProductOptions(product.product_options),
@@ -128,8 +144,6 @@ function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = fal
     saveCatalogNavState(listingKey, returnUrl, product.id, page)
   }
 
-  const mainImage = catalogCardImageSrc(product.image_url, product.source_url)
-
   const cardPriceLabel = (() => {
     if (hasOptions) {
       const range = optionPriceRange(shopProductOptions)
@@ -141,6 +155,10 @@ function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = fal
   })()
 
   const showAskPriceBadge = cardPriceLabel === null
+
+  if (!mainImage || product.sold_out) {
+    return null
+  }
 
   return (
     <div
@@ -178,6 +196,7 @@ function ProductCard({ product, onDeleted, onQuickEditSaved, imagePriority = fal
                 onError={() => {
                   setImageFailed(true)
                   reportProductSourceUnavailable(product.id)
+                  onUnavailable?.(product.id)
                 }}
               />
             ) : null}
@@ -348,6 +367,7 @@ export default memo(ProductCard, (prev, next) => {
     prev.product.name === next.product.name &&
     prev.product.brand === next.product.brand &&
     prev.onDeleted === next.onDeleted &&
+    prev.onUnavailable === next.onUnavailable &&
     prev.onQuickEditSaved === next.onQuickEditSaved &&
     prev.imagePriority === next.imagePriority
   )

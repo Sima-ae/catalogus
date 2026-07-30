@@ -54,6 +54,19 @@ export async function POST(
       })
     }
 
+    const imageEmpty = !String(imageUrl || '').trim()
+    if (imageEmpty && isYupoo) {
+      const result = await markProductsSoldOutUnavailable(
+        [params.id],
+        'client_blank_yupoo_image'
+      )
+      return NextResponse.json({
+        ok: true,
+        marked: result.marked > 0,
+        reason: 'blank_image',
+      })
+    }
+
     if (sourceUrl && /yupoo\.com/i.test(sourceUrl)) {
       const result = await checkAndMarkYupooSourceUnavailable(
         params.id,

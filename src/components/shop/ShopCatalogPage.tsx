@@ -57,6 +57,7 @@ import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import {
   consumePrefetchedShopCatalog,
   getCachedShopCatalog,
+  invalidateShopCatalogCache,
   isShopCatalogCacheFresh,
   prefetchShopCatalogFilter,
   setCachedShopCatalog,
@@ -641,6 +642,7 @@ function ShopCatalogPageContent({
   const handleProductDeleted = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId))
     setTotalItems((prev) => Math.max(0, prev - 1))
+    invalidateShopCatalogCache()
   }
 
   const handleProductQuickEditSaved = (saved: ProductQuickEditSaved) => {
@@ -1300,6 +1302,7 @@ function ShopCatalogPageContent({
                 totalItems={totalItems}
                 onPageChange={handlePageChange}
                 onProductDeleted={handleProductDeleted}
+                onProductUnavailable={handleProductDeleted}
                 onProductQuickEditSaved={handleProductQuickEditSaved}
                 onReorder={isAdmin ? handleReorder : undefined}
                 reorderScope={isAdmin ? reorderScope : null}

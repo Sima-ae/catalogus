@@ -15,6 +15,7 @@ type Props = {
   saving?: boolean
   onReorder: (productIds: string[]) => void | Promise<void>
   onProductDeleted?: (productId: string) => void
+  onProductUnavailable?: (productId: string) => void
   onProductQuickEditSaved?: (saved: ProductQuickEditSaved) => void
 }
 
@@ -43,6 +44,7 @@ export default function SortableProductGrid({
   saving = false,
   onReorder,
   onProductDeleted,
+  onProductUnavailable,
   onProductQuickEditSaved,
 }: Props) {
   const [ordered, setOrdered] = useState(products)
@@ -152,6 +154,7 @@ export default function SortableProductGrid({
             key={product.id}
             product={product}
             onDeleted={onProductDeleted}
+            onUnavailable={onProductUnavailable}
             onQuickEditSaved={onProductQuickEditSaved}
             imagePriority={index < 4}
           />
@@ -191,6 +194,7 @@ export default function SortableProductGrid({
             <ProductCard
               product={product}
               onDeleted={onProductDeleted}
+              onUnavailable={onProductUnavailable}
               onQuickEditSaved={onProductQuickEditSaved}
               imagePriority={index < 4}
             />

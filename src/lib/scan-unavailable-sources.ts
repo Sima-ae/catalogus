@@ -11,7 +11,7 @@ import {
   classifySourcePageAvailability,
   isYupooUnavailableAlbumHtml,
 } from '@/lib/yupoo/unavailable'
-import { markProductsSoldOutUnavailable } from '@/lib/mark-source-unavailable'
+import { markProductsSoldOutUnavailable, markBlankImageYupooProductsSoldOut } from '@/lib/mark-source-unavailable'
 
 export type UnavailableSourceCandidate = {
   id: string
@@ -127,8 +127,12 @@ export async function scanUnavailableSourceProducts(
   const delayMs = Math.min(2000, Math.max(0, Math.floor(options.delayMs ?? 500)))
   const rotateChecked = options.rotateChecked !== false
 
+  // Repair blank-image Yupoo leftovers before the live album scan.
+  await markBlankImageYupooProductsSoldOut(limit)
+
   const eligibleWhere = `status = 'active'
        AND COALESCE(sold_out, 0) = 0
+       AND NULLIF(TRIM(COALESCE(image_url, '')), '') IS NOT NULL
        AND source_url IS NOT NULL
        AND TRIM(source_url) <> ''
        AND (
@@ -263,6 +267,11 @@ export async function applyUnavailableSourceSoldOut(
   const ids = Array.from(
     new Set(productIds.map((id) => String(id || '').trim()).filter(Boolean))
   )
-  if (!ids.length) return { marked: 0, ids: [] }
-  return markProductsSoldOutUnavailable(ids, 'admin_unavailable_scan')
+  const blank = await markBlankImageYupooProductsSoldOut(500)
+  if (!ids.length) return blank
+  const marked = await markProductsSoldOutUnavailable(ids, 'admin_unavailable_scan')
+  return {
+    marked: marked.marked + blank.marked,
+    ids: Array.from(new Set([...blank.ids, ...marked.ids])),
+  }
 }

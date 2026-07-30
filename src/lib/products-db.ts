@@ -71,6 +71,11 @@ import { getCachedValue, invalidateCachedNamespace, peekCachedValue } from '@/li
 import {
   hideSoldOutProductsFromShop,
   invalidateShopCatalogCaches,
+  SHOP_CATALOG_PAGE_CACHE_NS,
+  SHOP_CATALOG_COUNT_CACHE_NS,
+  ACTIVE_PRODUCT_TOTAL_CACHE_NS,
+  NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS,
+  PRODUCT_COUNT_BUCKETS_NS,
 } from '@/lib/shop-catalog-cache'
 import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
 import { resolveBrandByName } from '@/lib/brands-db'
@@ -791,17 +796,12 @@ const SHOP_CATEGORY_MENU_TTL_MS = 1_800_000
 const SHOP_CATEGORY_NAV_CACHE_NS = 'shop-category-nav'
 const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories'
 const SHOP_SUBCATEGORY_TTL_MS = 1_800_000
-const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
 const PRODUCT_COUNT_BUCKETS_TTL_MS = 1_800_000
-const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
-const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
 /** Homepage shuffle: short shared TTL so concurrent visitors share one DB/pool hit. */
 const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = 45_000
-const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
-const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total'
 const NEW_PRODUCTS_WEEK_TOTAL_TTL_MS = 300_000
 const SHUFFLE_CANDIDATE_POOL_SIZE = 800
 
@@ -830,6 +830,7 @@ async function loadActiveProductCountBuckets(options?: {
                FROM products p
                WHERE p.status = 'active'
                  AND COALESCE(p.sold_out, 0) = 0
+                 AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
                  AND p.brand_id = ?
                  AND p.category_id IS NOT NULL
                  AND TRIM(CAST(p.category_id AS CHAR)) != ''
@@ -850,6 +851,7 @@ async function loadActiveProductCountBuckets(options?: {
            FROM products p
            WHERE p.status = 'active'
              AND COALESCE(p.sold_out, 0) = 0
+             AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
              AND p.category_id IS NOT NULL
              AND p.category_id != ''
            GROUP BY p.category_id`
@@ -865,6 +867,7 @@ async function loadActiveProductCountBuckets(options?: {
            FROM products p
            WHERE p.status = 'active'
              AND COALESCE(p.sold_out, 0) = 0
+             AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
              AND (${PRODUCT_CATEGORY_ID_UNSET_SQL})
              AND TRIM(COALESCE(p.category, '')) != ''
            GROUP BY legacy_name`
@@ -1631,7 +1634,9 @@ async function getCachedActiveProductTotal(): Promise<number> {
     async () => {
       const rows = await queryDb<{ total: number }[]>(
         `SELECT COUNT(*) AS total FROM products p
-         WHERE p.status = 'active' AND COALESCE(p.sold_out, 0) = 0`
+         WHERE p.status = 'active'
+           AND COALESCE(p.sold_out, 0) = 0
+           AND NULLIF(TRIM(p.image_url), '') IS NOT NULL`
       )
       return Number(rows[0]?.total ?? 0)
     }
@@ -1649,6 +1654,7 @@ async function getCachedNewProductsWeekTotal(): Promise<number> {
         `SELECT COUNT(*) AS total FROM products p
          WHERE p.status = 'active'
            AND COALESCE(p.sold_out, 0) = 0
+           AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
            AND p.created_at >= ? AND p.created_at < ?`,
         [start.toISOString().slice(0, 19).replace('T', ' '), end.toISOString().slice(0, 19).replace('T', ' ')]
       )
@@ -1832,10 +1838,12 @@ async function loadActiveProductsPaginatedFromDb(
   }
 
   const rows = await fetchPageProductRows()
-  // Defense: never return sold_out rows to the shop grid (stale shuffle ids, etc.).
+  // Defense: never return sold_out / blank-image rows to the shop grid (stale shuffle ids, etc.).
   const inStockRows = rows.filter((row) => {
     const flag = row.sold_out
-    return !(flag === 1 || flag === true || flag === '1')
+    if (flag === 1 || flag === true || flag === '1') return false
+    const image = String(row.image_url ?? '').trim()
+    return Boolean(image)
   })
   const items = serializeProductRowsSync(inStockRows, brandSkuPrefixes)
 

@@ -276,9 +276,12 @@ export function buildActiveCatalogFilters(
   const includeBrand = options.includeBrandJoin === true
 
   // Shop catalog: hide out-of-stock (sold_out) — including auto-marked when
-  // Yupoo/supplier album or images are gone. Admin/pricelist keep their own filters.
+  // Yupoo/supplier album or images are gone. Also hide rows with no primary
+  // image (cleared Yupoo URLs) so blank cards never appear in the grid.
+  // Admin/pricelist keep their own filters.
   if (!options.includeInactiveForPricelist) {
     where.push('COALESCE(p.sold_out, 0) = 0')
+    where.push(`NULLIF(TRIM(p.image_url), '') IS NOT NULL`)
   }
   if (query.mode === 'new') {
     const { start, end } = getCatalogWeekRange()

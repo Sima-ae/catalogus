@@ -1,11 +1,12 @@
 import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 import { queryDb } from '@/lib/db'
 
-const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count'
-const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page'
-const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total'
-const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total'
-const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets'
+/** Bump suffix when shop visibility rules change so Redis cannot serve stale grids. */
+export const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page-v3'
+export const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count-v3'
+export const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total-v3'
+export const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total-v3'
+export const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets-v3'
 
 /** Drop shop listing / count caches so sold_out products disappear immediately. */
 export function invalidateShopCatalogCaches(): void {
