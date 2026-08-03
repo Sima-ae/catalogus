@@ -153,6 +153,30 @@ export async function compressCatalogImageBuffer(
   }
 }
 
+/** MIME type for a catalog image extension (no dot). */
+export function mimeTypeForCatalogImageExt(ext: string | null | undefined): string {
+  const e = normalizeExt(ext) || 'jpg'
+  if (e === 'png') return 'image/png'
+  if (e === 'webp') return 'image/webp'
+  if (e === 'gif') return 'image/gif'
+  if (e === 'avif') return 'image/avif'
+  return 'image/jpeg'
+}
+
+/** Extension hint from a Content-Type header. */
+export function catalogImageExtFromMime(contentType: string | null | undefined): string | null {
+  const base = String(contentType ?? '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase()
+  if (base === 'image/jpeg' || base === 'image/jpg') return 'jpg'
+  if (base === 'image/png') return 'png'
+  if (base === 'image/webp') return 'webp'
+  if (base === 'image/gif') return 'gif'
+  if (base === 'image/avif') return 'avif'
+  return null
+}
+
 /** Swap/replace file extension in a relative path under the images root. */
 export function replaceCatalogImageExtension(
   relativePathFromImagesRoot: string,
@@ -164,3 +188,4 @@ export function replaceCatalogImageExtension(
   const dir = parsed.dir && parsed.dir !== '.' ? `${parsed.dir}/` : ''
   return `${dir}${parsed.name}.${ext}`
 }
+

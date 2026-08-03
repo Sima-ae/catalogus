@@ -3,6 +3,11 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { NextRequest, NextResponse } from 'next/server'
 import { NO_INDEX_RESPONSE_HEADERS } from '@/lib/no-index'
+import {
+  catalogImageExtFromMime,
+  compressCatalogImageBuffer,
+  mimeTypeForCatalogImageExt,
+} from '@/lib/catalog-image-compress'
 import { yupooImageUrlFallbackChain } from '@/lib/product-image-url'
 import { DEFAULT_FETCH_UA } from '@/lib/yupoo/client'
 import { isYupooUnavailableImagePayload } from '@/lib/yupoo/unavailable'
@@ -38,6 +43,20 @@ function isAllowedReferer(url: string): boolean {
 
 function cacheKey(remoteUrl: string): string {
   return createHash('sha256').update(remoteUrl).digest('hex')
+}
+
+async function compressYupooCacheBody(
+  body: Buffer,
+  contentType: string
+): Promise<{ body: Buffer; contentType: string }> {
+  const result = await compressCatalogImageBuffer(body, {
+    sourceExt: catalogImageExtFromMime(contentType),
+  })
+  if (!result.compressed) return { body, contentType }
+  return {
+    body: result.buffer,
+    contentType: mimeTypeForCatalogImageExt(result.ext),
+  }
 }
 
 async function readDiskCache(
@@ -142,13 +161,14 @@ export async function GET(request: NextRequest) {
       })
       if (!upstream.ok) continue
 
-      const contentType = upstream.headers.get('content-type') || 'image/jpeg'
-      const body = Buffer.from(await upstream.arrayBuffer())
-      if (isYupooUnavailableImagePayload(body, contentType)) {
+      const rawType = upstream.headers.get('content-type') || 'image/jpeg'
+      const rawBody = Buffer.from(await upstream.arrayBuffer())
+      if (isYupooUnavailableImagePayload(rawBody, rawType)) {
         sawUnavailablePayload = true
         continue
       }
-      void writeDiskCache(candidate, body, contentType)
+      const prepared = await compressYupooCacheBody(rawBody, rawType)
+      void writeDiskCache(candidate, prepared.body, prepared.contentType)
       // Still mark when Yupoo served the “no image” graphic on another size —
       // album is usually deleted even if a smaller variant remains.
       if (sawUnavailablePayload) {
@@ -157,7 +177,7 @@ export async function GET(request: NextRequest) {
           refParam && isAllowedReferer(refParam) ? refParam : null
         )
       }
-      return imageResponse(body, contentType)
+      return imageResponse(prepared.body, prepared.contentType)
     } catch {
       // try next size
     }
