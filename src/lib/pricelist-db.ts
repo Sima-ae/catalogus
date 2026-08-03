@@ -708,7 +708,9 @@ export async function setSellerProductStockStatus(input: {
 
 /**
  * Reset “Uitverkocht” / “Tijdelijk uitverkocht” so the row is ready for a new price
- * (“Prijs invoeren”). Clears stock flags, sets unit_price to 0, and unsold_out on catalog.
+ * (“Prijs invoeren”). Clears stock flags on every seller row for the product (so an
+ * older catalog-status-sync OOS row cannot win over the cleared actor row), sets
+ * unit_price to 0 on the actor row, and optionally unsold_out on catalog.
  */
 export async function clearSellerProductStockForPricing(input: {
   listOwnerId: string
@@ -719,6 +721,23 @@ export async function clearSellerProductStockForPricing(input: {
   /** Clear products.sold_out when leaving curated-list OOS. */
   clearProductSoldOut?: boolean
 }): Promise<void> {
+  // Clear OOS on all sellers for this product first — display order prefers any
+  // stock_status row over an empty “Prijs invoeren” row (see SELLER_PRICE_LATEST_ROW_ORDER_SQL).
+  await queryDb(
+    `UPDATE seller_product_prices
+     SET out_of_stock = 0,
+         stock_status = NULL,
+         updated_by = ?,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE list_owner_id = ?
+       AND product_id = ?
+       AND (
+         COALESCE(stock_status, '') <> ''
+         OR COALESCE(out_of_stock, 0) <> 0
+       )`,
+    [input.updatedBy, input.listOwnerId, input.productId]
+  )
+
   await queryDb(
     `INSERT INTO seller_product_prices (list_owner_id, seller_id, product_id, unit_price, currency, updated_by, out_of_stock, stock_status)
      VALUES (?, ?, ?, 0, ?, ?, 0, NULL)
