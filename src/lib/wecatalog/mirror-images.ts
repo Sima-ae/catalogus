@@ -12,7 +12,8 @@ import {
 } from '@/lib/product-image-url'
 import { fetchWecatalogRemoteUrl } from '@/lib/wecatalog/client'
 
-const MAX_BYTES = 12 * 1024 * 1024
+/** Allow large supplier originals — writeCatalogImageFile compresses before save. */
+const MAX_BYTES = 25 * 1024 * 1024
 const MIRROR_SUBDIR = 'imports/wecatalog'
 const IMAGE_DOWNLOAD_CONCURRENCY = 4
 

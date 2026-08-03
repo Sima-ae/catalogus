@@ -1,5 +1,9 @@
 import fs from 'fs/promises'
 import path from 'path'
+import {
+  compressCatalogImageBuffer,
+  replaceCatalogImageExtension,
+} from '@/lib/catalog-image-compress'
 import { getCatalogImagesRoots, getCatalogImagesWriteRoots } from '@/lib/catalog-images-root'
 
 /** Path segment under the images root, e.g. `imports/woocommerce/wc-3693/001.jpg`. */
@@ -58,7 +62,16 @@ export async function writeCatalogImageFile(
   relativePathFromImagesRoot: string,
   buffer: Buffer
 ): Promise<string> {
-  const relative = catalogImageRelativePath(relativePathFromImagesRoot)
+  let relative = catalogImageRelativePath(relativePathFromImagesRoot)
+  const sourceExt = path.extname(relative).slice(1) || null
+  const normalizedSourceExt = sourceExt
+    ? sourceExt.toLowerCase().replace(/^jpeg$/, 'jpg')
+    : null
+  const compressed = await compressCatalogImageBuffer(buffer, { sourceExt })
+  if (compressed.ext && compressed.ext !== normalizedSourceExt) {
+    relative = replaceCatalogImageExtension(relative, compressed.ext)
+  }
+
   const roots = getCatalogImagesWriteRoots()
   let written = false
   let lastError: unknown
@@ -67,7 +80,7 @@ export async function writeCatalogImageFile(
     try {
       const filePath = path.join(root, relative)
       await fs.mkdir(path.dirname(filePath), { recursive: true })
-      await fs.writeFile(filePath, buffer)
+      await fs.writeFile(filePath, compressed.buffer)
       written = true
       break
     } catch (err) {

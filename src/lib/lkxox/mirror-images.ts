@@ -10,7 +10,8 @@ import {
 } from '@/lib/product-image-url'
 import { fetchLkxoxRemoteUrl } from '@/lib/lkxox/client'
 
-const MAX_BYTES = 12 * 1024 * 1024
+/** Allow large supplier originals — writeCatalogImageFile compresses before save. */
+const MAX_BYTES = 25 * 1024 * 1024
 const MIRROR_SUBDIR = 'imports/lkxox'
 
 const CONTENT_TYPE_EXT = new Map<string, string>([

@@ -11,7 +11,8 @@ import {
 import { fetchFacebookRemoteUrl } from '@/lib/facebook/client'
 import { maximizeFacebookImageUrl, readJpegDimensions } from '@/lib/facebook/image-urls'
 
-const MAX_BYTES = 12 * 1024 * 1024
+/** Allow large supplier originals — writeCatalogImageFile compresses before save. */
+const MAX_BYTES = 25 * 1024 * 1024
 const MIRROR_SUBDIR = 'imports/facebook'
 
 const CONTENT_TYPE_EXT = new Map<string, string>([
