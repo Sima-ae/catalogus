@@ -16,6 +16,8 @@ interface StatCardProps {
   href?: string
   /** Highlight when this card’s filter is active */
   active?: boolean
+  /** Smaller padding/type for dense rows (e.g. 7 product stats). */
+  compact?: boolean
 }
 
 export default function StatCard({
@@ -27,12 +29,14 @@ export default function StatCard({
   onClick,
   href,
   active = false,
+  compact = false,
 }: StatCardProps) {
   const t = useAppTheme()
   const clickable = Boolean(onClick || href)
 
   const className = [
     'card block w-full text-left transition-shadow',
+    compact ? '!p-2.5 sm:!p-3' : '',
     clickable ? 'cursor-pointer hover:shadow-md' : '',
     active ? 'ring-2 ring-primary-500 shadow-md' : '',
   ]
@@ -41,17 +45,39 @@ export default function StatCard({
 
   const content = (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className={`text-sm font-medium ${t.muted}`}>{title}</p>
-          <p className={`text-2xl font-bold mt-1 ${t.heading}`}>{value}</p>
+      <div className={`flex items-center justify-between ${compact ? 'gap-1.5' : ''}`}>
+        <div className="min-w-0">
+          <p
+            className={`font-medium leading-tight ${t.muted} ${
+              compact ? 'text-[11px] sm:text-xs line-clamp-2' : 'text-sm'
+            }`}
+          >
+            {title}
+          </p>
+          <p
+            className={`font-bold ${t.heading} ${
+              compact ? 'text-lg sm:text-xl mt-0.5 tabular-nums' : 'text-2xl mt-1'
+            }`}
+          >
+            {value}
+          </p>
           {change && <p className={`text-sm mt-1 ${t.muted}`}>{change}</p>}
         </div>
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${accentColor}`}>
-          {icon}
+        <div
+          className={`shrink-0 rounded-lg flex items-center justify-center ${accentColor} ${
+            compact ? 'w-8 h-8 sm:w-9 sm:h-9' : 'w-12 h-12'
+          }`}
+        >
+          {compact
+            ? React.isValidElement(icon)
+              ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
+                  className: 'w-4 h-4 sm:w-5 sm:h-5 text-white',
+                })
+              : icon
+            : icon}
         </div>
       </div>
-      <div className={`h-1 ${accentColor} rounded-full mt-4`} />
+      <div className={`h-1 ${accentColor} rounded-full ${compact ? 'mt-2' : 'mt-4'}`} />
     </>
   )
 

@@ -1123,7 +1123,7 @@ export default function AdminProductsPage() {
         </>
       }
     >
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
         <StatCard
           title={tr('admin.products.statTotal')}
           value={stats.total}
@@ -1131,6 +1131,7 @@ export default function AdminProductsPage() {
           accentColor="bg-primary-500"
           active={statusFilter === 'all'}
           onClick={() => setStatusFilter('all')}
+          compact
         />
         <StatCard
           title={tr('admin.products.statPublished')}
@@ -1139,6 +1140,7 @@ export default function AdminProductsPage() {
           accentColor="bg-green-500"
           active={statusFilter === 'active'}
           onClick={() => setStatusFilter('active')}
+          compact
         />
         <StatCard
           title={tr('admin.products.statDraft')}
@@ -1147,6 +1149,7 @@ export default function AdminProductsPage() {
           accentColor="bg-amber-500"
           active={statusFilter === 'draft'}
           onClick={() => setStatusFilter('draft')}
+          compact
         />
         <StatCard
           title={tr('admin.products.statInactive')}
@@ -1155,6 +1158,7 @@ export default function AdminProductsPage() {
           accentColor="bg-gray-500"
           active={statusFilter === 'inactive'}
           onClick={() => setStatusFilter('inactive')}
+          compact
         />
         <StatCard
           title={tr('admin.products.statOutOfStock')}
@@ -1163,6 +1167,7 @@ export default function AdminProductsPage() {
           accentColor="bg-rose-500"
           active={outOfStockFilter}
           onClick={() => setOutOfStockFilter((current) => !current)}
+          compact
         />
         <StatCard
           title={tr('admin.products.statSoldOut')}
@@ -1171,6 +1176,7 @@ export default function AdminProductsPage() {
           accentColor="bg-orange-600"
           active={soldOutFilter}
           onClick={() => setSoldOutFilter((current) => !current)}
+          compact
         />
         <StatCard
           title={tr('admin.products.statTrash')}
@@ -1178,6 +1184,7 @@ export default function AdminProductsPage() {
           icon={<TrashIcon className="w-6 h-6 text-white" />}
           accentColor="bg-red-600"
           href={appPath('/admin/trash')}
+          compact
         />
       </div>
 
