@@ -248,11 +248,19 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
         (name) => name.toLowerCase() === raw.toLowerCase()
       )
       if (match) return match
+      // Keep URL value while pills load so product queries are not under-filtered.
+      if (loading || subcategoryOptions.length === 0) return raw
     }
     if (legacySubcategoryFromCategoryParam) return legacySubcategoryFromCategoryParam
     // Default to All so parent categories (e.g. PERFUMES) show products immediately.
     return 'All'
-  }, [searchParams, subcategoryOptions, hasSubcategories, legacySubcategoryFromCategoryParam])
+  }, [
+    searchParams,
+    subcategoryOptions,
+    hasSubcategories,
+    legacySubcategoryFromCategoryParam,
+    loading,
+  ])
 
   const needsSubcategoryPick = false
 
@@ -392,11 +400,12 @@ export function useShopNestedSubcategory(
         (name) => name.toLowerCase() === raw.toLowerCase()
       )
       if (match) return match
+      if (loading || nestedSubcategoryOptions.length === 0) return raw
     }
     if (!hasNestedSubcategories) return 'All'
     // Default to All — nested pills are optional filters, not a required pick.
     return 'All'
-  }, [searchParams, nestedSubcategoryOptions, hasNestedSubcategories])
+  }, [searchParams, nestedSubcategoryOptions, hasNestedSubcategories, loading])
 
   const needsNestedSubcategoryPick = false
 

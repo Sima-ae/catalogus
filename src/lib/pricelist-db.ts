@@ -1649,7 +1649,11 @@ export async function listPricelistPage(
     categoryFilter: filters.categoryFilter,
     brand: filters.brand,
   })
-  const outOfStockCountSql = buildPricelistOutOfStockCountSql(listOwnerId, viewer)
+  const outOfStockCountSql = buildPricelistOutOfStockCountSql(listOwnerId, viewer, {
+    search: filters.search,
+    categoryFilter: filters.categoryFilter,
+    brand: filters.brand,
+  })
 
   const baseSql = buildPricelistListSql(listOwnerId, viewer, {})
 

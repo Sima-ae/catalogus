@@ -415,12 +415,19 @@ export function buildPricelistFilledPriceCountSql(
 
 export function buildPricelistOutOfStockCountSql(
   listOwnerId: string,
-  viewer: PricelistListViewer
+  viewer: PricelistListViewer,
+  filters: Omit<
+    PricelistListFilterInput,
+    'missingPricesOnly' | 'filledPricesOnly' | 'outOfStockOnly'
+  > = {}
 ): PricelistSqlFragment | null {
   const where: string[] = ['pi.owner_user_id = ?']
   const params: unknown[] = [listOwnerId]
   const joins = { value: '' }
 
+  appendCategoryFilter(where, params, filters.categoryFilter)
+  appendBrandFilter(where, params, filters.brand)
+  appendSearchFilter(where, params, filters.search)
   appendOutOfStockFilter(where, params, joins, listOwnerId, viewer, true)
 
   if (!joins.value && viewer.role !== 'seller') {

@@ -8,6 +8,11 @@ export const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total-v4'
 export const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total-v4'
 export const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets-v4'
 
+/** Bump when menu count rules change (e.g. idsOnly) so Redis cannot serve stale pills. */
+export const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu-v5'
+export const SHOP_CATEGORY_NAV_CACHE_NS = 'shop-category-nav-v5'
+export const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories-v5'
+
 /** Drop shop listing / count caches so sold_out products disappear immediately. */
 export function invalidateShopCatalogCaches(): void {
   invalidateCachedNamespace(SHOP_CATALOG_PAGE_CACHE_NS)
@@ -15,6 +20,9 @@ export function invalidateShopCatalogCaches(): void {
   invalidateCachedNamespace(ACTIVE_PRODUCT_TOTAL_CACHE_NS)
   invalidateCachedNamespace(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS)
   invalidateCachedNamespace(PRODUCT_COUNT_BUCKETS_NS)
+  invalidateCachedNamespace(SHOP_CATEGORY_MENU_CACHE_NS)
+  invalidateCachedNamespace(SHOP_CATEGORY_NAV_CACHE_NS)
+  invalidateCachedNamespace(SHOP_SUBCATEGORY_CACHE_NS)
 }
 
 /** Remove products from precomputed homepage shuffle positions. */

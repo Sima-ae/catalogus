@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import BrandFilter from '@/components/shop/BrandFilter'
@@ -10,6 +10,7 @@ import {
   useShopNestedSubcategory,
   useShopSubcategory,
 } from '@/lib/use-shop-subcategory'
+import { prefetchShopCategoryTaxonomy } from '@/lib/shop-categories-client'
 
 /** Shop-style category / subcategory / nested / brand pills for the pricelist page. */
 export default function PricelistCatalogFilters() {
@@ -25,6 +26,10 @@ export default function PricelistCatalogFilters() {
     subcategoryState,
     nestedSubcategoryState,
   })
+
+  useEffect(() => {
+    prefetchShopCategoryTaxonomy()
+  }, [])
 
   const nestedPillState = useMemo(
     () => ({

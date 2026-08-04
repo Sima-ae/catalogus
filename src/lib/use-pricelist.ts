@@ -73,8 +73,13 @@ export function ownerQueryParam(ownerId: string, owners: PricelistOwnerOption[])
   return ownerId
 }
 
-export function usePricelist(initialOwner?: string, listQuery?: PricelistListQuery) {
+export function usePricelist(
+  initialOwner?: string,
+  listQuery?: PricelistListQuery,
+  options?: { enabled?: boolean }
+) {
   const { user } = useAuth()
+  const loadEnabled = options?.enabled !== false
   const [owners, setOwners] = useState<PricelistOwnerOption[]>([])
   const [ownerId, setOwnerId] = useState<string>('')
   const [items, setItems] = useState<PricelistRow[]>([])
@@ -89,6 +94,8 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
   const hasLoadedOnce = useRef(false)
+  const loadRequestIdRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
 
   const ownerQuery = resolveOwnerQuery(ownerId, owners)
 
@@ -126,6 +133,11 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
 
   const loadItems = useCallback(async () => {
     if (!ownerId) return
+    const requestId = ++loadRequestIdRef.current
+    const abortController = new AbortController()
+    loadAbortRef.current?.abort()
+    loadAbortRef.current = abortController
+
     if (!hasLoadedOnce.current) setLoading(true)
     else setPageLoading(true)
     setError(null)
@@ -151,8 +163,10 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
         headers: user ? catalogAuthHeaders(user) : {},
         credentials: 'include',
         cache: 'no-store',
+        signal: abortController.signal,
       })
       const data = await res.json()
+      if (requestId !== loadRequestIdRef.current) return
       if (!res.ok) throw new Error(data.error || 'Failed to load pricelist')
       setItems(data.items || [])
       setTotal(Number(data.total ?? 0))
@@ -164,6 +178,7 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       setAccessMode(data.mode === 'guest' ? 'guest' : 'full')
       hasLoadedOnce.current = true
     } catch (e) {
+      if (abortController.signal.aborted || requestId !== loadRequestIdRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to load pricelist')
       setItems([])
       setTotal(0)
@@ -173,8 +188,10 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
       setExportFilledCount(0)
       setOutOfStockCount(0)
     } finally {
-      setLoading(false)
-      setPageLoading(false)
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false)
+        setPageLoading(false)
+      }
     }
   }, [user, ownerId, ownerQuery, listQuery])
 
@@ -241,12 +258,20 @@ export function usePricelist(initialOwner?: string, listQuery?: PricelistListQue
 
   useEffect(() => {
     hasLoadedOnce.current = false
+    loadAbortRef.current?.abort()
+    loadAbortRef.current = null
   }, [ownerId])
 
   useEffect(() => {
-    if (!ownerId) return
+    return () => {
+      loadAbortRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!ownerId || !loadEnabled) return
     loadItems()
-  }, [ownerId, loadItems])
+  }, [ownerId, loadEnabled, loadItems])
 
   const setStockStatus = async (
     productId: string,

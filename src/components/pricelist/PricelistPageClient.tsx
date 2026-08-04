@@ -40,6 +40,8 @@ import { useShopCategory } from '@/lib/use-shop-category'
 import { useShopNestedSubcategory, useShopSubcategory } from '@/lib/use-shop-subcategory'
 import { useShopBrand } from '@/lib/use-shop-brand'
 import { shouldApplyShopBrandFilter } from '@/lib/shop-brand-menu'
+import { shouldDeferShopCatalogProductLoad } from '@/lib/shop-catalog-browse'
+import { prefetchShopCategoryTaxonomy } from '@/lib/shop-categories-client'
 import type { PricelistListQuery } from '@/lib/use-pricelist'
 import { appPath } from '@/lib/paths'
 
@@ -57,14 +59,14 @@ export default function PricelistPageClient() {
   const { user, isSuperAdmin } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const { selectedCategory } = useShopCategory()
+  const { selectedCategory, setSelectedCategory } = useShopCategory()
   const subcategoryState = useShopSubcategory(selectedCategory)
   const { selectedSubcategory, hasSubcategories, loadingSubcategories } = subcategoryState
   const nestedSubcategoryState = useShopNestedSubcategory(
     selectedCategory,
     selectedSubcategory
   )
-  const { selectedNestedSubcategory } = nestedSubcategoryState
+  const { selectedNestedSubcategory, loadingNestedSubcategories } = nestedSubcategoryState
   const { selectedBrand } = useShopBrand({
     selectedCategory,
     subcategoryState,
@@ -78,7 +80,7 @@ export default function PricelistPageClient() {
     hasSubcategories,
     hasNestedSubcategories: nestedSubcategoryState.hasNestedSubcategories,
     loadingSubcategories,
-    loadingNestedSubcategories: nestedSubcategoryState.loadingNestedSubcategories,
+    loadingNestedSubcategories,
   }
   const brandFilterActive = shouldApplyShopBrandFilter(filterBrand, brandFilterCtx)
   const [quickFilter, setQuickFilter] = useState<PricelistQuickFilter>('missing')
@@ -86,9 +88,34 @@ export default function PricelistPageClient() {
   const [pageSize, setPageSize] = useState<PricelistPageSize>(PRICELIST_PAGE_SIZE)
 
   useEffect(() => {
+    prefetchShopCategoryTaxonomy()
+  }, [])
+
+  useEffect(() => {
     const id = window.setTimeout(() => setDebouncedSearch(searchQuery), 300)
     return () => window.clearTimeout(id)
   }, [searchQuery])
+
+  const browsingCatalogFilters = Boolean(
+    selectedCategory !== 'All' ||
+      selectedSubcategory !== 'All' ||
+      selectedNestedSubcategory !== 'All' ||
+      (brandFilterActive && filterBrand !== 'All')
+  )
+
+  /** Missing-price workflow is for the unfiltered table; browsing categories shows the full slice. */
+  useEffect(() => {
+    if (!browsingCatalogFilters) return
+    setQuickFilter((current) => (current === 'missing' ? 'all' : current))
+  }, [browsingCatalogFilters, selectedCategory, selectedSubcategory, selectedNestedSubcategory, filterBrand])
+
+  const catalogBrowseDeferred = shouldDeferShopCatalogProductLoad({
+    searchActive: Boolean(debouncedSearch.trim()),
+    loadingSubcategories,
+    needsSubcategoryPick: false,
+    loadingNestedSubcategories,
+    needsNestedSubcategoryPick: false,
+  })
 
   const listQuery = useMemo((): PricelistListQuery => {
     return {
@@ -147,7 +174,7 @@ export default function PricelistPageClient() {
     isGuest,
     isSeller,
     fetchExportItems,
-  } = usePricelist(initialOwner, listQuery)
+  } = usePricelist(initialOwner, listQuery, { enabled: !catalogBrowseDeferred })
 
   const ownerQuery = ownerId
 
@@ -203,6 +230,7 @@ export default function PricelistPageClient() {
   const hasActiveFilters = Boolean(
     selectedCategory !== 'All' ||
       selectedSubcategory !== 'All' ||
+      selectedNestedSubcategory !== 'All' ||
       (brandFilterActive && filterBrand !== 'All') ||
       quickFilter !== 'missing'
   )
@@ -263,17 +291,24 @@ export default function PricelistPageClient() {
     setQuickFilter('missing')
   }, [ownerId])
 
+  /** Grid has no missing/filled toggles — always browse the full filtered list. */
+  useEffect(() => {
+    if (viewMode === 'grid' && quickFilter !== 'all') {
+      setQuickFilter('all')
+    }
+  }, [viewMode, quickFilter])
+
   useEffect(() => {
     if (!showAdminPriceFilters && quickFilter === 'filled') {
-      setQuickFilter('missing')
+      setQuickFilter(viewMode === 'grid' ? 'all' : 'missing')
     }
-  }, [showAdminPriceFilters, quickFilter])
+  }, [showAdminPriceFilters, quickFilter, viewMode])
 
   useEffect(() => {
     if (!showOutOfStockFilter && quickFilter === 'outOfStock') {
-      setQuickFilter('missing')
+      setQuickFilter(viewMode === 'grid' ? 'all' : 'missing')
     }
-  }, [showOutOfStockFilter, quickFilter])
+  }, [showOutOfStockFilter, quickFilter, viewMode])
 
   useEffect(() => {
     setSearchQuery('')
@@ -721,8 +756,18 @@ export default function PricelistPageClient() {
         <PricelistCatalogFilters />
       ) : null}
 
-      {loading ? (
-        <CatalogLoadingIndicator compact message={t('loading.pricelist')} isDark={isDark} />
+      {loading || pageLoading || catalogBrowseDeferred ? (
+        <CatalogLoadingIndicator
+          compact={loading && !pageLoading && !catalogBrowseDeferred}
+          message={
+            catalogBrowseDeferred
+              ? t('shop.catalog.loadingSubcategories')
+              : loading
+                ? t('loading.pricelist')
+                : t('loading.products')
+          }
+          isDark={isDark}
+        />
       ) : totalOnPricelist === 0 ? (
         <div
           className={`text-center py-16 rounded-xl border ${
@@ -762,7 +807,10 @@ export default function PricelistPageClient() {
                 ? t('pricelist.empty.filters')
                 : t('pricelist.empty.missingPrices')}
           </p>
-          {quickFilter === 'missing' && showMissingPricesButton ? (
+          {(quickFilter === 'missing' ||
+            quickFilter === 'filled' ||
+            quickFilter === 'outOfStock') &&
+          (showMissingPricesButton || showAdminPriceFilters || showOutOfStockFilter) ? (
             <button
               type="button"
               className="btn-secondary mt-4 text-sm"
@@ -770,10 +818,16 @@ export default function PricelistPageClient() {
             >
               {t('pricelist.filter.showAllProducts')}
             </button>
+          ) : browsingCatalogFilters ? (
+            <button
+              type="button"
+              className="btn-secondary mt-4 text-sm"
+              onClick={() => setSelectedCategory('All')}
+            >
+              {t('pricelist.filter.showAllProducts')}
+            </button>
           ) : null}
         </div>
-      ) : pageLoading ? (
-        <CatalogLoadingIndicator message={t('loading.products')} isDark={isDark} />
       ) : viewMode === 'table' ? (
         <>
           <CatalogPagination {...paginationProps} />

@@ -76,6 +76,9 @@ import {
   ACTIVE_PRODUCT_TOTAL_CACHE_NS,
   NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS,
   PRODUCT_COUNT_BUCKETS_NS,
+  SHOP_CATEGORY_MENU_CACHE_NS,
+  SHOP_CATEGORY_NAV_CACHE_NS,
+  SHOP_SUBCATEGORY_CACHE_NS,
 } from '@/lib/shop-catalog-cache'
 import { productsFulltextSearchAvailable } from '@/lib/product-search-db'
 import { resolveBrandByName } from '@/lib/brands-db'
@@ -791,10 +794,7 @@ export type ShopSubcategoryOption = {
   productCount: number
 }
 
-const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu'
 const SHOP_CATEGORY_MENU_TTL_MS = 1_800_000
-const SHOP_CATEGORY_NAV_CACHE_NS = 'shop-category-nav'
-const SHOP_SUBCATEGORY_CACHE_NS = 'shop-subcategories'
 const SHOP_SUBCATEGORY_TTL_MS = 1_800_000
 const PRODUCT_COUNT_BUCKETS_TTL_MS = 1_800_000
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000

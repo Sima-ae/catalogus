@@ -35,6 +35,9 @@ export function useShopCategory() {
     const parent = findParentCategoryName(categoryRows, raw)
     if (parent) return parent
 
+    // Menu/taxonomy still hydrating — keep URL category so filters stay correct.
+    if (categoryMenu.length <= 1 || categoryRows.length === 0) return raw
+
     return 'All'
   }, [searchParams, categoryMenu, categoryRows])
 
