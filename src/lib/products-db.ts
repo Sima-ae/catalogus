@@ -242,7 +242,7 @@ const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
 const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
 const CATALOG_LISTING_SELECT_CACHE_KEY = '__catalogusCatalogListingSelectSql'
 
-const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats'
+const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v2'
 const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 30_000
 
 function invalidateProductDashboardStatsCache() {
@@ -2170,6 +2170,7 @@ export async function listProductsPaginatedAdmin(
     brand?: string
     filledPricesOnly?: boolean
     outOfStockOnly?: boolean
+    soldOutOnly?: boolean
     pricelistOwner?: string
   } = {}
 ): Promise<CatalogProductsPage> {
@@ -2233,6 +2234,12 @@ export async function listProductsPaginatedAdmin(
         ? `${filledWhereSql} AND ${outOfStock.whereSql}`
         : `WHERE ${outOfStock.whereSql}`
     }
+  }
+
+  if (options.soldOutOnly) {
+    filledWhereSql = filledWhereSql
+      ? `${filledWhereSql} AND COALESCE(p.sold_out, 0) <> 0`
+      : `WHERE COALESCE(p.sold_out, 0) <> 0`
   }
 
   const fromClause = await adminListingFromSql({
@@ -2312,7 +2319,10 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
     else if (status === 'trash') trash = count
   }
 
-  const outOfStock = await countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID)
+  const [outOfStock, soldOut] = await Promise.all([
+    countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID),
+    countAdminProductsSoldOut(),
+  ])
 
   return {
     total: active + draft + inactive,
@@ -2322,6 +2332,7 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
     trash,
     importDrafts,
     outOfStock,
+    soldOut,
   }
 }
 
@@ -2345,6 +2356,16 @@ async function countAdminProductsOutOfStock(listOwnerId: string): Promise<number
     }
     throw error
   }
+}
+
+/** Catalog sold_out flag — products hidden from the shop grid. */
+async function countAdminProductsSoldOut(): Promise<number> {
+  const rows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(*) AS total
+     FROM products p
+     WHERE p.status <> 'trash' AND COALESCE(p.sold_out, 0) <> 0`
+  )
+  return Number(rows[0]?.total ?? 0)
 }
 
 async function buildSellerProductFilters(

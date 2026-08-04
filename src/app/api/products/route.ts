@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
           brand: adminQuery.brand,
           filledPricesOnly: adminQuery.filledPricesOnly,
           outOfStockOnly: adminQuery.outOfStockOnly,
+          soldOutOnly: adminQuery.soldOutOnly,
           pricelistOwner: adminQuery.pricelistOwner,
         }),
         includeStats ? getProductDashboardStats() : Promise.resolve(undefined),

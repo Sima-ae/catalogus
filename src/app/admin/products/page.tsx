@@ -14,6 +14,7 @@ import {
   DocumentDuplicateIcon,
   MagnifyingGlassIcon,
   ArchiveBoxXMarkIcon,
+  EyeSlashIcon,
 } from '@heroicons/react/24/outline'
 import AdminPageShell from '@/components/admin/AdminPageShell'
 import StatCard from '@/components/admin/StatCard'
@@ -372,6 +373,7 @@ export default function AdminProductsPage() {
   const [brandFilter, setBrandFilter] = useState('all')
   const [filledPricesFilter, setFilledPricesFilter] = useState(false)
   const [outOfStockFilter, setOutOfStockFilter] = useState(false)
+  const [soldOutFilter, setSoldOutFilter] = useState(false)
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -506,6 +508,7 @@ export default function AdminProductsPage() {
         brand: brandFilter !== 'all' ? brandFilter : undefined,
         filledPricesOnly: filledPricesFilter || undefined,
         outOfStockOnly: outOfStockFilter || undefined,
+        soldOutOnly: soldOutFilter || undefined,
         pricelistOwner:
           filledPricesFilter || outOfStockFilter ? pricelistTarget : undefined,
       }) + '&scope=admin&includeStats=0'
@@ -534,7 +537,7 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, outOfStockFilter, pricelistTarget])
+  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, outOfStockFilter, soldOutFilter, pricelistTarget])
 
   useEffect(() => {
     loadProducts()
@@ -546,7 +549,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, outOfStockFilter, pricelistTarget])
+  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, outOfStockFilter, soldOutFilter, pricelistTarget])
 
   const stats = useMemo(() => {
     if (productStats) {
@@ -558,9 +561,19 @@ export default function AdminProductsPage() {
         trash: productStats.trash ?? 0,
         importDrafts: productStats.importDrafts,
         outOfStock: productStats.outOfStock ?? 0,
+        soldOut: productStats.soldOut ?? 0,
       }
     }
-    return { total: 0, active: 0, draft: 0, inactive: 0, trash: 0, importDrafts: 0, outOfStock: 0 }
+    return {
+      total: 0,
+      active: 0,
+      draft: 0,
+      inactive: 0,
+      trash: 0,
+      importDrafts: 0,
+      outOfStock: 0,
+      soldOut: 0,
+    }
   }, [productStats])
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
@@ -1152,6 +1165,14 @@ export default function AdminProductsPage() {
           onClick={() => setOutOfStockFilter((current) => !current)}
         />
         <StatCard
+          title={tr('admin.products.statSoldOut')}
+          value={stats.soldOut ?? 0}
+          icon={<EyeSlashIcon className="w-6 h-6 text-white" />}
+          accentColor="bg-orange-600"
+          active={soldOutFilter}
+          onClick={() => setSoldOutFilter((current) => !current)}
+        />
+        <StatCard
           title={tr('admin.products.statTrash')}
           value={stats.trash ?? 0}
           icon={<TrashIcon className="w-6 h-6 text-white" />}
@@ -1239,6 +1260,15 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className={`btn-secondary text-sm whitespace-nowrap ${
+                  soldOutFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
+                }`}
+                onClick={() => setSoldOutFilter((current) => !current)}
+              >
+                {tr('admin.products.showSoldOut')}
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary text-sm whitespace-nowrap ${
                   filledPricesFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
                 }`}
                 onClick={() => setFilledPricesFilter((current) => !current)}
@@ -1283,6 +1313,9 @@ export default function AdminProductsPage() {
           {outOfStockFilter && (
             <> · {tr('admin.products.filterOutOfStockPrefix')}</>
           )}
+          {soldOutFilter && (
+            <> · {tr('admin.products.filterSoldOutPrefix')}</>
+          )}
         </p>
 
         {renderBulkSelectionBar(`pt-3 border-t ${t.rowBorder}`)}
@@ -1296,6 +1329,7 @@ export default function AdminProductsPage() {
         categoryFilter === 'all' &&
         brandFilter === 'all' &&
         !outOfStockFilter &&
+        !soldOutFilter &&
         !filledPricesFilter ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">{tr('admin.products.noProducts')}</p>
@@ -1317,6 +1351,7 @@ export default function AdminProductsPage() {
               setBrandFilter('all')
               setFilledPricesFilter(false)
               setOutOfStockFilter(false)
+              setSoldOutFilter(false)
             }}
           >
             {tr('admin.products.clearFilters')}

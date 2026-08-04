@@ -79,6 +79,8 @@ export type ProductDashboardStats = {
   importDrafts: number
   /** Products marked out of stock on the platform pricelist. */
   outOfStock: number
+  /** Products with catalog sold_out flag (hidden from the shop). */
+  soldOut: number
 }
 
 export function isCatalogProductsPage(value: unknown): value is CatalogProductsPage {
@@ -384,6 +386,8 @@ export type AdminProductsQuery = CatalogProductsQuery & {
   filledPricesOnly?: boolean
   /** Show products marked out of stock on a pricelist page. */
   outOfStockOnly?: boolean
+  /** Show products with catalog sold_out flag (hidden from the shop). */
+  soldOutOnly?: boolean
   /** Pricelist page slug or owner id (defaults to platform when filledPricesOnly / outOfStockOnly). */
   pricelistOwner?: string
 }
@@ -410,6 +414,7 @@ export function parseAdminProductsQuery(
   const categoryId = searchParams.get('categoryId')?.trim() || undefined
   const filledPricesOnly = searchParams.get('filledPrices') === 'true'
   const outOfStockOnly = searchParams.get('outOfStock') === 'true'
+  const soldOutOnly = searchParams.get('soldOut') === 'true'
   const pricelistOwner = searchParams.get('pricelistOwner')?.trim() || undefined
 
   return {
@@ -418,6 +423,7 @@ export function parseAdminProductsQuery(
     categoryId,
     filledPricesOnly: filledPricesOnly || undefined,
     outOfStockOnly: outOfStockOnly || undefined,
+    soldOutOnly: soldOutOnly || undefined,
     pricelistOwner,
   }
 }
@@ -612,6 +618,9 @@ export function buildAdminProductsUrl(
   }
   if (query.outOfStockOnly) {
     params.set('outOfStock', 'true')
+  }
+  if (query.soldOutOnly) {
+    params.set('soldOut', 'true')
   }
   if (query.pricelistOwner) {
     params.set('pricelistOwner', query.pricelistOwner)
