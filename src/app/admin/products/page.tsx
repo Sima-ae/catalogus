@@ -1193,22 +1193,22 @@ export default function AdminProductsPage() {
         <p className="text-green-600 dark:text-green-400 mb-4">{successMessage}</p>
       )}
 
-      <div className="card mb-4 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
-          <label className="flex-1 space-y-1 min-w-[12rem]">
-            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.search')}</span>
+      <div className="card mb-4 space-y-3 !p-3 sm:!p-4">
+        <div className="flex flex-wrap lg:flex-nowrap items-end gap-2">
+          <label className="flex-1 space-y-0.5 min-w-[7rem] basis-[10rem]">
+            <span className={`text-xs font-medium ${t.muted}`}>{tr('admin.products.search')}</span>
             <input
               type="search"
-              className="input w-full"
+              className="input w-full text-sm py-1.5"
               placeholder={tr('admin.products.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          <label className="sm:w-40 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.filterStatus')}</span>
+          <label className="w-[8.5rem] shrink-0 space-y-0.5">
+            <span className={`text-xs font-medium ${t.muted}`}>{tr('admin.products.filterStatus')}</span>
             <select
-              className="input w-full"
+              className="input w-full text-sm py-1.5"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             >
@@ -1219,10 +1219,10 @@ export default function AdminProductsPage() {
               <option value="trash">{tr('adminProducts.status.trash')}</option>
             </select>
           </label>
-          <label className="sm:w-48 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.filterCategory')}</span>
+          <label className="w-[9.5rem] shrink-0 space-y-0.5">
+            <span className={`text-xs font-medium ${t.muted}`}>{tr('admin.products.filterCategory')}</span>
             <select
-              className="input w-full"
+              className="input w-full text-sm py-1.5"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
@@ -1234,10 +1234,10 @@ export default function AdminProductsPage() {
               ))}
             </select>
           </label>
-          <label className="sm:w-44 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.filterBrand')}</span>
+          <label className="w-[8.5rem] shrink-0 space-y-0.5">
+            <span className={`text-xs font-medium ${t.muted}`}>{tr('admin.products.filterBrand')}</span>
             <select
-              className="input w-full"
+              className="input w-full text-sm py-1.5"
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
             >
@@ -1250,14 +1250,15 @@ export default function AdminProductsPage() {
             </select>
           </label>
           {isAdmin ? (
-            <div className="flex flex-wrap items-end gap-2 sm:w-auto">
+            <div className="flex flex-nowrap items-end gap-1.5 shrink-0">
               <PricelistTargetSelector
                 inline
+                className="!min-w-[7.5rem] !max-w-[10rem]"
                 label={tr('admin.products.pricelistTarget')}
               />
               <button
                 type="button"
-                className={`btn-secondary text-sm whitespace-nowrap ${
+                className={`btn-secondary text-xs leading-tight px-2 py-1.5 whitespace-nowrap ${
                   outOfStockFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
                 }`}
                 onClick={() => setOutOfStockFilter((current) => !current)}
@@ -1266,7 +1267,7 @@ export default function AdminProductsPage() {
               </button>
               <button
                 type="button"
-                className={`btn-secondary text-sm whitespace-nowrap ${
+                className={`btn-secondary text-xs leading-tight px-2 py-1.5 whitespace-nowrap ${
                   soldOutFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
                 }`}
                 onClick={() => setSoldOutFilter((current) => !current)}
@@ -1275,7 +1276,7 @@ export default function AdminProductsPage() {
               </button>
               <button
                 type="button"
-                className={`btn-secondary text-sm whitespace-nowrap ${
+                className={`btn-secondary text-xs leading-tight px-2 py-1.5 whitespace-nowrap ${
                   filledPricesFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
                 }`}
                 onClick={() => setFilledPricesFilter((current) => !current)}
@@ -1284,10 +1285,10 @@ export default function AdminProductsPage() {
               </button>
             </div>
           ) : null}
-          <label className="sm:w-32 space-y-1">
-            <span className={`text-sm font-medium ${t.muted}`}>{tr('admin.products.perPage')}</span>
+          <label className="w-[4.25rem] shrink-0 space-y-0.5">
+            <span className={`text-xs font-medium ${t.muted}`}>{tr('admin.products.perPage')}</span>
             <select
-              className="input w-full"
+              className="input w-full text-sm py-1.5"
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value) as PageSize)}
             >
