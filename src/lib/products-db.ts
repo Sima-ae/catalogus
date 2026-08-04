@@ -844,6 +844,8 @@ async function loadActiveProductCountBuckets(options?: {
             }
             return buckets
           }
+          // Unknown brand filter — empty buckets (never fall through to global counts).
+          return buckets
         }
 
         const idRows = await queryDb<{ category_id: string; total: number }[]>(
@@ -914,7 +916,8 @@ async function loadActiveProductCountBuckets(options?: {
 
 function sumCategoryFilterCounts(
   filter: ShopCategoryFilterResult,
-  buckets: Map<string, number>
+  buckets: Map<string, number>,
+  options?: { idsOnly?: boolean }
 ): number {
   let total = 0
   const seenLegacy = new Set<string>()
@@ -922,6 +925,10 @@ function sumCategoryFilterCounts(
   for (const id of filter.categoryIds) {
     total += buckets.get(`id:${id}`) ?? 0
   }
+
+  // Shop grid listing uses category_id only (categoryListingIdOnly) — do not inflate
+  // totals with legacy text buckets the listing query never returns.
+  if (options?.idsOnly) return total
 
   for (const legacy of filter.legacyNames) {
     const key = `legacy:${legacy.trim().toLowerCase()}`
@@ -947,7 +954,7 @@ async function resolveShopCatalogTotalFromBuckets(
   const buckets = await loadActiveProductCountBuckets({ brand, mode: query.mode })
 
   if (categoryFilter?.categoryIds.length) {
-    return sumCategoryFilterCounts(categoryFilter, buckets)
+    return sumCategoryFilterCounts(categoryFilter, buckets, { idsOnly: true })
   }
 
   if (brand) {
@@ -1000,7 +1007,7 @@ function peekShopCatalogTotalFromBuckets(
   if (!buckets) return null
 
   if (categoryFilter?.categoryIds.length) {
-    return sumCategoryFilterCounts(categoryFilter, buckets)
+    return sumCategoryFilterCounts(categoryFilter, buckets, { idsOnly: true })
   }
 
   if (brand) {
@@ -1074,7 +1081,7 @@ export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
       const counts = candidates.map((name) => {
         const filter = resolveShopCategoryFilter(categories, { category: name })
         const count = filter?.categoryIds.length
-          ? sumCategoryFilterCounts(filter, buckets)
+          ? sumCategoryFilterCounts(filter, buckets, { idsOnly: true })
           : 0
         return { name, count }
       })
@@ -1096,7 +1103,9 @@ export async function listShopCategoryNavTree(): Promise<ShopCategoryNavNode[]> 
       ])
       const roots = buildShopTopCategoryNames(categories)
       const countFor = (filter: ShopCategoryFilterResult | undefined) =>
-        filter?.categoryIds.length ? sumCategoryFilterCounts(filter, buckets) : 0
+        filter?.categoryIds.length
+          ? sumCategoryFilterCounts(filter, buckets, { idsOnly: true })
+          : 0
       return buildShopCategoryNavTree(categories, roots, countFor, (input) =>
         resolveShopCategoryFilter(categories, input)
       )
@@ -1136,7 +1145,9 @@ async function loadShopSubcategoriesWithProducts(
       subcategory: child.name,
     })
     const productCount =
-      filter?.categoryIds.length ? sumCategoryFilterCounts(filter, buckets) : 0
+      filter?.categoryIds.length
+        ? sumCategoryFilterCounts(filter, buckets, { idsOnly: true })
+        : 0
     return {
       id: String(child.id),
       name: String(child.name),
@@ -1186,7 +1197,9 @@ async function loadShopNestedSubcategoriesWithProducts(
       nested: child.name,
     })
     const productCount =
-      filter?.categoryIds.length ? sumCategoryFilterCounts(filter, buckets) : 0
+      filter?.categoryIds.length
+        ? sumCategoryFilterCounts(filter, buckets, { idsOnly: true })
+        : 0
     return {
       id: String(child.id),
       name: String(child.name),

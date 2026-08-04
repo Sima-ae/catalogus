@@ -73,12 +73,19 @@ export function setCachedShopCatalog(
   page: CatalogProductsPage,
   options?: { shuffle?: boolean }
 ): void {
-  if (page.total <= 0 && page.items.length === 0) return
+  if (page.items.length === 0 && (!(page.total > 0) || page.skipTotal)) return
   catalogCache.set(signature, {
     page,
     fetchedAt: Date.now(),
     shuffle: options?.shuffle === true,
   })
+}
+
+/** True when the cached page includes a trusted product total (not a skipTotal placeholder). */
+export function isShopCatalogCacheTotalTrusted(page: CatalogProductsPage | null | undefined): boolean {
+  if (!page) return false
+  if (page.skipTotal) return false
+  return typeof page.total === 'number' && page.total > 0
 }
 
 export function invalidateShopCatalogCache(): void {

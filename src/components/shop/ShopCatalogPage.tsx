@@ -59,6 +59,7 @@ import {
   getCachedShopCatalog,
   invalidateShopCatalogCache,
   isShopCatalogCacheFresh,
+  isShopCatalogCacheTotalTrusted,
   prefetchShopCatalogFilter,
   setCachedShopCatalog,
   shopCatalogClientSignature,
@@ -154,6 +155,8 @@ function ShopCatalogPageContent({
   const [error, setError] = useState<string | null>(null)
   const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
+  /** Bumps on every filter click so the load effect re-runs even for the same pill (avoids 88% hang). */
+  const [catalogNavNonce, setCatalogNavNonce] = useState(0)
   const [reorderSaving, setReorderSaving] = useState(false)
   const [filterNavigating, setFilterNavigating] = useState(false)
   const hasLoadedOnce = useRef(Boolean(initialCatalog))
@@ -328,11 +331,16 @@ function ShopCatalogPageContent({
 
   const handlePageChange = useCallback(
     (nextPage: number) => {
+      if (nextPage === currentPage) {
+        setPageLoading(false)
+        setFilterNavigating(false)
+        return
+      }
       setPageLoading(true)
       setFilterNavigating(false)
       setCurrentPage(nextPage)
     },
-    [setCurrentPage]
+    [currentPage, setCurrentPage]
   )
 
   useEffect(() => {
@@ -379,7 +387,11 @@ function ShopCatalogPageContent({
         }
         return merged
       })
-      setTotalItems(data.total)
+      // skipTotal payloads use total=0 as a placeholder — never wipe the real count.
+      if (!data.skipTotal && typeof data.total === 'number' && data.total > 0) {
+        setTotalItems(data.total)
+        totalItemsRef.current = data.total
+      }
     } catch (err) {
       setError(
         `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -391,10 +403,14 @@ function ShopCatalogPageContent({
 
   const beginInstantFilterFeedback = useCallback(() => {
     setProducts([])
+    totalItemsRef.current = 0
     setTotalItems(0)
     setPageLoading(true)
     setFilterNavigating(true)
     setError(null)
+    // Re-clicking the same category/brand must re-enter the load effect; otherwise
+    // pageLoading stays true and the overlay hangs at ~88%.
+    setCatalogNavNonce((n) => n + 1)
   }, [])
 
   const beginFilterNavigation = useCallback(
@@ -726,12 +742,14 @@ function ShopCatalogPageContent({
     // in-flight request and left pageLoading/filterNavigating stuck at the 88% overlay).
     const pageToLoad = filtersChanged ? 1 : currentPage
     if (filtersChanged && currentPage !== 1) {
+      totalItemsRef.current = 0
       setTotalItems(0)
       setCurrentPage(1)
     }
 
     prevFilterRef.current = filterSignature
     if (filtersChanged) {
+      totalItemsRef.current = 0
       setTotalItems(0)
     }
 
@@ -747,6 +765,7 @@ function ShopCatalogPageContent({
       // Clearing during "loading subcategories" wiped WATCHES (and similar) results.
       if (effectiveNeedsSubcategoryPick || effectiveNeedsNestedSubcategoryPick) {
         setProducts([])
+        totalItemsRef.current = 0
         setTotalItems(0)
       }
       clearLoadingFlags()
@@ -769,27 +788,60 @@ function ShopCatalogPageContent({
     }
     const clientCatalogSignature = shopCatalogClientSignature(fetchFilters)
 
-    const applyCatalogPage = (data: CatalogProductsPage) => {
-      setProducts(Array.isArray(data.items) ? data.items : [])
-      // skipTotal payloads use total=0 as a placeholder — never treat that as the real count.
-      // Search/tag totals come from the parallel countOnly request.
-      if (!data.skipTotal) {
-        setTotalItems(data.total)
-      } else if (data.items.length > 0 && totalItemsRef.current <= 0) {
-        // Keep the empty-state from showing when items arrived but total is deferred.
-        setTotalItems(data.items.length)
-      }
-      const resolvedTotal = data.skipTotal ? totalItemsRef.current : data.total
+    const patchCachedTotal = (total: number) => {
+      if (!(total > 0)) return
+      const existing = getCachedShopCatalog(clientCatalogSignature)
+      if (!existing?.items?.length) return
       setCachedShopCatalog(
         clientCatalogSignature,
         {
-          ...data,
-          total: resolvedTotal,
-          totalPages: Math.max(1, Math.ceil(resolvedTotal / CATALOG_PAGE_SIZE) || 1),
+          ...existing,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE) || 1),
           skipTotal: undefined,
         },
         { shuffle: catalogShuffle }
       )
+    }
+
+    const applyCatalogPage = (data: CatalogProductsPage) => {
+      setProducts(Array.isArray(data.items) ? data.items : [])
+      // skipTotal payloads use total=0 as a placeholder — never treat that as the real count.
+      // Never cache a total from totalItemsRef (can be the previous filter) or page size.
+      if (!data.skipTotal && typeof data.total === 'number' && data.total >= 0) {
+        totalItemsRef.current = data.total
+        setTotalItems(data.total)
+        if (data.total > 0 || data.items.length === 0) {
+          setCachedShopCatalog(
+            clientCatalogSignature,
+            {
+              ...data,
+              total: data.total,
+              totalPages: Math.max(1, Math.ceil(data.total / CATALOG_PAGE_SIZE) || 1),
+              skipTotal: undefined,
+            },
+            { shuffle: catalogShuffle }
+          )
+        }
+      } else if (data.items.length > 0 && totalItemsRef.current <= 0) {
+        // Temporary floor so empty-state does not flash; countOnly will replace it.
+        setTotalItems(data.items.length)
+        setCachedShopCatalog(
+          clientCatalogSignature,
+          { ...data, total: 0, skipTotal: true },
+          { shuffle: catalogShuffle }
+        )
+      } else if (data.items.length > 0) {
+        setCachedShopCatalog(
+          clientCatalogSignature,
+          {
+            ...data,
+            total: totalItemsRef.current > 0 ? totalItemsRef.current : 0,
+            skipTotal: totalItemsRef.current <= 0 ? true : undefined,
+          },
+          { shuffle: catalogShuffle }
+        )
+      }
       hasLoadedOnce.current = true
       if (data.page !== pageToLoad && data.page >= 1 && !filtersChanged) {
         setCurrentPage(data.page)
@@ -813,19 +865,25 @@ function ShopCatalogPageContent({
     const cacheFresh =
       prefetched != null ||
       (cachedFromStore != null && isShopCatalogCacheFresh(clientCatalogSignature))
+    const cacheHasTrustedTotal = isShopCatalogCacheTotalTrusted(cached)
 
-    if (cacheFresh && cached && cached.items.length > 0 && cached.total > 0) {
+    if (cacheFresh && cached && cached.items.length > 0 && cacheHasTrustedTotal) {
       applyCatalogPage(cached)
       clearLoadingFlags()
       setError(null)
-      // Cached pages may still hold a stale unfiltered total from before search counts worked.
+      // Search/tag totals change often — refresh count in the background.
       if (debouncedSearch.trim() || filterTag) {
+        totalItemsRef.current = 0
         setTotalItems(0)
         void fetchCatalogJson(buildCatalogTotalUrl())
           .then((payload) => {
             if (cancelled) return
             if (!isCatalogProductsPage(payload)) return
-            if (typeof payload.total === 'number') setTotalItems(payload.total)
+            if (typeof payload.total === 'number') {
+              totalItemsRef.current = payload.total
+              setTotalItems(payload.total)
+              patchCachedTotal(payload.total)
+            }
           })
           .catch(() => undefined)
       }
@@ -850,7 +908,8 @@ function ShopCatalogPageContent({
     const abortController = new AbortController()
 
     async function loadProducts() {
-      const shouldFetchTotal = pageToLoad === 1 || totalItemsRef.current <= 0
+      const shouldFetchTotal =
+        pageToLoad === 1 || totalItemsRef.current <= 0 || !cacheHasTrustedTotal
       const totalUrl = shouldFetchTotal ? buildCatalogTotalUrl() : null
       const totalFetch =
         totalUrl != null
@@ -858,7 +917,11 @@ function ShopCatalogPageContent({
               .then((payload) => {
                 if (cancelled) return
                 if (!isCatalogProductsPage(payload)) return
-                if (typeof payload.total === 'number') setTotalItems(payload.total)
+                if (typeof payload.total === 'number') {
+                  totalItemsRef.current = payload.total
+                  setTotalItems(payload.total)
+                  patchCachedTotal(payload.total)
+                }
               })
               .catch((err) => {
                 if (isCatalogFetchAbortError(err)) return
@@ -883,6 +946,7 @@ function ShopCatalogPageContent({
         )
         if (!cached) {
           setProducts([])
+          totalItemsRef.current = 0
           setTotalItems(0)
         }
       } finally {
@@ -910,6 +974,7 @@ function ShopCatalogPageContent({
     brandQueryActive,
     catalogBrowseDeferred,
     catalogMode,
+    catalogNavNonce,
     catalogShuffle,
     config.mode,
     currentPage,
@@ -1268,9 +1333,7 @@ function ShopCatalogPageContent({
                   <p className={`text-lg ${muted}`}>
                     {debouncedSearch.trim()
                       ? 'No products match your search.'
-                      : totalItems > 0 || (categoryProductCount ?? 0) > 0
-                        ? tr('loading.products')
-                        : 'No products found in this category.'}
+                      : 'No products found in this category.'}
                   </p>
                 </div>
               ) : (
