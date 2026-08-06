@@ -2,6 +2,10 @@
 /**
  * Precompute weighted-random homepage product order in catalog_product_positions.
  * Run nightly via cron: npm run db:rebuild-homepage-shuffle
+ *
+ * Prefer shop-visible products with a sales price (price > 0) in the pool,
+ * then fill with unpriced shop-visible products. Weighted shuffle keeps priced
+ * items at the front for homepage pages 1–10.
  */
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { queryDb, resetDbPool } from '@/lib/db'
@@ -14,7 +18,22 @@ import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 
 const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
 
+const SHOP_VISIBLE_SQL = `
+  p.status = 'active'
+  AND COALESCE(p.sold_out, 0) = 0
+  AND NULLIF(TRIM(p.image_url), '') IS NOT NULL`
+
 type Candidate = { id: string; price: number }
+
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = items[i]!
+    items[i] = items[j]!
+    items[j] = tmp
+  }
+  return items
+}
 
 function weightedShuffle(items: Candidate[]): Candidate[] {
   return [...items].sort((a, b) => {
@@ -30,28 +49,50 @@ async function main() {
 
   console.log(`Rebuilding homepage shuffle scope "${HOMEPAGE_SHUFFLE_SCOPE}"…`)
 
-  const rows = await queryDb<Candidate[]>(
+  const priced = await queryDb<Candidate[]>(
     `SELECT p.id, COALESCE(p.price, 0) AS price
      FROM products p
-     WHERE p.status = 'active'
+     WHERE ${SHOP_VISIBLE_SQL}
+       AND COALESCE(p.price, 0) > 0
      ORDER BY p.created_at DESC
      LIMIT ?`,
     [HOMEPAGE_SHUFFLE_POOL_SIZE]
   )
 
-  if (!rows.length) {
-    console.log('No active products — cleared shuffle positions.')
+  shuffleInPlace(priced)
+  const pool: Candidate[] = priced.slice(0, HOMEPAGE_SHUFFLE_POOL_SIZE)
+
+  if (pool.length < HOMEPAGE_SHUFFLE_POOL_SIZE) {
+    const need = HOMEPAGE_SHUFFLE_POOL_SIZE - pool.length
+    const unpriced = await queryDb<Candidate[]>(
+      `SELECT p.id, COALESCE(p.price, 0) AS price
+       FROM products p
+       WHERE ${SHOP_VISIBLE_SQL}
+         AND COALESCE(p.price, 0) <= 0
+       ORDER BY p.created_at DESC
+       LIMIT ?`,
+      [need]
+    )
+    shuffleInPlace(unpriced)
+    pool.push(...unpriced.slice(0, need))
+  }
+
+  if (!pool.length) {
+    console.log('No shop-visible products — cleared shuffle positions.')
     await replaceCatalogScopePositions(HOMEPAGE_SHUFFLE_SCOPE, [])
     return
   }
 
-  const shuffled = weightedShuffle(rows)
+  const shuffled = weightedShuffle(pool)
+  const pricedCount = shuffled.filter((row) => row.price > 0).length
   const written = await replaceCatalogScopePositions(
     HOMEPAGE_SHUFFLE_SCOPE,
     shuffled.map((row) => row.id)
   )
 
-  console.log(`Stored ${written} homepage shuffle positions (${rows.length} active products).`)
+  console.log(
+    `Stored ${written} homepage shuffle positions (${pricedCount} priced, ${written - pricedCount} unpriced).`
+  )
   invalidateCachedNamespace(SHOP_SHUFFLE_PAGE_CACHE_NS)
   console.log('Cleared in-process homepage shuffle page cache.')
 }

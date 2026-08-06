@@ -65,6 +65,8 @@ import {
   fetchRandomizedHomepageShufflePageProductIds,
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
+  isHomepagePricedBiasOffset,
+  weightedShuffleCandidates,
 } from '@/lib/catalog-positions-db'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import { getCachedValue, invalidateCachedNamespace, peekCachedValue } from '@/lib/server-ttl-cache'
@@ -1703,15 +1705,6 @@ async function countShopCatalogProducts(
 
 type ShuffleCandidate = { id: string; price: number }
 
-function weightedShuffleCandidates(candidates: ShuffleCandidate[]): ShuffleCandidate[] {
-  return [...candidates].sort((a, b) => {
-    const scoreA = a.price > 0 ? Math.random() * 0.55 : 0.55 + Math.random() * 0.45
-    const scoreB = b.price > 0 ? Math.random() * 0.55 : 0.55 + Math.random() * 0.45
-    if (scoreA !== scoreB) return scoreA - scoreB
-    return a.id.localeCompare(b.id)
-  })
-}
-
 async function fetchShuffledActiveProductIds(
   fromClause: string,
   whereSql: string,
@@ -1719,6 +1712,29 @@ async function fetchShuffledActiveProductIds(
   limit: number,
   offset: number
 ): Promise<string[]> {
+  // Pages 1–10: prefer sales-priced products, then weighted-shuffle a random-feeling page.
+  if (isHomepagePricedBiasOffset(offset)) {
+    const priced = await queryDb<ShuffleCandidate[]>(
+      `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
+       AND COALESCE(p.price, 0) > 0
+       ORDER BY p.created_at DESC LIMIT ?`,
+      [...params, SHUFFLE_CANDIDATE_POOL_SIZE]
+    )
+    let poolRows = priced
+    if (poolRows.length < limit) {
+      const unpriced = await queryDb<ShuffleCandidate[]>(
+        `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
+         AND COALESCE(p.price, 0) <= 0
+         ORDER BY p.created_at DESC LIMIT ?`,
+        [...params, Math.max(limit - poolRows.length, SHUFFLE_CANDIDATE_POOL_SIZE - poolRows.length)]
+      )
+      poolRows = [...poolRows, ...unpriced]
+    }
+    if (!poolRows.length) return []
+    const shuffled = weightedShuffleCandidates(poolRows)
+    return shuffled.slice(0, limit).map((row) => row.id)
+  }
+
   const poolRows = await queryDb<ShuffleCandidate[]>(
     `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
      ORDER BY p.created_at DESC LIMIT ?`,
@@ -1816,19 +1832,19 @@ async function loadActiveProductsPaginatedFromDb(
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
       if (usePrecomputedShuffle) {
-        const ids =
-          offset === 0
-            ? await fetchRandomizedHomepageShufflePageProductIds(
-                HOMEPAGE_SHUFFLE_SCOPE,
-                HOMEPAGE_SHUFFLE_POOL_SIZE,
-                limit
-              )
-            : await fetchHomepageShufflePageProductIds(
-                HOMEPAGE_SHUFFLE_SCOPE,
-                HOMEPAGE_SHUFFLE_POOL_SIZE,
-                limit,
-                offset
-              )
+        const ids = isHomepagePricedBiasOffset(offset)
+          ? await fetchRandomizedHomepageShufflePageProductIds(
+              HOMEPAGE_SHUFFLE_SCOPE,
+              HOMEPAGE_SHUFFLE_POOL_SIZE,
+              limit,
+              offset
+            )
+          : await fetchHomepageShufflePageProductIds(
+              HOMEPAGE_SHUFFLE_SCOPE,
+              HOMEPAGE_SHUFFLE_POOL_SIZE,
+              limit,
+              offset
+            )
         if (!ids.length) return []
         return fetchProductRowsByIds(ids, { catalog: true })
       }
