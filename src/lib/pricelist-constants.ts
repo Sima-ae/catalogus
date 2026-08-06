@@ -11,8 +11,8 @@ export const MAX_PRICELIST_PAGE_SIZE = 500
 /** Default rows per page on the pricelist table. */
 export const PRICELIST_PAGE_SIZE: PricelistPageSize = 50
 
-/** Max product IDs returned for “select all matching filters” (bulk select). */
-export const PRICELIST_MAX_SELECTION_IDS = 100_000
+/** Max product IDs for “select all matching filters” and bulk updates. */
+export const PRICELIST_MAX_SELECTION_IDS = 250_000
 
 /**
  * ORDER BY for ROW_NUMBER() when resolving the effective seller price row per product.
