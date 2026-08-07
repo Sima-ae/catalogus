@@ -47,7 +47,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     const name = String(product.name || 'Product').trim()
     const description = productDescription(product, name, seo.siteName)
-    const publicShare = Boolean(product.public_share)
+    const publicShare =
+      product.public_share === true ||
+      product.public_share === 1 ||
+      product.public_share === '1'
     const canShowOg =
       publicShare || !unlock.required || unlock.unlocked
 

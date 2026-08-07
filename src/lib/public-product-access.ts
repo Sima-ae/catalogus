@@ -41,18 +41,27 @@ export async function getSiteUnlockStateFromRequest(
   return isSiteUnlockedFromCookie(readUnlockCookie(cookieHeader))
 }
 
-function isStorefrontVisibleProduct(product: Record<string, unknown>): boolean {
+function isFlagOn(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
+}
+
+function isStorefrontVisibleProduct(
+  product: Record<string, unknown>,
+  options?: { allowSoldOut?: boolean }
+): boolean {
   const status = String(product.status || 'active')
   if (status === 'draft' || status === 'inactive' || status === 'trash') {
     return false
   }
-  if (Boolean(product.sold_out)) return false
+  // Public share links must still open when the item is sold out (show OOS state).
+  if (isFlagOn(product.sold_out) && !options?.allowSoldOut) return false
   return true
 }
 
 /**
  * Whether a locked visitor (or social crawler) may view this product page/API.
  * Unlocked visitors are always allowed when the product exists and is storefront-visible.
+ * Locked visitors may open products with public_share (including sold-out).
  */
 export async function resolvePublicProductAccess(
   productId: string,
@@ -68,11 +77,11 @@ export async function resolvePublicProductAccess(
     return { allowed: false, reason: 'not_found' }
   }
 
-  if (!isStorefrontVisibleProduct(product)) {
+  const publicShare = isFlagOn(product.public_share)
+
+  if (!isStorefrontVisibleProduct(product, { allowSoldOut: publicShare })) {
     return { allowed: false, reason: 'unavailable', product }
   }
-
-  const publicShare = Boolean(product.public_share)
 
   if (!unlock.required || unlock.unlocked) {
     return { allowed: true, unlocked: unlock.unlocked, publicShare, product }

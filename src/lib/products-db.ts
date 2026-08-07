@@ -144,6 +144,15 @@ export class UnknownCategoryError extends Error {
   }
 }
 
+export class PublicShareUnavailableError extends Error {
+  constructor() {
+    super(
+      'Public share is not available yet — run the database upgrade (products.public_share column).'
+    )
+    this.name = 'PublicShareUnavailableError'
+  }
+}
+
 export { DuplicateSkuError, MissingSkuError } from '@/lib/product-sku'
 
 const SKU_DUPLICATE_ORDER = `ORDER BY CASE WHEN status = 'trash' THEN 1 ELSE 0 END, created_at ASC, id ASC`
@@ -233,6 +242,7 @@ type ProductSchemaFlags = {
   source_url: boolean
   source_album_id: boolean
   source_album_date: boolean
+  public_share: boolean
 }
 
 const SCHEMA_CACHE_KEY = '__catalogusProductSchema'
@@ -269,7 +279,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
          AND COLUMN_NAME IN (
            'category_id', 'author_id', 'compatibility', 'support_url',
            'available_sizes', 'available_colors', 'product_options', 'source_url', 'source_album_id',
-           'source_album_date'
+           'source_album_date', 'public_share'
          )`
     )
     const names = new Set(rows.map((r) => r.COLUMN_NAME))
@@ -284,6 +294,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       source_url: names.has('source_url'),
       source_album_id: names.has('source_album_id'),
       source_album_date: names.has('source_album_date'),
+      public_share: names.has('public_share'),
     }
   } catch {
     g[SCHEMA_CACHE_KEY] = {
@@ -297,6 +308,7 @@ async function getProductSchemaFlags(): Promise<ProductSchemaFlags> {
       source_url: false,
       source_album_id: false,
       source_album_date: false,
+      public_share: false,
     }
   }
   return g[SCHEMA_CACHE_KEY]
@@ -1254,6 +1266,9 @@ export async function insertProduct(input: ProductInput) {
 
   const id = randomUUID()
   const schema = await getProductSchemaFlags()
+  if (input.public_share && !schema.public_share) {
+    throw new PublicShareUnavailableError()
+  }
   const hasCategoryId = schema.categoryId
   const hasBrandCol = await productsHaveBrandColumn()
   const hasBrandId = await productsHaveBrandIdColumn()
@@ -1308,7 +1323,7 @@ export async function insertProduct(input: ProductInput) {
     featured: input.featured ? 1 : 0,
     sold_out: input.sold_out ? 1 : 0,
     pre_order: input.pre_order ? 1 : 0,
-    public_share: input.public_share ? 1 : 0,
+    ...(schema.public_share ? { public_share: input.public_share ? 1 : 0 } : {}),
     ...(schema.available_sizes && input.available_sizes !== undefined
       ? { available_sizes: input.available_sizes || null }
       : {}),
@@ -1369,6 +1384,9 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   }
 
   const schema = await getProductSchemaFlags()
+  if (input.public_share === true && !schema.public_share) {
+    throw new PublicShareUnavailableError()
+  }
   const contentCols = await productsContentColumns()
   const hasCategoryId = schema.categoryId
   const hasBrandCol = await productsHaveBrandColumn()
@@ -1433,7 +1451,11 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     sold_out: input.sold_out != null ? (input.sold_out ? 1 : 0) : undefined,
     pre_order: input.pre_order != null ? (input.pre_order ? 1 : 0) : undefined,
     public_share:
-      input.public_share != null ? (input.public_share ? 1 : 0) : undefined,
+      schema.public_share && input.public_share != null
+        ? input.public_share
+          ? 1
+          : 0
+        : undefined,
     available_sizes:
       schema.available_sizes && input.available_sizes !== undefined
         ? input.available_sizes || null

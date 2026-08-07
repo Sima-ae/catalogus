@@ -8,6 +8,7 @@ import {
   listProductsForSellerPaginated,
   listProductsPaginatedAdmin,
   MissingSkuError,
+  PublicShareUnavailableError,
   UnknownBrandError,
   UnknownCategoryError,
 } from '@/lib/products-db'
@@ -152,6 +153,9 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error instanceof PublicShareUnavailableError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error instanceof MissingSkuError) {

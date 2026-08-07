@@ -6,6 +6,7 @@ import {
   getProductById,
   MissingSkuError,
   type ProductInput,
+  PublicShareUnavailableError,
   UnknownBrandError,
   UnknownCategoryError,
   updateProduct,
@@ -84,8 +85,11 @@ export async function GET(
     let payload = includePurchasePrice ? product : omitProductInternalPricing(product)
     if (access.kind === 'public') {
       ;[payload] = await applyStorefrontSoldOutFromPlatformPricelist([payload])
-      // Sold-out products stay in admin/backend only — hide from public PDP.
-      if (Boolean(payload.sold_out)) {
+      const shareFlag = (payload as { public_share?: unknown }).public_share
+      const publicShare =
+        shareFlag === true || shareFlag === 1 || shareFlag === '1'
+      // Hide sold-out from the normal shop PDP — but public share links must still load.
+      if (Boolean(payload.sold_out) && !publicShare) {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       }
     }
@@ -179,6 +183,9 @@ export async function PATCH(
     )
   } catch (error) {
     if (error instanceof UnknownCategoryError || error instanceof UnknownBrandError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    if (error instanceof PublicShareUnavailableError) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     if (error instanceof MissingSkuError) {
