@@ -31,6 +31,8 @@ type Props = {
   locale: Locale
   initialData: LayoutBootstrapData
   loadingText: string
+  /** 1-1.club: no live chat — FAB opens WhatsApp instead. */
+  featuredStorefront?: boolean
   children: React.ReactNode
 }
 
@@ -50,6 +52,7 @@ export default function LayoutBootstrapGate({
   locale,
   initialData,
   loadingText,
+  featuredStorefront = false,
   children,
 }: Props) {
   const [categoryMessages, setCategoryMessages] = useState(initialData.categoryMessages)
@@ -133,10 +136,10 @@ export default function LayoutBootstrapGate({
               >
                 <CartProvider>
                   <ShopCurrencyProvider initialCurrency={shopBootstrap.currency}>
-                    <ChatProvider>
+                    <ChatProvider whatsAppOnly={featuredStorefront}>
                       {children}
-                      <ChatPanel />
-                      <ChatWidget />
+                      {featuredStorefront ? null : <ChatPanel />}
+                      <ChatWidget whatsAppOnly={featuredStorefront} />
                     </ChatProvider>
                   </ShopCurrencyProvider>
                 </CartProvider>

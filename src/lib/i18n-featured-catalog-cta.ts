@@ -13,13 +13,13 @@ type FeaturedCatalogCtaMessages = Record<FeaturedCatalogCtaMessageKey, string>
 /**
  * Source wording (NL):
  * Title: Wil je alle {total} producten zien?
- * Body: Deze shop pagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur ons een bericht via:
+ * Body: Deze webpagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur een bericht via:
  * Prefill: Hoi! Ik wil graag de volledige Super Clones-catalogus zien ({total} producten).
  */
 const EN: FeaturedCatalogCtaMessages = {
   'shop.featuredCatalog.needAllTitle': 'Want to see all {total} products?',
   'shop.featuredCatalog.body':
-    'This shop page only shows a selection of products. For access to the full catalog, send us a message via:',
+    'This webpage only shows a selection of products. For access to the full catalog, send a message via:',
   'shop.featuredCatalog.whatsapp': 'WhatsApp',
   'shop.featuredCatalog.close': 'Close',
   'shop.featuredCatalog.whatsappPrefill':
@@ -32,7 +32,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   nl: {
     'shop.featuredCatalog.needAllTitle': 'Wil je alle {total} producten zien?',
     'shop.featuredCatalog.body':
-      'Deze webpagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur ons een bericht via:',
+      'Deze webpagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur een bericht via:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Sluiten',
     'shop.featuredCatalog.whatsappPrefill':
@@ -42,7 +42,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   de: {
     'shop.featuredCatalog.needAllTitle': 'Möchtest du alle {total} Produkte sehen?',
     'shop.featuredCatalog.body':
-      'Diese Shop-Seite zeigt nur eine Auswahl an Produkten. Für den Zugang zum vollständigen Katalog sende uns eine Nachricht über:',
+      'Diese Webseite zeigt nur eine Auswahl an Produkten. Für den Zugang zum vollständigen Katalog sende eine Nachricht über:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Schließen',
     'shop.featuredCatalog.whatsappPrefill':
@@ -52,7 +52,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   fr: {
     'shop.featuredCatalog.needAllTitle': 'Tu veux voir les {total} produits ?',
     'shop.featuredCatalog.body':
-      'Cette page boutique n’affiche qu’une sélection de produits. Pour accéder au catalogue complet, envoie-nous un message via :',
+      'Cette page web n’affiche qu’une sélection de produits. Pour accéder au catalogue complet, envoie un message via :',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Fermer',
     'shop.featuredCatalog.whatsappPrefill':
@@ -62,7 +62,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   es: {
     'shop.featuredCatalog.needAllTitle': '¿Quieres ver todos los {total} productos?',
     'shop.featuredCatalog.body':
-      'Esta página de la tienda solo muestra una selección de productos. Para acceder al catálogo completo, envíanos un mensaje a través de:',
+      'Esta página web solo muestra una selección de productos. Para acceder al catálogo completo, envía un mensaje a través de:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Cerrar',
     'shop.featuredCatalog.whatsappPrefill':
@@ -72,7 +72,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   pt: {
     'shop.featuredCatalog.needAllTitle': 'Queres ver todos os {total} produtos?',
     'shop.featuredCatalog.body':
-      'Esta página da loja mostra apenas uma seleção de produtos. Para aceder ao catálogo completo, envia-nos uma mensagem via:',
+      'Esta página web mostra apenas uma seleção de produtos. Para aceder ao catálogo completo, envia uma mensagem via:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Fechar',
     'shop.featuredCatalog.whatsappPrefill':
@@ -82,7 +82,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   it: {
     'shop.featuredCatalog.needAllTitle': 'Vuoi vedere tutti i {total} prodotti?',
     'shop.featuredCatalog.body':
-      'Questa pagina del negozio mostra solo una selezione di prodotti. Per accedere al catalogo completo, inviaci un messaggio tramite:',
+      'Questa pagina web mostra solo una selezione di prodotti. Per accedere al catalogo completo, invia un messaggio tramite:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Chiudi',
     'shop.featuredCatalog.whatsappPrefill':
@@ -92,7 +92,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   gr: {
     'shop.featuredCatalog.needAllTitle': 'Θέλεις να δεις όλα τα {total} προϊόντα;',
     'shop.featuredCatalog.body':
-      'Αυτή η σελίδα του καταστήματος εμφανίζει μόνο μια επιλογή προϊόντων. Για πρόσβαση στον πλήρη κατάλογο, στείλε μας μήνυμα μέσω:',
+      'Αυτή η ιστοσελίδα εμφανίζει μόνο μια επιλογή προϊόντων. Για πρόσβαση στον πλήρη κατάλογο, στείλε ένα μήνυμα μέσω:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Κλείσιμο',
     'shop.featuredCatalog.whatsappPrefill':
@@ -102,7 +102,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   pl: {
     'shop.featuredCatalog.needAllTitle': 'Chcesz zobaczyć wszystkie produkty ({total})?',
     'shop.featuredCatalog.body':
-      'Ta strona sklepu pokazuje tylko wybrane produkty. Aby uzyskać dostęp do pełnego katalogu, wyślij nam wiadomość przez:',
+      'Ta strona internetowa pokazuje tylko wybrane produkty. Aby uzyskać dostęp do pełnego katalogu, wyślij wiadomość przez:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zamknij',
     'shop.featuredCatalog.whatsappPrefill':
@@ -112,7 +112,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   cz: {
     'shop.featuredCatalog.needAllTitle': 'Chceš vidět všech {total} produktů?',
     'shop.featuredCatalog.body':
-      'Tato stránka obchodu zobrazuje jen výběr produktů. Pro přístup k celému katalogu nám pošli zprávu přes:',
+      'Tato webová stránka zobrazuje jen výběr produktů. Pro přístup k celému katalogu pošli zprávu přes:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zavřít',
     'shop.featuredCatalog.whatsappPrefill':
@@ -122,7 +122,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   sk: {
     'shop.featuredCatalog.needAllTitle': 'Chceš vidieť všetky produkty ({total})?',
     'shop.featuredCatalog.body':
-      'Táto stránka obchodu zobrazuje len výber produktov. Pre prístup k celému katalógu nám pošli správu cez:',
+      'Táto webová stránka zobrazuje len výber produktov. Pre prístup k celému katalógu pošli správu cez:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zavrieť',
     'shop.featuredCatalog.whatsappPrefill':
@@ -132,7 +132,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   hu: {
     'shop.featuredCatalog.needAllTitle': 'Megnéznéd mind a {total} terméket?',
     'shop.featuredCatalog.body':
-      'Ez a shop oldal csak egy válogatást mutat a termékekből. A teljes katalógushoz küldj nekünk üzenetet ezen keresztül:',
+      'Ez a weboldal csak egy válogatást mutat a termékekből. A teljes katalógushoz küldj egy üzenetet ezen keresztül:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Bezárás',
     'shop.featuredCatalog.whatsappPrefill':
@@ -142,7 +142,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ro: {
     'shop.featuredCatalog.needAllTitle': 'Vrei să vezi toate cele {total} de produse?',
     'shop.featuredCatalog.body':
-      'Această pagină a magazinului arată doar o selecție de produse. Pentru acces la catalogul complet, trimite-ne un mesaj prin:',
+      'Această pagină web arată doar o selecție de produse. Pentru acces la catalogul complet, trimite un mesaj prin:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Închide',
     'shop.featuredCatalog.whatsappPrefill':
@@ -152,7 +152,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   bg: {
     'shop.featuredCatalog.needAllTitle': 'Искаш ли да видиш всички {total} продукта?',
     'shop.featuredCatalog.body':
-      'Тази страница на магазина показва само подбрани продукти. За достъп до пълния каталог ни изпрати съобщение чрез:',
+      'Тази уеб страница показва само подбрани продукти. За достъп до пълния каталог изпрати съобщение чрез:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Затвори',
     'shop.featuredCatalog.whatsappPrefill':
@@ -162,7 +162,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   hr: {
     'shop.featuredCatalog.needAllTitle': 'Želiš li vidjeti svih {total} proizvoda?',
     'shop.featuredCatalog.body':
-      'Ova stranica trgovine prikazuje samo odabrane proizvode. Za pristup cijelom katalogu pošalji nam poruku putem:',
+      'Ova web stranica prikazuje samo odabrane proizvode. Za pristup cijelom katalogu pošalji poruku putem:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zatvori',
     'shop.featuredCatalog.whatsappPrefill':
@@ -172,7 +172,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   sr: {
     'shop.featuredCatalog.needAllTitle': 'Желиш ли да видиш свих {total} производа?',
     'shop.featuredCatalog.body':
-      'Ова страница продавнице приказује само одабране производе. За приступ целом каталогу пошаљи нам поруку преко:',
+      'Ова веб страница приказује само одабране производе. За приступ целом каталогу пошаљи поруку преко:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Затвори',
     'shop.featuredCatalog.whatsappPrefill':
@@ -182,7 +182,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ba: {
     'shop.featuredCatalog.needAllTitle': 'Želiš li vidjeti svih {total} proizvoda?',
     'shop.featuredCatalog.body':
-      'Ova stranica trgovine prikazuje samo odabrane proizvode. Za pristup cijelom katalogu pošalji nam poruku putem:',
+      'Ova web stranica prikazuje samo odabrane proizvode. Za pristup cijelom katalogu pošalji poruku putem:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zatvori',
     'shop.featuredCatalog.whatsappPrefill':
@@ -192,7 +192,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   me: {
     'shop.featuredCatalog.needAllTitle': 'Želiš li vidjeti svih {total} proizvoda?',
     'shop.featuredCatalog.body':
-      'Ova stranica trgovine prikazuje samo odabrane proizvode. Za pristup cijelom katalogu pošalji nam poruku putem:',
+      'Ova web stranica prikazuje samo odabrane proizvode. Za pristup cijelom katalogu pošalji poruku putem:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zatvori',
     'shop.featuredCatalog.whatsappPrefill':
@@ -202,7 +202,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   sq: {
     'shop.featuredCatalog.needAllTitle': 'Do të shohësh të gjitha {total} produktet?',
     'shop.featuredCatalog.body':
-      'Kjo faqe e dyqanit tregon vetëm një përzgjedhje produktesh. Për qasje në katalogun e plotë, na dërgo një mesazh përmes:',
+      'Kjo faqe interneti tregon vetëm një përzgjedhje produktesh. Për qasje në katalogun e plotë, dërgo një mesazh përmes:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Mbyll',
     'shop.featuredCatalog.whatsappPrefill':
@@ -212,7 +212,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   mk: {
     'shop.featuredCatalog.needAllTitle': 'Сакаш да ги видиш сите {total} производи?',
     'shop.featuredCatalog.body':
-      'Оваа страница на продавницата прикажува само избран дел од производите. За пристап до целиот каталог, испрати ни порака преку:',
+      'Оваа веб-страница прикажува само избран дел од производите. За пристап до целиот каталог, испрати порака преку:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Затвори',
     'shop.featuredCatalog.whatsappPrefill':
@@ -222,7 +222,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   lt: {
     'shop.featuredCatalog.needAllTitle': 'Nori matyti visus {total} produktus?',
     'shop.featuredCatalog.body':
-      'Šiame parduotuvės puslapyje rodoma tik produktų atranka. Norėdamas gauti visą katalogą, parašyk mums žinutę per:',
+      'Šiame tinklalapyje rodoma tik produktų atranka. Norėdamas gauti visą katalogą, parašyk žinutę per:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Uždaryti',
     'shop.featuredCatalog.whatsappPrefill':
@@ -232,7 +232,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   da: {
     'shop.featuredCatalog.needAllTitle': 'Vil du se alle {total} produkter?',
     'shop.featuredCatalog.body':
-      'Denne shop-side viser kun et udvalg af produkter. For adgang til hele kataloget, send os en besked via:',
+      'Denne webside viser kun et udvalg af produkter. For adgang til hele kataloget, send en besked via:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Luk',
     'shop.featuredCatalog.whatsappPrefill':
@@ -242,7 +242,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   sv: {
     'shop.featuredCatalog.needAllTitle': 'Vill du se alla {total} produkter?',
     'shop.featuredCatalog.body':
-      'Den här butikssidan visar bara ett urval av produkter. För tillgång till hela katalogen, skicka oss ett meddelande via:',
+      'Den här webbsidan visar bara ett urval av produkter. För tillgång till hela katalogen, skicka ett meddelande via:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Stäng',
     'shop.featuredCatalog.whatsappPrefill':
@@ -252,7 +252,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   nb: {
     'shop.featuredCatalog.needAllTitle': 'Vil du se alle {total} produktene?',
     'shop.featuredCatalog.body':
-      'Denne butikksiden viser bare et utvalg av produkter. For tilgang til hele katalogen, send oss en melding via:',
+      'Denne nettsiden viser bare et utvalg av produkter. For tilgang til hele katalogen, send en melding via:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Lukk',
     'shop.featuredCatalog.whatsappPrefill':
@@ -262,7 +262,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   fi: {
     'shop.featuredCatalog.needAllTitle': 'Haluatko nähdä kaikki {total} tuotetta?',
     'shop.featuredCatalog.body':
-      'Tämä kaupan sivu näyttää vain valikoiman tuotteita. Saadaksesi koko katalogin, lähetä meille viesti seuraavasti:',
+      'Tämä verkkosivu näyttää vain valikoiman tuotteita. Saadaksesi koko katalogin, lähetä viesti seuraavasti:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Sulje',
     'shop.featuredCatalog.whatsappPrefill':
@@ -272,7 +272,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   uk: {
     'shop.featuredCatalog.needAllTitle': 'Хочеш побачити всі товари ({total})?',
     'shop.featuredCatalog.body':
-      'На цій сторінці магазину показано лише добірку товарів. Для доступу до повного каталогу надішли нам повідомлення через:',
+      'На цій вебсторінці показано лише добірку товарів. Для доступу до повного каталогу надішли повідомлення через:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Закрити',
     'shop.featuredCatalog.whatsappPrefill':
@@ -282,7 +282,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ru: {
     'shop.featuredCatalog.needAllTitle': 'Хочешь увидеть все товары ({total})?',
     'shop.featuredCatalog.body':
-      'На этой странице магазина показана только подборка товаров. Для доступа к полному каталогу отправь нам сообщение через:',
+      'На этой веб-странице показана только подборка товаров. Для доступа к полному каталогу отправь сообщение через:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Закрыть',
     'shop.featuredCatalog.whatsappPrefill':
@@ -292,7 +292,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   tr: {
     'shop.featuredCatalog.needAllTitle': 'Tüm {total} ürünü görmek ister misin?',
     'shop.featuredCatalog.body':
-      'Bu mağaza sayfası yalnızca bir ürün seçkisi gösterir. Tam kataloga erişmek için bize şu yolla mesaj gönder:',
+      'Bu web sayfası yalnızca bir ürün seçkisi gösterir. Tam kataloga erişmek için şu yolla bir mesaj gönder:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Kapat',
     'shop.featuredCatalog.whatsappPrefill':
@@ -302,7 +302,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   he: {
     'shop.featuredCatalog.needAllTitle': 'רוצה לראות את כל {total} המוצרים?',
     'shop.featuredCatalog.body':
-      'עמוד החנות הזה מציג רק מבחר מוצרים. לגישה לקטלוג המלא, שלחו לנו הודעה דרך:',
+      'עמוד האינטרנט הזה מציג רק מבחר מוצרים. לגישה לקטלוג המלא, שלחו הודעה דרך:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'סגור',
     'shop.featuredCatalog.whatsappPrefill':
@@ -312,7 +312,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   eg: {
     'shop.featuredCatalog.needAllTitle': 'هل تريد رؤية كل المنتجات البالغ عددها {total}؟',
     'shop.featuredCatalog.body':
-      'تعرض صفحة المتجر هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل لنا رسالة عبر:',
+      'تعرض صفحة الويب هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل رسالة عبر:',
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
@@ -322,7 +322,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   at: {
     'shop.featuredCatalog.needAllTitle': 'هل تريد رؤية كل المنتجات البالغ عددها {total}؟',
     'shop.featuredCatalog.body':
-      'تعرض صفحة المتجر هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل لنا رسالة عبر:',
+      'تعرض صفحة الويب هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل رسالة عبر:',
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
@@ -332,7 +332,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ps: {
     'shop.featuredCatalog.needAllTitle': 'هل تريد رؤية كل المنتجات البالغ عددها {total}؟',
     'shop.featuredCatalog.body':
-      'تعرض صفحة المتجر هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل لنا رسالة عبر:',
+      'تعرض صفحة الويب هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل رسالة عبر:',
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
@@ -342,7 +342,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ma: {
     'shop.featuredCatalog.needAllTitle': 'هل تريد رؤية كل المنتجات البالغ عددها {total}؟',
     'shop.featuredCatalog.body':
-      'تعرض صفحة المتجر هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل لنا رسالة عبر:',
+      'تعرض صفحة الويب هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل رسالة عبر:',
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
@@ -352,7 +352,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   dz: {
     'shop.featuredCatalog.needAllTitle': 'هل تريد رؤية كل المنتجات البالغ عددها {total}؟',
     'shop.featuredCatalog.body':
-      'تعرض صفحة المتجر هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل لنا رسالة عبر:',
+      'تعرض صفحة الويب هذه مجموعة مختارة من المنتجات فقط. للوصول إلى الكتالوج الكامل، أرسل رسالة عبر:',
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
@@ -362,7 +362,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ka: {
     'shop.featuredCatalog.needAllTitle': 'გინდა ყველა {total} პროდუქტის ნახვა?',
     'shop.featuredCatalog.body':
-      'ეს მაღაზიის გვერდი მხოლოდ პროდუქტების შერჩევას აჩვენებს. სრულ კატალოგზე წვდომისთვის გამოგვიგზავნე შეტყობინება:',
+      'ეს ვებგვერდი მხოლოდ პროდუქტების შერჩევას აჩვენებს. სრულ კატალოგზე წვდომისთვის გამოგზავნე შეტყობინება:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'დახურვა',
     'shop.featuredCatalog.whatsappPrefill':
@@ -372,7 +372,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   hy: {
     'shop.featuredCatalog.needAllTitle': 'Ցանկանո՞ւմ ես տեսնել բոլոր {total} ապրանքները։',
     'shop.featuredCatalog.body':
-      'Այս խանութի էջը ցույց է տալիս միայն ապրանքների ընտրանի։ Ամբողջ կատալոգին մուտք գործելու համար ուղարկիր մեզ հաղորդագրություն՝',
+      'Այս վեբ էջը ցույց է տալիս միայն ապրանքների ընտրանի։ Ամբողջ կատալոգին մուտք գործելու համար ուղարկիր հաղորդագրություն՝',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Փակել',
     'shop.featuredCatalog.whatsappPrefill':
@@ -382,7 +382,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   az: {
     'shop.featuredCatalog.needAllTitle': 'Bütün {total} məhsula baxmaq istəyirsən?',
     'shop.featuredCatalog.body':
-      'Bu mağaza səhifəsi yalnız məhsul seçimini göstərir. Tam kataloqa giriş üçün bizə bu yolla mesaj göndər:',
+      'Bu veb səhifə yalnız məhsul seçimini göstərir. Tam kataloqa giriş üçün bu yolla mesaj göndər:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Bağla',
     'shop.featuredCatalog.whatsappPrefill':
@@ -392,7 +392,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   ja: {
     'shop.featuredCatalog.needAllTitle': '全{total}点の商品を見ますか？',
     'shop.featuredCatalog.body':
-      'このショップページには一部の商品のみ表示されています。完全なカタログをご覧になるには、次経由でメッセージを送ってください：',
+      'このウェブページには一部の商品のみ表示されています。完全なカタログをご覧になるには、次経由でメッセージを送ってください：',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': '閉じる',
     'shop.featuredCatalog.whatsappPrefill':
@@ -402,7 +402,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   zh: {
     'shop.featuredCatalog.needAllTitle': '想查看全部 {total} 件商品吗？',
     'shop.featuredCatalog.body':
-      '本商店页面仅展示部分商品。如需访问完整目录，请通过以下方式给我们发消息：',
+      '本网页仅展示部分商品。如需访问完整目录，请通过以下方式发送消息：',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': '关闭',
     'shop.featuredCatalog.whatsappPrefill':

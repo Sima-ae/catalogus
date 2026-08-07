@@ -64,7 +64,10 @@ export default function FeaturedCatalogExhaustedModal({
           <XMarkIcon className="h-5 w-5" />
         </button>
 
-        <h2 id="featured-catalog-exhausted-title" className="pr-8 text-lg font-semibold">
+        <h2
+          id="featured-catalog-exhausted-title"
+          className="pr-8 text-[15px] font-semibold leading-snug sm:text-lg sm:leading-normal"
+        >
           {t('shop.featuredCatalog.needAllTitle', { total: totalLabel })}
         </h2>
         <p className={`mt-3 text-sm leading-relaxed ${muted}`}>

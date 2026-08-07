@@ -14,6 +14,7 @@ import { appPath } from '@/lib/paths'
 import { useAuth } from '@/lib/auth-local'
 import { catalogAuthHeaders } from '@/lib/catalog-fetch'
 import { CHAT_INBOX_POLL_MS } from '@/lib/chat-realtime'
+import { resolveWhatsAppContactUrl } from '@/lib/whatsapp'
 
 export type ChatQuoteAttach = {
   productId: string
@@ -94,7 +95,14 @@ function bootstrapSnapshotEqual(a: ChatBootstrap | null, b: ChatBootstrap): bool
   return true
 }
 
-export default function ChatProvider({ children }: { children: React.ReactNode }) {
+export default function ChatProvider({
+  children,
+  whatsAppOnly = false,
+}: {
+  children: React.ReactNode
+  /** Featured storefronts: no live chat API — quote/CTA opens WhatsApp. */
+  whatsAppOnly?: boolean
+}) {
   const { user } = useAuth()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -112,8 +120,15 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     return searchParams.get('owner')?.trim() || null
   }, [pathname, searchParams])
 
+  const openWhatsApp = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const url = resolveWhatsAppContactUrl() || 'https://wa.me/31687999505'
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }, [])
+
   const loadBootstrap = useCallback(
     async (options?: { silent?: boolean }) => {
+      if (whatsAppOnly) return
       const silent = options?.silent ?? false
       if (!silent) {
         setLoading(true)
@@ -144,40 +159,58 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
         if (!silent) setLoading(false)
       }
     },
-    [user, pricelistOwnerParam]
+    [user, pricelistOwnerParam, whatsAppOnly]
   )
 
   // Only connect chat when the widget opens — avoid /api/chat/bootstrap on every page load.
   useEffect(() => {
-    if (!open) return
+    if (whatsAppOnly || !open) return
     void loadBootstrap({ silent: Boolean(bootstrapRef.current) })
-  }, [open, pricelistOwnerParam, loadBootstrap])
+  }, [open, pricelistOwnerParam, loadBootstrap, whatsAppOnly])
 
   useEffect(() => {
-    if (!open) return
+    if (whatsAppOnly || !open) return
     const tick = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       void loadBootstrap({ silent: true })
     }
     const timer = setInterval(tick, CHAT_INBOX_POLL_MS)
     return () => clearInterval(timer)
-  }, [open, loadBootstrap])
+  }, [open, loadBootstrap, whatsAppOnly])
 
-  const requestQuote = useCallback((quote: ChatQuoteAttach) => {
-    const productId = quote.productId.trim()
-    if (!productId) return
-    setQuoteQueue((prev) => (prev.includes(productId) ? prev : [...prev, productId]))
-    setOpen(true)
-  }, [])
+  const requestQuote = useCallback(
+    (quote: ChatQuoteAttach) => {
+      if (whatsAppOnly) {
+        openWhatsApp()
+        return
+      }
+      const productId = quote.productId.trim()
+      if (!productId) return
+      setQuoteQueue((prev) => (prev.includes(productId) ? prev : [...prev, productId]))
+      setOpen(true)
+    },
+    [whatsAppOnly, openWhatsApp]
+  )
 
   const dequeueQuote = useCallback((productId: string) => {
     setQuoteQueue((prev) => prev.filter((id) => id !== productId))
   }, [])
 
+  const setOpenSafe = useCallback(
+    (next: boolean) => {
+      if (whatsAppOnly) {
+        if (next) openWhatsApp()
+        return
+      }
+      setOpen(next)
+    },
+    [whatsAppOnly, openWhatsApp]
+  )
+
   const value = useMemo(
     () => ({
-      open,
-      setOpen,
+      open: whatsAppOnly ? false : open,
+      setOpen: setOpenSafe,
       bootstrap,
       loading,
       error,
@@ -191,6 +224,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
     }),
     [
       open,
+      setOpenSafe,
       bootstrap,
       loading,
       error,
@@ -200,6 +234,7 @@ export default function ChatProvider({ children }: { children: React.ReactNode }
       pricelistOwnerParam,
       selectedSupplierThreadId,
       loadBootstrap,
+      whatsAppOnly,
     ]
   )
 
