@@ -4,7 +4,8 @@ import { getProductById } from '@/lib/products-db'
 import { formatPageTitle, getSiteSeo } from '@/lib/site-metadata'
 import { withNoIndexMetadata } from '@/lib/no-index'
 import { getServerLocale } from '@/lib/i18n-server-locale'
-import { appPath, appUrl } from '@/lib/paths'
+import { appOrigin, appPath } from '@/lib/paths'
+import { localizedAppPathForLocale } from '@/lib/locale-path-routing'
 import { absoluteCatalogImageUrl } from '@/lib/product-image-url'
 import {
   getSiteUnlockState,
@@ -72,7 +73,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
 
     const imageUrl = absoluteCatalogImageUrl(String(product.image_url || ''))
-    const pageUrl = appUrl(`/product/${params.id}`)
+    const pageUrl = `${appOrigin}${localizedAppPathForLocale(`/product/${params.id}`, locale)}`
 
     return withNoIndexMetadata({
       title: name,
@@ -84,6 +85,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         description,
         url: pageUrl,
         siteName: seo.siteName,
+        locale,
         ...(imageUrl
           ? {
               images: [
@@ -117,7 +119,8 @@ export default async function ProductPage({ params }: PageProps) {
     if (access.reason === 'not_found' || access.reason === 'unavailable') {
       notFound()
     }
-    const from = appPath(`/product/${params.id}`)
+    const locale = await getServerLocale()
+    const from = localizedAppPathForLocale(`/product/${params.id}`, locale)
     redirect(`${appPath(GATE_PATH)}?from=${encodeURIComponent(from)}`)
   }
 

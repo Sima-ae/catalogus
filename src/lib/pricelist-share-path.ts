@@ -1,6 +1,9 @@
+import { parseLocaleFromPathname } from '@/lib/i18n-routing'
+
 /** Shared pricelist share-link detection (skip site password gate). */
 export function isPricelistSharePath(pathname: string, ownerParam: string | null | undefined): boolean {
-  const normalized = pathname.replace(/\/$/, '') || '/'
+  const { pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+  const normalized = pathnameWithoutLocale.replace(/\/$/, '') || '/'
   if (normalized !== '/pricelist') return false
   return Boolean(ownerParam?.trim())
 }

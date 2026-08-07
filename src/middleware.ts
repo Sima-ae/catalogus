@@ -17,10 +17,9 @@ import {
 } from '@/lib/public-product-path'
 import {
   LOCALE_COOKIE,
-  localizedPath,
   parseLocaleFromPathname,
-  resolveLocaleFromCookie,
 } from '@/lib/i18n-routing'
+import { resolveLocalePathRouting } from '@/lib/locale-path-routing'
 import { applyNoIndexHeaders } from '@/lib/no-index'
 import {
   CATALOGUS_LIGHT_HEADER,
@@ -53,37 +52,75 @@ function isStaticAsset(pathname: string): boolean {
 }
 
 function shouldSkipLocaleRouting(pathname: string): boolean {
-  if (pathname === GATE_PATH || pathname.startsWith(`${GATE_PATH}/`)) return true
   if (pathname.startsWith('/api/')) return true
+  const { locale, pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+  // Bare gate stays unprefixed; /{lang}/site-access-gate still needs a rewrite.
+  if (
+    !locale &&
+    (pathnameWithoutLocale === GATE_PATH ||
+      pathnameWithoutLocale.startsWith(`${GATE_PATH}/`))
+  ) {
+    return true
+  }
   return false
 }
 
-/** Prefix URLs with locale slug (/en/...) and rewrite internally without the prefix. */
-function applyLocaleRouting(request: NextRequest): NextResponse | null {
-  const { pathname, search } = request.nextUrl
-  if (shouldSkipLocaleRouting(pathname)) return null
+function attachLocaleCookie(response: NextResponse, locale: string): void {
+  response.cookies.set(LOCALE_COOKIE, locale, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  })
+}
 
-  const { locale: pathLocale, pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
-  const cookieLocale = resolveLocaleFromCookie(request.cookies.get(LOCALE_COOKIE)?.value)
+/** Apply rewrite/redirect from resolveLocalePathRouting (+ optional light layout header). */
+function applyResolvedLocaleRouting(
+  request: NextRequest,
+  options?: { light?: boolean }
+): NextResponse {
+  const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value
+  const resolved = resolveLocalePathRouting(request.nextUrl.pathname, cookieLocale)
+  const light = options?.light === true
 
-  if (pathLocale) {
+  if (resolved.action === 'rewrite') {
     const url = request.nextUrl.clone()
-    url.pathname = pathnameWithoutLocale
+    url.pathname = resolved.pathname
     const requestHeaders = new Headers(request.headers)
-    requestHeaders.set(LOCALE_HEADER, pathLocale)
+    requestHeaders.set(LOCALE_HEADER, resolved.locale)
+    if (light) requestHeaders.set(CATALOGUS_LIGHT_HEADER, '1')
     const res = NextResponse.rewrite(url, { request: { headers: requestHeaders } })
-    res.cookies.set(LOCALE_COOKIE, pathLocale, {
-      path: '/',
-      maxAge: 60 * 60 * 24 * 365,
-      sameSite: 'lax',
-    })
+    attachLocaleCookie(res, resolved.locale)
     return res
   }
 
   const url = request.nextUrl.clone()
-  url.pathname = localizedPath(pathname, cookieLocale)
-  url.search = search
-  return NextResponse.redirect(url)
+  url.pathname = resolved.pathname
+  url.search = request.nextUrl.search
+  const res = NextResponse.redirect(url)
+  attachLocaleCookie(res, resolved.locale)
+  return res
+}
+
+/** Prefix URLs with locale slug (/en/...) and rewrite internally without the prefix. */
+function applyLocaleRouting(request: NextRequest): NextResponse | null {
+  const { pathname } = request.nextUrl
+  if (shouldSkipLocaleRouting(pathname)) return null
+  return applyResolvedLocaleRouting(request)
+}
+
+function withLightHeader(request: NextRequest): NextResponse {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(CATALOGUS_LIGHT_HEADER, '1')
+  return NextResponse.next({ request: { headers: requestHeaders } })
+}
+
+/**
+ * Locked share pages (product / pricelist) still need the same locale rewrite as
+ * unlocked traffic — plain next() on /nl/product/:id 404s (no app/nl/… routes).
+ * Bare /product/:id redirects to /{locale}/product/:id for every language.
+ */
+function withLightLocaleRouting(request: NextRequest): NextResponse {
+  return applyResolvedLocaleRouting(request, { light: true })
 }
 
 function isSiteAccessApi(pathname: string): boolean {
@@ -104,12 +141,6 @@ function clientIp(request: NextRequest): string {
     request.headers.get('x-real-ip')?.trim() ||
     'unknown'
   )
-}
-
-function withLightHeader(request: NextRequest): NextResponse {
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set(CATALOGUS_LIGHT_HEADER, '1')
-  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 /**
@@ -341,11 +372,19 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  const onGate = pathname === GATE_PATH || pathname.startsWith(`${GATE_PATH}/`)
+  const { pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
+  const onGate =
+    pathnameWithoutLocale === GATE_PATH ||
+    pathnameWithoutLocale.startsWith(`${GATE_PATH}/`)
 
   // Gate + locked traffic: skip heavy category/translation bootstrap in layout.
   if (onGate || (access.required && !access.allowed)) {
     if (onGate) {
+      // Locale-prefixed gate (/nl/site-access-gate) must rewrite like other pages.
+      const { locale: gateLocale } = parseLocaleFromPathname(pathname)
+      if (gateLocale) {
+        return finish(withMeta(withLightLocaleRouting(request)))
+      }
       return finish(withMeta(withLightHeader(request)))
     }
 
@@ -358,11 +397,11 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
-      return finish(withMeta(withLightHeader(request)))
+      return finish(withMeta(withLightLocaleRouting(request)))
     }
 
     if (isPublicProductPath(pathname)) {
-      return finish(withMeta(withLightHeader(request)))
+      return finish(withMeta(withLightLocaleRouting(request)))
     }
 
     const gate = request.nextUrl.clone()
