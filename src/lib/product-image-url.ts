@@ -108,20 +108,24 @@ export function normalizeProductImagesForStorage(input: {
   return normalizeStoredProductImages(input.image_url, input.gallery_images)
 }
 
-/** Absolute URL when needed (emails, OG tags). Relative /images/ paths use app origin. */
-export function absoluteCatalogImageUrl(url: string | null | undefined): string {
-  const normalized = normalizeProductImageUrl(url)
-  if (!normalized) return ''
-  if (/^https?:\/\//i.test(normalized)) return normalized
-  if (normalized.startsWith('/images/')) {
-    const origin = (
-      process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
-      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-      'https://superclones.cloud'
-    ).replace(/\/$/, '')
-    return `${origin}${normalized}`
-  }
-  return normalized
+/** Absolute URL when needed (emails, OG tags). Relative paths use app origin. */
+export function absoluteCatalogImageUrl(
+  url: string | null | undefined,
+  sourceUrl?: string | null
+): string {
+  const origin = (
+    process.env.NEXT_PUBLIC_CATALOG_IMAGE_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    'https://superclones.cloud'
+  ).replace(/\/$/, '')
+
+  // Yupoo CDN rejects hotlinks without a Yupoo Referer — social crawlers cannot
+  // send that, so share/OG images must go through our proxy.
+  const display = toDisplayProductImageUrl(url, sourceUrl)
+  if (!display) return ''
+  if (/^https?:\/\//i.test(display)) return display
+  if (display.startsWith('/')) return `${origin}${appPath(display)}`
+  return display
 }
 
 export function isYupooImageUrl(url: string | null | undefined): boolean {

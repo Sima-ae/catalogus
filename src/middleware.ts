@@ -243,9 +243,14 @@ export async function middleware(request: NextRequest) {
 
   // Third-party scrapers + search crawlers: permanent cheap 404 (no HTML, no APIs).
   // Only our apps with a valid scrape token / SCRAPE_BYPASS_SECRET may automate.
-  // Exception: social preview bots may fetch product share pages for OG metadata.
+  // Exception: social preview bots may fetch product share pages + OG image proxy
+  // (Facebook/WhatsApp/etc. fetch og:image separately after reading the HTML).
   if (isBot && !scrapeAuthorized) {
-    if (isSocialPreviewUserAgent(ua) && isPublicProductPath(pathname)) {
+    const socialPreview =
+      isSocialPreviewUserAgent(ua) &&
+      (isPublicProductPath(pathname) ||
+        (pathname.replace(/\/$/, '') || '/') === '/api/yupoo-image')
+    if (socialPreview) {
       // Fall through to locale/gate handling below (product path bypass when locked).
     } else {
       return finish(

@@ -53,6 +53,20 @@ assert(
   'bootstrap is not a share asset'
 )
 
+// Social preview crawlers must be allowed to fetch the OG image proxy path
+// (Facebook hits /api/yupoo-image after reading og:image from the product HTML).
+import { isSocialPreviewUserAgent } from '@/lib/bot-traffic'
+assert(
+  isSocialPreviewUserAgent(
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+  ),
+  'facebookexternalhit is a social preview UA'
+)
+assert(
+  isSocialPreviewUserAgent('meta-externalagent/1.1'),
+  'meta-externalagent is a social preview UA'
+)
+
 const bare = resolveLocalePathRouting(PRODUCT_INNER, 'nl')
 assert(bare.action === 'redirect', 'bare product redirects to add locale')
 if (bare.action === 'redirect') {

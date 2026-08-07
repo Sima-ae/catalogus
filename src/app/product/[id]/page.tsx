@@ -72,7 +72,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return base
     }
 
-    const imageUrl = absoluteCatalogImageUrl(String(product.image_url || ''))
+    const imageUrl = absoluteCatalogImageUrl(
+      String(product.image_url || ''),
+      product.source_url != null ? String(product.source_url) : null
+    )
     const pageUrl = `${appOrigin}${localizedAppPathForLocale(`/product/${params.id}`, locale)}`
 
     return withNoIndexMetadata({
