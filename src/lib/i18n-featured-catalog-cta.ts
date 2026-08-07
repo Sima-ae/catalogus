@@ -32,7 +32,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   nl: {
     'shop.featuredCatalog.needAllTitle': 'Wil je alle {total} producten zien?',
     'shop.featuredCatalog.body':
-      'Deze shop pagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur ons een bericht via:',
+      'Deze webpagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur ons een bericht via:',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Sluiten',
     'shop.featuredCatalog.whatsappPrefill':
