@@ -46,6 +46,16 @@ export function isFeaturedOnlyHost(
   return hosts.includes(host)
 }
 
+/**
+ * Site password gate applies on the main shop only (e.g. superclones.cloud).
+ * Featured-only hosts (1-1.club) are public storefronts — no unlock required.
+ */
+export function siteAccessAppliesToHost(
+  hostname: string | null | undefined
+): boolean {
+  return !isFeaturedOnlyHost(hostname)
+}
+
 export function resolveStoreModeFromHost(
   hostname: string | null | undefined
 ): CatalogusStoreMode {

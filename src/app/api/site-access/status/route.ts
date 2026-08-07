@@ -8,6 +8,10 @@ import {
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 import { getSiteAccessConfig } from '@/lib/site-access'
+import {
+  resolveRequestHostname,
+  siteAccessAppliesToHost,
+} from '@/lib/store-host'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -15,6 +19,17 @@ export const runtime = 'nodejs'
 export async function GET(request: Request) {
   ensureEnvLoaded()
   try {
+    // Featured hosts (1-1.club) are public — ignore global site-access setting.
+    if (!siteAccessAppliesToHost(resolveRequestHostname(request.headers))) {
+      const res = NextResponse.json({
+        required: false,
+        unlocked: true,
+        sessionActive: true,
+      })
+      applySiteAccessCookies(res, { required: false, version: 0 })
+      return res
+    }
+
     const config = await getSiteAccessConfig()
     const cookieHeader = request.headers.get('cookie')
     const unlockCookie = readUnlockCookie(cookieHeader)

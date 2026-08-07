@@ -37,6 +37,8 @@ import {
   CATALOGUS_STORE_FEATURED,
   CATALOGUS_STORE_HEADER,
   isFeaturedOnlyHost,
+  resolveRequestHostname,
+  siteAccessAppliesToHost,
 } from '@/lib/store-host'
 
 const GATE_PATH = '/site-access-gate'
@@ -173,6 +175,13 @@ async function resolveSiteAccess(request: NextRequest): Promise<{
   version: number
   setMeta: boolean
 }> {
+  // Public featured storefronts (1-1.club) — never require site password.
+  const host =
+    resolveRequestHostname(request.headers) || request.nextUrl.hostname
+  if (!siteAccessAppliesToHost(host)) {
+    return { required: false, allowed: true, version: 0, setMeta: true }
+  }
+
   const requiredFlag = request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value
   if (requiredFlag === '0') {
     return { required: false, allowed: true, version: 0, setMeta: false }

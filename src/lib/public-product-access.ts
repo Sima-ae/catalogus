@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import type { NextRequest } from 'next/server'
 import { getProductById } from '@/lib/products-db'
 import { getSiteAccessConfig } from '@/lib/site-access'
@@ -7,14 +7,22 @@ import {
   readUnlockCookie,
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
+import {
+  resolveRequestHostname,
+  siteAccessAppliesToHost,
+} from '@/lib/store-host'
 
 export type PublicProductAccessResult =
   | { allowed: true; unlocked: boolean; publicShare: boolean }
   | { allowed: false; reason: 'not_found' | 'locked' | 'unavailable' }
 
 async function isSiteUnlockedFromCookie(
-  unlockCookie: string | undefined
+  unlockCookie: string | undefined,
+  hostname?: string | null
 ): Promise<{ required: boolean; unlocked: boolean }> {
+  if (hostname != null && !siteAccessAppliesToHost(hostname)) {
+    return { required: false, unlocked: true }
+  }
   const config = await getSiteAccessConfig()
   if (!config.required) {
     return { required: false, unlocked: true }
@@ -29,7 +37,8 @@ export async function getSiteUnlockState(): Promise<{
   unlocked: boolean
 }> {
   const jar = cookies()
-  return isSiteUnlockedFromCookie(jar.get(SITE_ACCESS_COOKIE)?.value)
+  const host = resolveRequestHostname(headers())
+  return isSiteUnlockedFromCookie(jar.get(SITE_ACCESS_COOKIE)?.value, host)
 }
 
 /** Site unlock from an incoming request (API routes). */
@@ -38,7 +47,11 @@ export async function getSiteUnlockStateFromRequest(
 ): Promise<{ required: boolean; unlocked: boolean }> {
   const cookieHeader =
     'headers' in request ? request.headers.get('cookie') : null
-  return isSiteUnlockedFromCookie(readUnlockCookie(cookieHeader))
+  const host =
+    'headers' in request
+      ? resolveRequestHostname(request.headers)
+      : undefined
+  return isSiteUnlockedFromCookie(readUnlockCookie(cookieHeader), host)
 }
 
 function isFlagOn(value: unknown): boolean {
