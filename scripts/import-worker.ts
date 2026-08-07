@@ -14,8 +14,8 @@
  * --refresh  re-fetch source data and update existing products (status unchanged).
  * --retry-all  re-queue imported/skipped job items (finished jobs only).
  * --password  overrides Yupoo access password for this run.
- * --concurrency=N  parallel products (WeCatalog default 3; keep ≤3 on shared VPS).
- * --fast  WeCatalog: concurrency ≤3 (or --concurrency), skip title translation, minimal translate delays.
+ * --concurrency=N  parallel products (Yupoo / WeCatalog; default 1 Yupoo / 3 WeCatalog; keep ≤3 on shared VPS).
+ * --fast  concurrency ≤3 (or --concurrency), shorter Yupoo delays, skip WeCatalog title translation.
  * --force  bypass IMPORT_WORKER_ALLOWED_HOURS off-peak guard.
  */
 import { readFileSync, existsSync } from 'fs'
@@ -465,16 +465,70 @@ async function processYupooJob(
   let refreshed = 0
   const counters = { processed, imported, skipped, failed, refreshed }
 
-  for (const item of items) {
+  // Yupoo default is sequential; --fast / --concurrency enable a small pool (cap 3 on VPS).
+  const concurrency = Math.min(
+    3,
+    flags.fast ? flags.concurrency || 3 : flags.concurrency || 1
+  )
+  const albumDelayMs = flags.fast ? 200 : concurrency > 1 ? 400 : 1200
+  if (flags.fast) {
+    setCjkTranslateDelayMs(0)
+  } else if (concurrency > 1) {
+    setCjkTranslateDelayMs(100)
+  }
+
+  console.log(
+    `==> Yupoo import: ${items.length} pending, concurrency=${concurrency}, albumDelayMs=${albumDelayMs}`
+  )
+
+  const counterMutex = new AsyncMutex()
+  let jobProgressTimer: ReturnType<typeof setTimeout> | null = null
+
+  const scheduleJobProgress = () => {
+    if (jobProgressTimer) return
+    jobProgressTimer = setTimeout(() => {
+      jobProgressTimer = null
+      void counterMutex.run(async () => {
+        await updateImportJob(jobId, {
+          processed: counters.processed,
+          imported: counters.imported,
+          skipped: counters.skipped,
+          failed: counters.failed,
+        })
+      })
+    }, 750)
+  }
+
+  const flushJobProgress = async () => {
+    if (jobProgressTimer) {
+      clearTimeout(jobProgressTimer)
+      jobProgressTimer = null
+    }
+    await counterMutex.run(async () => {
+      await updateImportJob(jobId, {
+        processed: counters.processed,
+        imported: counters.imported,
+        skipped: counters.skipped,
+        failed: counters.failed,
+      })
+    })
+  }
+
+  const sync: ImportWorkerSync = { counterMutex, scheduleJobProgress }
+
+  await runPool(items, concurrency, async (item) => {
     try {
-      const skipCheck = await importExistingOrSkip(item, { sku: item.album_id } as ProductInput, flags, counters)
-      if (skipCheck.done) {
-        await updateImportJob(jobId, counters)
-        continue
-      }
+      const skipCheck = await importExistingOrSkip(
+        item,
+        { sku: item.album_id } as ProductInput,
+        flags,
+        counters,
+        sync
+      )
+      if (skipCheck.done) return
 
       console.log(`==> Album ${item.album_id}${skipCheck.existing && flags.refresh ? ' (refresh)' : ''}`)
-      await yupooSleep(1200)
+      if (albumDelayMs > 0) await yupooSleep(albumDelayMs)
 
       const { input, album, translated } = await buildYupooImportInput(
         item,
@@ -483,11 +537,8 @@ async function processYupooJob(
         hasPassword
       )
 
-      const secondCheck = await importExistingOrSkip(item, input, flags, counters)
-      if (secondCheck.done) {
-        await updateImportJob(jobId, counters)
-        continue
-      }
+      const secondCheck = await importExistingOrSkip(item, input, flags, counters, sync)
+      if (secondCheck.done) return
 
       await saveImportedProduct(
         item,
@@ -497,7 +548,8 @@ async function processYupooJob(
         flags,
         { album, translated, refreshed: Boolean(secondCheck.existing && flags.refresh) },
         counters,
-        translated.translationFailed
+        translated.translationFailed,
+        sync
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -505,14 +557,17 @@ async function processYupooJob(
       if (isSourceGoneErrorMessage(message)) {
         await markImportItemSourceUnavailable(item, 'yupoo_import_gone')
       }
-      await updateJobItem(item.id, { status: 'failed', error_message: message })
-      await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
-      counters.failed++
-      counters.processed++
-      await updateImportJob(jobId, counters)
+      await counterMutex.run(async () => {
+        await updateJobItem(item.id, { status: 'failed', error_message: message })
+        await appendJobErrorLog(jobId, `${item.album_id}: ${message}`)
+        counters.failed++
+        counters.processed++
+      })
+      scheduleJobProgress()
     }
-  }
+  })
 
+  await flushJobProgress()
   return counters
 }
 
