@@ -188,7 +188,7 @@ function ShopCatalogPageContent({
     prefetchShopCategoryTaxonomy()
   }, [])
 
-  const resolvedTitle = config.mode === 'new' ? tr('shop.new.title') : ''
+  const resolvedTitle = ''
   const searchPlaceholder =
     config.mode === 'new' ? tr('shop.new.searchPlaceholder') : tr('shop.home.searchPlaceholder')
   const emptyVariant = config.emptyVariant ?? 'featured'
@@ -869,6 +869,24 @@ function ShopCatalogPageContent({
       applyCatalogPage(initialCatalog)
       clearLoadingFlags()
       setError(null)
+      // If SSR skipped or floored the total (e.g. old payload), resolve the real count.
+      if (
+        catalogMode === 'new' &&
+        (initialCatalog.skipTotal ||
+          !(typeof initialCatalog.total === 'number' && initialCatalog.total > initialCatalog.items.length))
+      ) {
+        void fetchCatalogJson(buildCatalogTotalUrl())
+          .then((payload) => {
+            if (cancelled) return
+            if (!isCatalogProductsPage(payload)) return
+            if (typeof payload.total === 'number' && payload.total > 0) {
+              totalItemsRef.current = payload.total
+              setTotalItems(payload.total)
+              patchCachedTotal(payload.total)
+            }
+          })
+          .catch(() => undefined)
+      }
       return () => {
         cancelled = true
       }

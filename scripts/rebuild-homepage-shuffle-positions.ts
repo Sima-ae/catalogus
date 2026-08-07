@@ -19,8 +19,8 @@ import { SHOP_CATALOG_PAGE_CACHE_NS } from '@/lib/shop-catalog-cache'
 
 const SHOP_VISIBLE_SQL = `
   p.status = 'active'
-  AND COALESCE(p.sold_out, 0) = 0
-  AND NULLIF(TRIM(p.image_url), '') IS NOT NULL`
+  AND p.sold_out = 0
+  AND p.image_url IS NOT NULL AND p.image_url <> ''`
 
 type Candidate = { id: string; price: number }
 

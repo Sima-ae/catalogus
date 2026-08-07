@@ -129,11 +129,17 @@ export async function fetchActiveProductsBeyondShufflePool(
   offset: number
 ): Promise<string[]> {
   if (!(await catalogPositionsTableExists())) return []
+  if (limit <= 0) return []
   const rows = await queryDb<{ id: string }[]>(
     `SELECT p.id
-     FROM products p
-     LEFT JOIN ${TABLE} cpp ON cpp.product_id = p.id AND cpp.scope = ?
-     WHERE p.status = 'active' AND p.sold_out = 0 AND p.image_url IS NOT NULL AND p.image_url <> '' AND cpp.product_id IS NULL
+     FROM products p FORCE INDEX (idx_products_status_created)
+     WHERE p.status = 'active'
+       AND p.sold_out = 0
+       AND p.image_url IS NOT NULL AND p.image_url <> ''
+       AND NOT EXISTS (
+         SELECT 1 FROM ${TABLE} cpp
+         WHERE cpp.product_id = p.id AND cpp.scope = ?
+       )
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?`,
     [scope, limit, offset]
@@ -141,24 +147,55 @@ export async function fetchActiveProductsBeyondShufflePool(
   return rows.map((row) => String(row.id))
 }
 
-/** Homepage page ids: shuffled pool first, then remaining active products by date. */
+/** Homepage page ids: shuffled pool first, then remaining active products by date.
+ *  Always tries to return `limit` ids — skips sold-out/blank gaps in the pool. */
 export async function fetchHomepageShufflePageProductIds(
   scope: string,
   poolSize: number,
   limit: number,
   offset: number
 ): Promise<string[]> {
-  if (offset >= poolSize) {
-    return fetchActiveProductsBeyondShufflePool(scope, limit, offset - poolSize)
+  if (limit <= 0) return []
+
+  const ids: string[] = []
+  const seen = new Set<string>()
+  let cursor = Math.max(0, offset)
+  let beyondOffset = Math.max(0, cursor - poolSize)
+
+  for (let attempt = 0; attempt < 8 && ids.length < limit; attempt++) {
+    const need = limit - ids.length
+
+    if (cursor < poolSize) {
+      const batch = await fetchPrecomputedShuffleProductIds(scope, need, cursor)
+      if (batch.length) {
+        for (const id of batch) {
+          if (seen.has(id)) continue
+          seen.add(id)
+          ids.push(id)
+          if (ids.length >= limit) break
+        }
+        // Joined query OFFSET is over valid rows only — advance by what we consumed.
+        cursor += batch.length
+        continue
+      }
+      // No more valid rows left in the pool window — switch to the tail catalog.
+      cursor = poolSize
+      beyondOffset = 0
+    }
+
+    const tail = await fetchActiveProductsBeyondShufflePool(scope, need, beyondOffset)
+    if (!tail.length) break
+    for (const id of tail) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      ids.push(id)
+      if (ids.length >= limit) break
+    }
+    beyondOffset += tail.length
+    if (tail.length < need) break
   }
 
-  const fromPool = Math.min(limit, poolSize - offset)
-  const ids = await fetchPrecomputedShuffleProductIds(scope, fromPool, offset)
-  const remaining = limit - ids.length
-  if (remaining <= 0) return ids
-
-  const tail = await fetchActiveProductsBeyondShufflePool(scope, remaining, 0)
-  return [...ids, ...tail]
+  return ids.slice(0, limit)
 }
 
 export type CatalogPositionJoin = {

@@ -1831,25 +1831,49 @@ async function loadActiveProductsPaginatedFromDb(
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
-      if (usePrecomputedShuffle) {
-        // Stable nightly order (priced-first). Do not re-randomize per request —
-        // that made the homepage flicker and broke pagination fill (>24 items).
-        const ids = await fetchHomepageShufflePageProductIds(
-          HOMEPAGE_SHUFFLE_SCOPE,
-          HOMEPAGE_SHUFFLE_POOL_SIZE,
-          limit,
-          offset
-        )
-        if (!ids.length) return []
-        return fetchProductRowsByIds(ids, { catalog: true })
+      // Precomputed join already skips sold_out/blank. Retry a couple times if
+      // hydration drops rows (race with deletes) so pages stay at full size.
+      const out: Record<string, unknown>[] = []
+      const seen = new Set<string>()
+      let cursor = offset
+      for (let attempt = 0; attempt < 4 && out.length < limit; attempt++) {
+        const need = limit - out.length
+        let ids: string[] = []
+        if (usePrecomputedShuffle) {
+          ids = await fetchHomepageShufflePageProductIds(
+            HOMEPAGE_SHUFFLE_SCOPE,
+            HOMEPAGE_SHUFFLE_POOL_SIZE,
+            need,
+            cursor
+          )
+        } else {
+          const fromClause = await catalogListingFromSqlForQuery({
+            needsCategoryJoin,
+            needsBrandJoin,
+          })
+          ids = await fetchShuffledActiveProductIds(
+            fromClause,
+            whereSql,
+            idParams,
+            need,
+            cursor
+          )
+        }
+        if (!ids.length) break
+        cursor += ids.length
+        const batchRows = await fetchProductRowsByIds(ids, { catalog: true })
+        for (const row of batchRows) {
+          const id = String(row.id ?? '')
+          if (!id || seen.has(id)) continue
+          const flag = row.sold_out
+          if (flag === 1 || flag === true || flag === '1') continue
+          if (!String(row.image_url ?? '').trim()) continue
+          seen.add(id)
+          out.push(row)
+          if (out.length >= limit) break
+        }
       }
-      const fromClause = await catalogListingFromSqlForQuery({
-        needsCategoryJoin,
-        needsBrandJoin,
-      })
-      const ids = await fetchShuffledActiveProductIds(fromClause, whereSql, idParams, limit, offset)
-      if (!ids.length) return []
-      return fetchProductRowsByIds(ids, { catalog: true })
+      return out.slice(0, limit)
     }
 
     const idRows = await queryDb<{ id: string }[]>(
@@ -1863,12 +1887,15 @@ async function loadActiveProductsPaginatedFromDb(
 
   const rows = await fetchPageProductRows()
   // Defense: never return sold_out / blank-image rows to the shop grid (stale shuffle ids, etc.).
-  const inStockRows = rows.filter((row) => {
-    const flag = row.sold_out
-    if (flag === 1 || flag === true || flag === '1') return false
-    const image = String(row.image_url ?? '').trim()
-    return Boolean(image)
-  })
+  // Shuffle path already filtered while filling; keep the guard for non-shuffle listings.
+  const inStockRows = shuffle
+    ? rows
+    : rows.filter((row) => {
+        const flag = row.sold_out
+        if (flag === 1 || flag === true || flag === '1') return false
+        const image = String(row.image_url ?? '').trim()
+        return Boolean(image)
+      })
   // Hard cap — never exceed the requested page size (load-more merge safety).
   const cappedRows = inStockRows.slice(0, limit)
   const items = serializeProductRowsSync(cappedRows, brandSkuPrefixes)
@@ -1880,19 +1907,10 @@ async function loadActiveProductsPaginatedFromDb(
     total = await getCachedActiveProductTotal()
     responseSkipTotal = false
   } else if (query.mode === 'new') {
-    // Prefer a warm cache hit so the product grid is not blocked by COUNT(*).
-    // Client already sends skipTotal=1 + a parallel countOnly when needed.
-    const peeked = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')
-    if (peeked != null) {
-      total = peeked
-      responseSkipTotal = false
-    } else if (query.skipTotal) {
-      void getCachedNewProductsWeekTotal()
-      responseSkipTotal = true
-    } else {
-      total = await getCachedNewProductsWeekTotal()
-      responseSkipTotal = false
-    }
+    // Always resolve the week total (cached). Skipping left /new stuck at "24 van 24"
+    // when SSR applied a temporary floor from the first page size.
+    total = await getCachedNewProductsWeekTotal()
+    responseSkipTotal = false
   } else {
     const peekTotal = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
     if (peekTotal != null) {
