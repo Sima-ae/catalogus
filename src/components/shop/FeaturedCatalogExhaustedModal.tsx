@@ -33,7 +33,7 @@ export default function FeaturedCatalogExhaustedModal({
 
   if (!open) return null
 
-  const prefill = t('shop.featuredCatalog.whatsappPrefill', { total: totalLabel })
+  const prefill = t('shop.featuredCatalog.whatsappPrefill')
   const whatsappUrl =
     resolveWhatsAppContactUrl(prefill) ||
     `https://wa.me/31687999505?text=${encodeURIComponent(prefill)}`

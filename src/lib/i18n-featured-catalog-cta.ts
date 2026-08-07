@@ -14,7 +14,7 @@ type FeaturedCatalogCtaMessages = Record<FeaturedCatalogCtaMessageKey, string>
  * Source wording (NL):
  * Title: Wil je alle {total} producten zien?
  * Body: Deze webpagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur een bericht via:
- * Prefill: Hoi! Ik wil graag de volledige Super Clones-catalogus zien ({total} producten).
+ * Prefill: Hallo! Ik wil graag de volledige catalogus zien.
  */
 const EN: FeaturedCatalogCtaMessages = {
   'shop.featuredCatalog.needAllTitle': 'Want to see all {total} products?',
@@ -23,7 +23,7 @@ const EN: FeaturedCatalogCtaMessages = {
   'shop.featuredCatalog.whatsapp': 'WhatsApp',
   'shop.featuredCatalog.close': 'Close',
   'shop.featuredCatalog.whatsappPrefill':
-    "Hi! I'd like to see the full Super Clones catalog ({total} products).",
+    "Hi! I'd like to see the full catalog.",
   'shop.badge.new': 'NEW',
 }
 
@@ -36,7 +36,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Sluiten',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hoi! Ik wil graag de volledige Super Clones-catalogus zien ({total} producten).',
+      'Hallo! Ik wil graag de volledige catalogus zien.',
     'shop.badge.new': 'NIEUW',
   },
   de: {
@@ -46,7 +46,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Schließen',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hallo! Ich möchte gerne den vollständigen Super Clones-Katalog sehen ({total} Produkte).',
+      'Hallo! Ich möchte gerne den vollständigen Katalog sehen.',
     'shop.badge.new': 'NEU',
   },
   fr: {
@@ -56,7 +56,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Fermer',
     'shop.featuredCatalog.whatsappPrefill':
-      'Bonjour ! Je voudrais voir le catalogue complet Super Clones ({total} produits).',
+      'Bonjour ! Je voudrais voir le catalogue complet.',
     'shop.badge.new': 'NOUVEAU',
   },
   es: {
@@ -66,7 +66,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Cerrar',
     'shop.featuredCatalog.whatsappPrefill':
-      '¡Hola! Me gustaría ver el catálogo completo de Super Clones ({total} productos).',
+      '¡Hola! Me gustaría ver el catálogo completo.',
     'shop.badge.new': 'NUEVO',
   },
   pt: {
@@ -76,7 +76,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Fechar',
     'shop.featuredCatalog.whatsappPrefill':
-      'Olá! Gostaria de ver o catálogo completo Super Clones ({total} produtos).',
+      'Olá! Gostaria de ver o catálogo completo.',
     'shop.badge.new': 'NOVO',
   },
   it: {
@@ -86,7 +86,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Chiudi',
     'shop.featuredCatalog.whatsappPrefill':
-      'Ciao! Vorrei vedere il catalogo completo Super Clones ({total} prodotti).',
+      'Ciao! Vorrei vedere il catalogo completo.',
     'shop.badge.new': 'NUOVO',
   },
   gr: {
@@ -96,7 +96,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Κλείσιμο',
     'shop.featuredCatalog.whatsappPrefill':
-      'Γεια! Θα ήθελα να δω τον πλήρη κατάλογο Super Clones ({total} προϊόντα).',
+      'Γεια σας! Θα ήθελα να δω τον πλήρη κατάλογο.',
     'shop.badge.new': 'ΝΕΟ',
   },
   pl: {
@@ -106,7 +106,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zamknij',
     'shop.featuredCatalog.whatsappPrefill':
-      'Cześć! Chciałbym zobaczyć pełny katalog Super Clones ({total} produktów).',
+      'Cześć! Chciałbym zobaczyć pełny katalog.',
     'shop.badge.new': 'NOWOŚĆ',
   },
   cz: {
@@ -116,7 +116,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zavřít',
     'shop.featuredCatalog.whatsappPrefill':
-      'Ahoj! Chtěl bych vidět celý katalog Super Clones ({total} produktů).',
+      'Ahoj! Chtěl bych vidět celý katalog.',
     'shop.badge.new': 'NOVÉ',
   },
   sk: {
@@ -126,7 +126,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zavrieť',
     'shop.featuredCatalog.whatsappPrefill':
-      'Ahoj! Chcel by som vidieť celý katalóg Super Clones ({total} produktov).',
+      'Ahoj! Chcel by som vidieť celý katalóg.',
     'shop.badge.new': 'NOVÉ',
   },
   hu: {
@@ -136,7 +136,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Bezárás',
     'shop.featuredCatalog.whatsappPrefill':
-      'Szia! Szeretném megnézni a teljes Super Clones katalógust ({total} termék).',
+      'Szia! Szeretném megnézni a teljes katalógust.',
     'shop.badge.new': 'ÚJ',
   },
   ro: {
@@ -146,7 +146,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Închide',
     'shop.featuredCatalog.whatsappPrefill':
-      'Bună! Aș dori să văd catalogul complet Super Clones ({total} produse).',
+      'Bună! Aș dori să văd catalogul complet.',
     'shop.badge.new': 'NOU',
   },
   bg: {
@@ -156,7 +156,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Затвори',
     'shop.featuredCatalog.whatsappPrefill':
-      'Здравей! Искам да видя пълния каталог на Super Clones ({total} продукта).',
+      'Здравей! Искам да видя пълния каталог.',
     'shop.badge.new': 'НОВО',
   },
   hr: {
@@ -166,7 +166,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zatvori',
     'shop.featuredCatalog.whatsappPrefill':
-      'Bok! Želio bih vidjeti cijeli Super Clones katalog ({total} proizvoda).',
+      'Bok! Želio bih vidjeti cijeli katalog.',
     'shop.badge.new': 'NOVO',
   },
   sr: {
@@ -176,7 +176,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Затвори',
     'shop.featuredCatalog.whatsappPrefill':
-      'Здраво! Желео бих да видим цео Super Clones каталог ({total} производа).',
+      'Здраво! Желео бих да видим цео каталог.',
     'shop.badge.new': 'НОВО',
   },
   ba: {
@@ -186,7 +186,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zatvori',
     'shop.featuredCatalog.whatsappPrefill':
-      'Zdravo! Želio bih vidjeti cijeli Super Clones katalog ({total} proizvoda).',
+      'Zdravo! Želio bih vidjeti cijeli katalog.',
     'shop.badge.new': 'NOVO',
   },
   me: {
@@ -196,7 +196,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Zatvori',
     'shop.featuredCatalog.whatsappPrefill':
-      'Zdravo! Želio bih vidjeti cijeli Super Clones katalog ({total} proizvoda).',
+      'Zdravo! Želio bih vidjeti cijeli katalog.',
     'shop.badge.new': 'NOVO',
   },
   sq: {
@@ -206,7 +206,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Mbyll',
     'shop.featuredCatalog.whatsappPrefill':
-      'Përshëndetje! Do të doja të shihja katalogun e plotë Super Clones ({total} produkte).',
+      'Përshëndetje! Do të doja të shihja katalogun e plotë.',
     'shop.badge.new': 'E RE',
   },
   mk: {
@@ -216,7 +216,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Затвори',
     'shop.featuredCatalog.whatsappPrefill':
-      'Здраво! Сакам да го видам целиот каталог на Super Clones ({total} производи).',
+      'Здраво! Сакам да го видам целиот каталог.',
     'shop.badge.new': 'НОВО',
   },
   lt: {
@@ -226,7 +226,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Uždaryti',
     'shop.featuredCatalog.whatsappPrefill':
-      'Sveiki! Norėčiau pamatyti visą Super Clones katalogą ({total} produktų).',
+      'Sveiki! Norėčiau pamatyti visą katalogą.',
     'shop.badge.new': 'NAUJA',
   },
   da: {
@@ -236,7 +236,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Luk',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hej! Jeg vil gerne se hele Super Clones-kataloget ({total} produkter).',
+      'Hej! Jeg vil gerne se hele kataloget.',
     'shop.badge.new': 'NY',
   },
   sv: {
@@ -246,7 +246,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Stäng',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hej! Jag vill gärna se hela Super Clones-katalogen ({total} produkter).',
+      'Hej! Jag vill gärna se hela katalogen.',
     'shop.badge.new': 'NY',
   },
   nb: {
@@ -256,7 +256,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Lukk',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hei! Jeg ønsker å se hele Super Clones-katalogen ({total} produkter).',
+      'Hei! Jeg ønsker å se hele katalogen.',
     'shop.badge.new': 'NY',
   },
   fi: {
@@ -266,7 +266,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Sulje',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hei! Haluaisin nähdä koko Super Clones -katalogin ({total} tuotetta).',
+      'Hei! Haluaisin nähdä koko katalogin.',
     'shop.badge.new': 'UUSI',
   },
   uk: {
@@ -276,7 +276,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Закрити',
     'shop.featuredCatalog.whatsappPrefill':
-      'Привіт! Я хотів би побачити повний каталог Super Clones ({total} товарів).',
+      'Привіт! Я хотів би побачити повний каталог.',
     'shop.badge.new': 'НОВЕ',
   },
   ru: {
@@ -286,7 +286,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Закрыть',
     'shop.featuredCatalog.whatsappPrefill':
-      'Здравствуйте! Я хотел бы увидеть полный каталог Super Clones ({total} товаров).',
+      'Здравствуйте! Я хотел бы увидеть полный каталог.',
     'shop.badge.new': 'НОВОЕ',
   },
   tr: {
@@ -296,7 +296,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Kapat',
     'shop.featuredCatalog.whatsappPrefill':
-      'Merhaba! Tam Super Clones kataloğunu görmek istiyorum ({total} ürün).',
+      'Merhaba! Tam kataloğu görmek istiyorum.',
     'shop.badge.new': 'YENİ',
   },
   he: {
@@ -306,7 +306,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'סגור',
     'shop.featuredCatalog.whatsappPrefill':
-      'שלום! אשמח לראות את קטלוג Super Clones המלא ({total} מוצרים).',
+      'שלום! אשמח לראות את הקטלוג המלא.',
     'shop.badge.new': 'חדש',
   },
   eg: {
@@ -316,7 +316,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
-      'مرحبًا! أود رؤية كتالوج Super Clones الكامل ({total} منتجًا).',
+      'مرحبًا! أود رؤية الكتالوج الكامل.',
     'shop.badge.new': 'جديد',
   },
   at: {
@@ -326,7 +326,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
-      'مرحبًا! أود رؤية كتالوج Super Clones الكامل ({total} منتجًا).',
+      'مرحبًا! أود رؤية الكتالوج الكامل.',
     'shop.badge.new': 'جديد',
   },
   ps: {
@@ -336,7 +336,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
-      'مرحبًا! أود رؤية كتالوج Super Clones الكامل ({total} منتجًا).',
+      'مرحبًا! أود رؤية الكتالوج الكامل.',
     'shop.badge.new': 'جديد',
   },
   ma: {
@@ -346,7 +346,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
-      'مرحبًا! أود رؤية كتالوج Super Clones الكامل ({total} منتجًا).',
+      'مرحبًا! أود رؤية الكتالوج الكامل.',
     'shop.badge.new': 'جديد',
   },
   dz: {
@@ -356,7 +356,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'واتساب',
     'shop.featuredCatalog.close': 'إغلاق',
     'shop.featuredCatalog.whatsappPrefill':
-      'مرحبًا! أود رؤية كتالوج Super Clones الكامل ({total} منتجًا).',
+      'مرحبًا! أود رؤية الكتالوج الكامل.',
     'shop.badge.new': 'جديد',
   },
   ka: {
@@ -366,7 +366,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'დახურვა',
     'shop.featuredCatalog.whatsappPrefill':
-      'გამარჯობა! მინდა ვნახო Super Clones-ის სრული კატალოგი ({total} პროდუქტი).',
+      'გამარჯობა! მინდა ვნახო სრული კატალოგი.',
     'shop.badge.new': 'ახალი',
   },
   hy: {
@@ -376,7 +376,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Փակել',
     'shop.featuredCatalog.whatsappPrefill':
-      'Բարև։ Կցանկանայի տեսնել Super Clones-ի ամբողջական կատալոգը ({total} ապրանք)։',
+      'Բարև։ Կցանկանայի տեսնել ամբողջական կատալոգը։',
     'shop.badge.new': 'ՆՈՐ',
   },
   az: {
@@ -386,7 +386,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Bağla',
     'shop.featuredCatalog.whatsappPrefill':
-      'Salam! Tam Super Clones kataloquna baxmaq istəyirəm ({total} məhsul).',
+      'Salam! Tam kataloqa baxmaq istəyirəm.',
     'shop.badge.new': 'YENİ',
   },
   ja: {
@@ -396,7 +396,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': '閉じる',
     'shop.featuredCatalog.whatsappPrefill':
-      'こんにちは！Super Clonesの全カタログ（{total}点）を見たいです。',
+      'こんにちは！全カタログを見たいです。',
     'shop.badge.new': '新着',
   },
   zh: {
@@ -406,7 +406,7 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': '关闭',
     'shop.featuredCatalog.whatsappPrefill':
-      '你好！我想查看完整的 Super Clones 目录（共 {total} 件商品）。',
+      '你好！我想查看完整目录。',
     'shop.badge.new': '新品',
   },
 }
