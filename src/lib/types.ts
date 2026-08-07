@@ -46,6 +46,8 @@ export interface Product {
   supplier_pricelist_label?: string | null
   supplier_pricelist_slug?: string | null
   pre_order?: boolean
+  /** When true, `/product/[id]` is viewable without the site-access password. */
+  public_share?: boolean
   created_at: string
   updated_at: string
 }

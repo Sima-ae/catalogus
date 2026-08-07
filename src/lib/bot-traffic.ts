@@ -4,6 +4,33 @@
  */
 export const CATALOGUS_LIGHT_HEADER = 'x-catalogus-light'
 
+/** Social / chat link-preview crawlers (need OG HTML; still noindex for Google). */
+const SOCIAL_PREVIEW_UA_SNIPPETS = [
+  'facebookexternalhit',
+  'facebot',
+  'twitterbot',
+  'linkedinbot',
+  'pinterest',
+  'slackbot',
+  'discordbot',
+  'telegrambot',
+  'whatsapp',
+  'vkshare',
+  'embedly',
+  'quora link preview',
+  'meta-externalagent',
+]
+
+export function isSocialPreviewUserAgent(
+  userAgent: string | null | undefined
+): boolean {
+  const ua = String(userAgent ?? '')
+    .trim()
+    .toLowerCase()
+  if (!ua) return false
+  return SOCIAL_PREVIEW_UA_SNIPPETS.some((snippet) => ua.includes(snippet))
+}
+
 /** Known crawler / monitor / automation user-agents (case-insensitive substring). */
 const BOT_UA_SNIPPETS = [
   // Search engines

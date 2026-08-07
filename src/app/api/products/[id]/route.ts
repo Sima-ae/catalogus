@@ -29,6 +29,10 @@ import {
   checkAndMarkYupooSourceUnavailable,
   markProductsSoldOutUnavailable,
 } from '@/lib/mark-source-unavailable'
+import {
+  getSiteUnlockStateFromRequest,
+  resolvePublicProductAccess,
+} from '@/lib/public-product-access'
 
 function ownershipOf(product: Record<string, unknown>): ProductOwnershipRow {
   return {
@@ -59,6 +63,18 @@ export async function GET(
         return NextResponse.json({ error: allowed.error }, { status: allowed.status })
       }
     } else if (access.kind === 'public') {
+      const unlock = await getSiteUnlockStateFromRequest(request)
+      const shareAccess = await resolvePublicProductAccess(params.id, unlock)
+      if (!shareAccess.allowed) {
+        if (shareAccess.reason === 'locked') {
+          return NextResponse.json(
+            { error: 'Site access password required' },
+            { status: 401 }
+          )
+        }
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      }
+
       const status = String(product.status || 'active')
       if (status === 'draft' || status === 'inactive' || status === 'trash') {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })

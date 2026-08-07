@@ -1,0 +1,87 @@
+import { cookies } from 'next/headers'
+import type { NextRequest } from 'next/server'
+import { getProductById } from '@/lib/products-db'
+import { getSiteAccessConfig } from '@/lib/site-access'
+import {
+  SITE_ACCESS_COOKIE,
+  readUnlockCookie,
+  verifyUnlockToken,
+} from '@/lib/site-access-cookie'
+
+export type PublicProductAccessResult =
+  | { allowed: true; unlocked: boolean; publicShare: boolean }
+  | { allowed: false; reason: 'not_found' | 'locked' | 'unavailable' }
+
+async function isSiteUnlockedFromCookie(
+  unlockCookie: string | undefined
+): Promise<{ required: boolean; unlocked: boolean }> {
+  const config = await getSiteAccessConfig()
+  if (!config.required) {
+    return { required: false, unlocked: true }
+  }
+  const unlocked = await verifyUnlockToken(unlockCookie, config.version)
+  return { required: true, unlocked }
+}
+
+/** Site unlock from Next.js server cookies() (RSC / route handlers). */
+export async function getSiteUnlockState(): Promise<{
+  required: boolean
+  unlocked: boolean
+}> {
+  const jar = cookies()
+  return isSiteUnlockedFromCookie(jar.get(SITE_ACCESS_COOKIE)?.value)
+}
+
+/** Site unlock from an incoming request (API routes). */
+export async function getSiteUnlockStateFromRequest(
+  request: NextRequest | Request
+): Promise<{ required: boolean; unlocked: boolean }> {
+  const cookieHeader =
+    'headers' in request ? request.headers.get('cookie') : null
+  return isSiteUnlockedFromCookie(readUnlockCookie(cookieHeader))
+}
+
+function isStorefrontVisibleProduct(product: Record<string, unknown>): boolean {
+  const status = String(product.status || 'active')
+  if (status === 'draft' || status === 'inactive' || status === 'trash') {
+    return false
+  }
+  if (Boolean(product.sold_out)) return false
+  return true
+}
+
+/**
+ * Whether a locked visitor (or social crawler) may view this product page/API.
+ * Unlocked visitors are always allowed when the product exists and is storefront-visible.
+ */
+export async function resolvePublicProductAccess(
+  productId: string,
+  options?: { unlocked?: boolean; required?: boolean }
+): Promise<PublicProductAccessResult & { product?: Record<string, unknown> }> {
+  const unlock =
+    options?.unlocked != null && options?.required != null
+      ? { required: options.required, unlocked: options.unlocked }
+      : await getSiteUnlockState()
+
+  const product = (await getProductById(productId)) as Record<string, unknown> | null
+  if (!product) {
+    return { allowed: false, reason: 'not_found' }
+  }
+
+  if (!isStorefrontVisibleProduct(product)) {
+    return { allowed: false, reason: 'unavailable', product }
+  }
+
+  const publicShare = Boolean(product.public_share)
+
+  if (!unlock.required || unlock.unlocked) {
+    return { allowed: true, unlocked: unlock.unlocked, publicShare, product }
+  }
+
+  // Locked visitor: only public_share products.
+  if (!publicShare) {
+    return { allowed: false, reason: 'locked', product }
+  }
+
+  return { allowed: true, unlocked: false, publicShare: true, product }
+}

@@ -131,6 +131,7 @@ export type ProductInput = {
   featured?: boolean
   sold_out?: boolean
   pre_order?: boolean
+  public_share?: boolean
   available_sizes?: string | null
   available_colors?: string | null
   product_options?: ProductOptions | null
@@ -1295,6 +1296,7 @@ export async function insertProduct(input: ProductInput) {
     featured: input.featured ? 1 : 0,
     sold_out: input.sold_out ? 1 : 0,
     pre_order: input.pre_order ? 1 : 0,
+    public_share: input.public_share ? 1 : 0,
     ...(schema.available_sizes && input.available_sizes !== undefined
       ? { available_sizes: input.available_sizes || null }
       : {}),
@@ -1418,6 +1420,8 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     featured: input.featured != null ? (input.featured ? 1 : 0) : undefined,
     sold_out: input.sold_out != null ? (input.sold_out ? 1 : 0) : undefined,
     pre_order: input.pre_order != null ? (input.pre_order ? 1 : 0) : undefined,
+    public_share:
+      input.public_share != null ? (input.public_share ? 1 : 0) : undefined,
     available_sizes:
       schema.available_sizes && input.available_sizes !== undefined
         ? input.available_sizes || null

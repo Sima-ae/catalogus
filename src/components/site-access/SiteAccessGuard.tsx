@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { appPath } from '@/lib/paths'
 import { isPricelistSharePath } from '@/lib/pricelist-share-path'
+import { isPublicProductPath } from '@/lib/public-product-path'
 import { useI18n } from '@/lib/i18n-context'
 import {
   navigateAfterSiteAccessUnlock,
@@ -76,13 +77,15 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     pathname === gatePath || pathname?.endsWith('/site-access-gate')
 
   const pricelistShare = isPricelistSharePath(pathname || '', searchParams.get('owner'))
+  const publicProductShare = isPublicProductPath(pathname || '')
 
   const inactivityEnabled = Boolean(
     status?.required &&
       status?.unlocked &&
       status?.sessionActive &&
       !onGate &&
-      !pricelistShare
+      !pricelistShare &&
+      !publicProductShare
   )
 
   const handleInactivityLock = useCallback(() => {
@@ -138,7 +141,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     }
 
     // Full gate only when the device has never unlocked (or remember expired).
-    if (status.required && !status.unlocked && !pricelistShare) {
+    if (status.required && !status.unlocked && !pricelistShare && !publicProductShare) {
       if (redirectingRef.current) return
       redirectingRef.current = true
       const from = pathname || '/'
@@ -154,6 +157,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     gatePath,
     searchParams,
     pricelistShare,
+    publicProductShare,
     showInactivityModal,
   ])
 
@@ -207,6 +211,7 @@ export default function SiteAccessGuard({ children }: { children: React.ReactNod
     !status.unlocked &&
     !onGate &&
     !pricelistShare &&
+    !publicProductShare &&
     !isInactivityFlow(showInactivityModal, inactivityModeRef)
   ) {
     return (

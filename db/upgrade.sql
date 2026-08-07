@@ -719,3 +719,7 @@ ALTER TABLE products
 
 ALTER TABLE products
   ADD KEY IF NOT EXISTS idx_products_status_brand_id (status, brand_id);
+
+-- Per-product public share (view without site-access password)
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS public_share TINYINT(1) NOT NULL DEFAULT 0 AFTER pre_order;

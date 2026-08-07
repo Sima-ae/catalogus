@@ -56,6 +56,7 @@ const defaultForm = {
   featured: false,
   sold_out: false,
   pre_order: false,
+  public_share: false,
   version: APP_DEFAULT_PRODUCT_VERSION,
   license_type: '',
   demo_url: '',
@@ -520,6 +521,21 @@ export default function ProductForm({
                 />
                 {tr('productForm.preOrder')}
               </label>
+              <label className="flex flex-col gap-1 form-check-label cursor-pointer">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="public_share"
+                    checked={form.public_share}
+                    onChange={onChange}
+                    className="rounded"
+                  />
+                  {tr('productForm.publicShare')}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-normal pl-6">
+                  {tr('productForm.publicShareHint')}
+                </span>
+              </label>
             </div>
           ) : null}
         </div>
@@ -735,6 +751,7 @@ function mapProductToForm(p: Partial<Product>) {
     featured: !!p.featured,
     sold_out: !!p.sold_out,
     pre_order: !!p.pre_order,
+    public_share: !!p.public_share,
     version: resolveProductVersion(p.version),
     license_type: p.license_type || '',
     demo_url: p.demo_url || '',

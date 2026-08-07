@@ -44,6 +44,8 @@ export type ProductFormMessageKey =
   | 'productForm.featured'
   | 'productForm.soldOut'
   | 'productForm.preOrder'
+  | 'productForm.publicShare'
+  | 'productForm.publicShareHint'
   | 'productForm.sectionTabs'
   | 'productForm.tabsHint'
   | 'productForm.features'
@@ -140,6 +142,9 @@ const EN: ProductFormMessages = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -237,6 +242,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -327,6 +335,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Uitgelicht product",
   'productForm.soldOut': "Uitverkocht",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Openbare deellink",
+  'productForm.publicShareHint':
+    "Iedereen met deze product-URL kan de pagina openen zonder de sitewachtwoord. Social apps tonen titel en hoofdafbeelding als voorbeeld.",
   'productForm.sectionTabs': "Tabbladen productpagina",
   'productForm.tabsHint': "Inhoud onder Functies, Vereisten en Ondersteuning op de openbare productpagina.",
   'productForm.features': "Kenmerken (één per regel)",
@@ -842,6 +853,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -932,6 +946,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1022,6 +1039,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1112,6 +1132,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1202,6 +1225,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1292,6 +1318,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1382,6 +1411,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1472,6 +1504,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1562,6 +1597,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1652,6 +1690,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1742,6 +1783,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1832,6 +1876,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -1922,6 +1969,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2012,6 +2062,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2102,6 +2155,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2192,6 +2248,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2282,6 +2341,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2372,6 +2434,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2462,6 +2527,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2552,6 +2620,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2642,6 +2713,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2732,6 +2806,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2822,6 +2899,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -2912,6 +2992,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3002,6 +3085,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3092,6 +3178,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3182,6 +3271,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3272,6 +3364,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3362,6 +3457,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3452,6 +3550,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3542,6 +3643,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",
@@ -3632,6 +3736,9 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.featured': "Featured product",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
+  'productForm.publicShare': "Public share link",
+  'productForm.publicShareHint':
+    "Anyone with this product URL can open it without the site password. Social apps show the title and main image as a preview.",
   'productForm.sectionTabs': "Product page tabs",
   'productForm.tabsHint': "Content shown under Features, Requirements, and Support on the public product page.",
   'productForm.features': "Features (one per line)",

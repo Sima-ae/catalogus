@@ -12,6 +12,10 @@ import {
 
 import { isPricelistSharePath, isPricelistApiPath } from '@/lib/pricelist-share-path'
 import {
+  isPublicProductApiPath,
+  isPublicProductPath,
+} from '@/lib/public-product-path'
+import {
   LOCALE_COOKIE,
   localizedPath,
   parseLocaleFromPathname,
@@ -25,6 +29,7 @@ import {
   isLikelyBotUserAgent,
   isRateLimitedIp,
   isScrapeTokenMintPath,
+  isSocialPreviewUserAgent,
 } from '@/lib/bot-traffic'
 import { hasAuthorizedScrapeAccess } from '@/lib/scrape-access'
 import { resolveCategoryForHost } from '@/lib/category-host-map'
@@ -206,13 +211,18 @@ export async function middleware(request: NextRequest) {
 
   // Third-party scrapers + search crawlers: permanent cheap 404 (no HTML, no APIs).
   // Only our apps with a valid scrape token / SCRAPE_BYPASS_SECRET may automate.
+  // Exception: social preview bots may fetch product share pages for OG metadata.
   if (isBot && !scrapeAuthorized) {
-    return finish(
-      new NextResponse(null, {
-        status: 404,
-        headers: { 'Cache-Control': 'public, max-age=3600' },
-      })
-    )
+    if (isSocialPreviewUserAgent(ua) && isPublicProductPath(pathname)) {
+      // Fall through to locale/gate handling below (product path bypass when locked).
+    } else {
+      return finish(
+        new NextResponse(null, {
+          status: 404,
+          headers: { 'Cache-Control': 'public, max-age=3600' },
+        })
+      )
+    }
   }
 
   // Authorized own-app scrapers skip the human site-access gate.
@@ -297,13 +307,20 @@ export async function middleware(request: NextRequest) {
   if (
     isSiteAccessApi(pathname) ||
     isPricelistApiPath(pathname) ||
+    isPublicProductApiPath(pathname) ||
     isChatApi(pathname)
   ) {
     return finish(NextResponse.next())
   }
 
   // Cookieless scrapers pretending to be browsers — hard cap.
-  if (!hasMeta && !hasUnlock && isRateLimitedIp(`anon:${clientIp(request)}`, 20, 60_000)) {
+  // Social preview crawlers on product share URLs are allowed (OG metadata).
+  if (
+    !hasMeta &&
+    !hasUnlock &&
+    !(isSocialPreviewUserAgent(ua) && isPublicProductPath(pathname)) &&
+    isRateLimitedIp(`anon:${clientIp(request)}`, 20, 60_000)
+  ) {
     return finish(
       new NextResponse(null, {
         status: 429,
@@ -341,6 +358,10 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
+      return finish(withMeta(withLightHeader(request)))
+    }
+
+    if (isPublicProductPath(pathname)) {
       return finish(withMeta(withLightHeader(request)))
     }
 

@@ -169,6 +169,7 @@ export function serializeProductRow(
     featured: row.featured === 1 || row.featured === true,
     sold_out: row.sold_out === 1 || row.sold_out === true,
     pre_order: row.pre_order === 1 || row.pre_order === true,
+    public_share: row.public_share === 1 || row.public_share === true,
     status: String(row.status || 'active'),
     created_at: row.created_at != null ? String(row.created_at) : '',
     updated_at: row.updated_at != null ? String(row.updated_at) : '',

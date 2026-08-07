@@ -72,6 +72,7 @@ export function applySellerProductInput(
     author_icon: sellerAuthorIcon(seller),
     author_id: seller.userId,
     featured: false,
+    public_share: false,
     rating: undefined,
     review_count: undefined,
     download_count: undefined,
