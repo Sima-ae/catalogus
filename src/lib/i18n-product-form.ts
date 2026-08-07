@@ -42,6 +42,7 @@ export type ProductFormMessageKey =
   | 'productForm.statusDraft'
   | 'productForm.statusInactive'
   | 'productForm.featured'
+  | 'productForm.featuredHint'
   | 'productForm.soldOut'
   | 'productForm.preOrder'
   | 'productForm.publicShare'
@@ -140,6 +141,8 @@ const EN: ProductFormMessages = {
   'productForm.statusDraft': "Draft",
   'productForm.statusInactive': "Inactive",
   'productForm.featured': "Featured product",
+  'productForm.featuredHint':
+    "When enabled, this product appears on www.1-1.club (featured-only storefront).",
   'productForm.soldOut': "Sold out",
   'productForm.preOrder': "Pre-order",
   'productForm.publicShare': "Public share link",
@@ -333,6 +336,8 @@ const BY_LOCALE: Partial<Record<Locale, Partial<ProductFormMessages>>> = {
   'productForm.statusDraft': "Concept",
   'productForm.statusInactive': "Inactief",
   'productForm.featured': "Uitgelicht product",
+  'productForm.featuredHint':
+    "Als dit aan staat, verschijnt dit product op www.1-1.club (alleen uitgelichte producten).",
   'productForm.soldOut': "Uitverkocht",
   'productForm.preOrder': "Pre-order",
   'productForm.publicShare': "Openbare deellink",

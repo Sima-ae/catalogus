@@ -1,0 +1,14 @@
+# Apex → www for 1-1.club (place in public_html/.htaccess when OLS serves static,
+# or rely on next.config.js redirects when everything is proxied to Node).
+#
+# Also enable Force HTTPS in CyberPanel SSL for 1-1.club.
+
+RewriteEngine On
+
+# HTTP → HTTPS
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Apex → www
+RewriteCond %{HTTP_HOST} ^1-1\.club$ [NC]
+RewriteRule ^ https://www.1-1.club%{REQUEST_URI} [L,R=301]

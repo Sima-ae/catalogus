@@ -33,9 +33,28 @@ import {
 } from '@/lib/bot-traffic'
 import { hasAuthorizedScrapeAccess } from '@/lib/scrape-access'
 import { resolveCategoryForHost } from '@/lib/category-host-map'
+import {
+  CATALOGUS_STORE_FEATURED,
+  CATALOGUS_STORE_HEADER,
+  isFeaturedOnlyHost,
+} from '@/lib/store-host'
 
 const GATE_PATH = '/site-access-gate'
 const LOCALE_HEADER = 'x-catalogus-locale'
+
+function withStoreModeHeaders(request: NextRequest, base?: Headers): Headers {
+  const headers = new Headers(base ?? request.headers)
+  if (isFeaturedOnlyHost(request.nextUrl.hostname)) {
+    headers.set(CATALOGUS_STORE_HEADER, CATALOGUS_STORE_FEATURED)
+  }
+  return headers
+}
+
+function nextWithStore(request: NextRequest): NextResponse {
+  return NextResponse.next({
+    request: { headers: withStoreModeHeaders(request) },
+  })
+}
 
 function isStaticAsset(pathname: string): boolean {
   if (pathname.startsWith('/_next/static') || pathname.startsWith('/_next/image')) {
@@ -86,7 +105,7 @@ function applyResolvedLocaleRouting(
   if (resolved.action === 'rewrite') {
     const url = request.nextUrl.clone()
     url.pathname = resolved.pathname
-    const requestHeaders = new Headers(request.headers)
+    const requestHeaders = withStoreModeHeaders(request)
     requestHeaders.set(LOCALE_HEADER, resolved.locale)
     if (light) requestHeaders.set(CATALOGUS_LIGHT_HEADER, '1')
     const res = NextResponse.rewrite(url, { request: { headers: requestHeaders } })
@@ -110,7 +129,7 @@ function applyLocaleRouting(request: NextRequest): NextResponse | null {
 }
 
 function withLightHeader(request: NextRequest): NextResponse {
-  const requestHeaders = new Headers(request.headers)
+  const requestHeaders = withStoreModeHeaders(request)
   requestHeaders.set(CATALOGUS_LIGHT_HEADER, '1')
   return NextResponse.next({ request: { headers: requestHeaders } })
 }
@@ -265,10 +284,10 @@ export async function middleware(request: NextRequest) {
   // Authorized own-app scrapers skip the human site-access gate.
   if (scrapeAuthorized) {
     if (pathname.startsWith('/api/')) {
-      return finish(NextResponse.next())
+      return finish(nextWithStore(request))
     }
     const localeResponse = applyLocaleRouting(request)
-    return finish(localeResponse ?? NextResponse.next())
+    return finish(localeResponse ?? nextWithStore(request))
   }
 
   const hasMeta = Boolean(request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value)
@@ -283,7 +302,7 @@ export async function middleware(request: NextRequest) {
       peekUnlockTokenVersion(unlock) ||
       0
     if (unlock && (await verifyUnlockToken(unlock, metaVersion))) {
-      return finish(NextResponse.next())
+      return finish(nextWithStore(request))
     }
   }
 
@@ -308,7 +327,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Optional marketing hosts: watches.example.com → ?category=WATCHES when unset.
-  const hostCategory = resolveCategoryForHost(request.nextUrl.hostname)
+  // Featured-only hosts (1-1.club) skip category injection — catalog is featured set.
+  const hostCategory = isFeaturedOnlyHost(request.nextUrl.hostname)
+    ? null
+    : resolveCategoryForHost(request.nextUrl.hostname)
   if (
     hostCategory &&
     !shouldSkipLocaleRouting(pathname) &&
@@ -351,7 +373,7 @@ export async function middleware(request: NextRequest) {
     isPublicShareAssetApiPath(pathname) ||
     isChatApi(pathname)
   ) {
-    return finish(NextResponse.next())
+    return finish(nextWithStore(request))
   }
 
   // Cookieless scrapers pretending to be browsers — hard cap.
@@ -431,10 +453,10 @@ export async function middleware(request: NextRequest) {
 
   if (!access.required || access.allowed) {
     const localeResponse = applyLocaleRouting(request)
-    return finish(withMeta(localeResponse ?? NextResponse.next()))
+    return finish(withMeta(localeResponse ?? nextWithStore(request)))
   }
 
-  return finish(withMeta(NextResponse.next()))
+  return finish(withMeta(nextWithStore(request)))
 }
 
 export const config = {

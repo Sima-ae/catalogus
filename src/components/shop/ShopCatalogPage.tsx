@@ -10,6 +10,7 @@ import CategoryFilter from '@/components/shop/CategoryFilter'
 import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing from '@/components/shop/ShopCatalogListing'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
+import type { ProductFeaturedSaved } from '@/components/shop/FeaturedStarButton'
 import CatalogLoadingOverlay from '@/components/shop/CatalogLoadingOverlay'
 import ShopPricelistBulkAddBar from '@/components/shop/ShopPricelistBulkAddBar'
 import { Product } from '@/lib/types'
@@ -659,6 +660,25 @@ function ShopCatalogPageContent({
 
     invalidateShopBrandMenuCache()
     setReloadToken((t) => t + 1)
+  }
+
+  const handleProductFeaturedSaved = (saved: ProductFeaturedSaved) => {
+    // Featured-only hosts (1-1.club) drop the product from the live grid when cleared.
+    const onFeaturedOnlyHost =
+      typeof window !== 'undefined' &&
+      /(?:^|\.)1-1\.club$/i.test(window.location.hostname)
+
+    if (onFeaturedOnlyHost && !saved.featured) {
+      setProducts((prev) => prev.filter((p) => p.id !== saved.productId))
+      setTotalItems((prev) => Math.max(0, prev - 1))
+    } else {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === saved.productId ? { ...p, featured: saved.featured } : p
+        )
+      )
+    }
+    invalidateShopCatalogCache()
   }
 
   useEffect(() => {
@@ -1366,6 +1386,7 @@ function ShopCatalogPageContent({
                 onProductDeleted={handleProductDeleted}
                 onProductUnavailable={handleProductDeleted}
                 onProductQuickEditSaved={handleProductQuickEditSaved}
+                onProductFeaturedSaved={handleProductFeaturedSaved}
                 onReorder={isAdmin ? handleReorder : undefined}
                 reorderScope={isAdmin ? reorderScope : null}
                 reorderSaving={reorderSaving}

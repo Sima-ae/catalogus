@@ -1,0 +1,35 @@
+# www.1-1.club — OpenLiteSpeed vHost (CyberPanel)
+#
+# Same Next.js process as Super Clones (127.0.0.1:3001). Do NOT start a second Node app.
+#
+# Setup checklist:
+# 1. CyberPanel → Websites → Create Website → 1-1.club (add www as alias if offered).
+# 2. SSL → Let’s Encrypt for 1-1.club AND www.1-1.club; enable Force HTTPS.
+# 3. Paste this block into vHost Conf for 1-1.club (and www if separate).
+# 4. Share product images with Super Clones (pick one):
+#      ln -sfn /home/superclones.cloud/public_html/images /home/1-1.club/public_html/images
+#    OR add an OLS static context for /images/ pointing at the Super Clones images dir
+#    (if you proxy everything to Node, /api/yupoo-image + Next still serve photos).
+# 5. Graceful restart OpenLiteSpeed.
+# 6. App .env on the VPS must include:
+#      FEATURED_ONLY_HOSTS=www.1-1.club,1-1.club
+#      HOST_SITE_BRAND=www.1-1.club:1-1 Club|Featured picks,1-1.club:1-1 Club|Featured picks
+#    then: sudo systemctl restart catalogus
+#
+# Canonical host is www.1-1.club (apex redirects in next.config.js).
+
+extprocessor catalogus_next {
+  type                    proxy
+  address                 127.0.0.1:3001
+  maxConns                100
+  pcKeepAliveTimeout      60
+  initTimeout             60
+  retryTimeout            0
+  respBuffer              0
+}
+
+context / {
+  type                    proxy
+  handler                 catalogus_next
+  addDefaultCharset       off
+}

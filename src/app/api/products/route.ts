@@ -27,6 +27,7 @@ import {
   CATALOG_PAGE_SIZE,
 } from '@/lib/catalog-products'
 import { omitProductInternalPricing } from '@/lib/product-serialize'
+import { resolveStoreModeFromHeaders } from '@/lib/store-host'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
   try {
     const scope = request.nextUrl.searchParams.get('scope')?.trim()
     const access = await resolveCatalogAccess(request)
+    const storeMode = resolveStoreModeFromHeaders(request.headers)
 
     if (scope === 'admin' && access.kind === 'admin') {
       const adminQuery = parseAdminProductsQuery(request.nextUrl.searchParams)
@@ -57,6 +59,7 @@ export async function GET(request: NextRequest) {
           filledPricesOnly: adminQuery.filledPricesOnly,
           outOfStockOnly: adminQuery.outOfStockOnly,
           soldOutOnly: adminQuery.soldOutOnly,
+          featuredOnly: adminQuery.featuredOnly,
           pricelistOwner: adminQuery.pricelistOwner,
         }),
         includeStats ? getProductDashboardStats() : Promise.resolve(undefined),
@@ -70,6 +73,11 @@ export async function GET(request: NextRequest) {
     const paginatedQuery = parseCatalogProductsQuery(request.nextUrl.searchParams)
 
     if (paginatedQuery) {
+      if (storeMode === 'featured') {
+        paginatedQuery.featuredOnly = true
+        paginatedQuery.shuffle = false
+      }
+
       if (access.kind === 'seller') {
         const result = await listProductsForSellerPaginated(
           access.actor.userId,

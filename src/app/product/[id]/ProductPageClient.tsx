@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
 import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
+import FeaturedStarButton from '@/components/shop/FeaturedStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import ProductOptionSelector, {
   ProductFixedOptionDisplay,
@@ -598,7 +599,17 @@ export default function ProductPageClient() {
                 />
               </div>
               <div className="absolute top-3 right-3 z-20">
-                <PricelistStarButton productId={product.id} />
+                {canEditProduct ? (
+                  <FeaturedStarButton
+                    productId={product.id}
+                    featured={Boolean(product.featured)}
+                    onSaved={({ featured }) => {
+                      setProduct((prev) => (prev ? { ...prev, featured } : prev))
+                    }}
+                  />
+                ) : (
+                  <PricelistStarButton productId={product.id} />
+                )}
               </div>
               {product.gallery[selectedImage] &&
               !brokenGalleryIndexes.has(selectedImage) &&

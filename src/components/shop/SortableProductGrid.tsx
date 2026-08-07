@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ProductCard from '@/components/shop/ProductCard'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
+import type { ProductFeaturedSaved } from '@/components/shop/FeaturedStarButton'
 import { catalogGridClassName } from '@/components/shop/CatalogPagination'
 import type { Product } from '@/lib/types'
 
@@ -17,6 +18,7 @@ type Props = {
   onProductDeleted?: (productId: string) => void
   onProductUnavailable?: (productId: string) => void
   onProductQuickEditSaved?: (saved: ProductQuickEditSaved) => void
+  onProductFeaturedSaved?: (saved: ProductFeaturedSaved) => void
 }
 
 function reorderList<T extends { id: string }>(list: T[], fromId: string, toId: string): T[] {
@@ -46,6 +48,7 @@ export default function SortableProductGrid({
   onProductDeleted,
   onProductUnavailable,
   onProductQuickEditSaved,
+  onProductFeaturedSaved,
 }: Props) {
   const [ordered, setOrdered] = useState(products)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -156,6 +159,7 @@ export default function SortableProductGrid({
             onDeleted={onProductDeleted}
             onUnavailable={onProductUnavailable}
             onQuickEditSaved={onProductQuickEditSaved}
+            onFeaturedSaved={onProductFeaturedSaved}
             imagePriority={index < 4}
           />
         ))}
@@ -196,6 +200,7 @@ export default function SortableProductGrid({
               onDeleted={onProductDeleted}
               onUnavailable={onProductUnavailable}
               onQuickEditSaved={onProductQuickEditSaved}
+              onFeaturedSaved={onProductFeaturedSaved}
               imagePriority={index < 4}
             />
           </div>

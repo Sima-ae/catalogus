@@ -19,6 +19,9 @@ import {
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
+import FeaturedStarButton, {
+  type ProductFeaturedSaved,
+} from '@/components/shop/FeaturedStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
 import ProductCardBrandEditButton, {
   type ProductQuickEditSaved,
@@ -49,6 +52,7 @@ interface ProductCardProps {
   /** Hide from the live shop grid when the product is blank / unavailable. */
   onUnavailable?: (productId: string) => void
   onQuickEditSaved?: (saved: ProductQuickEditSaved) => void
+  onFeaturedSaved?: (saved: ProductFeaturedSaved) => void
   /** Preload above-the-fold card images for faster first paint. */
   imagePriority?: boolean
 }
@@ -58,6 +62,7 @@ function ProductCard({
   onDeleted,
   onUnavailable,
   onQuickEditSaved,
+  onFeaturedSaved,
   imagePriority = false,
 }: ProductCardProps) {
   const pathname = usePathname()
@@ -67,7 +72,7 @@ function ProductCard({
   const { theme } = useTheme()
   const { catalogMode } = useCatalogMode()
   const { showCardDetails: cardDetailsSetting } = useProductCardDisplay()
-  const { user, loading: authLoading } = useAuth()
+  const { user, isAdmin, loading: authLoading } = useAuth()
   const showCardDetails =
     !authLoading && isCatalogAdminUser(user) && cardDetailsSetting
   const { t } = useI18n()
@@ -241,7 +246,16 @@ function ProductCard({
         />
       </div>
       <div className="absolute bottom-2 right-2 z-20">
-        <PricelistStarButton productId={product.id} size="sm" />
+        {!authLoading && isAdmin ? (
+          <FeaturedStarButton
+            productId={product.id}
+            featured={Boolean(product.featured)}
+            size="sm"
+            onSaved={onFeaturedSaved}
+          />
+        ) : (
+          <PricelistStarButton productId={product.id} size="sm" />
+        )}
       </div>
       
       <div className="space-y-2">
@@ -369,6 +383,7 @@ export default memo(ProductCard, (prev, next) => {
     prev.onDeleted === next.onDeleted &&
     prev.onUnavailable === next.onUnavailable &&
     prev.onQuickEditSaved === next.onQuickEditSaved &&
+    prev.onFeaturedSaved === next.onFeaturedSaved &&
     prev.imagePriority === next.imagePriority
   )
 })

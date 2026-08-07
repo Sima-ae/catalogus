@@ -87,6 +87,16 @@ const nextConfig = {
         hostname: 'superclones.cloud',
         pathname: '/images/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.1-1.club',
+        pathname: '/images/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '1-1.club',
+        pathname: '/images/**',
+      },
       // Yupoo is never optimized by Next/sharp — ProductCard uses unoptimized + /api/yupoo-image.
       // Keeping **.yupoo.com here forced remote fetches through the image optimizer (high CPU).
     ],
@@ -120,6 +130,12 @@ const nextConfig = {
         source: '/:path*',
         has: [{ type: 'host', value: 'www.superclones.cloud' }],
         destination: 'https://superclones.cloud/:path*',
+        permanent: true,
+      },
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: '1-1.club' }],
+        destination: 'https://www.1-1.club/:path*',
         permanent: true,
       },
     ]

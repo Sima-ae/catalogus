@@ -34,12 +34,17 @@ import {
   getSiteUnlockStateFromRequest,
   resolvePublicProductAccess,
 } from '@/lib/public-product-access'
+import { resolveStoreModeFromHeaders } from '@/lib/store-host'
 
 function ownershipOf(product: Record<string, unknown>): ProductOwnershipRow {
   return {
     author_id: product.author_id != null ? String(product.author_id) : undefined,
     author: product.author != null ? String(product.author) : undefined,
   }
+}
+
+function isProductFeaturedFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
 }
 
 export const dynamic = 'force-dynamic'
@@ -78,6 +83,14 @@ export async function GET(
 
       const status = String(product.status || 'active')
       if (status === 'draft' || status === 'inactive' || status === 'trash') {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+      }
+
+      // Featured-only hosts (e.g. www.1-1.club) must not leak the full catalog.
+      if (
+        resolveStoreModeFromHeaders(request.headers) === 'featured' &&
+        !isProductFeaturedFlag(product.featured)
+      ) {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       }
     }

@@ -40,6 +40,7 @@ import { DEFAULT_LOCALE } from '@/lib/i18n-locale-registry'
 import { getGateMessages } from '@/lib/i18n-gate-messages'
 import { getAccessOverlay } from '@/lib/i18n-access-overlay'
 import { getProductTrashMessages } from '@/lib/i18n-product-trash'
+import { getProductFeaturedMessages } from '@/lib/i18n-product-featured'
 import { getProductFormMessages } from '@/lib/i18n-product-form'
 import { getAdminMessages } from '@/lib/i18n-admin'
 import { getAdminPricelistPagesMessages } from '@/lib/i18n-admin-pricelist-pages'
@@ -639,6 +640,7 @@ export function getMessages(locale: Locale): Messages {
     ...getGateMessages(locale),
     ...getAccessOverlay(locale),
     ...getProductTrashMessages(locale),
+    ...getProductFeaturedMessages(locale),
     ...getProductFormMessages(locale),
     ...getAdminMessages(locale),
     ...getAdminPricelistPagesMessages(locale),

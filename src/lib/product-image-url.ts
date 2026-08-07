@@ -15,6 +15,8 @@ function extractImagePath(raw: string): string | null {
       const host = u.hostname.toLowerCase()
       const isOurSite =
         host.includes('superclones.cloud') ||
+        host === '1-1.club' ||
+        host.endsWith('.1-1.club') ||
         host === 'localhost' ||
         host === '127.0.0.1'
       if (isOurSite && path.includes('/images/')) {
@@ -593,7 +595,11 @@ export function isCatalogHostedImage(url: string | null | undefined): boolean {
     const u = new URL(normalized)
     const host = u.hostname.toLowerCase()
     return (
-      (host.includes('superclones.cloud') || host === 'localhost' || host === '127.0.0.1') &&
+      (host.includes('superclones.cloud') ||
+        host === '1-1.club' ||
+        host.endsWith('.1-1.club') ||
+        host === 'localhost' ||
+        host === '127.0.0.1') &&
       u.pathname.includes('/images/')
     )
   } catch {

@@ -5,6 +5,7 @@ import CatalogProductCount from '@/components/shop/CatalogProductCount'
 import CatalogPagination, { CATALOG_PAGE_SIZE } from '@/components/shop/CatalogPagination'
 import SortableProductGrid from '@/components/shop/SortableProductGrid'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
+import type { ProductFeaturedSaved } from '@/components/shop/FeaturedStarButton'
 import { isCatalogAdminUser, useAuth } from '@/lib/auth-local'
 import { PricelistMembershipBatchProvider } from '@/lib/pricelist-membership-batch-context'
 import type { Product } from '@/lib/types'
@@ -18,6 +19,7 @@ type Props = {
   onProductDeleted?: (productId: string) => void
   onProductUnavailable?: (productId: string) => void
   onProductQuickEditSaved?: (saved: ProductQuickEditSaved) => void
+  onProductFeaturedSaved?: (saved: ProductFeaturedSaved) => void
   onReorder?: (productIds: string[]) => void | Promise<void>
   reorderScope?: string | null
   reorderSaving?: boolean
@@ -41,6 +43,7 @@ export default function ShopCatalogListing({
   onProductDeleted,
   onProductUnavailable,
   onProductQuickEditSaved,
+  onProductFeaturedSaved,
   onReorder,
   reorderScope = null,
   reorderSaving = false,
@@ -79,6 +82,7 @@ export default function ShopCatalogListing({
           onProductDeleted={onProductDeleted}
           onProductUnavailable={onProductUnavailable}
           onProductQuickEditSaved={onProductQuickEditSaved}
+          onProductFeaturedSaved={onProductFeaturedSaved}
         />
       </PricelistMembershipBatchProvider>
       <CatalogLoadMoreSentinel

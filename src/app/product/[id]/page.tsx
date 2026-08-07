@@ -11,6 +11,11 @@ import {
   getSiteUnlockState,
   resolvePublicProductAccess,
 } from '@/lib/public-product-access'
+import {
+  resolveRequestOrigin,
+  resolveStoreModeFromHeaders,
+} from '@/lib/store-host'
+import { headers } from 'next/headers'
 import ProductPageClient from './ProductPageClient'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +24,10 @@ export const runtime = 'nodejs'
 type PageProps = { params: { id: string } }
 
 const GATE_PATH = '/site-access-gate'
+
+function isProductFeaturedFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
+}
 
 function productDescription(
   product: Record<string, unknown>,
@@ -36,6 +45,9 @@ function productDescription(
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const locale = await getServerLocale()
   const seo = await getSiteSeo(locale)
+  const headerStore = headers()
+  const storeMode = resolveStoreModeFromHeaders(headerStore)
+  const requestOrigin = resolveRequestOrigin(headerStore, appOrigin)
   try {
     const unlock = await getSiteUnlockState()
     const product = (await getProductById(params.id)) as Record<string, unknown> | null
@@ -43,6 +55,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return withNoIndexMetadata({
         title: formatPageTitle('Product not found', seo.siteName),
         description: `This product is not available on ${seo.siteName}.`,
+      })
+    }
+
+    if (storeMode === 'featured' && !isProductFeaturedFlag(product.featured)) {
+      return withNoIndexMetadata({
+        title: seo.siteName,
+        description: seo.tagline,
       })
     }
 
@@ -76,7 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       String(product.image_url || ''),
       product.source_url != null ? String(product.source_url) : null
     )
-    const pageUrl = `${appOrigin}${localizedAppPathForLocale(`/product/${params.id}`, locale)}`
+    const pageUrl = `${requestOrigin}${localizedAppPathForLocale(`/product/${params.id}`, locale)}`
 
     return withNoIndexMetadata({
       title: name,
@@ -125,6 +144,13 @@ export default async function ProductPage({ params }: PageProps) {
     const locale = await getServerLocale()
     const from = localizedAppPathForLocale(`/product/${params.id}`, locale)
     redirect(`${appPath(GATE_PATH)}?from=${encodeURIComponent(from)}`)
+  }
+
+  if (resolveStoreModeFromHeaders(headers()) === 'featured') {
+    const product = await getProductById(params.id)
+    if (!product || !isProductFeaturedFlag(product.featured)) {
+      notFound()
+    }
   }
 
   return <ProductPageClient />

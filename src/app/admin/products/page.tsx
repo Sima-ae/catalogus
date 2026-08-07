@@ -222,6 +222,8 @@ function AdminProductsBulkSelectionBar({
   onAddToPricelist,
   onRemoveFromPricelist,
   onBulkEdit,
+  onSetFeatured,
+  onClearFeatured,
   onPublish,
   onSetDraft,
   onSetInactive,
@@ -239,6 +241,8 @@ function AdminProductsBulkSelectionBar({
   onAddToPricelist: (ids: string[]) => void
   onRemoveFromPricelist: (ids: string[]) => void
   onBulkEdit: () => void
+  onSetFeatured: (ids: string[]) => void
+  onClearFeatured: (ids: string[]) => void
   onPublish: (ids: string[]) => void
   onSetDraft: (ids: string[]) => void
   onSetInactive: (ids: string[]) => void
@@ -271,6 +275,22 @@ function AdminProductsBulkSelectionBar({
           >
             {tr('admin.products.removeFromPricelist')}
           </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onSetFeatured(selectedIds)}
+          >
+            {tr('admin.products.setFeatured')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onClearFeatured(selectedIds)}
+          >
+            {tr('admin.products.clearFeatured')}
+          </button>
         </div>
       ) : (
         <>
@@ -289,6 +309,22 @@ function AdminProductsBulkSelectionBar({
             onClick={() => onRemoveFromPricelist(selectedIds)}
           >
             {tr('admin.products.removeFromPricelist')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onSetFeatured(selectedIds)}
+          >
+            {tr('admin.products.setFeatured')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={bulkWorking}
+            onClick={() => onClearFeatured(selectedIds)}
+          >
+            {tr('admin.products.clearFeatured')}
           </button>
         </>
       )}
@@ -374,6 +410,7 @@ export default function AdminProductsPage() {
   const [filledPricesFilter, setFilledPricesFilter] = useState(false)
   const [outOfStockFilter, setOutOfStockFilter] = useState(false)
   const [soldOutFilter, setSoldOutFilter] = useState(false)
+  const [featuredFilter, setFeaturedFilter] = useState(false)
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [currentPage, setCurrentPage] = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -509,6 +546,7 @@ export default function AdminProductsPage() {
         filledPricesOnly: filledPricesFilter || undefined,
         outOfStockOnly: outOfStockFilter || undefined,
         soldOutOnly: soldOutFilter || undefined,
+        featuredOnly: featuredFilter || undefined,
         pricelistOwner:
           filledPricesFilter || outOfStockFilter ? pricelistTarget : undefined,
       }) + '&scope=admin&includeStats=0'
@@ -537,7 +575,7 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, outOfStockFilter, soldOutFilter, pricelistTarget])
+  }, [user, currentPage, pageSize, statusFilter, categoryFilter, brandFilter, debouncedSearch, filledPricesFilter, outOfStockFilter, soldOutFilter, featuredFilter, pricelistTarget])
 
   useEffect(() => {
     loadProducts()
@@ -549,7 +587,7 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, outOfStockFilter, soldOutFilter, pricelistTarget])
+  }, [debouncedSearch, statusFilter, categoryFilter, brandFilter, pageSize, filledPricesFilter, outOfStockFilter, soldOutFilter, featuredFilter, pricelistTarget])
 
   const stats = useMemo(() => {
     if (productStats) {
@@ -717,6 +755,35 @@ export default function AdminProductsPage() {
       loadProducts()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bulk delete failed')
+    } finally {
+      setBulkWorking(false)
+    }
+  }
+
+  const runBulkFeatured = async (featured: boolean, ids: string[]) => {
+    if (!user || !ids.length) return
+    setBulkWorking(true)
+    setError('')
+    setSuccessMessage('')
+    try {
+      const res = await fetch(appPath('/api/admin/products/bulk-update'), {
+        method: 'POST',
+        headers: {
+          ...adminAuthHeaders(user),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ productIds: ids, featured }),
+      })
+      const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
+      if (!res.ok) throw new Error(data.error || tr('admin.products.bulkUpdateFailed'))
+      setSuccessMessage(
+        featured
+          ? `${data.updated ?? ids.length} product(s) set Uitgelicht (1-1.club).`
+          : `${data.updated ?? ids.length} product(s) cleared Uitgelicht.`
+      )
+      await loadProducts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tr('admin.products.bulkUpdateFailed'))
     } finally {
       setBulkWorking(false)
     }
@@ -1048,6 +1115,8 @@ export default function AdminProductsPage() {
         onAddToPricelist={(ids) => runBulkPricelist('add', ids)}
         onRemoveFromPricelist={(ids) => runBulkPricelist('remove', ids)}
         onBulkEdit={() => setBulkEditOpen(true)}
+        onSetFeatured={(ids) => void runBulkFeatured(true, ids)}
+        onClearFeatured={(ids) => void runBulkFeatured(false, ids)}
         onPublish={(ids) => runBulkStatus('active', ids)}
         onSetDraft={(ids) => runBulkStatus('draft', ids)}
         onSetInactive={(ids) => runBulkStatus('inactive', ids)}
@@ -1277,6 +1346,15 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 className={`btn-secondary text-xs leading-tight px-2 py-1.5 whitespace-nowrap ${
+                  featuredFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
+                }`}
+                onClick={() => setFeaturedFilter((current) => !current)}
+              >
+                {tr('admin.products.showFeatured')}
+              </button>
+              <button
+                type="button"
+                className={`btn-secondary text-xs leading-tight px-2 py-1.5 whitespace-nowrap ${
                   filledPricesFilter ? 'ring-2 ring-primary-500 ring-offset-1 dark:ring-offset-dark-900' : ''
                 }`}
                 onClick={() => setFilledPricesFilter((current) => !current)}
@@ -1324,6 +1402,9 @@ export default function AdminProductsPage() {
           {soldOutFilter && (
             <> · {tr('admin.products.filterSoldOutPrefix')}</>
           )}
+          {featuredFilter && (
+            <> · {tr('admin.products.filterFeaturedPrefix')}</>
+          )}
         </p>
 
         {renderBulkSelectionBar(`pt-3 border-t ${t.rowBorder}`)}
@@ -1338,6 +1419,7 @@ export default function AdminProductsPage() {
         brandFilter === 'all' &&
         !outOfStockFilter &&
         !soldOutFilter &&
+        !featuredFilter &&
         !filledPricesFilter ? (
         <div className={`card text-center py-12 ${t.muted}`}>
           <p className="mb-4">{tr('admin.products.noProducts')}</p>
@@ -1360,6 +1442,7 @@ export default function AdminProductsPage() {
               setFilledPricesFilter(false)
               setOutOfStockFilter(false)
               setSoldOutFilter(false)
+              setFeaturedFilter(false)
             }}
           >
             {tr('admin.products.clearFilters')}

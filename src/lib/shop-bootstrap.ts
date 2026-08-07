@@ -18,6 +18,9 @@ import {
   type LayoutBootstrapData,
   type ShopBootstrap,
 } from '@/lib/shop-bootstrap-shared'
+import {
+  resolveHostSiteBrand,
+} from '@/lib/store-host'
 
 export type { LayoutBootstrapData, ShopBootstrap } from '@/lib/shop-bootstrap-shared'
 export { getDefaultShopBootstrap } from '@/lib/shop-bootstrap-shared'
@@ -26,6 +29,20 @@ function parseBoolSetting(value: string | null | undefined, defaultValue: boolea
   const v = value?.trim().toLowerCase()
   if (!v) return defaultValue
   return v === 'true' || v === '1'
+}
+
+/** Apply HOST_SITE_BRAND overrides for the current request host. */
+export function applyHostBrandToBootstrap(
+  bootstrap: ShopBootstrap,
+  hostname: string | null | undefined
+): ShopBootstrap {
+  const brand = resolveHostSiteBrand(hostname)
+  if (!brand) return bootstrap
+  return {
+    ...bootstrap,
+    site_name: brand.site_name,
+    site_tagline: brand.site_tagline?.trim() || bootstrap.site_tagline,
+  }
 }
 
 async function loadShopBootstrapFromDb(locale: Locale): Promise<ShopBootstrap> {
@@ -57,7 +74,10 @@ export async function loadShopBootstrap(locale: Locale): Promise<ShopBootstrap> 
 }
 
 /** Root layout bootstrap — never throws; uses safe defaults when DB is unavailable. */
-export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBootstrapData> {
+export async function loadLayoutBootstrapData(
+  locale: Locale,
+  hostname?: string | null
+): Promise<LayoutBootstrapData> {
   const [categoryResult, tagResult, bootstrapResult, tickerResult, categoryRowsResult] =
     await Promise.allSettled([
       getCategoryTranslationMessages(locale),
@@ -71,10 +91,12 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
     categoryResult.status === 'fulfilled' ? categoryResult.value : {}
   const tagMessages = tagResult.status === 'fulfilled' ? tagResult.value : {}
   const bootstrapDegraded = bootstrapResult.status !== 'fulfilled'
-  const shopBootstrap =
+  const shopBootstrap = applyHostBrandToBootstrap(
     bootstrapResult.status === 'fulfilled'
       ? bootstrapResult.value
-      : getDefaultShopBootstrap(locale)
+      : getDefaultShopBootstrap(locale),
+    hostname
+  )
   const tickerMessages = tickerResult.status === 'fulfilled' ? tickerResult.value : []
   const categoryRows: CategoryTreeRow[] =
     categoryRowsResult.status === 'fulfilled'
@@ -101,11 +123,14 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
 }
 
 /** Gate / locked traffic — no MariaDB. Prevents scrapers redirected to the gate from burning CPU. */
-export function getLightLayoutBootstrapData(locale: Locale): LayoutBootstrapData {
+export function getLightLayoutBootstrapData(
+  locale: Locale,
+  hostname?: string | null
+): LayoutBootstrapData {
   return {
     categoryMessages: {},
     tagMessages: {},
-    shopBootstrap: getDefaultShopBootstrap(locale),
+    shopBootstrap: applyHostBrandToBootstrap(getDefaultShopBootstrap(locale), hostname),
     tickerMessages: [],
     categoryRows: [],
     bootstrapDegraded: false,

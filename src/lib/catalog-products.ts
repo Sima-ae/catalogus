@@ -53,6 +53,11 @@ export type CatalogProductsQuery = {
   mode?: CatalogMode
   /** Homepage-style random order (unfiltered global catalog only). */
   shuffle?: boolean
+  /**
+   * Featured-only storefront (e.g. www.1-1.club) — `products.featured = 1`.
+   * Set from host mode, not from a public query string users can clear.
+   */
+  featuredOnly?: boolean
   /** Skip COUNT(*) — client already has total from page 1 (faster page 2+). */
   skipTotal?: boolean
   /** Return only `{ total, totalPages }` (fast bucket count). */
@@ -287,6 +292,9 @@ export function buildActiveCatalogFilters(
     where.push('p.sold_out = 0')
     where.push(`p.image_url IS NOT NULL AND p.image_url <> ''`)
   }
+  if (query.featuredOnly) {
+    where.push('p.featured = 1')
+  }
   if (query.mode === 'new') {
     const { start, end } = getCatalogWeekRange()
     where.push('p.created_at >= ? AND p.created_at < ?')
@@ -390,6 +398,8 @@ export type AdminProductsQuery = CatalogProductsQuery & {
   outOfStockOnly?: boolean
   /** Show products with catalog sold_out flag (hidden from the shop). */
   soldOutOnly?: boolean
+  /** Show Uitgelicht / 1-1.club products only. */
+  featuredOnly?: boolean
   /** Pricelist page slug or owner id (defaults to platform when filledPricesOnly / outOfStockOnly). */
   pricelistOwner?: string
 }
@@ -417,6 +427,7 @@ export function parseAdminProductsQuery(
   const filledPricesOnly = searchParams.get('filledPrices') === 'true'
   const outOfStockOnly = searchParams.get('outOfStock') === 'true'
   const soldOutOnly = searchParams.get('soldOut') === 'true'
+  const featuredOnly = searchParams.get('featured') === 'true'
   const pricelistOwner = searchParams.get('pricelistOwner')?.trim() || undefined
 
   return {
@@ -426,6 +437,7 @@ export function parseAdminProductsQuery(
     filledPricesOnly: filledPricesOnly || undefined,
     outOfStockOnly: outOfStockOnly || undefined,
     soldOutOnly: soldOutOnly || undefined,
+    featuredOnly: featuredOnly || undefined,
     pricelistOwner,
   }
 }
@@ -624,6 +636,9 @@ export function buildAdminProductsUrl(
   if (query.soldOutOnly) {
     params.set('soldOut', 'true')
   }
+  if (query.featuredOnly) {
+    params.set('featured', 'true')
+  }
   if (query.pricelistOwner) {
     params.set('pricelistOwner', query.pricelistOwner)
   }
@@ -662,6 +677,7 @@ export function buildCatalogProductsUrl(
 export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
   return (
     query.shuffle === true &&
+    !query.featuredOnly &&
     query.mode !== 'new' &&
     !query.category &&
     !query.subcategory &&

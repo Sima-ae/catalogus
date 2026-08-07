@@ -14,6 +14,7 @@ import {
   loadLayoutBootstrapData,
 } from '@/lib/shop-bootstrap'
 import { CATALOGUS_LIGHT_HEADER } from '@/lib/bot-traffic'
+import { resolveRequestHostname } from '@/lib/store-host'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -38,9 +39,10 @@ export default async function RootLayout({
       : DEFAULT_LOCALE
   const messages = getMessages(locale)
   const light = headerStore.get(CATALOGUS_LIGHT_HEADER) === '1'
+  const hostname = resolveRequestHostname(headerStore)
   const layoutBootstrap = light
-    ? getLightLayoutBootstrapData(locale)
-    : await loadLayoutBootstrapData(locale)
+    ? getLightLayoutBootstrapData(locale, hostname)
+    : await loadLayoutBootstrapData(locale, hostname)
   const preloadText = messages['loading.generic'] || 'Loading…'
 
   return (

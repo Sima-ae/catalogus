@@ -1607,7 +1607,11 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 
   if (input.sold_out === true) {
     void hideSoldOutProductsFromShop([id])
-  } else if (input.sold_out === false || input.status !== undefined) {
+  } else if (
+    input.sold_out === false ||
+    input.status !== undefined ||
+    input.featured !== undefined
+  ) {
     invalidateShopCatalogCaches()
   }
 
@@ -1675,6 +1679,7 @@ function shopCatalogPageCacheKey(query: CatalogProductsQuery): string {
     query.mode ?? '',
     query.skipTotal ? '1' : '0',
     query.shuffle ? 'shuffle' : '',
+    query.featuredOnly ? 'featured' : '',
   ].join('|')
 }
 
@@ -2279,6 +2284,7 @@ export async function listProductsPaginatedAdmin(
     filledPricesOnly?: boolean
     outOfStockOnly?: boolean
     soldOutOnly?: boolean
+    featuredOnly?: boolean
     pricelistOwner?: string
   } = {}
 ): Promise<CatalogProductsPage> {
@@ -2348,6 +2354,12 @@ export async function listProductsPaginatedAdmin(
     filledWhereSql = filledWhereSql
       ? `${filledWhereSql} AND COALESCE(p.sold_out, 0) <> 0`
       : `WHERE COALESCE(p.sold_out, 0) <> 0`
+  }
+
+  if (options.featuredOnly) {
+    filledWhereSql = filledWhereSql
+      ? `${filledWhereSql} AND p.featured = 1`
+      : `WHERE p.featured = 1`
   }
 
   const fromClause = await adminListingFromSql({
@@ -2623,6 +2635,7 @@ export type BulkProductPatch = {
   original_price?: number | null
   purchase_price?: number | null
   status?: ProductStatusValue
+  featured?: boolean
 }
 
 export type BulkUpdateProductsResult = {
@@ -2921,6 +2934,23 @@ export async function bulkUpdateProducts(
   }
 
   return { updated, trashedDuplicates, skippedAlreadyCorrect }
+}
+
+/** Set or clear Uitgelicht (featured) for many products — publishes to featured-only hosts. */
+export async function bulkSetProductsFeatured(
+  productIds: string[],
+  featured: boolean
+): Promise<number> {
+  const ids = Array.from(new Set(productIds.map((id) => String(id || '').trim()).filter(Boolean)))
+  if (!ids.length) return 0
+  const placeholders = ids.map(() => '?').join(', ')
+  const result = await queryDb<{ affectedRows?: number }>(
+    `UPDATE products SET featured = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
+    [featured ? 1 : 0, ...ids]
+  )
+  invalidateProductDashboardStatsCache()
+  invalidateShopCatalogCaches()
+  return Number(result?.affectedRows ?? 0)
 }
 
 export async function bulkUpdateProductStatus(

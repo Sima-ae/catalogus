@@ -3,6 +3,7 @@ import { verifyAdminActor } from '@/lib/admin-api-auth'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import {
   bulkUpdateProducts,
+  bulkSetProductsFeatured,
   type BulkProductPatch,
   type ProductStatusValue,
   UnknownBrandError,
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
       price?: unknown
       original_price?: unknown
       status?: unknown
+      featured?: unknown
     }
 
     const productIds = Array.isArray(body.productIds)
@@ -43,6 +45,16 @@ export async function POST(request: NextRequest) {
 
     if (!productIds.length) {
       return NextResponse.json({ error: 'productIds array is required' }, { status: 400 })
+    }
+
+    if (body.featured === true || body.featured === false) {
+      const updated = await bulkSetProductsFeatured(productIds, body.featured)
+      return NextResponse.json({
+        updated,
+        trashedDuplicates: 0,
+        skippedAlreadyCorrect: 0,
+        patch: { featured: body.featured },
+      })
     }
 
     const patch: BulkProductPatch = {}

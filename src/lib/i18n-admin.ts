@@ -63,14 +63,18 @@ export type AdminMessageKey =
   | 'admin.products.showWithPurchasePrice'
   | 'admin.products.showOutOfStock'
   | 'admin.products.showSoldOut'
+  | 'admin.products.showFeatured'
   | 'admin.products.filterPurchasePricePrefix'
   | 'admin.products.filterOutOfStockPrefix'
   | 'admin.products.filterSoldOutPrefix'
+  | 'admin.products.filterFeaturedPrefix'
   | 'admin.products.selected'
   | 'admin.products.pricelistTarget'
   | 'admin.products.addToPricelist'
   | 'admin.products.removeFromPricelist'
   | 'admin.products.bulkEdit'
+  | 'admin.products.setFeatured'
+  | 'admin.products.clearFeatured'
   | 'admin.products.restoreToShop'
   | 'admin.products.publish'
   | 'admin.products.setDraft'
@@ -226,14 +230,18 @@ const EN: AdminMessages = {
   'admin.products.showWithPurchasePrice': "With purchase price",
   'admin.products.showOutOfStock': "Out of stock (pricelist)",
   'admin.products.showSoldOut': "Sold out (shop)",
+  'admin.products.showFeatured': "Uitgelicht / on 1-1.club",
   'admin.products.filterPurchasePricePrefix': "purchase price filled (pricelist)",
   'admin.products.filterOutOfStockPrefix': "out of stock (pricelist)",
   'admin.products.filterSoldOutPrefix': "sold out (shop)",
+  'admin.products.filterFeaturedPrefix': "Uitgelicht (1-1.club)",
   'admin.products.selected': "{count} selected",
   'admin.products.pricelistTarget': "Target pricelist",
   'admin.products.addToPricelist': "Add to pricelist",
   'admin.products.removeFromPricelist': "Remove from pricelist",
   'admin.products.bulkEdit': "Bulk edit",
+  'admin.products.setFeatured': "Set Uitgelicht (1-1.club)",
+  'admin.products.clearFeatured': "Clear Uitgelicht",
   'admin.products.restoreToShop': "Restore to shop",
   'admin.products.publish': "Publish",
   'admin.products.setDraft': "Set draft",
@@ -397,14 +405,18 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.showWithPurchasePrice': "Met inkoopprijs",
   'admin.products.showOutOfStock': "Uitverkocht (prijslijst)",
   'admin.products.showSoldOut': "Uitverkocht (shop)",
+  'admin.products.showFeatured': "Uitgelicht / op 1-1.club",
   'admin.products.filterPurchasePricePrefix': "inkoopprijs ingevuld (prijslijst)",
   'admin.products.filterOutOfStockPrefix': "uitverkocht (prijslijst)",
   'admin.products.filterSoldOutPrefix': "uitverkocht (shop)",
+  'admin.products.filterFeaturedPrefix': "Uitgelicht (1-1.club)",
   'admin.products.selected': "{count} geselecteerd",
   'admin.products.pricelistTarget': "Doelprijslijst",
   'admin.products.addToPricelist': "Toevoegen aan prijslijst",
   'admin.products.removeFromPricelist': "Verwijderen van prijslijst",
   'admin.products.bulkEdit': "Bulk bewerken",
+  'admin.products.setFeatured': "Zet Uitgelicht (1-1.club)",
+  'admin.products.clearFeatured': "Wis Uitgelicht",
   'admin.products.restoreToShop': "Herstellen in shop",
   'admin.products.publish': "Publiceren",
   'admin.products.setDraft': "Als concept",

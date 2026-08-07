@@ -501,6 +501,9 @@ export default function ProductForm({
                 />
                 {tr('productForm.featured')}
               </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 pl-6 -mt-1">
+                {tr('productForm.featuredHint')}
+              </p>
               <label className="flex items-center gap-2 form-check-label cursor-pointer">
                 <input
                   type="checkbox"
