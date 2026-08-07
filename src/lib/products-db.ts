@@ -803,14 +803,14 @@ const SHOP_CATALOG_PAGE_TTL_MS = 120_000
 const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = SHOP_CATALOG_PAGE_TTL_MS
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
 const NEW_PRODUCTS_WEEK_TOTAL_TTL_MS = 300_000
-/** Fallback when catalog_product_positions is empty — fetch a priced-first window. */
-const SHUFFLE_FALLBACK_WINDOW = 2_400
 
 async function loadActiveProductCountBuckets(options?: {
   brand?: string
   mode?: CatalogProductsQuery['mode']
+  /** Menu/nav only need category_id buckets — skip the expensive legacy text GROUP BY. */
+  idsOnly?: boolean
 }): Promise<Map<string, number>> {
-  const cacheKey = `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}`
+  const cacheKey = `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}|${options?.idsOnly ? 'ids' : 'all'}`
   return getCachedValue(
     PRODUCT_COUNT_BUCKETS_NS,
     cacheKey,
@@ -834,7 +834,7 @@ async function loadActiveProductCountBuckets(options?: {
                  AND p.image_url IS NOT NULL AND p.image_url <> ''
                  AND p.brand_id = ?
                  AND p.category_id IS NOT NULL
-                 AND TRIM(CAST(p.category_id AS CHAR)) != ''
+                 AND p.category_id != ''
                GROUP BY p.category_id`,
               [brandId]
             )
@@ -864,6 +864,8 @@ async function loadActiveProductCountBuckets(options?: {
           if (!id) continue
           buckets.set(`id:${id}`, Number(row.total ?? 0))
         }
+
+        if (options?.idsOnly) return buckets
 
         const legacyRows = await queryDb<{ legacy_name: string; total: number }[]>(
           `SELECT LOWER(TRIM(COALESCE(p.category, ''))) AS legacy_name, COUNT(*) AS total
@@ -1065,9 +1067,12 @@ let catalogCountWarmStarted = false
 export function warmShopCatalogCountCaches(): void {
   if (catalogCountWarmStarted) return
   catalogCountWarmStarted = true
-  void loadActiveProductCountBuckets()
+  // Menu/nav only need id buckets — skip the expensive legacy text GROUP BY.
+  void loadActiveProductCountBuckets({ idsOnly: true })
   void getCachedActiveProductTotal()
   void getCachedNewProductsWeekTotal()
+  void listShopCategoryNavTree()
+  void listShopTopCategoriesWithProducts()
 }
 
 /** Top-level shop categories with at least one active product in scope. */
@@ -1079,7 +1084,7 @@ export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
     async () => {
       const [categories, buckets] = await Promise.all([
         loadActiveCategories(),
-        loadActiveProductCountBuckets(),
+        loadActiveProductCountBuckets({ idsOnly: true }),
       ])
       const candidates = buildShopTopCategoryNames(categories)
       const counts = candidates.map((name) => {
@@ -1103,7 +1108,7 @@ export async function listShopCategoryNavTree(): Promise<ShopCategoryNavNode[]> 
     async () => {
       const [categories, buckets] = await Promise.all([
         loadActiveCategories(),
-        loadActiveProductCountBuckets(),
+        loadActiveProductCountBuckets({ idsOnly: true }),
       ])
       const roots = buildShopTopCategoryNames(categories)
       const countFor = (filter: ShopCategoryFilterResult | undefined) =>
@@ -1141,7 +1146,10 @@ async function loadShopSubcategoriesWithProducts(
 
   const brand = brandName?.trim()
   const brandFilter = brand && brand !== 'All' ? brand : undefined
-  const buckets = await loadActiveProductCountBuckets({ brand: brandFilter })
+  const buckets = await loadActiveProductCountBuckets({
+    brand: brandFilter,
+    idsOnly: true,
+  })
 
   const rows = children.map((child) => {
     const filter = resolveShopCategoryFilter(categories, {
@@ -1192,7 +1200,10 @@ async function loadShopNestedSubcategoriesWithProducts(
 
   const brand = brandName?.trim()
   const brandFilter = brand && brand !== 'All' ? brand : undefined
-  const buckets = await loadActiveProductCountBuckets({ brand: brandFilter })
+  const buckets = await loadActiveProductCountBuckets({
+    brand: brandFilter,
+    idsOnly: true,
+  })
 
   const rows = children.map((child) => {
     const filter = resolveShopCategoryFilter(categories, {
@@ -1711,6 +1722,7 @@ async function countShopCatalogProducts(
   )
 }
 
+/** Fallback when catalog_product_positions is empty — real SQL pagination (priced first). */
 async function fetchShuffledActiveProductIds(
   fromClause: string,
   whereSql: string,
@@ -1718,28 +1730,14 @@ async function fetchShuffledActiveProductIds(
   limit: number,
   offset: number
 ): Promise<string[]> {
-  // Stable fallback when the nightly shuffle table is empty: priced products first,
-  // then unpriced, both by created_at — no per-request randomization.
-  const priced = await queryDb<{ id: string }[]>(
+  if (limit <= 0) return []
+  const rows = await queryDb<{ id: string }[]>(
     `SELECT p.id ${fromClause} ${whereSql}
-     AND COALESCE(p.price, 0) > 0
-     ORDER BY p.created_at DESC
-     LIMIT ?`,
-    [...params, SHUFFLE_FALLBACK_WINDOW]
+     ORDER BY CASE WHEN COALESCE(p.price, 0) > 0 THEN 0 ELSE 1 END, p.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   )
-  const need = Math.max(0, SHUFFLE_FALLBACK_WINDOW - priced.length)
-  const unpriced =
-    need > 0
-      ? await queryDb<{ id: string }[]>(
-          `SELECT p.id ${fromClause} ${whereSql}
-           AND COALESCE(p.price, 0) <= 0
-           ORDER BY p.created_at DESC
-           LIMIT ?`,
-          [...params, need]
-        )
-      : []
-  const ordered = [...priced, ...unpriced].map((row) => String(row.id))
-  return ordered.slice(offset, offset + limit)
+  return rows.map((row) => String(row.id))
 }
 
 async function loadActiveProductsPaginatedFromDb(
@@ -1831,49 +1829,30 @@ async function loadActiveProductsPaginatedFromDb(
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
-      // Precomputed join already skips sold_out/blank. Retry a couple times if
-      // hydration drops rows (race with deletes) so pages stay at full size.
-      const out: Record<string, unknown>[] = []
-      const seen = new Set<string>()
-      let cursor = offset
-      for (let attempt = 0; attempt < 4 && out.length < limit; attempt++) {
-        const need = limit - out.length
-        let ids: string[] = []
-        if (usePrecomputedShuffle) {
-          ids = await fetchHomepageShufflePageProductIds(
-            HOMEPAGE_SHUFFLE_SCOPE,
-            HOMEPAGE_SHUFFLE_POOL_SIZE,
-            need,
-            cursor
-          )
-        } else {
-          const fromClause = await catalogListingFromSqlForQuery({
-            needsCategoryJoin,
-            needsBrandJoin,
-          })
-          ids = await fetchShuffledActiveProductIds(
-            fromClause,
-            whereSql,
-            idParams,
-            need,
-            cursor
-          )
-        }
-        if (!ids.length) break
-        cursor += ids.length
-        const batchRows = await fetchProductRowsByIds(ids, { catalog: true })
-        for (const row of batchRows) {
-          const id = String(row.id ?? '')
-          if (!id || seen.has(id)) continue
-          const flag = row.sold_out
-          if (flag === 1 || flag === true || flag === '1') continue
-          if (!String(row.image_url ?? '').trim()) continue
-          seen.add(id)
-          out.push(row)
-          if (out.length >= limit) break
-        }
+      // Dense page: offset 0 → 1–24, offset 24 → 25–48, etc. One stable read.
+      let ids: string[] = []
+      if (usePrecomputedShuffle) {
+        ids = await fetchHomepageShufflePageProductIds(
+          HOMEPAGE_SHUFFLE_SCOPE,
+          HOMEPAGE_SHUFFLE_POOL_SIZE,
+          limit,
+          offset
+        )
+      } else {
+        const fromClause = await catalogListingFromSqlForQuery({
+          needsCategoryJoin,
+          needsBrandJoin,
+        })
+        ids = await fetchShuffledActiveProductIds(
+          fromClause,
+          whereSql,
+          idParams,
+          limit,
+          offset
+        )
       }
-      return out.slice(0, limit)
+      if (!ids.length) return []
+      return fetchProductRowsByIds(ids, { catalog: true })
     }
 
     const idRows = await queryDb<{ id: string }[]>(
@@ -1887,16 +1866,13 @@ async function loadActiveProductsPaginatedFromDb(
 
   const rows = await fetchPageProductRows()
   // Defense: never return sold_out / blank-image rows to the shop grid (stale shuffle ids, etc.).
-  // Shuffle path already filtered while filling; keep the guard for non-shuffle listings.
-  const inStockRows = shuffle
-    ? rows
-    : rows.filter((row) => {
-        const flag = row.sold_out
-        if (flag === 1 || flag === true || flag === '1') return false
-        const image = String(row.image_url ?? '').trim()
-        return Boolean(image)
-      })
-  // Hard cap — never exceed the requested page size (load-more merge safety).
+  const inStockRows = rows.filter((row) => {
+    const flag = row.sold_out
+    if (flag === 1 || flag === true || flag === '1') return false
+    const image = String(row.image_url ?? '').trim()
+    return Boolean(image)
+  })
+  // Hard cap — never exceed the requested page size.
   const cappedRows = inStockRows.slice(0, limit)
   const items = serializeProductRowsSync(cappedRows, brandSkuPrefixes)
 
@@ -1907,10 +1883,18 @@ async function loadActiveProductsPaginatedFromDb(
     total = await getCachedActiveProductTotal()
     responseSkipTotal = false
   } else if (query.mode === 'new') {
-    // Always resolve the week total (cached). Skipping left /new stuck at "24 van 24"
-    // when SSR applied a temporary floor from the first page size.
-    total = await getCachedNewProductsWeekTotal()
-    responseSkipTotal = false
+    // Prefer warm cache; never block the product grid on a cold week COUNT(*).
+    const peeked = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')
+    if (peeked != null) {
+      total = peeked
+      responseSkipTotal = false
+    } else if (query.skipTotal) {
+      void getCachedNewProductsWeekTotal()
+      responseSkipTotal = true
+    } else {
+      total = await getCachedNewProductsWeekTotal()
+      responseSkipTotal = false
+    }
   } else {
     const peekTotal = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
     if (peekTotal != null) {

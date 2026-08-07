@@ -7,6 +7,7 @@ import {
   loadInitialShopCatalog,
   shouldServerRenderShopCatalog,
 } from '@/lib/shop-catalog-ssr'
+import { listShopCategoryNavTree } from '@/lib/products-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,9 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * /new is a week-range listing (usually a few thousand rows) — SSR the first
- * unfiltered page so the grid paints without waiting on a client round-trip.
- * Filtered navigations stay client-only (same as category clicks on home).
+ * SSR category nav + first product page in parallel so the menu is not blocked
+ * behind the week listing, and the grid still paints without a client round-trip.
  */
 export default async function NewProductsPage({
   searchParams,
@@ -31,9 +31,12 @@ export default async function NewProductsPage({
 }) {
   const sp = await searchParams
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'new')
-  const initialCatalog = shouldServerRenderShopCatalog(sp)
-    ? await loadInitialShopCatalog(sp, 'new')
-    : null
+  const shouldSsrCatalog = shouldServerRenderShopCatalog(sp)
+
+  const [initialCatalog, initialCategoryNav] = await Promise.all([
+    shouldSsrCatalog ? loadInitialShopCatalog(sp, 'new') : Promise.resolve(null),
+    listShopCategoryNavTree().catch(() => []),
+  ])
 
   return (
     <ShopCatalogPage
@@ -52,6 +55,7 @@ export default async function NewProductsPage({
       }}
       initialCatalog={initialCatalog}
       initialCatalogSignature={initialCatalogSignature}
+      initialCategoryNav={initialCategoryNav}
     />
   )
 }

@@ -32,7 +32,8 @@ import {
 import { brandCompoundIncludesSegment } from '@/lib/product-taxonomy'
 import { invalidateShopBrandMenuCache, prefetchShopBrandMenu } from '@/lib/use-shop-brand-list'
 import { prefetchShopSubcategories } from '@/lib/use-shop-subcategory'
-import { prefetchShopCategoryTaxonomy } from '@/lib/shop-categories-client'
+import { prefetchShopCategoryTaxonomy, hydrateShopCategoryNav } from '@/lib/shop-categories-client'
+import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
 import { categoryHasBrowseChildren } from '@/lib/shop-catalog-navigation'
 import {
   consumeCatalogNavState,
@@ -98,12 +99,17 @@ function ShopCatalogPageContent({
   config,
   initialCatalog,
   initialCatalogSignature,
+  initialCategoryNav,
 }: {
   config: ShopCatalogConfig
   initialCatalog?: CatalogProductsPage | null
   initialCatalogSignature?: string
+  initialCategoryNav?: ShopCategoryNavNode[] | null
 }) {
   const { t: tr } = useI18n()
+  if (initialCategoryNav?.length) {
+    hydrateShopCategoryNav(initialCategoryNav)
+  }
   const [products, setProducts] = useState<Product[]>(initialCatalog?.items ?? [])
   const [totalItems, setTotalItems] = useState(initialCatalog?.total ?? 0)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
@@ -1437,10 +1443,12 @@ export default function ShopCatalogPage({
   config,
   initialCatalog,
   initialCatalogSignature,
+  initialCategoryNav,
 }: {
   config: ShopCatalogConfig
   initialCatalog?: CatalogProductsPage | null
   initialCatalogSignature?: string
+  initialCategoryNav?: ShopCategoryNavNode[] | null
 }) {
   return (
     <Suspense fallback={null}>
@@ -1448,6 +1456,7 @@ export default function ShopCatalogPage({
         config={config}
         initialCatalog={initialCatalog}
         initialCatalogSignature={initialCatalogSignature}
+        initialCategoryNav={initialCategoryNav}
       />
     </Suspense>
   )

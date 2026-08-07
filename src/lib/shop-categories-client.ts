@@ -37,6 +37,16 @@ let navInflight: Promise<ShopCategoryNavNode[]> | null = null
 export function hydrateShopCategoryNav(tree: ShopCategoryNavNode[] | null | undefined): void {
   if (!Array.isArray(tree) || !tree.length) return
   cachedNav = tree
+  // Top pills can be derived from the same tree — skip a second /shop-menu round-trip.
+  if (!cachedMenu) {
+    cachedMenu = ['All', ...tree.map((node) => node.name).filter(Boolean)]
+  }
+}
+
+/** Seed top category menu from SSR (or from nav hydrate). */
+export function hydrateShopCategoryMenu(menu: string[] | null | undefined): void {
+  if (!Array.isArray(menu) || !menu.length) return
+  cachedMenu = menu.includes('All') ? menu : ['All', ...menu]
 }
 
 /** Seed category rows from layout SSR — instant subcategory structure on first paint. */

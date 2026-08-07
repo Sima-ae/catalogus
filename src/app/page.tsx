@@ -1,12 +1,12 @@
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
 import { buildShopCatalogSignature } from '@/lib/shop-catalog-ssr'
+import { listShopCategoryNavTree } from '@/lib/products-db'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Homepage: never SSR the shuffled catalog. Shuffle queries (10k pool) were a major
- * MariaDB/CPU burn for any request that reached this page. Client fetch is fast with
- * the category listing indexes.
+ * Homepage: never SSR the shuffled catalog (shuffle pool can be heavy).
+ * Do SSR the category nav tree so sidebar + pills paint immediately.
  */
 export default async function HomePage({
   searchParams,
@@ -15,6 +15,7 @@ export default async function HomePage({
 }) {
   const sp = await searchParams
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', { shuffle: true })
+  const initialCategoryNav = await listShopCategoryNavTree().catch(() => [])
 
   return (
     <ShopCatalogPage
@@ -30,6 +31,7 @@ export default async function HomePage({
       }}
       initialCatalog={null}
       initialCatalogSignature={initialCatalogSignature}
+      initialCategoryNav={initialCategoryNav}
     />
   )
 }

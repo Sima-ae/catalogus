@@ -83,6 +83,8 @@ export async function loadInitialShopCatalog(
   if (tag) params.set('tag', tag)
   if (search) params.set('search', search)
   if (mode === 'new') params.set('mode', 'new')
+  // Products first; week total is filled from cache or a parallel countOnly on the client.
+  if (mode === 'new') params.set('skipTotal', '1')
   if (
     options?.shuffle &&
     mode === 'all' &&
