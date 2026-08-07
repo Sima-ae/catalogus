@@ -184,8 +184,6 @@ function ShopCatalogPageContent({
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
   const prevFilterRef = useRef<string | null>(null)
   const catalogLoadGenRef = useRef(0)
-  const emptyRetrySignatureRef = useRef<string | null>(null)
-  const stallRetrySignatureRef = useRef<string | null>(null)
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const listingScrollKey = catalogListingKey(pathname ?? '', searchParams)
@@ -254,7 +252,7 @@ function ShopCatalogPageContent({
     [totalItems, currentPage]
   )
 
-  const catalogShuffle =
+    const catalogShuffle =
     config.shuffleCatalog === true &&
     selectedCategory === 'All' &&
     selectedSubcategory === 'All' &&
@@ -1087,28 +1085,6 @@ function ShopCatalogPageContent({
     totalItems,
   ])
 
-  /** If a category is selected but the grid stayed empty after loading, force one refetch. */
-  useEffect(() => {
-    if (catalogBrowseDeferred || loading || pageLoading || filterNavigating) return
-    if (activeCategory === 'All') return
-    if (products.length > 0 || error) return
-    if (emptyRetrySignatureRef.current === filterSignature) return
-    emptyRetrySignatureRef.current = filterSignature
-    const timer = window.setTimeout(() => {
-      setReloadToken((token) => token + 1)
-    }, 150)
-    return () => window.clearTimeout(timer)
-  }, [
-    activeCategory,
-    catalogBrowseDeferred,
-    error,
-    filterNavigating,
-    filterSignature,
-    loading,
-    pageLoading,
-    products.length,
-  ])
-
   useEffect(() => {
     if (!isAdmin || !user || catalogBrowseDeferred) {
       setCategoryProductCount(null)
@@ -1213,16 +1189,12 @@ function ShopCatalogPageContent({
   const showBrowsePrompt = Boolean(catalogBrowsePrompt)
 
   const handleCatalogLoadStall = useCallback(() => {
-    // Always clear the 88% overlay — never leave the shop blocked on a hung request.
+    // Clear the loading overlay only — do not auto-refetch / reshuffle the catalog.
     setLoading(false)
     setPageLoading(false)
     setFilterNavigating(false)
     setLoadingMore(false)
-    // Retry once per filter set in case the first attempt timed out transiently.
-    if (stallRetrySignatureRef.current === filterSignature) return
-    stallRetrySignatureRef.current = filterSignature
-    setReloadToken((token) => token + 1)
-  }, [filterSignature])
+  }, [])
 
   const isDark = theme === 'dark'
   const EmptyIcon = config.icon ? EMPTY_ICONS[config.icon] : SparklesIcon

@@ -9,6 +9,7 @@ import {
   catalogPageBaseOffset,
   CATALOG_PAGE_SIZE,
   isCatalogShuffleEligible,
+  isFeaturedStableShuffle,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
@@ -1740,7 +1741,8 @@ export async function listActiveProductsPaginated(
     warmShopCatalogCountCaches()
   }
   const cacheKey = shopCatalogPageCacheKey(query)
-  // Homepage shuffle uses the nightly precomputed order (stable between rebuilds).
+  // Homepage shuffle uses a stable order (Super Clones: nightly positions; 1-1.club: CRC32 id).
+  // Cache normally — pages must not reshuffle on their own or on every refresh.
   const ttlMs = isCatalogShuffleEligible(query)
     ? SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS
     : SHOP_CATALOG_PAGE_TTL_MS
@@ -1937,13 +1939,14 @@ async function loadActiveProductsPaginatedFromDb(
   const limit = query.limit
   const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
   const shuffle = isCatalogShuffleEligible(query)
+  const featuredStableShuffle = isFeaturedStableShuffle(query)
 
   let joinSql = ''
   let orderSql = 'p.created_at DESC'
   let scopeParam: string | null = null
   let usePrecomputedShuffle = false
 
-  if (shuffle) {
+  if (shuffle && !featuredStableShuffle) {
     usePrecomputedShuffle =
       (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
     if (usePrecomputedShuffle) {
@@ -1989,7 +1992,20 @@ async function loadActiveProductsPaginatedFromDb(
       }
 
       let ids: string[] = []
-      if (usePrecomputedShuffle) {
+      if (featuredStableShuffle) {
+        // Deterministic “random” order — same on every refresh (no auto reshuffle).
+        const fromClause = await catalogListingFromSqlForQuery({
+          needsCategoryJoin,
+          needsBrandJoin,
+        })
+        const idRows = await queryDb<{ id: string }[]>(
+          `SELECT p.id ${fromClause}${forceIndexSql} ${whereSql}
+           ORDER BY CRC32(p.id) ASC, p.id ASC
+           LIMIT ? OFFSET ?`,
+          [...idParams, Math.max(limit + 48, CATALOG_PAGE_SIZE), Math.max(0, offset)]
+        )
+        ids = idRows.map((row) => String(row.id)).filter(Boolean)
+      } else if (usePrecomputedShuffle) {
         ids = await fetchHomepageShufflePageProductIds(
           HOMEPAGE_SHUFFLE_SCOPE,
           HOMEPAGE_SHUFFLE_POOL_SIZE,
@@ -2014,7 +2030,8 @@ async function loadActiveProductsPaginatedFromDb(
         pushVisible(await fetchProductRowsByIds(ids, { catalog: true }))
       }
 
-      if (collected.length < limit) {
+      // Do not fill featured shuffle from the full Super Clones catalog.
+      if (collected.length < limit && !featuredStableShuffle) {
         const fillIds = await fillShopVisibleProductIds(
           Array.from(seen),
           limit - collected.length + 24
@@ -2055,9 +2072,21 @@ async function loadActiveProductsPaginatedFromDb(
   let responseSkipTotal = true
 
   if (shuffle) {
-    // Always resolve the real catalog total for homepage.
-    total = await getCachedActiveProductTotal()
-    responseSkipTotal = false
+    if (featuredStableShuffle || query.featuredOnly) {
+      // Featured host: total = featured count only (never the full Super Clones catalog).
+      total = await countShopCatalogProducts(
+        await catalogListingFromSqlForQuery({ needsCategoryJoin, needsBrandJoin }),
+        '',
+        whereSql,
+        idParams,
+        false
+      )
+      responseSkipTotal = false
+    } else {
+      // Super Clones homepage: full catalog total.
+      total = await getCachedActiveProductTotal()
+      responseSkipTotal = false
+    }
   } else if (query.mode === 'new') {
     const peeked = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')
     if (peeked != null) {

@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Homepage: never SSR the shuffled Super Clones catalog (shuffle pool can be heavy).
- * Featured hosts (1-1.club): SSR the tiny featured page so first paint is instant.
+ * Featured hosts (1-1.club): SSR a stable shuffled first page (max 24).
+ * Neither storefront auto-refreshes or reshuffles the homepage on its own.
  */
 export default async function HomePage({
   searchParams,
@@ -23,13 +24,16 @@ export default async function HomePage({
   const storeMode = resolveStoreModeFromHeaders(headers())
   const featuredOnly = storeMode === 'featured'
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', {
-    shuffle: !featuredOnly,
+    shuffle: true,
   })
   const shouldSsrCatalog = featuredOnly && shouldServerRenderShopCatalog(sp)
 
   const [initialCatalog, initialCategoryNav] = await Promise.all([
     shouldSsrCatalog
-      ? loadInitialShopCatalog(sp, 'all', { featuredOnly: true }).catch(() => null)
+      ? loadInitialShopCatalog(sp, 'all', {
+          featuredOnly: true,
+          shuffle: true,
+        }).catch(() => null)
       : Promise.resolve(null),
     listShopCategoryNavTree({ featuredOnly }).catch(() => []),
   ])
@@ -45,7 +49,7 @@ export default async function HomePage({
         showFooterTagline: false,
         emptyVariant: 'simple',
         centerCatalog: true,
-        shuffleCatalog: !featuredOnly,
+        shuffleCatalog: true,
         featuredStorefront: featuredOnly,
       }}
       initialCatalog={initialCatalog}

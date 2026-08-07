@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     if (paginatedQuery) {
       if (storeMode === 'featured') {
         paginatedQuery.featuredOnly = true
-        paginatedQuery.shuffle = false
+        // Keep client/SSR shuffle=1 so the first page can randomize (live RAND).
       }
 
       // Explicit full-catalog total for 1-1.club CTA modal — never mixes with featured list.

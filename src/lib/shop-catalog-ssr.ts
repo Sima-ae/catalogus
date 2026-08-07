@@ -87,7 +87,6 @@ export async function loadInitialShopCatalog(
   if (mode === 'new') params.set('skipTotal', '1')
   if (
     options?.shuffle &&
-    !options?.featuredOnly &&
     mode === 'all' &&
     !category &&
     !subcategory &&
@@ -103,7 +102,6 @@ export async function loadInitialShopCatalog(
   if (!query) return null
   if (options?.featuredOnly) {
     query.featuredOnly = true
-    query.shuffle = false
   }
   return listActiveProductsPaginated(query)
 }

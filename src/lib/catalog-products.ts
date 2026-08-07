@@ -677,9 +677,8 @@ export function buildCatalogProductsUrl(
 
 /** True when the catalog should use weighted-random homepage ordering. */
 export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
-  return (
+  const unfilteredHomepage =
     query.shuffle === true &&
-    !query.featuredOnly &&
     query.mode !== 'new' &&
     !query.category &&
     !query.subcategory &&
@@ -687,7 +686,24 @@ export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
     !query.brand &&
     !query.tag &&
     !query.search?.trim()
-  )
+
+  if (!unfilteredHomepage) return false
+
+  // 1-1.club + Super Clones: stable shuffle (does not change on refresh / by itself).
+  return true
+}
+
+/**
+ * Featured-only storefront shuffle — deterministic order (CRC32 of id), not live RAND().
+ * Same products/order on every refresh until the featured set changes.
+ */
+export function isFeaturedStableShuffle(query: CatalogProductsQuery): boolean {
+  return Boolean(query.featuredOnly) && isCatalogShuffleEligible(query)
+}
+
+/** @deprecated Use isFeaturedStableShuffle */
+export function isFeaturedLiveShuffle(query: CatalogProductsQuery): boolean {
+  return isFeaturedStableShuffle(query)
 }
 
 /** Prefer priced products (~60%) while keeping unpriced items in the mix. */
