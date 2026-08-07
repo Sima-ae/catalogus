@@ -141,6 +141,7 @@ export async function GET(request: NextRequest) {
     refParam && isAllowedReferer(refParam) ? refParam : 'https://x.yupoo.com/'
 
   let sawUnavailablePayload = false
+  let sawTransientFailure = false
 
   for (const candidate of yupooImageUrlFallbackChain(remoteUrl)) {
     if (!isAllowedYupooImageUrl(candidate)) continue
@@ -159,7 +160,10 @@ export async function GET(request: NextRequest) {
         redirect: 'follow',
         cache: 'no-store',
       })
-      if (!upstream.ok) continue
+      if (!upstream.ok) {
+        sawTransientFailure = true
+        continue
+      }
 
       const rawType = upstream.headers.get('content-type') || 'image/jpeg'
       const rawBody = Buffer.from(await upstream.arrayBuffer())
@@ -169,22 +173,24 @@ export async function GET(request: NextRequest) {
       }
       const prepared = await compressYupooCacheBody(rawBody, rawType)
       void writeDiskCache(candidate, prepared.body, prepared.contentType)
-      // Still mark when Yupoo served the “no image” graphic on another size —
-      // album is usually deleted even if a smaller variant remains.
-      if (sawUnavailablePayload) {
-        queueMarkUnavailable(
-          remoteUrl,
-          refParam && isAllowedReferer(refParam) ? refParam : null
-        )
-      }
+      // A working size means the product still has photos — do not mark OOS
+      // just because another size served Yupoo’s placeholder graphic.
       return imageResponse(prepared.body, prepared.contentType)
     } catch {
+      sawTransientFailure = true
       // try next size
     }
   }
 
-  // Every size failed or was the Yupoo “no image” placeholder → hide from catalog.
-  queueMarkUnavailable(remoteUrl, refParam && isAllowedReferer(refParam) ? refParam : null)
+  // Only mark sold out when Yupoo explicitly served the unavailable placeholder
+  // for every candidate. Transient network / timeout / non-ok responses alone
+  // must not hide products from the catalog.
+  if (sawUnavailablePayload && !sawTransientFailure) {
+    queueMarkUnavailable(
+      remoteUrl,
+      refParam && isAllowedReferer(refParam) ? refParam : null
+    )
+  }
 
   return new NextResponse('Image unavailable', {
     status: 404,

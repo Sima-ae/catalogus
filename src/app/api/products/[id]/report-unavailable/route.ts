@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /**
- * Client reports a broken product image (onError). We re-check the Yupoo
- * album before marking sold out to avoid false positives from flaky networks.
+ * Client reports a broken product image (onError). We only mark sold out after
+ * a confirmed Yupoo album check — never from a single flaky / slow image load.
  */
 export async function POST(
   request: NextRequest,
@@ -54,19 +54,7 @@ export async function POST(
       })
     }
 
-    const imageEmpty = !String(imageUrl || '').trim()
-    if (imageEmpty && isYupoo) {
-      const result = await markProductsSoldOutUnavailable(
-        [params.id],
-        'client_blank_yupoo_image'
-      )
-      return NextResponse.json({
-        ok: true,
-        marked: result.marked > 0,
-        reason: 'blank_image',
-      })
-    }
-
+    // Blank / proxy-only images are not enough — require a live album check.
     if (sourceUrl && /yupoo\.com/i.test(sourceUrl)) {
       const result = await checkAndMarkYupooSourceUnavailable(
         params.id,
@@ -80,15 +68,11 @@ export async function POST(
       })
     }
 
-    // Image is Yupoo CDN but no album URL — mark by image evidence only
-    const result = await markProductsSoldOutUnavailable(
-      [params.id],
-      'client_broken_yupoo_image'
-    )
+    // No album URL to verify — do not mark from a client image error alone.
     return NextResponse.json({
       ok: true,
-      marked: result.marked > 0,
-      reason: 'yupoo_image_only',
+      marked: false,
+      reason: 'no_album_url',
     })
   } catch (error) {
     return NextResponse.json(

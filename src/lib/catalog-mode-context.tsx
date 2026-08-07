@@ -46,10 +46,11 @@ export function CatalogModeProvider({
     }
   }, [])
 
+  // Always re-fetch: light/locked layouts hardcode catalogMode=false and would
+  // otherwise leave share PDPs stuck on digital license/download chrome.
   useEffect(() => {
-    if (initialCatalogMode !== undefined) return
-    refresh()
-  }, [refresh, initialCatalogMode])
+    void refresh()
+  }, [refresh])
 
   const value = useMemo(
     () => ({ catalogMode, ready, refresh }),

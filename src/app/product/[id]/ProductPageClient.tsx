@@ -244,11 +244,20 @@ export default function ProductPageClient() {
         if (prev.has(index)) return prev
         const next = new Set(prev)
         next.add(index)
+        const galleryLen = product?.gallery?.length ?? 0
+        // Only escalate to an OOS re-check once most gallery slots failed —
+        // a single slow thumb must not hide the product.
+        if (
+          productId &&
+          galleryLen > 0 &&
+          next.size >= Math.max(1, Math.ceil(galleryLen * 0.6))
+        ) {
+          reportProductSourceUnavailable(productId)
+        }
         return next
       })
-      if (productId) reportProductSourceUnavailable(productId)
     },
-    [productId]
+    [productId, product?.gallery?.length]
   )
 
   useEffect(() => {

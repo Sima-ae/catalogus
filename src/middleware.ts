@@ -14,6 +14,7 @@ import { isPricelistSharePath, isPricelistApiPath } from '@/lib/pricelist-share-
 import {
   isPublicProductApiPath,
   isPublicProductPath,
+  isPublicShareAssetApiPath,
 } from '@/lib/public-product-path'
 import {
   LOCALE_COOKIE,
@@ -285,9 +286,12 @@ export async function middleware(request: NextRequest) {
   // Unlocked shoppers load product grids + many /api/yupoo-image calls — a flat
   // 60/min cap was returning HTTP 429 on category clicks (e.g. Kleding).
   // Bots without a scrape token already got 404 above.
+  // Public share PDP assets (yupoo-image / catalog-mode) stay uncapped so a
+  // locked visitor’s gallery is not mistaken for “no image”.
   if (
     isBotBlockedApiPath(pathname) &&
     !hasUnlock &&
+    !isPublicShareAssetApiPath(pathname) &&
     isRateLimitedIp(`anon-api:${clientIp(request)}`, 40, 60_000)
   ) {
     return finish(
@@ -339,6 +343,7 @@ export async function middleware(request: NextRequest) {
     isSiteAccessApi(pathname) ||
     isPricelistApiPath(pathname) ||
     isPublicProductApiPath(pathname) ||
+    isPublicShareAssetApiPath(pathname) ||
     isChatApi(pathname)
   ) {
     return finish(NextResponse.next())

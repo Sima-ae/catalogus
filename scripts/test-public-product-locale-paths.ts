@@ -5,7 +5,11 @@
  */
 import { LOCALE_REGISTRY } from '@/lib/i18n-locale-registry'
 import { resolveLocalePathRouting } from '@/lib/locale-path-routing'
-import { isPublicProductPath } from '@/lib/public-product-path'
+import {
+  isPublicProductApiPath,
+  isPublicProductPath,
+  isPublicShareAssetApiPath,
+} from '@/lib/public-product-path'
 import { isPricelistSharePath } from '@/lib/pricelist-share-path'
 import { localizedPath, parseLocaleFromPathname } from '@/lib/i18n-routing'
 
@@ -29,6 +33,24 @@ assert(
 assert(
   !isPublicProductPath(`/product/${PRODUCT_ID}/extra`),
   'nested product path is not a share path'
+)
+assert(
+  isPublicProductApiPath(`/api/products/${PRODUCT_ID}`),
+  'single product API is public'
+)
+assert(
+  !isPublicProductApiPath('/api/products'),
+  'product list API is not public share'
+)
+assert(
+  !isPublicProductApiPath(`/api/products/${PRODUCT_ID}/report-unavailable`),
+  'report-unavailable is not auto-public'
+)
+assert(isPublicShareAssetApiPath('/api/yupoo-image'), 'yupoo-image is share asset')
+assert(isPublicShareAssetApiPath('/api/catalog-mode'), 'catalog-mode is share asset')
+assert(
+  !isPublicShareAssetApiPath('/api/shop/bootstrap'),
+  'bootstrap is not a share asset'
 )
 
 const bare = resolveLocalePathRouting(PRODUCT_INNER, 'nl')
