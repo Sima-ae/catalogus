@@ -967,7 +967,12 @@ async function resolveShopCatalogTotalFromBuckets(
   if (query.mode === 'new') return getCachedNewProductsWeekTotal()
 
   const brand = query.brand && query.brand !== 'All' ? query.brand : undefined
-  const buckets = await loadActiveProductCountBuckets({ brand, mode: query.mode })
+  // Shop grid is category_id-only — use the same warm idsOnly buckets as the menu.
+  const buckets = await loadActiveProductCountBuckets({
+    brand,
+    mode: query.mode,
+    idsOnly: true,
+  })
 
   if (categoryFilter?.categoryIds.length) {
     return sumCategoryFilterCounts(categoryFilter, buckets, { idsOnly: true })
@@ -991,17 +996,19 @@ async function resolveShopCatalogTotalFromBuckets(
 function productCountBucketsCacheKey(options?: {
   brand?: string
   mode?: CatalogProductsQuery['mode']
+  idsOnly?: boolean
 }): string {
-  return `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}`
+  return `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}|${options?.idsOnly ? 'ids' : 'all'}`
 }
 
 function peekProductCountBuckets(options?: {
   brand?: string
   mode?: CatalogProductsQuery['mode']
+  idsOnly?: boolean
 }): Map<string, number> | undefined {
   return peekCachedValue<Map<string, number>>(
     PRODUCT_COUNT_BUCKETS_NS,
-    productCountBucketsCacheKey(options)
+    productCountBucketsCacheKey({ ...options, idsOnly: options?.idsOnly ?? true })
   )
 }
 
@@ -1019,7 +1026,7 @@ function peekShopCatalogTotalFromBuckets(
   }
 
   const brand = query.brand && query.brand !== 'All' ? query.brand : undefined
-  const buckets = peekProductCountBuckets({ brand, mode: query.mode })
+  const buckets = peekProductCountBuckets({ brand, mode: query.mode, idsOnly: true })
   if (!buckets) return null
 
   if (categoryFilter?.categoryIds.length) {
@@ -1852,61 +1859,57 @@ async function loadActiveProductsPaginatedFromDb(
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
-      // Always hydrate exactly `limit` shop-visible rows (24). Over-fetch ids and
-      // top-up from newest until the grid is full — short pages broke "Toont 1–21".
-      const collected: Record<string, unknown>[] = []
+      // Max ~3 queries: pool/newest ids → hydrate → optional fill to reach 24.
       const seen = new Set<string>()
-      let windowOffset = offset
-      let attempts = 0
+      const collected: Record<string, unknown>[] = []
 
-      while (collected.length < limit && attempts < 5) {
-        attempts += 1
-        const need = limit - collected.length
-        const batchLimit = need + 24
-
-        let ids: string[] = []
-        if (usePrecomputedShuffle && attempts <= 2) {
-          ids = await fetchHomepageShufflePageProductIds(
-            HOMEPAGE_SHUFFLE_SCOPE,
-            HOMEPAGE_SHUFFLE_POOL_SIZE,
-            batchLimit,
-            windowOffset
-          )
-        } else if (!usePrecomputedShuffle && attempts === 1) {
-          const fromClause = await catalogListingFromSqlForQuery({
-            needsCategoryJoin,
-            needsBrandJoin,
-          })
-          ids = await fetchShuffledActiveProductIds(
-            fromClause,
-            whereSql,
-            idParams,
-            batchLimit,
-            windowOffset
-          )
-        } else {
-          ids = await fillShopVisibleProductIds(Array.from(seen), batchLimit)
-        }
-
-        ids = ids.filter((id) => id && !seen.has(id))
-        if (!ids.length) {
-          ids = await fillShopVisibleProductIds(Array.from(seen), batchLimit)
-          ids = ids.filter((id) => id && !seen.has(id))
-        }
-        if (!ids.length) break
-
-        for (const id of ids) seen.add(id)
-        const batchRows = await fetchProductRowsByIds(ids, { catalog: true })
-        for (const row of batchRows) {
+      const pushVisible = (batch: Record<string, unknown>[]) => {
+        for (const row of batch) {
           const id = String(row.id ?? '')
-          if (!id) continue
+          if (!id || seen.has(id)) continue
           const flag = row.sold_out
           if (flag === 1 || flag === true || flag === '1') continue
           if (!String(row.image_url ?? '').trim()) continue
+          seen.add(id)
           collected.push(row)
-          if (collected.length >= limit) break
+          if (collected.length >= limit) return
         }
-        windowOffset += batchLimit
+      }
+
+      let ids: string[] = []
+      if (usePrecomputedShuffle) {
+        ids = await fetchHomepageShufflePageProductIds(
+          HOMEPAGE_SHUFFLE_SCOPE,
+          HOMEPAGE_SHUFFLE_POOL_SIZE,
+          limit + 48,
+          offset
+        )
+      } else {
+        const fromClause = await catalogListingFromSqlForQuery({
+          needsCategoryJoin,
+          needsBrandJoin,
+        })
+        ids = await fetchShuffledActiveProductIds(
+          fromClause,
+          whereSql,
+          idParams,
+          limit + 48,
+          offset
+        )
+      }
+
+      if (ids.length) {
+        pushVisible(await fetchProductRowsByIds(ids, { catalog: true }))
+      }
+
+      if (collected.length < limit) {
+        const fillIds = await fillShopVisibleProductIds(
+          Array.from(seen),
+          limit - collected.length + 24
+        )
+        if (fillIds.length) {
+          pushVisible(await fetchProductRowsByIds(fillIds, { catalog: true }))
+        }
       }
 
       return collected.slice(0, limit)
@@ -1940,12 +1943,10 @@ async function loadActiveProductsPaginatedFromDb(
   let responseSkipTotal = true
 
   if (shuffle) {
-    // Always resolve the real catalog total for homepage — skipTotal must not
-    // leave total=0 or the client floors to items.length ("15 van 15").
+    // Always resolve the real catalog total for homepage.
     total = await getCachedActiveProductTotal()
     responseSkipTotal = false
   } else if (query.mode === 'new') {
-    // Prefer warm cache; never block the product grid on a cold week COUNT(*).
     const peeked = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')
     if (peeked != null) {
       total = peeked
@@ -1958,12 +1959,31 @@ async function loadActiveProductsPaginatedFromDb(
       responseSkipTotal = false
     }
   } else {
+    // Category/brand pages: always return a trusted total in the SAME response
+    // (peek warm idsOnly buckets, otherwise await). Stops client countOnly stampedes.
     const peekTotal = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
     if (peekTotal != null) {
       total = peekTotal
       responseSkipTotal = false
     } else {
-      void resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
+      const resolved = await resolveShopCatalogTotalFromBuckets(
+        categories,
+        categoryFilter,
+        query
+      )
+      if (resolved != null) {
+        total = resolved
+        responseSkipTotal = false
+      } else if (!query.skipTotal) {
+        total = await countShopCatalogProducts(
+          await catalogListingFromSqlForQuery({ needsCategoryJoin, needsBrandJoin }),
+          joinSql,
+          whereSql,
+          idParams,
+          false
+        )
+        responseSkipTotal = false
+      }
     }
   }
 

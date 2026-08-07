@@ -317,30 +317,6 @@ function ShopCatalogPageContent({
     ]
   )
 
-  const catalogFilterPrefetchBase = useMemo(
-    (): Omit<ShopCatalogFilterPrefetch, 'page'> => ({
-      category: selectedCategory !== 'All' ? selectedCategory : undefined,
-      subcategory: shopSubcategoryForApiQuery(selectedSubcategory),
-      nested: shopNestedSubcategoryForApiQuery(selectedNestedSubcategory),
-      brand: brandQueryActive ? filterBrand : undefined,
-      tag: filterTag || undefined,
-      search: debouncedSearch || undefined,
-      mode: catalogMode === 'new' ? 'new' : undefined,
-      shuffle: catalogShuffle ? true : undefined,
-    }),
-    [
-      brandQueryActive,
-      catalogMode,
-      catalogShuffle,
-      debouncedSearch,
-      filterBrand,
-      filterTag,
-      selectedCategory,
-      selectedSubcategory,
-      selectedNestedSubcategory,
-    ]
-  )
-
   const handlePageChange = useCallback(
     (nextPage: number) => {
       if (nextPage === currentPage) {
@@ -354,27 +330,6 @@ function ShopCatalogPageContent({
     },
     [currentPage, setCurrentPage]
   )
-
-  useEffect(() => {
-    if (catalogBrowseDeferred || pageLoading || totalItems <= 0) return
-    const totalPages = Math.max(1, Math.ceil(totalItems / CATALOG_PAGE_SIZE))
-    // Homepage shuffle: no adjacent-page prefetch — deep pages are heavier and
-    // stacked prefetches made the overlay trip after page ~10.
-    if (catalogShuffle) return
-    if (currentPage + 1 <= totalPages) {
-      prefetchShopCatalogFilter({ ...catalogFilterPrefetchBase, page: currentPage + 1 })
-    }
-    if (currentPage > 1) {
-      prefetchShopCatalogFilter({ ...catalogFilterPrefetchBase, page: currentPage - 1 })
-    }
-  }, [
-    catalogBrowseDeferred,
-    catalogFilterPrefetchBase,
-    catalogShuffle,
-    currentPage,
-    pageLoading,
-    totalItems,
-  ])
 
   const loadMoreProducts = useCallback(async () => {
     if (catalogShuffle || loadingMore || pageLoading) return
@@ -423,9 +378,8 @@ function ShopCatalogPageContent({
   }, [buildCatalogFetchUrl, catalogShuffle, currentPage, loadingMore, pageLoading, totalItems])
 
   const beginInstantFilterFeedback = useCallback(() => {
-    setProducts([])
-    totalItemsRef.current = 0
-    setTotalItems(0)
+    // Keep the previous grid visible under the overlay — clearing caused empty flashes
+    // and made category clicks feel broken.
     setPageLoading(true)
     setFilterNavigating(true)
     setError(null)
@@ -782,13 +736,7 @@ function ShopCatalogPageContent({
     }
 
     if (catalogBrowseDeferred) {
-      // Only clear the grid when the user must pick a subcategory/nested pill.
-      // Clearing during "loading subcategories" wiped WATCHES (and similar) results.
-      if (effectiveNeedsSubcategoryPick || effectiveNeedsNestedSubcategoryPick) {
-        setProducts([])
-        totalItemsRef.current = 0
-        setTotalItems(0)
-      }
+      // While subcategory menus load, keep the previous grid — never wipe to empty.
       clearLoadingFlags()
       setError(null)
       return () => {
@@ -960,27 +908,6 @@ function ShopCatalogPageContent({
     const abortController = new AbortController()
 
     async function loadProducts() {
-      const shouldFetchTotal =
-        pageToLoad === 1 || totalItemsRef.current <= 0 || !cacheHasTrustedTotal
-      const totalUrl = shouldFetchTotal ? buildCatalogTotalUrl() : null
-      const totalFetch =
-        totalUrl != null
-          ? fetchCatalogJson(totalUrl, { signal: abortController.signal })
-              .then((payload) => {
-                if (cancelled) return
-                if (!isCatalogProductsPage(payload)) return
-                if (typeof payload.total === 'number') {
-                  totalItemsRef.current = payload.total
-                  setTotalItems(payload.total)
-                  patchCachedTotal(payload.total)
-                }
-              })
-              .catch((err) => {
-                if (isCatalogFetchAbortError(err)) return
-                return undefined
-              })
-          : null
-
       try {
         const url = buildCatalogFetchUrl(pageToLoad, catalogPageBaseOffset(pageToLoad))
         const data: unknown = await fetchCatalogJson(url, { signal: abortController.signal })
@@ -988,8 +915,29 @@ function ShopCatalogPageContent({
         if (cancelled) return
 
         applyCatalogPage(data)
-        if (shouldFetchTotal && totalFetch) {
-          void totalFetch
+
+        // Only hit countOnly when the list payload omitted a trusted total.
+        const listHasTotal =
+          !data.skipTotal && typeof data.total === 'number' && data.total > 0
+        if (
+          !listHasTotal &&
+          !catalogShuffle &&
+          (pageToLoad === 1 || totalItemsRef.current <= 0 || !cacheHasTrustedTotal)
+        ) {
+          try {
+            const payload = await fetchCatalogJson(buildCatalogTotalUrl(), {
+              signal: abortController.signal,
+            })
+            if (cancelled) return
+            if (!isCatalogProductsPage(payload)) return
+            if (typeof payload.total === 'number' && payload.total > 0) {
+              totalItemsRef.current = payload.total
+              setTotalItems(payload.total)
+              patchCachedTotal(payload.total)
+            }
+          } catch (err) {
+            if (isCatalogFetchAbortError(err)) return
+          }
         }
       } catch (err) {
         if (cancelled || isCatalogFetchAbortError(err)) return

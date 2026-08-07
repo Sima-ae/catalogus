@@ -12,7 +12,7 @@ type Props = {
   stallTimeoutMs?: number
 }
 
-const DEFAULT_STALL_MS = 18_000
+const DEFAULT_STALL_MS = 12_000
 
 /** Ease 0 → ~88% while loading; snap to 100% briefly when done. */
 function useSimulatedLoadProgress(
@@ -89,14 +89,15 @@ export default function CatalogLoadingOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4 pointer-events-none"
       role="status"
       aria-live="polite"
       aria-busy={percent < 100}
     >
+      {/* pointer-events-none: sidebar / menu stay clickable while products load */}
       <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" aria-hidden />
       <div
-        className={`relative w-full max-w-sm rounded-2xl border shadow-2xl ${
+        className={`relative pointer-events-auto w-full max-w-sm rounded-2xl border shadow-2xl ${
           isDark ? 'border-dark-700 bg-dark-900' : 'border-gray-200 bg-white'
         }`}
       >

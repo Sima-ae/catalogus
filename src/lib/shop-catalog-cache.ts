@@ -2,11 +2,11 @@ import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 import { queryDb } from '@/lib/db'
 
 /** Bump suffix when shop visibility rules change so Redis cannot serve stale grids. */
-export const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page-v5'
-export const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count-v5'
+export const SHOP_CATALOG_PAGE_CACHE_NS = 'shop-catalog-page-v6'
+export const SHOP_CATALOG_COUNT_CACHE_NS = 'shop-catalog-count-v6'
 export const ACTIVE_PRODUCT_TOTAL_CACHE_NS = 'active-product-total-v4'
 export const NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS = 'new-products-week-total-v4'
-export const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets-v4'
+export const PRODUCT_COUNT_BUCKETS_NS = 'product-count-buckets-v6'
 
 /** Bump when menu count rules change (e.g. idsOnly) so Redis cannot serve stale pills. */
 export const SHOP_CATEGORY_MENU_CACHE_NS = 'shop-category-menu-v5'
