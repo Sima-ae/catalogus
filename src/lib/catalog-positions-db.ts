@@ -10,7 +10,6 @@ export const HOMEPAGE_SHUFFLE_POOL_SIZE = 10_000
 type GlobalSchema = typeof globalThis & {
   __catalogPositionsTableExists?: Promise<boolean>
   __catalogPositionsScopeExists?: Map<string, Promise<boolean>>
-  __catalogPositionsPoolIds?: Map<string, { ids: Set<string>; at: number }>
   __catalogPositionsValidCount?: Map<string, { total: number; at: number }>
 }
 
@@ -82,21 +81,6 @@ async function countValidPrecomputedShuffleProducts(scope: string): Promise<numb
   return total
 }
 
-async function loadPoolProductIdSet(scope: string): Promise<Set<string>> {
-  const g = globalThis as GlobalSchema
-  if (!g.__catalogPositionsPoolIds) g.__catalogPositionsPoolIds = new Map()
-  const cached = g.__catalogPositionsPoolIds.get(scope)
-  if (cached && Date.now() - cached.at < POOL_META_TTL_MS) return cached.ids
-
-  const rows = await queryDb<{ id: string }[]>(
-    `SELECT product_id AS id FROM ${TABLE} WHERE scope = ?`,
-    [scope]
-  )
-  const ids = new Set(rows.map((row) => String(row.id)))
-  g.__catalogPositionsPoolIds.set(scope, { ids, at: Date.now() })
-  return ids
-}
-
 export async function saveCatalogProductOrder(
   scope: string,
   productIds: string[],
@@ -128,7 +112,6 @@ export async function replaceCatalogScopePositions(
   if (!productIds.length) return 0
 
   const g = globalThis as GlobalSchema
-  g.__catalogPositionsPoolIds?.delete(scope)
   g.__catalogPositionsValidCount?.delete(scope)
   g.__catalogPositionsScopeExists?.delete(scope)
 
@@ -174,52 +157,38 @@ export async function fetchPrecomputedShuffleProductIds(
 }
 
 /**
- * Newest shop-visible products not in the shuffle pool.
- * Filters pool ids in memory (avoids slow NOT EXISTS anti-join on 100k+ rows).
+ * Shop-visible products not in the shuffle pool (one SQL round-trip).
+ * Used after the dense pool is exhausted — must stay fast so page 8+ never hangs at 88%.
  */
-async function fetchNewestActiveOutsidePool(
+async function fetchActiveOutsidePoolSql(
   scope: string,
   limit: number,
-  skipOutside: number
+  offset: number
 ): Promise<string[]> {
   if (limit <= 0) return []
-  const poolIds = await loadPoolProductIdSet(scope)
-  const out: string[] = []
-  let skipped = 0
-  let dbOffset = 0
-  // Scan newest products; skip pool members until we have `limit` outside-pool ids.
-  for (let attempt = 0; attempt < 30 && out.length < limit; attempt++) {
-    const batchSize = Math.min(300, Math.max(80, (skipOutside + limit - out.length) * 2))
-    const rows = await queryDb<{ id: string }[]>(
-      `SELECT p.id
-       FROM products p FORCE INDEX (idx_products_status_created)
-       WHERE p.status = 'active'
-         AND p.sold_out = 0
-         AND p.image_url IS NOT NULL AND p.image_url <> ''
-       ORDER BY p.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [batchSize, dbOffset]
-    )
-    if (!rows.length) break
-    dbOffset += rows.length
-    for (const row of rows) {
-      const id = String(row.id)
-      if (poolIds.has(id)) continue
-      if (skipped < skipOutside) {
-        skipped += 1
-        continue
-      }
-      out.push(id)
-      if (out.length >= limit) break
-    }
-    if (rows.length < batchSize) break
-  }
-  return out
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT p.id
+     FROM products p FORCE INDEX (idx_products_status_created)
+     WHERE p.status = 'active'
+       AND p.sold_out = 0
+       AND p.image_url IS NOT NULL AND p.image_url <> ''
+       AND NOT EXISTS (
+         SELECT 1 FROM ${TABLE} cpp
+         WHERE cpp.scope = ? AND cpp.product_id = p.id
+       )
+     ORDER BY p.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [scope, limit, Math.max(0, offset)]
+  )
+  return rows.map((row) => String(row.id))
 }
 
 /**
  * Dense homepage pages: pool positions 0..N-1, then newest products outside the pool.
  * Page 1 = offset 0, page 2 = offset 24 → products 25–48, etc.
+ *
+ * Never uses multi-round in-memory scanning (that hung the UI at 88% around page 8–9
+ * when the valid pool was sparse and padding tried to skip ~10k pool ids).
  */
 export async function fetchHomepageShufflePageProductIds(
   scope: string,
@@ -231,18 +200,21 @@ export async function fetchHomepageShufflePageProductIds(
   if (!(await catalogPositionsExistForScope(scope))) return []
 
   const validPool = await countValidPrecomputedShuffleProducts(scope)
+  if (validPool <= 0) {
+    return fetchActiveOutsidePoolSql(scope, limit, offset)
+  }
 
   if (offset < validPool) {
     const fromPool = await fetchPrecomputedShuffleProductIds(scope, limit, offset)
     if (fromPool.length >= limit) return fromPool.slice(0, limit)
 
-    // Rare: raced sold_out between count and read — pad from outside pool.
+    // End of dense pool on this page — finish the page with one SQL outside-pool read.
     const need = limit - fromPool.length
-    const tail = await fetchNewestActiveOutsidePool(scope, need, 0)
+    const tail = await fetchActiveOutsidePoolSql(scope, need, 0)
     return [...fromPool, ...tail].slice(0, limit)
   }
 
-  return fetchNewestActiveOutsidePool(scope, limit, offset - validPool)
+  return fetchActiveOutsidePoolSql(scope, limit, offset - validPool)
 }
 
 export type CatalogPositionJoin = {

@@ -1880,8 +1880,18 @@ async function loadActiveProductsPaginatedFromDb(
   let responseSkipTotal = true
 
   if (shuffle) {
-    total = await getCachedActiveProductTotal()
-    responseSkipTotal = false
+    // Prefer warm cache; never block the product grid on a cold full-catalog COUNT(*).
+    const peeked = peekCachedValue<number>(ACTIVE_PRODUCT_TOTAL_CACHE_NS, 'active')
+    if (peeked != null) {
+      total = peeked
+      responseSkipTotal = false
+    } else if (query.skipTotal) {
+      void getCachedActiveProductTotal()
+      responseSkipTotal = true
+    } else {
+      total = await getCachedActiveProductTotal()
+      responseSkipTotal = false
+    }
   } else if (query.mode === 'new') {
     // Prefer warm cache; never block the product grid on a cold week COUNT(*).
     const peeked = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')

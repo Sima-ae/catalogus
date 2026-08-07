@@ -352,7 +352,11 @@ function ShopCatalogPageContent({
   useEffect(() => {
     if (catalogBrowseDeferred || pageLoading || totalItems <= 0) return
     const totalPages = Math.max(1, Math.ceil(totalItems / CATALOG_PAGE_SIZE))
-    if (currentPage + 1 <= totalPages) {
+    // Homepage shuffle: don't prefetch ahead past early pages — deep shuffle reads
+    // (past a sparse pool) are heavier; stacking them kept the overlay stuck at 88%.
+    const prefetchNext =
+      currentPage + 1 <= totalPages && !(catalogShuffle && currentPage >= 7)
+    if (prefetchNext) {
       prefetchShopCatalogFilter({ ...catalogFilterPrefetchBase, page: currentPage + 1 })
     }
     if (currentPage > 1) {
@@ -361,6 +365,7 @@ function ShopCatalogPageContent({
   }, [
     catalogBrowseDeferred,
     catalogFilterPrefetchBase,
+    catalogShuffle,
     currentPage,
     pageLoading,
     totalItems,
@@ -1187,13 +1192,13 @@ function ShopCatalogPageContent({
   const showBrowsePrompt = Boolean(catalogBrowsePrompt)
 
   const handleCatalogLoadStall = useCallback(() => {
-    // Avoid a false empty state when the overlay gives up — retry once per filter set.
-    if (stallRetrySignatureRef.current === filterSignature) {
-      setLoading(false)
-      setPageLoading(false)
-      setFilterNavigating(false)
-      return
-    }
+    // Always clear the 88% overlay — never leave the shop blocked on a hung request.
+    setLoading(false)
+    setPageLoading(false)
+    setFilterNavigating(false)
+    setLoadingMore(false)
+    // Retry once per filter set in case the first attempt timed out transiently.
+    if (stallRetrySignatureRef.current === filterSignature) return
     stallRetrySignatureRef.current = filterSignature
     setReloadToken((token) => token + 1)
   }, [filterSignature])
