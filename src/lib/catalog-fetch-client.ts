@@ -1,4 +1,4 @@
-const DEFAULT_CATALOG_FETCH_TIMEOUT_MS = 60_000
+const DEFAULT_CATALOG_FETCH_TIMEOUT_MS = 45_000
 
 const inflightCatalogFetches = new Map<string, Promise<unknown>>()
 
@@ -9,8 +9,23 @@ function isAbortError(err: unknown): boolean {
   )
 }
 
-/** Fetch catalog JSON with timeout + in-flight dedupe so filter clicks cannot stampede the VPS. */
-export async function fetchCatalogJson(
+function isRetryableCatalogHttpError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const msg = err.message
+  return (
+    /\bstatus: 503\b/.test(msg) ||
+    /\bstatus: 429\b/.test(msg) ||
+    /\bstatus: 502\b/.test(msg) ||
+    /timed out while loading products/i.test(msg) ||
+    /shop is busy/i.test(msg)
+  )
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function fetchCatalogJsonOnce(
   url: string,
   options?: { signal?: AbortSignal; timeoutMs?: number }
 ): Promise<unknown> {
@@ -69,6 +84,24 @@ export async function fetchCatalogJson(
   }
 
   return request
+}
+
+/** Fetch catalog JSON with timeout + one retry on 503/429 (MariaDB pool pressure). */
+export async function fetchCatalogJson(
+  url: string,
+  options?: { signal?: AbortSignal; timeoutMs?: number }
+): Promise<unknown> {
+  try {
+    return await fetchCatalogJsonOnce(url, options)
+  } catch (err) {
+    if (options?.signal?.aborted || isAbortError(err)) throw err
+    if (!isRetryableCatalogHttpError(err)) throw err
+    await sleep(500)
+    if (options?.signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError')
+    }
+    return fetchCatalogJsonOnce(url, options)
+  }
 }
 
 export function isCatalogFetchAbortError(err: unknown): boolean {

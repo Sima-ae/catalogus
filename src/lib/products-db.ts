@@ -62,6 +62,7 @@ import {
   catalogPositionJoin,
   catalogPositionsExistForScope,
   fetchHomepageShufflePageProductIds,
+  fillShopVisibleProductIds,
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
 } from '@/lib/catalog-positions-db'
@@ -1895,17 +1896,11 @@ async function loadActiveProductsPaginatedFromDb(
     return Boolean(image)
   })
 
-  // Homepage shuffle: if defense filter shortened the page, top-up once from newest.
+  // Homepage shuffle: if defense filter shortened the page, one cheap newest top-up.
   if (shuffle && usePrecomputedShuffle && inStockRows.length < limit) {
     const have = new Set(inStockRows.map((row) => String(row.id ?? '')).filter(Boolean))
     const need = limit - inStockRows.length
-    const topUpIds = await fetchHomepageShufflePageProductIds(
-      HOMEPAGE_SHUFFLE_SCOPE,
-      HOMEPAGE_SHUFFLE_POOL_SIZE,
-      need + 48,
-      offset + inStockRows.length
-    )
-    const missing = topUpIds.filter((id) => id && !have.has(id)).slice(0, need + 24)
+    const missing = await fillShopVisibleProductIds(Array.from(have), need)
     if (missing.length) {
       const extra = await fetchProductRowsByIds(missing, { catalog: true })
       for (const row of extra) {

@@ -386,13 +386,9 @@ function ShopCatalogPageContent({
 
     setLoadingMore(true)
     try {
-      const response = await fetch(
-        buildCatalogFetchUrl(currentPage, baseOffset + loaded.length),
-        { method: 'GET' }
+      const data: unknown = await fetchCatalogJson(
+        buildCatalogFetchUrl(currentPage, baseOffset + loaded.length)
       )
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-
-      const data: unknown = await response.json()
       if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
 
       setProducts((prev) => {
@@ -417,6 +413,7 @@ function ShopCatalogPageContent({
         totalItemsRef.current = data.total
       }
     } catch (err) {
+      if (isCatalogFetchAbortError(err)) return
       setError(
         `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
       )
@@ -995,10 +992,9 @@ function ShopCatalogPageContent({
         setError(
           `Failed to load products: ${err instanceof Error ? err.message : 'Unknown error'}`
         )
-        if (!cached) {
+        // Keep the previous page / cached grid on transient 503s — never wipe the catalog.
+        if (!cached && productsRef.current.length === 0) {
           setProducts([])
-          totalItemsRef.current = 0
-          setTotalItems(0)
         }
       } finally {
         clearLoadingFlags()

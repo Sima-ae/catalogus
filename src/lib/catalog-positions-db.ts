@@ -152,27 +152,29 @@ export async function fetchPrecomputedShuffleProductIds(
      WHERE cpp.scope = ?
      ORDER BY cpp.position ASC
      LIMIT ? OFFSET ?`,
-    [scope, limit, offset]
+    [scope, limit, Math.max(0, offset)]
   )
   return rows.map((row) => String(row.id))
 }
 
 /**
- * Newest shop-visible products by created_at (indexed) — no anti-join.
- * Used to fill/continue homepage pages past the dense shuffle pool without hanging.
+ * Newest shop-visible products by created_at (indexed).
+ * Keep offsets small — callers should pass beyond-pool offsets, not huge absolute pages.
  */
-async function fetchNewestShopVisibleIds(
+export async function fetchNewestShopVisibleIds(
   limit: number,
   offset: number
 ): Promise<string[]> {
   if (limit <= 0) return []
+  // Hard cap: deep OFFSET walks the index and times out / 503s the pool under load.
+  const safeOffset = Math.min(Math.max(0, offset), 20_000)
   const rows = await queryDb<{ id: string }[]>(
     `SELECT p.id
      FROM products p FORCE INDEX (idx_products_status_created)
      WHERE ${SHOP_VISIBLE_PREDICATE}
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?`,
-    [limit, Math.max(0, offset)]
+    [limit, safeOffset]
   )
   return rows.map((row) => String(row.id))
 }
@@ -196,12 +198,11 @@ function mergeUniqueIds(primary: string[], extra: string[], limit: number): stri
 }
 
 /**
- * Dense homepage pages: always aim for exactly `limit` ids (24).
- * Page 1 = offset 0, page 2 = offset 24 → products 25–48, etc.
+ * Dense homepage pages — at most 2 SQL round-trips.
+ * Page 1 = offset 0 … page N = offset (N-1)*24.
  *
- * 1) Prefer precomputed shuffle positions (fast join).
- * 2) If the pool is short/exhausted, continue with newest-by-date at the same
- *    absolute offset — never NOT EXISTS / in-memory pool scans (those hung at 88%).
+ * Never stacks COUNT + pool + deep absolute OFFSET + head fill (that exhausted the
+ * MariaDB pool around page 14–15 and returned HTTP 503).
  */
 export async function fetchHomepageShufflePageProductIds(
   scope: string,
@@ -214,32 +215,40 @@ export async function fetchHomepageShufflePageProductIds(
     return fetchNewestShopVisibleIds(limit, offset)
   }
 
-  const validPool = await countValidPrecomputedShuffleProducts(scope)
+  // Happy path: one indexed pool read.
+  const fromPool = await fetchPrecomputedShuffleProductIds(scope, limit, offset)
+  if (fromPool.length >= limit) return fromPool
 
-  // Still inside the dense pool — over-fetch slightly so sold_out drift rarely shortens pages.
-  if (validPool > 0 && offset < validPool) {
-    const overFetch = Math.min(limit + 24, Math.max(0, validPool - offset))
-    const fromPool = await fetchPrecomputedShuffleProductIds(scope, overFetch, offset)
-    if (fromPool.length >= limit) return fromPool.slice(0, limit)
-
-    // End of dense pool on this page — finish with newest-by-date at absolute offset.
-    const need = limit - fromPool.length
-    const continueAt = offset + fromPool.length
-    const tail = await fetchNewestShopVisibleIds(need + 24, continueAt)
-    const merged = mergeUniqueIds(fromPool, tail, limit)
-    if (merged.length >= limit) return merged
-
-    // Last resort: newest from the top, skipping ids already chosen.
-    const head = await fetchNewestShopVisibleIds(limit * 3, 0)
-    return mergeUniqueIds(merged, head, limit)
+  if (fromPool.length > 0) {
+    // Last partial pool page — pad from newest head (OFFSET 0), one extra query.
+    const tail = await fetchNewestShopVisibleIds(limit - fromPool.length + 8, 0)
+    return mergeUniqueIds(fromPool, tail, limit)
   }
 
-  // Past the dense pool — absolute newest-by-date page (same offset semantics as catalog).
-  const page = await fetchNewestShopVisibleIds(limit + 24, offset)
-  if (page.length >= limit) return page.slice(0, limit)
+  // Past the dense pool: continue with a SMALL beyond-pool offset (not absolute page offset).
+  const validPool = await countValidPrecomputedShuffleProducts(scope)
+  const beyond = Math.max(0, offset - validPool)
+  return fetchNewestShopVisibleIds(limit, beyond)
+}
 
-  const head = await fetchNewestShopVisibleIds(limit * 3, 0)
-  return mergeUniqueIds(page, head, limit)
+/**
+ * Lightweight top-up when a page lost rows to sold_out/blank-image after hydrate.
+ * One query only — never re-enter the full shuffle pager.
+ */
+export async function fillShopVisibleProductIds(
+  excludeIds: string[],
+  need: number
+): Promise<string[]> {
+  if (need <= 0) return []
+  const exclude = new Set(excludeIds.filter(Boolean))
+  const batch = await fetchNewestShopVisibleIds(Math.max(need * 3, 48), 0)
+  const out: string[] = []
+  for (const id of batch) {
+    if (exclude.has(id)) continue
+    out.push(id)
+    if (out.length >= need) break
+  }
+  return out
 }
 
 export type CatalogPositionJoin = {
