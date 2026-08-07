@@ -1,6 +1,7 @@
 'use client'
 
 import { isProductInCurrentCatalogWeek } from '@/lib/catalog'
+import { useI18n } from '@/lib/i18n-context'
 
 type Props = {
   createdAt: string | Date | null | undefined
@@ -15,8 +16,10 @@ export default function ProductNewBadge({
   className = '',
   variant = 'card',
 }: Props) {
+  const { t } = useI18n()
   if (!createdAt || !isProductInCurrentCatalogWeek(createdAt)) return null
 
+  const label = t('shop.badge.new')
   const sizeClass =
     variant === 'gallery'
       ? 'product-featured-tip--gallery h-14 w-14 sm:h-16 sm:w-16'
@@ -26,11 +29,11 @@ export default function ProductNewBadge({
     <div
       className={`product-featured-tip pointer-events-none absolute left-0 top-0 z-[15] ${sizeClass} ${className}`.trim()}
       role="img"
-      aria-label="NEW"
+      aria-label={label}
     >
       <div className="product-featured-tip-triangle absolute inset-0 bg-black" aria-hidden />
       <span className="sold-out-ribbon-text product-featured-tip-label absolute font-bold uppercase leading-none">
-        NEW
+        {label}
       </span>
     </div>
   )

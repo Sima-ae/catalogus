@@ -56,6 +56,7 @@ import { getDashboardMessages } from '@/lib/i18n-dashboard'
 import { getContactMessages } from '@/lib/i18n-contact'
 import { getCategoryExtraMessages } from '@/lib/i18n-category-extra'
 import { getChatMessages } from '@/lib/i18n-chat'
+import { getFeaturedCatalogCtaMessages } from '@/lib/i18n-featured-catalog-cta'
 
 export {
   SUPPORTED_LOCALES,
@@ -656,6 +657,7 @@ export function getMessages(locale: Locale): Messages {
     ...getContactMessages(locale),
     ...getCategoryExtraMessages(locale),
     ...getChatMessages(locale),
+    ...getFeaturedCatalogCtaMessages(locale),
   }
 }
 

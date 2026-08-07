@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { useChat } from '@/components/chat/ChatProvider'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '@/lib/theme'
+import { useI18n } from '@/lib/i18n-context'
 import { resolveWhatsAppContactUrl } from '@/lib/whatsapp'
 
 type Props = {
@@ -12,9 +11,13 @@ type Props = {
   onClose: () => void
 }
 
-function formatTotal(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return 'all'
-  return new Intl.NumberFormat(undefined).format(Math.floor(n))
+function formatTotal(n: number, locale: string): string {
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  try {
+    return new Intl.NumberFormat(locale).format(Math.floor(n))
+  } catch {
+    return new Intl.NumberFormat(undefined).format(Math.floor(n))
+  }
 }
 
 /** Shown on 1-1.club when the visitor pages past the featured catalog. */
@@ -24,27 +27,21 @@ export default function FeaturedCatalogExhaustedModal({
   onClose,
 }: Props) {
   const { theme } = useTheme()
-  const { setOpen: setChatOpen } = useChat()
-  const [showChoices, setShowChoices] = useState(false)
+  const { t, locale } = useI18n()
   const isDark = theme === 'dark'
-  const totalLabel = formatTotal(fullCatalogTotal)
-
-  useEffect(() => {
-    if (open) setShowChoices(false)
-  }, [open])
+  const totalLabel = formatTotal(fullCatalogTotal, locale)
 
   if (!open) return null
 
-  const prefill = `Hi! I'd like to see the full Super Clones catalog (${totalLabel} products).`
-  const whatsappUrl = resolveWhatsAppContactUrl(prefill)
+  const prefill = t('shop.featuredCatalog.whatsappPrefill', { total: totalLabel })
+  const whatsappUrl =
+    resolveWhatsAppContactUrl(prefill) ||
+    `https://wa.me/31687999505?text=${encodeURIComponent(prefill)}`
 
   const panel = isDark
     ? 'bg-dark-800 border-dark-600 text-white'
     : 'bg-white border-gray-200 text-gray-900'
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const choiceBtn = isDark
-    ? 'border-dark-600 bg-dark-900 hover:bg-dark-700 text-white'
-    : 'border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-900'
 
   return (
     <div
@@ -61,53 +58,27 @@ export default function FeaturedCatalogExhaustedModal({
         <button
           type="button"
           className={`absolute right-3 top-3 rounded-full p-1 ${muted} hover:opacity-80`}
-          aria-label="Close"
+          aria-label={t('shop.featuredCatalog.close')}
           onClick={onClose}
         >
           <XMarkIcon className="h-5 w-5" />
         </button>
 
         <h2 id="featured-catalog-exhausted-title" className="pr-8 text-lg font-semibold">
-          Need to see all {totalLabel} products?
+          {t('shop.featuredCatalog.needAllTitle', { total: totalLabel })}
         </h2>
         <p className={`mt-3 text-sm leading-relaxed ${muted}`}>
-          This page only shows featured picks. To browse the full Super Clones catalog (
-          {totalLabel} products), send us a message in live chat or on WhatsApp.
+          {t('shop.featuredCatalog.body')}
         </p>
 
-        {!showChoices ? (
-          <button
-            type="button"
-            className="btn-primary mt-6 w-full py-2.5"
-            onClick={() => setShowChoices(true)}
-          >
-            Click here
-          </button>
-        ) : (
-          <div className="mt-6 flex flex-col gap-2.5">
-            {whatsappUrl ? (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${choiceBtn}`}
-              >
-                Send on WhatsApp
-              </a>
-            ) : null}
-            <button
-              type="button"
-              className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${choiceBtn}`}
-              onClick={() => {
-                onClose()
-                setChatOpen(true)
-              }}
-            >
-              <ChatBubbleLeftRightIcon className="h-5 w-5" />
-              Send on Live Chat
-            </button>
-          </div>
-        )}
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary mt-6 flex w-full items-center justify-center py-2.5"
+        >
+          {t('shop.featuredCatalog.whatsapp')}
+        </a>
       </div>
     </div>
   )
