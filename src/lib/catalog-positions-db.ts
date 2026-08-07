@@ -15,6 +15,11 @@ type GlobalSchema = typeof globalThis & {
 
 const POOL_META_TTL_MS = 5 * 60_000
 
+const SHOP_VISIBLE_PREDICATE = `
+  p.status = 'active'
+  AND p.sold_out = 0
+  AND p.image_url IS NOT NULL AND p.image_url <> ''`
+
 async function catalogPositionsTableExists(): Promise<boolean> {
   const g = globalThis as GlobalSchema
   if (!g.__catalogPositionsTableExists) {
@@ -70,9 +75,7 @@ async function countValidPrecomputedShuffleProducts(scope: string): Promise<numb
     `SELECT COUNT(*) AS total
      FROM ${TABLE} cpp
      INNER JOIN products p ON p.id = cpp.product_id
-       AND p.status = 'active'
-       AND p.sold_out = 0
-       AND p.image_url IS NOT NULL AND p.image_url <> ''
+       AND ${SHOP_VISIBLE_PREDICATE}
      WHERE cpp.scope = ?`,
     [scope]
   )
@@ -145,9 +148,7 @@ export async function fetchPrecomputedShuffleProductIds(
     `SELECT p.id
      FROM ${TABLE} cpp
      INNER JOIN products p ON p.id = cpp.product_id
-       AND p.status = 'active'
-       AND p.sold_out = 0
-       AND p.image_url IS NOT NULL AND p.image_url <> ''
+       AND ${SHOP_VISIBLE_PREDICATE}
      WHERE cpp.scope = ?
      ORDER BY cpp.position ASC
      LIMIT ? OFFSET ?`,
@@ -157,11 +158,10 @@ export async function fetchPrecomputedShuffleProductIds(
 }
 
 /**
- * Shop-visible products not in the shuffle pool (one SQL round-trip).
- * Used after the dense pool is exhausted — must stay fast so page 8+ never hangs at 88%.
+ * Newest shop-visible products by created_at (indexed) — no anti-join.
+ * Used to fill/continue homepage pages past the dense shuffle pool without hanging.
  */
-async function fetchActiveOutsidePoolSql(
-  scope: string,
+async function fetchNewestShopVisibleIds(
   limit: number,
   offset: number
 ): Promise<string[]> {
@@ -169,26 +169,39 @@ async function fetchActiveOutsidePoolSql(
   const rows = await queryDb<{ id: string }[]>(
     `SELECT p.id
      FROM products p FORCE INDEX (idx_products_status_created)
-     WHERE p.status = 'active'
-       AND p.sold_out = 0
-       AND p.image_url IS NOT NULL AND p.image_url <> ''
-       AND NOT EXISTS (
-         SELECT 1 FROM ${TABLE} cpp
-         WHERE cpp.scope = ? AND cpp.product_id = p.id
-       )
+     WHERE ${SHOP_VISIBLE_PREDICATE}
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?`,
-    [scope, limit, Math.max(0, offset)]
+    [limit, Math.max(0, offset)]
   )
   return rows.map((row) => String(row.id))
 }
 
+function mergeUniqueIds(primary: string[], extra: string[], limit: number): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const id of primary) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+    if (out.length >= limit) return out
+  }
+  for (const id of extra) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+    if (out.length >= limit) return out
+  }
+  return out
+}
+
 /**
- * Dense homepage pages: pool positions 0..N-1, then newest products outside the pool.
+ * Dense homepage pages: always aim for exactly `limit` ids (24).
  * Page 1 = offset 0, page 2 = offset 24 → products 25–48, etc.
  *
- * Never uses multi-round in-memory scanning (that hung the UI at 88% around page 8–9
- * when the valid pool was sparse and padding tried to skip ~10k pool ids).
+ * 1) Prefer precomputed shuffle positions (fast join).
+ * 2) If the pool is short/exhausted, continue with newest-by-date at the same
+ *    absolute offset — never NOT EXISTS / in-memory pool scans (those hung at 88%).
  */
 export async function fetchHomepageShufflePageProductIds(
   scope: string,
@@ -197,24 +210,36 @@ export async function fetchHomepageShufflePageProductIds(
   offset: number
 ): Promise<string[]> {
   if (limit <= 0) return []
-  if (!(await catalogPositionsExistForScope(scope))) return []
+  if (!(await catalogPositionsExistForScope(scope))) {
+    return fetchNewestShopVisibleIds(limit, offset)
+  }
 
   const validPool = await countValidPrecomputedShuffleProducts(scope)
-  if (validPool <= 0) {
-    return fetchActiveOutsidePoolSql(scope, limit, offset)
-  }
 
-  if (offset < validPool) {
-    const fromPool = await fetchPrecomputedShuffleProductIds(scope, limit, offset)
+  // Still inside the dense pool — over-fetch slightly so sold_out drift rarely shortens pages.
+  if (validPool > 0 && offset < validPool) {
+    const overFetch = Math.min(limit + 24, Math.max(0, validPool - offset))
+    const fromPool = await fetchPrecomputedShuffleProductIds(scope, overFetch, offset)
     if (fromPool.length >= limit) return fromPool.slice(0, limit)
 
-    // End of dense pool on this page — finish the page with one SQL outside-pool read.
+    // End of dense pool on this page — finish with newest-by-date at absolute offset.
     const need = limit - fromPool.length
-    const tail = await fetchActiveOutsidePoolSql(scope, need, 0)
-    return [...fromPool, ...tail].slice(0, limit)
+    const continueAt = offset + fromPool.length
+    const tail = await fetchNewestShopVisibleIds(need + 24, continueAt)
+    const merged = mergeUniqueIds(fromPool, tail, limit)
+    if (merged.length >= limit) return merged
+
+    // Last resort: newest from the top, skipping ids already chosen.
+    const head = await fetchNewestShopVisibleIds(limit * 3, 0)
+    return mergeUniqueIds(merged, head, limit)
   }
 
-  return fetchActiveOutsidePoolSql(scope, limit, offset - validPool)
+  // Past the dense pool — absolute newest-by-date page (same offset semantics as catalog).
+  const page = await fetchNewestShopVisibleIds(limit + 24, offset)
+  if (page.length >= limit) return page.slice(0, limit)
+
+  const head = await fetchNewestShopVisibleIds(limit * 3, 0)
+  return mergeUniqueIds(page, head, limit)
 }
 
 export type CatalogPositionJoin = {

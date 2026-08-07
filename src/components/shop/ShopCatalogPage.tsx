@@ -244,8 +244,6 @@ function ShopCatalogPageContent({
     () => itemsOnCatalogPage(totalItems, currentPage),
     [totalItems, currentPage]
   )
-  const hasMoreOnPage =
-    products.length > 0 && products.length < itemsOnCurrentPage && !pageLoading
 
   const catalogShuffle =
     config.shuffleCatalog === true &&
@@ -255,6 +253,14 @@ function ShopCatalogPageContent({
     !brandQueryActive &&
     !filterTag &&
     !debouncedSearch.trim()
+
+  // Homepage shuffle always returns a full page from the API — never mid-page top-ups
+  // (those used odd offsets and made "showing X–Y" look wrong).
+  const hasMoreOnPage =
+    !catalogShuffle &&
+    products.length > 0 &&
+    products.length < itemsOnCurrentPage &&
+    !pageLoading
 
   const buildCatalogFetchUrl = useCallback(
     (pageToLoad: number, rowOffset: number) =>
@@ -352,11 +358,10 @@ function ShopCatalogPageContent({
   useEffect(() => {
     if (catalogBrowseDeferred || pageLoading || totalItems <= 0) return
     const totalPages = Math.max(1, Math.ceil(totalItems / CATALOG_PAGE_SIZE))
-    // Homepage shuffle: don't prefetch ahead past early pages — deep shuffle reads
-    // (past a sparse pool) are heavier; stacking them kept the overlay stuck at 88%.
-    const prefetchNext =
-      currentPage + 1 <= totalPages && !(catalogShuffle && currentPage >= 7)
-    if (prefetchNext) {
+    // Homepage shuffle: no adjacent-page prefetch — deep pages are heavier and
+    // stacked prefetches made the overlay trip after page ~10.
+    if (catalogShuffle) return
+    if (currentPage + 1 <= totalPages) {
       prefetchShopCatalogFilter({ ...catalogFilterPrefetchBase, page: currentPage + 1 })
     }
     if (currentPage > 1) {
@@ -372,7 +377,7 @@ function ShopCatalogPageContent({
   ])
 
   const loadMoreProducts = useCallback(async () => {
-    if (loadingMore || pageLoading) return
+    if (catalogShuffle || loadingMore || pageLoading) return
 
     const loaded = productsRef.current
     const baseOffset = catalogPageBaseOffset(currentPage)
@@ -418,7 +423,7 @@ function ShopCatalogPageContent({
     } finally {
       setLoadingMore(false)
     }
-  }, [buildCatalogFetchUrl, currentPage, loadingMore, pageLoading, totalItems])
+  }, [buildCatalogFetchUrl, catalogShuffle, currentPage, loadingMore, pageLoading, totalItems])
 
   const beginInstantFilterFeedback = useCallback(() => {
     setProducts([])

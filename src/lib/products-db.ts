@@ -1851,7 +1851,7 @@ async function loadActiveProductsPaginatedFromDb(
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
-      // Dense page: offset 0 → 1–24, offset 24 → 25–48, etc. One stable read.
+      // Dense page: offset 0 → 1–24, offset 24 → 25–48, etc. Always fill to `limit`.
       let ids: string[] = []
       if (usePrecomputedShuffle) {
         ids = await fetchHomepageShufflePageProductIds(
@@ -1886,14 +1886,41 @@ async function loadActiveProductsPaginatedFromDb(
     return fetchProductRowsByIds(ids, { catalog: true })
   }
 
-  const rows = await fetchPageProductRows()
+  let rows = await fetchPageProductRows()
   // Defense: never return sold_out / blank-image rows to the shop grid (stale shuffle ids, etc.).
-  const inStockRows = rows.filter((row) => {
+  let inStockRows = rows.filter((row) => {
     const flag = row.sold_out
     if (flag === 1 || flag === true || flag === '1') return false
     const image = String(row.image_url ?? '').trim()
     return Boolean(image)
   })
+
+  // Homepage shuffle: if defense filter shortened the page, top-up once from newest.
+  if (shuffle && usePrecomputedShuffle && inStockRows.length < limit) {
+    const have = new Set(inStockRows.map((row) => String(row.id ?? '')).filter(Boolean))
+    const need = limit - inStockRows.length
+    const topUpIds = await fetchHomepageShufflePageProductIds(
+      HOMEPAGE_SHUFFLE_SCOPE,
+      HOMEPAGE_SHUFFLE_POOL_SIZE,
+      need + 48,
+      offset + inStockRows.length
+    )
+    const missing = topUpIds.filter((id) => id && !have.has(id)).slice(0, need + 24)
+    if (missing.length) {
+      const extra = await fetchProductRowsByIds(missing, { catalog: true })
+      for (const row of extra) {
+        const id = String(row.id ?? '')
+        if (!id || have.has(id)) continue
+        const flag = row.sold_out
+        if (flag === 1 || flag === true || flag === '1') continue
+        if (!String(row.image_url ?? '').trim()) continue
+        have.add(id)
+        inStockRows.push(row)
+        if (inStockRows.length >= limit) break
+      }
+    }
+  }
+
   // Hard cap — never exceed the requested page size.
   const cappedRows = inStockRows.slice(0, limit)
   const items = serializeProductRowsSync(cappedRows, brandSkuPrefixes)
