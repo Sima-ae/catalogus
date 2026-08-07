@@ -556,13 +556,15 @@ CREATE TABLE IF NOT EXISTS downloads (
 
 CREATE TABLE IF NOT EXISTS site_ticker_messages (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  store_scope VARCHAR(16) NOT NULL DEFAULT 'default',
   sort_order INT NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   translations JSON NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  KEY idx_site_ticker_active_sort (is_active, sort_order)
+  KEY idx_site_ticker_active_sort (is_active, sort_order),
+  KEY idx_site_ticker_scope_active_sort (store_scope, is_active, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS notifications (

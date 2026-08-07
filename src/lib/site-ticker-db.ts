@@ -4,14 +4,17 @@ import type { Locale } from '@/lib/i18n-locale-registry'
 import {
   hasAnyTickerText,
   normalizeTickerTranslations,
+  parseTickerStoreScope,
   parseTickerTranslations,
   resolveTickerLine,
   type TickerMessagePublic,
+  type TickerStoreScope,
   type TickerTranslations,
 } from '@/lib/site-ticker'
 
 export type SiteTickerMessageRow = {
   id: number
+  storeScope: TickerStoreScope
   sortOrder: number
   isActive: boolean
   translations: TickerTranslations
@@ -24,6 +27,7 @@ const TICKER_CACHE_TTL_MS = 15_000
 
 type DbRow = {
   id: number
+  store_scope?: string | null
   sort_order: number
   is_active: number | boolean
   translations: unknown
@@ -34,6 +38,7 @@ type DbRow = {
 function rowToMessage(row: DbRow): SiteTickerMessageRow {
   return {
     id: row.id,
+    storeScope: parseTickerStoreScope(row.store_scope),
     sortOrder: row.sort_order,
     isActive: row.is_active === true || row.is_active === 1,
     translations: parseTickerTranslations(row.translations),
@@ -42,24 +47,31 @@ function rowToMessage(row: DbRow): SiteTickerMessageRow {
   }
 }
 
-export async function listAllSiteTickerMessages(): Promise<SiteTickerMessageRow[]> {
+export async function listAllSiteTickerMessages(
+  storeScope: TickerStoreScope = 'default'
+): Promise<SiteTickerMessageRow[]> {
   const rows = await queryDb<DbRow[]>(
-    `SELECT id, sort_order, is_active, translations, created_at, updated_at
+    `SELECT id, store_scope, sort_order, is_active, translations, created_at, updated_at
      FROM site_ticker_messages
-     ORDER BY sort_order ASC, id ASC`
+     WHERE store_scope = ?
+     ORDER BY sort_order ASC, id ASC`,
+    [storeScope]
   )
   return rows.map(rowToMessage)
 }
 
 export async function listActiveSiteTickerMessagesForLocale(
-  locale: Locale
+  locale: Locale,
+  storeScope: TickerStoreScope = 'default'
 ): Promise<TickerMessagePublic[]> {
-  return getCachedValue(TICKER_CACHE_NS, locale, TICKER_CACHE_TTL_MS, async () => {
+  const cacheKey = `${storeScope}|${locale}`
+  return getCachedValue(TICKER_CACHE_NS, cacheKey, TICKER_CACHE_TTL_MS, async () => {
     const rows = await queryDb<DbRow[]>(
-      `SELECT id, sort_order, translations
+      `SELECT id, store_scope, sort_order, translations
        FROM site_ticker_messages
-       WHERE is_active = 1
-       ORDER BY sort_order ASC, id ASC`
+       WHERE is_active = 1 AND store_scope = ?
+       ORDER BY sort_order ASC, id ASC`,
+      [storeScope]
     )
     return rows
       .map((row) => {
@@ -73,6 +85,7 @@ export async function listActiveSiteTickerMessagesForLocale(
 
 export async function createSiteTickerMessage(input: {
   translations: TickerTranslations
+  storeScope?: TickerStoreScope
   isActive?: boolean
   sortOrder?: number | null
 }): Promise<SiteTickerMessageRow> {
@@ -81,8 +94,10 @@ export async function createSiteTickerMessage(input: {
     throw new Error('At least one translation is required')
   }
 
+  const storeScope = parseTickerStoreScope(input.storeScope)
   const maxRows = await queryDb<{ max_sort: number | null }[]>(
-    'SELECT MAX(sort_order) AS max_sort FROM site_ticker_messages'
+    'SELECT MAX(sort_order) AS max_sort FROM site_ticker_messages WHERE store_scope = ?',
+    [storeScope]
   )
   const maxSort = maxRows[0]?.max_sort ?? -1
   let sortOrder = maxSort + 1
@@ -92,12 +107,12 @@ export async function createSiteTickerMessage(input: {
 
   const isActive = input.isActive === false ? 0 : 1
   await queryDb(
-    `INSERT INTO site_ticker_messages (sort_order, is_active, translations)
-     VALUES (?, ?, ?)`,
-    [sortOrder, isActive, JSON.stringify(translations)]
+    `INSERT INTO site_ticker_messages (store_scope, sort_order, is_active, translations)
+     VALUES (?, ?, ?, ?)`,
+    [storeScope, sortOrder, isActive, JSON.stringify(translations)]
   )
   const rows = await queryDb<DbRow[]>(
-    `SELECT id, sort_order, is_active, translations, created_at, updated_at
+    `SELECT id, store_scope, sort_order, is_active, translations, created_at, updated_at
      FROM site_ticker_messages WHERE id = LAST_INSERT_ID() LIMIT 1`
   )
   const row = rows[0]
@@ -111,6 +126,7 @@ export async function updateSiteTickerMessage(
     translations?: TickerTranslations
     isActive?: boolean
     sortOrder?: number
+    storeScope?: TickerStoreScope
   }
 ): Promise<SiteTickerMessageRow | null> {
   const sets: string[] = []
@@ -133,6 +149,10 @@ export async function updateSiteTickerMessage(
     sets.push('sort_order = ?')
     params.push(sortOrder)
   }
+  if (patch.storeScope !== undefined) {
+    sets.push('store_scope = ?')
+    params.push(parseTickerStoreScope(patch.storeScope))
+  }
 
   if (!sets.length) return getSiteTickerMessageById(id)
 
@@ -150,7 +170,7 @@ export async function deleteSiteTickerMessage(id: number): Promise<boolean> {
 
 export async function getSiteTickerMessageById(id: number): Promise<SiteTickerMessageRow | null> {
   const rows = await queryDb<DbRow[]>(
-    `SELECT id, sort_order, is_active, translations, created_at, updated_at
+    `SELECT id, store_scope, sort_order, is_active, translations, created_at, updated_at
      FROM site_ticker_messages WHERE id = ? LIMIT 1`,
     [id]
   )

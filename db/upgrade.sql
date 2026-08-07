@@ -732,3 +732,11 @@ ALTER TABLE products
     sold_out,
     created_at
   );
+
+-- Separate ticker messages for Super Clones (default) vs 1-1.club (featured)
+ALTER TABLE site_ticker_messages
+  ADD COLUMN IF NOT EXISTS store_scope VARCHAR(16) NOT NULL DEFAULT 'default'
+    AFTER id;
+
+ALTER TABLE site_ticker_messages
+  ADD INDEX IF NOT EXISTS idx_site_ticker_scope_active_sort (store_scope, is_active, sort_order);

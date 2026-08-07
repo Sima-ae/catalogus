@@ -26,11 +26,11 @@ const BY_LOCALE: Partial<Record<Locale, FeaturedCatalogCtaMessages>> = {
   nl: {
     'shop.featuredCatalog.needAllTitle': 'Alle {total} producten bekijken?',
     'shop.featuredCatalog.body':
-      'Deze pagina toont slechts een paar producten. Voor toegang tot de volledige catalogus stuur ons een bericht op WhatsApp.',
+      'Deze pagina toont slechts een aantal producten. Voor toegang tot de volledige catalogus stuur ons een bericht op WhatsApp.',
     'shop.featuredCatalog.whatsapp': 'WhatsApp',
     'shop.featuredCatalog.close': 'Sluiten',
     'shop.featuredCatalog.whatsappPrefill':
-      'Hoi! Ik wil graag de volledige Super Clones catalogus zien ({total} producten).',
+      'Hoi! Ik wil graag de volledige catalogus zien.',
     'shop.badge.new': 'NIEUW',
   },
   de: {

@@ -6,19 +6,25 @@ import {
   createSiteTickerMessage,
   listAllSiteTickerMessages,
 } from '@/lib/site-ticker-db'
-import { hasAnyTickerText, normalizeTickerTranslations } from '@/lib/site-ticker'
+import {
+  hasAnyTickerText,
+  normalizeTickerTranslations,
+  parseTickerStoreScope,
+} from '@/lib/site-ticker'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-/** Super admin: list all ticker rows. */
+/** Super admin: list ticker rows for one storefront scope. */
 export async function GET(request: NextRequest) {
   const denied = superAdminDenial(await verifyAdminActor(request))
   if (denied) return denied
 
+  const storeScope = parseTickerStoreScope(request.nextUrl.searchParams.get('storeScope'))
+
   try {
-    const items = await listAllSiteTickerMessages()
-    return NextResponse.json({ items })
+    const items = await listAllSiteTickerMessages(storeScope)
+    return NextResponse.json({ items, storeScope })
   } catch (error) {
     logDbRouteError('GET /api/admin/site-ticker-messages', error)
     return NextResponse.json(
@@ -34,22 +40,27 @@ export async function POST(request: NextRequest) {
   if (denied) return denied
 
   const body = await request.json().catch(() => ({}))
-  const translations = normalizeTickerTranslations(
-    (body as Record<string, unknown>).translations
-  )
+  const bodyRec = body as Record<string, unknown>
+  const translations = normalizeTickerTranslations(bodyRec.translations)
   if (!hasAnyTickerText(translations)) {
     return NextResponse.json({ error: 'At least one translation is required' }, { status: 400 })
   }
 
-  const isActive = (body as Record<string, unknown>).isActive === false ? false : true
-  const sortOrderRaw = (body as Record<string, unknown>).sortOrder
+  const storeScope = parseTickerStoreScope(bodyRec.storeScope)
+  const isActive = bodyRec.isActive === false ? false : true
+  const sortOrderRaw = bodyRec.sortOrder
   const sortOrder =
     typeof sortOrderRaw === 'number' && Number.isFinite(sortOrderRaw)
       ? Math.floor(sortOrderRaw)
       : null
 
   try {
-    const item = await createSiteTickerMessage({ translations, isActive, sortOrder })
+    const item = await createSiteTickerMessage({
+      translations,
+      storeScope,
+      isActive,
+      sortOrder,
+    })
     return NextResponse.json({ item })
   } catch (error) {
     logDbRouteError('POST /api/admin/site-ticker-messages', error)

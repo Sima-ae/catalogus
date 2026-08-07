@@ -4,6 +4,18 @@ const localeSet = new Set<string>(SUPPORTED_LOCALES)
 
 export type TickerTranslations = Record<string, string>
 
+/** Which storefront shows this ticker row. */
+export type TickerStoreScope = 'default' | 'featured'
+
+export const TICKER_STORE_SCOPES: readonly TickerStoreScope[] = ['default', 'featured']
+
+export function parseTickerStoreScope(raw: unknown): TickerStoreScope {
+  const value = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+  return value === 'featured' ? 'featured' : 'default'
+}
+
 export type TickerMessagePublic = {
   id: number
   sortOrder: number

@@ -6,16 +6,42 @@ import { adminAuthHeaders } from '@/lib/admin-fetch'
 import { appPath } from '@/lib/paths'
 import { useAppTheme } from '@/lib/theme-classes'
 import type { SiteTickerMessageRow } from '@/lib/site-ticker-db'
-import { parseTickerTranslations } from '@/lib/site-ticker'
+import { parseTickerTranslations, type TickerStoreScope } from '@/lib/site-ticker'
 
 function sortRows(a: SiteTickerMessageRow, b: SiteTickerMessageRow) {
   if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
   return a.id - b.id
 }
 
+const SCOPE_COPY: Record<
+  TickerStoreScope,
+  { title: string; description: string }
+> = {
+  default: {
+    title: 'Message ticker — Super Clones',
+    description:
+      'Scrolling messages for superclones.cloud (and other default storefronts). Shown in the bar below the header.',
+  },
+  featured: {
+    title: 'Message ticker — 1-1.club',
+    description:
+      'Scrolling messages for www.1-1.club only. Keep these separate from Super Clones.',
+  },
+}
+
 export default function SiteTickerMessagesAdmin() {
+  return (
+    <div className="space-y-6">
+      <TickerScopeSection storeScope="default" />
+      <TickerScopeSection storeScope="featured" />
+    </div>
+  )
+}
+
+function TickerScopeSection({ storeScope }: { storeScope: TickerStoreScope }) {
   const t = useAppTheme()
   const { user } = useAuth()
+  const copy = SCOPE_COPY[storeScope]
   const [items, setItems] = useState<SiteTickerMessageRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -28,9 +54,10 @@ export default function SiteTickerMessagesAdmin() {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch(appPath('/api/admin/site-ticker-messages'), {
-        headers: adminAuthHeaders(user),
-      })
+      const res = await fetch(
+        appPath(`/api/admin/site-ticker-messages?storeScope=${encodeURIComponent(storeScope)}`),
+        { headers: adminAuthHeaders(user) }
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load ticker messages')
       const list = Array.isArray(data.items) ? (data.items as SiteTickerMessageRow[]) : []
@@ -42,7 +69,7 @@ export default function SiteTickerMessagesAdmin() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [storeScope, user])
 
   useEffect(() => {
     void load()
@@ -70,7 +97,7 @@ export default function SiteTickerMessagesAdmin() {
       const res = await fetch(appPath('/api/admin/site-ticker-messages'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...adminAuthHeaders(user) },
-        body: JSON.stringify({ translations, isActive: true }),
+        body: JSON.stringify({ translations, isActive: true, storeScope }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to create message')
@@ -186,11 +213,8 @@ export default function SiteTickerMessagesAdmin() {
   return (
     <section className="card max-w-3xl space-y-4">
       <div>
-        <h2 className="card-section-title">Message ticker</h2>
-        <p className={`text-sm ${t.muted}`}>
-          Manage scrolling messages shown in the bar below the header on all pages (shop,
-          dashboards, admin).
-        </p>
+        <h2 className="card-section-title">{copy.title}</h2>
+        <p className={`text-sm ${t.muted}`}>{copy.description}</p>
       </div>
 
       {error ? <p className="text-red-600 dark:text-red-400 text-sm">{error}</p> : null}
@@ -235,7 +259,7 @@ export default function SiteTickerMessagesAdmin() {
       {loading ? (
         <p className={t.muted}>Loading ticker messages...</p>
       ) : items.length === 0 ? (
-        <p className={t.muted}>No ticker messages yet.</p>
+        <p className={t.muted}>No ticker messages yet for this storefront.</p>
       ) : (
         <ul className="space-y-4">
           {items.map((row) => (

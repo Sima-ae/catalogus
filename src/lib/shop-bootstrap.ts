@@ -7,6 +7,7 @@ import type { Locale } from '@/lib/i18n-locale-registry'
 import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
+import { resolveStoreModeFromHost } from '@/lib/store-host'
 import { getCachedValue } from '@/lib/server-ttl-cache'
 import { loadActiveCategories } from '@/lib/categories-persistence'
 import type { CategoryTreeRow } from '@/lib/category-picker'
@@ -78,12 +79,13 @@ export async function loadLayoutBootstrapData(
   locale: Locale,
   hostname?: string | null
 ): Promise<LayoutBootstrapData> {
+  const tickerScope = resolveStoreModeFromHost(hostname)
   const [categoryResult, tagResult, bootstrapResult, tickerResult, categoryRowsResult] =
     await Promise.allSettled([
       getCategoryTranslationMessages(locale),
       getTagTranslationMessages(locale),
       loadShopBootstrap(locale),
-      listActiveSiteTickerMessagesForLocale(locale),
+      listActiveSiteTickerMessagesForLocale(locale, tickerScope),
       loadActiveCategories(),
     ])
 

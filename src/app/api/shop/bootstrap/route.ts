@@ -6,7 +6,7 @@ import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { loadShopBootstrap, applyHostBrandToBootstrap } from '@/lib/shop-bootstrap'
 import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
 import { CATALOG_METADATA_CACHE_CONTROL, jsonCached } from '@/lib/http-cache'
-import { resolveRequestHostname } from '@/lib/store-host'
+import { resolveRequestHostname, resolveStoreModeFromHeaders } from '@/lib/store-host'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -16,11 +16,12 @@ export async function GET(request: NextRequest) {
   const locale: Locale = isLocale(localeParam) ? localeParam : DEFAULT_LOCALE
 
   try {
+    const storeScope = resolveStoreModeFromHeaders(request.headers)
     const [categoryMessages, tagMessages, bootstrapRaw, tickerMessages] = await Promise.all([
       getCategoryTranslationMessages(locale),
       getTagTranslationMessages(locale),
       loadShopBootstrap(locale),
-      listActiveSiteTickerMessagesForLocale(locale),
+      listActiveSiteTickerMessagesForLocale(locale, storeScope),
     ])
     const bootstrap = applyHostBrandToBootstrap(
       bootstrapRaw,
