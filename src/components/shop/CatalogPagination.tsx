@@ -14,6 +14,11 @@ type Props = {
   totalItems: number
   pageSize?: number
   onPageChange: (page: number) => void
+  /**
+   * Featured storefronts: when the visitor is already on the last page and clicks
+   * Next / types a higher page, call this instead of navigating (upgrade CTA).
+   */
+  onBeyondLastPage?: () => void
   centered?: boolean
   /** When true, align pagination controls to the right (status stays on the left). */
   alignEnd?: boolean
@@ -30,6 +35,7 @@ export default function CatalogPagination({
   totalItems,
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
+  onBeyondLastPage,
   centered = false,
   alignEnd = false,
   compact = false,
@@ -65,8 +71,18 @@ export default function CatalogPagination({
   const gotoPage = useMemo(() => {
     const parsed = parseInt(gotoValue.trim(), 10)
     if (!Number.isFinite(parsed)) return null
+    if (onBeyondLastPage && parsed > totalPages) return parsed
     return Math.min(totalPages, Math.max(1, parsed))
-  }, [gotoValue, totalPages])
+  }, [gotoValue, onBeyondLastPage, totalPages])
+
+  const requestPage = (next: number) => {
+    if (next === safePage) return
+    if (onBeyondLastPage && next > totalPages) {
+      onBeyondLastPage()
+      return
+    }
+    onPageChange(Math.min(totalPages, Math.max(1, next)))
+  }
 
   const goToInput = (hideLabel?: boolean) => (
     <form
@@ -74,8 +90,7 @@ export default function CatalogPagination({
       onSubmit={(e) => {
         e.preventDefault()
         if (gotoPage == null) return
-        if (gotoPage === safePage) return
-        onPageChange(gotoPage)
+        requestPage(gotoPage)
       }}
     >
       {hideLabel ? null : (
@@ -130,7 +145,7 @@ export default function CatalogPagination({
         type="button"
         className={btnClass}
         disabled={safePage <= 1}
-        onClick={() => onPageChange(safePage - 1)}
+        onClick={() => requestPage(safePage - 1)}
         aria-label={tr('pagination.previous')}
       >
         {prevLabel}
@@ -138,8 +153,14 @@ export default function CatalogPagination({
       <button
         type="button"
         className={btnClass}
-        disabled={safePage >= totalPages}
-        onClick={() => onPageChange(safePage + 1)}
+        disabled={!onBeyondLastPage && safePage >= totalPages}
+        onClick={() => {
+          if (safePage >= totalPages) {
+            onBeyondLastPage?.()
+            return
+          }
+          requestPage(safePage + 1)
+        }}
         aria-label={tr('pagination.next')}
       >
         {nextLabel}

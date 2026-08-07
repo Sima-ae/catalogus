@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
 import { buildPageMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
@@ -8,6 +9,7 @@ import {
   shouldServerRenderShopCatalog,
 } from '@/lib/shop-catalog-ssr'
 import { listShopCategoryNavTree } from '@/lib/products-db'
+import { resolveStoreModeFromHeaders } from '@/lib/store-host'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,12 +32,13 @@ export default async function NewProductsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const sp = await searchParams
+  const featuredOnly = resolveStoreModeFromHeaders(headers()) === 'featured'
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'new')
   const shouldSsrCatalog = shouldServerRenderShopCatalog(sp)
 
   const [initialCatalog, initialCategoryNav] = await Promise.all([
     shouldSsrCatalog ? loadInitialShopCatalog(sp, 'new') : Promise.resolve(null),
-    listShopCategoryNavTree().catch(() => []),
+    listShopCategoryNavTree({ featuredOnly }).catch(() => []),
   ])
 
   return (

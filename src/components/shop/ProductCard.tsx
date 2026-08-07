@@ -27,7 +27,7 @@ import ProductCardBrandEditButton, {
   type ProductQuickEditSaved,
 } from '@/components/shop/ProductCardBrandEditButton'
 import ProductRibbon from '@/components/shop/ProductRibbon'
-import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
+import ProductNewBadge from '@/components/shop/ProductNewBadge'
 import ProductOptionSelector, {
   ProductFixedOptionDisplay,
   ProductOptionLabels,
@@ -206,7 +206,7 @@ function ProductCard({
               />
             ) : null}
           </div>
-          {product.featured ? <ProductFeaturedTipBadge /> : null}
+          <ProductNewBadge createdAt={product.created_at} />
           <div className="pointer-events-none absolute inset-x-1.5 top-2 z-10 flex justify-center sm:inset-x-2">
             {showAskPriceBadge ? (
               <AskPriceButton
@@ -377,6 +377,7 @@ export default memo(ProductCard, (prev, next) => {
     prev.product.sold_out === next.product.sold_out &&
     prev.product.pre_order === next.product.pre_order &&
     prev.product.featured === next.product.featured &&
+    prev.product.created_at === next.product.created_at &&
     prev.product.image_url === next.product.image_url &&
     prev.product.name === next.product.name &&
     prev.product.brand === next.product.brand &&

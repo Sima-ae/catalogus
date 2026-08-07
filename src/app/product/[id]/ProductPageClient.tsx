@@ -20,7 +20,7 @@ import { toProductPageView, type ProductPageView } from '@/lib/product-page'
 import { catalogDetailImageSrc, shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import ProductRibbon from '@/components/shop/ProductRibbon'
-import ProductFeaturedTipBadge from '@/components/shop/ProductFeaturedTipBadge'
+import ProductNewBadge from '@/components/shop/ProductNewBadge'
 import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
@@ -632,7 +632,7 @@ export default function ProductPageClient() {
                     unoptimized={shouldUnoptimizeProductImage(product.gallery[selectedImage])}
                     onError={() => markGalleryImageBroken(selectedImage)}
                   />
-                  {product.featured ? <ProductFeaturedTipBadge variant="gallery" /> : null}
+                  <ProductNewBadge createdAt={product.created_at} variant="gallery" />
                   <ProductImageWatermark variant="gallery" />
                 </button>
               ) : (

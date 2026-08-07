@@ -9,6 +9,7 @@ import BrandFilter from '@/components/shop/BrandFilter'
 import CategoryFilter from '@/components/shop/CategoryFilter'
 import SubcategoryFilter from '@/components/shop/SubcategoryFilter'
 import ShopCatalogListing from '@/components/shop/ShopCatalogListing'
+import FeaturedCatalogExhaustedModal from '@/components/shop/FeaturedCatalogExhaustedModal'
 import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEditButton'
 import type { ProductFeaturedSaved } from '@/components/shop/FeaturedStarButton'
 import CatalogLoadingOverlay from '@/components/shop/CatalogLoadingOverlay'
@@ -94,6 +95,8 @@ export type ShopCatalogConfig = {
   centerCatalog?: boolean
   /** Randomize unfiltered homepage catalog (not used on /new). */
   shuffleCatalog?: boolean
+  /** Featured-only storefront (1-1.club) — skip full-catalog warmups / social proof. */
+  featuredStorefront?: boolean
 }
 
 function ShopCatalogPageContent({
@@ -113,6 +116,11 @@ function ShopCatalogPageContent({
   }
   const [products, setProducts] = useState<Product[]>(initialCatalog?.items ?? [])
   const [totalItems, setTotalItems] = useState(initialCatalog?.total ?? 0)
+  const [fullCatalogTotal, setFullCatalogTotal] = useState(
+    () => initialCatalog?.fullCatalogTotal ?? 0
+  )
+  const [showFullCatalogModal, setShowFullCatalogModal] = useState(false)
+  const isFeaturedOnlyHost = Boolean(config.featuredStorefront)
   const { selectedCategory, setSelectedCategory } = useShopCategory()
   const [optimisticCategory, setOptimisticCategory] = useState<string | null>(null)
   const [optimisticSubcategory, setOptimisticSubcategory] = useState<string | null>(null)
@@ -277,7 +285,8 @@ function ShopCatalogPageContent({
         search: debouncedSearch || undefined,
         mode: catalogMode === 'new' ? 'new' : undefined,
         shuffle: catalogShuffle ? true : undefined,
-        skipTotal: true,
+        // Featured hosts: include the tiny featured COUNT in the same response (no second trip / no full catalog).
+        skipTotal: isFeaturedOnlyHost ? false : true,
       }),
     [
       activeCategory,
@@ -289,6 +298,7 @@ function ShopCatalogPageContent({
       effectiveNestedSubcategory,
       filterBrand,
       filterTag,
+      isFeaturedOnlyHost,
     ]
   )
 
@@ -331,6 +341,29 @@ function ShopCatalogPageContent({
     },
     [currentPage, setCurrentPage]
   )
+
+  const openFullCatalogModal = useCallback(() => {
+    setShowFullCatalogModal(true)
+    if (fullCatalogTotal > 0) return
+    void fetchCatalogJson(
+      buildCatalogProductsUrl(appPath('/api/products'), {
+        page: 1,
+        limit: 1,
+        countOnly: true,
+      }) + '&catalogScope=all'
+    )
+      .then((payload) => {
+        if (!isCatalogProductsPage(payload)) return
+        const total =
+          typeof payload.fullCatalogTotal === 'number' && payload.fullCatalogTotal > 0
+            ? payload.fullCatalogTotal
+            : typeof payload.total === 'number'
+              ? payload.total
+              : 0
+        if (total > 0) setFullCatalogTotal(total)
+      })
+      .catch(() => undefined)
+  }, [fullCatalogTotal])
 
   const loadMoreProducts = useCallback(async () => {
     if (catalogShuffle || loadingMore || pageLoading) return
@@ -795,6 +828,9 @@ function ShopCatalogPageContent({
 
     const applyCatalogPage = (data: CatalogProductsPage) => {
       const rawItems = Array.isArray(data.items) ? data.items : []
+      if (typeof data.fullCatalogTotal === 'number' && data.fullCatalogTotal > 0) {
+        setFullCatalogTotal(data.fullCatalogTotal)
+      }
       const knownTotal =
         !data.skipTotal && typeof data.total === 'number' && data.total > 0
           ? data.total
@@ -844,6 +880,17 @@ function ShopCatalogPageContent({
           { shuffle: catalogShuffle }
         )
       }
+
+      // Featured host: empty page after Next → upgrade CTA, then return to last valid page.
+      if (isFeaturedOnlyHost && pageToLoad > 1 && rawItems.length === 0) {
+        setShowFullCatalogModal(true)
+        const lastPage = Math.max(
+          1,
+          Math.ceil((totalItemsRef.current || 0) / CATALOG_PAGE_SIZE) || 1
+        )
+        if (currentPage !== lastPage) setCurrentPage(lastPage)
+      }
+
       hasLoadedOnce.current = true
       if (data.page !== pageToLoad && data.page >= 1 && !filtersChanged) {
         setCurrentPage(data.page)
@@ -1004,6 +1051,7 @@ function ShopCatalogPageContent({
     filterTag,
     initialCatalog,
     initialCatalogSignature,
+    isFeaturedOnlyHost,
     reloadToken,
     setCurrentPage,
     buildCatalogFetchUrl,
@@ -1383,6 +1431,7 @@ function ShopCatalogPageContent({
                 page={currentPage}
                 totalItems={totalItems}
                 onPageChange={handlePageChange}
+                onBeyondLastPage={isFeaturedOnlyHost ? openFullCatalogModal : undefined}
                 onProductDeleted={handleProductDeleted}
                 onProductUnavailable={handleProductDeleted}
                 onProductQuickEditSaved={handleProductQuickEditSaved}
@@ -1413,6 +1462,12 @@ function ShopCatalogPageContent({
       <CatalogLoadingOverlay
         active={showCatalogLoadingOverlay}
         onStall={handleCatalogLoadStall}
+      />
+
+      <FeaturedCatalogExhaustedModal
+        open={showFullCatalogModal}
+        fullCatalogTotal={fullCatalogTotal}
+        onClose={() => setShowFullCatalogModal(false)}
       />
     </div>
   )

@@ -72,6 +72,8 @@ export type CatalogProductsPage = {
   totalPages: number
   /** True when `total` was not recomputed (pagination fast path). */
   skipTotal?: boolean
+  /** Super Clones full shop total — set on featured-only hosts for the upgrade CTA. */
+  fullCatalogTotal?: number
   dashboardStats?: ProductDashboardStats
 }
 

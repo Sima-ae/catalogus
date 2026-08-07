@@ -47,7 +47,7 @@ export function shouldServerRenderShopCatalog(
 export async function loadInitialShopCatalog(
   searchParams: Record<string, string | string[] | undefined>,
   mode: 'all' | 'new' = 'all',
-  options?: { shuffle?: boolean }
+  options?: { shuffle?: boolean; featuredOnly?: boolean }
 ): Promise<CatalogProductsPage | null> {
   const page = Math.max(
     1,
@@ -87,6 +87,7 @@ export async function loadInitialShopCatalog(
   if (mode === 'new') params.set('skipTotal', '1')
   if (
     options?.shuffle &&
+    !options?.featuredOnly &&
     mode === 'all' &&
     !category &&
     !subcategory &&
@@ -100,5 +101,9 @@ export async function loadInitialShopCatalog(
 
   const query = parseCatalogProductsQuery(params)
   if (!query) return null
+  if (options?.featuredOnly) {
+    query.featuredOnly = true
+    query.shuffle = false
+  }
   return listActiveProductsPaginated(query)
 }

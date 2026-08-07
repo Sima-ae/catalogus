@@ -16,6 +16,7 @@ type Props = {
   totalItems: number
   pageSize?: number
   onPageChange: (page: number) => void
+  onBeyondLastPage?: () => void
   onProductDeleted?: (productId: string) => void
   onProductUnavailable?: (productId: string) => void
   onProductQuickEditSaved?: (saved: ProductQuickEditSaved) => void
@@ -40,6 +41,7 @@ export default function ShopCatalogListing({
   totalItems,
   pageSize = CATALOG_PAGE_SIZE,
   onPageChange,
+  onBeyondLastPage,
   onProductDeleted,
   onProductUnavailable,
   onProductQuickEditSaved,
@@ -70,6 +72,7 @@ export default function ShopCatalogListing({
         pageSize={pageSize}
         loadedCount={products.length}
         onPageChange={onPageChange}
+        onBeyondLastPage={onBeyondLastPage}
         centered={centered}
         compact={centered}
       />
@@ -96,6 +99,7 @@ export default function ShopCatalogListing({
         pageSize={pageSize}
         loadedCount={products.length}
         onPageChange={onPageChange}
+        onBeyondLastPage={onBeyondLastPage}
         centered={centered}
         compact={centered}
       />

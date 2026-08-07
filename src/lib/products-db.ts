@@ -822,8 +822,15 @@ async function loadActiveProductCountBuckets(options?: {
   mode?: CatalogProductsQuery['mode']
   /** Menu/nav only need category_id buckets — skip the expensive legacy text GROUP BY. */
   idsOnly?: boolean
+  /** Featured-only storefronts (1-1.club) — count products.featured = 1 only. */
+  featuredOnly?: boolean
 }): Promise<Map<string, number>> {
-  const cacheKey = `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}|${options?.idsOnly ? 'ids' : 'all'}`
+  const cacheKey = productCountBucketsCacheKey({
+    brand: options?.brand,
+    mode: options?.mode,
+    idsOnly: options?.idsOnly,
+    featuredOnly: options?.featuredOnly,
+  })
   return getCachedValue(
     PRODUCT_COUNT_BUCKETS_NS,
     cacheKey,
@@ -834,6 +841,7 @@ async function loadActiveProductCountBuckets(options?: {
       const hasBrandsTable = await brandsTableExists()
       const hasCategoryId = await productsHaveCategoryIdColumn()
       const buckets = new Map<string, number>()
+      const featuredAnd = options?.featuredOnly ? 'AND p.featured = 1' : ''
 
       if (hasCategoryId) {
         if (brandFilter && hasBrandsTable) {
@@ -848,6 +856,7 @@ async function loadActiveProductCountBuckets(options?: {
                  AND p.brand_id = ?
                  AND p.category_id IS NOT NULL
                  AND p.category_id != ''
+                 ${featuredAnd}
                GROUP BY p.category_id`,
               [brandId]
             )
@@ -870,6 +879,7 @@ async function loadActiveProductCountBuckets(options?: {
              AND p.image_url IS NOT NULL AND p.image_url <> ''
              AND p.category_id IS NOT NULL
              AND p.category_id != ''
+             ${featuredAnd}
            GROUP BY p.category_id`
         )
         for (const row of idRows) {
@@ -888,6 +898,7 @@ async function loadActiveProductCountBuckets(options?: {
              AND p.image_url IS NOT NULL AND p.image_url <> ''
              AND (${PRODUCT_CATEGORY_ID_UNSET_SQL})
              AND TRIM(COALESCE(p.category, '')) != ''
+             ${featuredAnd}
            GROUP BY legacy_name`
         )
         for (const row of legacyRows) {
@@ -904,7 +915,13 @@ async function loadActiveProductCountBuckets(options?: {
         needsBrandJoin: needsBrandJoinFallback && hasBrandsTable,
       })
       const { whereSql, params } = buildActiveCatalogFilters(
-        { page: 1, limit: 1, brand: brandFilter, mode: options?.mode },
+        {
+          page: 1,
+          limit: 1,
+          brand: brandFilter,
+          mode: options?.mode,
+          featuredOnly: options?.featuredOnly,
+        },
         { includeBrandJoin: needsBrandJoinFallback && hasBrandsTable }
       )
       const rows = await queryDb<{ bucket: string; total: number }[]>(
@@ -960,7 +977,10 @@ function sumCategoryFilterCounts(
 async function resolveShopCatalogTotalFromBuckets(
   categories: Awaited<ReturnType<typeof loadActiveCategories>>,
   categoryFilter: ShopCategoryFilterResult | undefined,
-  query: Pick<CatalogProductsQuery, 'category' | 'brand' | 'search' | 'tag' | 'mode'>
+  query: Pick<
+    CatalogProductsQuery,
+    'category' | 'brand' | 'search' | 'tag' | 'mode' | 'featuredOnly'
+  >
 ): Promise<number | null> {
   if (query.search?.trim()) return null
   if (query.tag?.trim()) return null
@@ -972,6 +992,7 @@ async function resolveShopCatalogTotalFromBuckets(
     brand,
     mode: query.mode,
     idsOnly: true,
+    featuredOnly: query.featuredOnly,
   })
 
   if (categoryFilter?.categoryIds.length) {
@@ -987,7 +1008,9 @@ async function resolveShopCatalogTotalFromBuckets(
   }
 
   if (!query.category || query.category === 'All') {
-    return getCachedActiveProductTotal()
+    return query.featuredOnly
+      ? getCachedFeaturedProductTotal()
+      : getCachedActiveProductTotal()
   }
 
   return null
@@ -997,14 +1020,16 @@ function productCountBucketsCacheKey(options?: {
   brand?: string
   mode?: CatalogProductsQuery['mode']
   idsOnly?: boolean
+  featuredOnly?: boolean
 }): string {
-  return `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}|${options?.idsOnly ? 'ids' : 'all'}`
+  return `${String(options?.brand ?? '').trim().toLowerCase()}|${options?.mode ?? ''}|${options?.idsOnly ? 'ids' : 'all'}|${options?.featuredOnly ? 'featured' : ''}`
 }
 
 function peekProductCountBuckets(options?: {
   brand?: string
   mode?: CatalogProductsQuery['mode']
   idsOnly?: boolean
+  featuredOnly?: boolean
 }): Map<string, number> | undefined {
   return peekCachedValue<Map<string, number>>(
     PRODUCT_COUNT_BUCKETS_NS,
@@ -1016,7 +1041,10 @@ function peekProductCountBuckets(options?: {
 function peekShopCatalogTotalFromBuckets(
   categories: Awaited<ReturnType<typeof loadActiveCategories>>,
   categoryFilter: ShopCategoryFilterResult | undefined,
-  query: Pick<CatalogProductsQuery, 'category' | 'brand' | 'search' | 'tag' | 'mode'>
+  query: Pick<
+    CatalogProductsQuery,
+    'category' | 'brand' | 'search' | 'tag' | 'mode' | 'featuredOnly'
+  >
 ): number | null {
   if (query.search?.trim()) return null
   if (query.tag?.trim()) return null
@@ -1026,7 +1054,12 @@ function peekShopCatalogTotalFromBuckets(
   }
 
   const brand = query.brand && query.brand !== 'All' ? query.brand : undefined
-  const buckets = peekProductCountBuckets({ brand, mode: query.mode, idsOnly: true })
+  const buckets = peekProductCountBuckets({
+    brand,
+    mode: query.mode,
+    idsOnly: true,
+    featuredOnly: query.featuredOnly,
+  })
   if (!buckets) return null
 
   if (categoryFilter?.categoryIds.length) {
@@ -1042,6 +1075,9 @@ function peekShopCatalogTotalFromBuckets(
   }
 
   if (!query.category || query.category === 'All') {
+    if (query.featuredOnly) {
+      return peekCachedValue<number>(ACTIVE_PRODUCT_TOTAL_CACHE_NS, 'featured') ?? null
+    }
     const cached = peekCachedValue<number>(ACTIVE_PRODUCT_TOTAL_CACHE_NS, 'active')
     return cached ?? null
   }
@@ -1053,7 +1089,7 @@ function peekShopCatalogTotalFromBuckets(
 export async function getShopCatalogProductTotal(
   query: Pick<
     CatalogProductsQuery,
-    'category' | 'subcategory' | 'nested' | 'brand' | 'search' | 'tag' | 'mode'
+    'category' | 'subcategory' | 'nested' | 'brand' | 'search' | 'tag' | 'mode' | 'featuredOnly'
   >
 ): Promise<number> {
   const categories = await loadActiveCategories()
@@ -1077,14 +1113,36 @@ export async function getShopCatalogProductTotal(
   if (resolved != null) return resolved
   if (query.mode === 'new') return getCachedNewProductsWeekTotal()
   if (!query.category || query.category === 'All') {
-    if (!query.brand || query.brand === 'All') return getCachedActiveProductTotal()
+    if (!query.brand || query.brand === 'All') {
+      return query.featuredOnly
+        ? getCachedFeaturedProductTotal()
+        : getCachedActiveProductTotal()
+    }
   }
   return 0
 }
 
+/** Full shop-visible Super Clones total (ignores featured-only host filter). */
+export async function getFullShopCatalogProductTotal(): Promise<number> {
+  return getCachedActiveProductTotal()
+}
+
 /** Pre-warm count buckets on first shop catalog API hit so /new + category clicks are fast. */
 let catalogCountWarmStarted = false
-export function warmShopCatalogCountCaches(): void {
+let featuredCatalogCountWarmStarted = false
+
+export function warmShopCatalogCountCaches(options?: { featuredOnly?: boolean }): void {
+  // Featured storefronts must never kick off full-catalog GROUP BY / COUNT work.
+  if (options?.featuredOnly) {
+    if (featuredCatalogCountWarmStarted) return
+    featuredCatalogCountWarmStarted = true
+    void loadActiveProductCountBuckets({ idsOnly: true, featuredOnly: true })
+    void getCachedFeaturedProductTotal()
+    void listShopCategoryNavTree({ featuredOnly: true })
+    void listShopTopCategoriesWithProducts({ featuredOnly: true })
+    return
+  }
+
   if (catalogCountWarmStarted) return
   catalogCountWarmStarted = true
   // Menu/nav only need id buckets — skip the expensive legacy text GROUP BY.
@@ -1096,15 +1154,21 @@ export function warmShopCatalogCountCaches(): void {
 }
 
 /** Top-level shop categories with at least one active product in scope. */
-export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
+export async function listShopTopCategoriesWithProducts(options?: {
+  featuredOnly?: boolean
+}): Promise<string[]> {
+  const cacheKey = options?.featuredOnly ? 'menu-featured' : 'menu'
   return getCachedValue(
     SHOP_CATEGORY_MENU_CACHE_NS,
-    'menu',
+    cacheKey,
     SHOP_CATEGORY_MENU_TTL_MS,
     async () => {
       const [categories, buckets] = await Promise.all([
         loadActiveCategories(),
-        loadActiveProductCountBuckets({ idsOnly: true }),
+        loadActiveProductCountBuckets({
+          idsOnly: true,
+          featuredOnly: options?.featuredOnly,
+        }),
       ])
       const candidates = buildShopTopCategoryNames(categories)
       const counts = candidates.map((name) => {
@@ -1120,15 +1184,21 @@ export async function listShopTopCategoriesWithProducts(): Promise<string[]> {
 }
 
 /** Sidebar hierarchy: top categories → subcategories → nested (no brands). */
-export async function listShopCategoryNavTree(): Promise<ShopCategoryNavNode[]> {
+export async function listShopCategoryNavTree(options?: {
+  featuredOnly?: boolean
+}): Promise<ShopCategoryNavNode[]> {
+  const cacheKey = options?.featuredOnly ? 'tree-featured' : 'tree'
   return getCachedValue(
     SHOP_CATEGORY_NAV_CACHE_NS,
-    'tree',
+    cacheKey,
     SHOP_CATEGORY_MENU_TTL_MS,
     async () => {
       const [categories, buckets] = await Promise.all([
         loadActiveCategories(),
-        loadActiveProductCountBuckets({ idsOnly: true }),
+        loadActiveProductCountBuckets({
+          idsOnly: true,
+          featuredOnly: options?.featuredOnly,
+        }),
       ])
       const roots = buildShopTopCategoryNames(categories)
       const countFor = (filter: ShopCategoryFilterResult | undefined) =>
@@ -1145,20 +1215,22 @@ export async function listShopCategoryNavTree(): Promise<ShopCategoryNavNode[]> 
 /** Direct subcategories under a parent — only rows with at least one active product. */
 export async function listShopSubcategoriesWithProducts(
   parentCategoryName: string,
-  brandName?: string
+  brandName?: string,
+  options?: { featuredOnly?: boolean }
 ): Promise<ShopSubcategoryOption[]> {
-  const cacheKey = `${parentCategoryName.trim().toLowerCase()}|${String(brandName ?? '').trim().toLowerCase()}`
+  const cacheKey = `${parentCategoryName.trim().toLowerCase()}|${String(brandName ?? '').trim().toLowerCase()}|${options?.featuredOnly ? 'featured' : ''}`
   return getCachedValue(
     SHOP_SUBCATEGORY_CACHE_NS,
     cacheKey,
     SHOP_SUBCATEGORY_TTL_MS,
-    () => loadShopSubcategoriesWithProducts(parentCategoryName, brandName)
+    () => loadShopSubcategoriesWithProducts(parentCategoryName, brandName, options)
   )
 }
 
 async function loadShopSubcategoriesWithProducts(
   parentCategoryName: string,
-  brandName?: string
+  brandName?: string,
+  options?: { featuredOnly?: boolean }
 ): Promise<ShopSubcategoryOption[]> {
   const categories = await loadActiveCategories()
   const children = getDirectChildCategories(categories, parentCategoryName)
@@ -1169,6 +1241,7 @@ async function loadShopSubcategoriesWithProducts(
   const buckets = await loadActiveProductCountBuckets({
     brand: brandFilter,
     idsOnly: true,
+    featuredOnly: options?.featuredOnly,
   })
 
   const rows = children.map((child) => {
@@ -1194,21 +1267,29 @@ async function loadShopSubcategoriesWithProducts(
 export async function listShopNestedSubcategoriesWithProducts(
   topCategoryName: string,
   subcategoryName: string,
-  brandName?: string
+  brandName?: string,
+  options?: { featuredOnly?: boolean }
 ): Promise<ShopSubcategoryOption[]> {
-  const cacheKey = `${topCategoryName.trim().toLowerCase()}|${subcategoryName.trim().toLowerCase()}|${String(brandName ?? '').trim().toLowerCase()}`
+  const cacheKey = `${topCategoryName.trim().toLowerCase()}|${subcategoryName.trim().toLowerCase()}|${String(brandName ?? '').trim().toLowerCase()}|${options?.featuredOnly ? 'featured' : ''}`
   return getCachedValue(
     SHOP_SUBCATEGORY_CACHE_NS,
     `nested:${cacheKey}`,
     SHOP_SUBCATEGORY_TTL_MS,
-    () => loadShopNestedSubcategoriesWithProducts(topCategoryName, subcategoryName, brandName)
+    () =>
+      loadShopNestedSubcategoriesWithProducts(
+        topCategoryName,
+        subcategoryName,
+        brandName,
+        options
+      )
   )
 }
 
 async function loadShopNestedSubcategoriesWithProducts(
   topCategoryName: string,
   subcategoryName: string,
-  brandName?: string
+  brandName?: string,
+  options?: { featuredOnly?: boolean }
 ): Promise<ShopSubcategoryOption[]> {
   const categories = await loadActiveCategories()
   const children = getDirectChildCategoriesUnderPath(
@@ -1223,6 +1304,7 @@ async function loadShopNestedSubcategoriesWithProducts(
   const buckets = await loadActiveProductCountBuckets({
     brand: brandFilter,
     idsOnly: true,
+    featuredOnly: options?.featuredOnly,
   })
 
   const rows = children.map((child) => {
@@ -1651,7 +1733,12 @@ export async function listActiveProducts(): Promise<never> {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  warmShopCatalogCountCaches()
+  if (query.featuredOnly) {
+    // Do not contend with the first featured page query (full-catalog warm is skipped entirely).
+    setImmediate(() => warmShopCatalogCountCaches({ featuredOnly: true }))
+  } else {
+    warmShopCatalogCountCaches()
+  }
   const cacheKey = shopCatalogPageCacheKey(query)
   // Homepage shuffle uses the nightly precomputed order (stable between rebuilds).
   const ttlMs = isCatalogShuffleEligible(query)
@@ -1702,6 +1789,24 @@ async function getCachedActiveProductTotal(): Promise<number> {
         `SELECT COUNT(*) AS total FROM products p
          WHERE p.status = 'active'
            AND p.sold_out = 0
+           AND p.image_url IS NOT NULL AND p.image_url <> ''`
+      )
+      return Number(rows[0]?.total ?? 0)
+    }
+  )
+}
+
+async function getCachedFeaturedProductTotal(): Promise<number> {
+  return getCachedValue(
+    ACTIVE_PRODUCT_TOTAL_CACHE_NS,
+    'featured',
+    ACTIVE_PRODUCT_TOTAL_TTL_MS,
+    async () => {
+      const rows = await queryDb<{ total: number }[]>(
+        `SELECT COUNT(*) AS total FROM products p
+         WHERE p.status = 'active'
+           AND p.sold_out = 0
+           AND p.featured = 1
            AND p.image_url IS NOT NULL AND p.image_url <> ''`
       )
       return Number(rows[0]?.total ?? 0)
@@ -1858,9 +1963,11 @@ async function loadActiveProductsPaginatedFromDb(
     ? ' FORCE INDEX (idx_products_status_category_created)'
     : useIndexedBrandListing
       ? ' FORCE INDEX (idx_products_status_brand_created)'
-      : query.mode === 'new' && !joinSql
-        ? ' FORCE INDEX (idx_products_status_created)'
-        : ''
+      : query.featuredOnly && !joinSql && !searchActive && !query.tag?.trim()
+        ? ' FORCE INDEX (idx_products_featured_shop)'
+        : query.mode === 'new' && !joinSql
+          ? ' FORCE INDEX (idx_products_status_created)'
+          : ''
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {

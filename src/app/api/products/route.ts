@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   DuplicateSkuError,
+  getFullShopCatalogProductTotal,
   getProductDashboardStats,
   getShopCatalogProductTotal,
   insertProduct,
@@ -78,6 +79,26 @@ export async function GET(request: NextRequest) {
         paginatedQuery.shuffle = false
       }
 
+      // Explicit full-catalog total for 1-1.club CTA modal — never mixes with featured list.
+      if (request.nextUrl.searchParams.get('catalogScope') === 'all') {
+        const total = await getFullShopCatalogProductTotal()
+        return NextResponse.json(
+          {
+            items: [],
+            total,
+            fullCatalogTotal: total,
+            page: 1,
+            pageSize: CATALOG_PAGE_SIZE,
+            totalPages: Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE) || 1),
+          },
+          {
+            headers: {
+              'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
+            },
+          }
+        )
+      }
+
       if (access.kind === 'seller') {
         const result = await listProductsForSellerPaginated(
           access.actor.userId,
@@ -106,8 +127,8 @@ export async function GET(request: NextRequest) {
         )
       }
 
+      // Featured hosts: return featured rows + featured total only — do not COUNT the full catalog.
       const result = await listActiveProductsPaginated(paginatedQuery)
-      // Shuffle shares a short server TTL — allow brief shared edge/browser cache.
       const cacheControl = paginatedQuery.shuffle
         ? 'public, max-age=15, s-maxage=45, stale-while-revalidate=120'
         : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300'

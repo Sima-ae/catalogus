@@ -723,3 +723,12 @@ ALTER TABLE products
 -- Per-product public share (view without site-access password)
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS public_share TINYINT(1) NOT NULL DEFAULT 0 AFTER pre_order;
+
+-- Featured-only storefronts (1-1.club) — avoid full-table scans on first paint
+ALTER TABLE products
+  ADD INDEX IF NOT EXISTS idx_products_featured_shop (
+    featured,
+    status,
+    sold_out,
+    created_at
+  );

@@ -464,7 +464,7 @@ body.app-protected [contenteditable='true'] {
     -webkit-text-fill-color: #ffffff;
   }
 
-  /* Featured product — top-left corner triangle on catalog cards */
+  /* New-this-week product — top-left corner triangle on catalog cards */
   .product-featured-tip-triangle {
     clip-path: polygon(0 0, 100% 0, 0 100%);
   }
