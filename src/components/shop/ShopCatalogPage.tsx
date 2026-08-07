@@ -831,8 +831,10 @@ function ShopCatalogPageContent({
         !data.skipTotal && typeof data.total === 'number' && data.total > 0
           ? data.total
           : totalItemsRef.current
-      const pageCap =
-        knownTotal > 0
+      // Homepage shuffle: never cap to a bogus short total (e.g. 15 from a floor).
+      const pageCap = catalogShuffle
+        ? CATALOG_PAGE_SIZE
+        : knownTotal > 0
           ? itemsOnCatalogPage(knownTotal, pageToLoad)
           : CATALOG_PAGE_SIZE
       setProducts(rawItems.slice(0, pageCap))
@@ -854,8 +856,10 @@ function ShopCatalogPageContent({
           )
         }
       } else if (data.items.length > 0 && totalItemsRef.current <= 0) {
-        // Temporary floor so empty-state does not flash; countOnly will replace it.
-        setTotalItems(data.items.length)
+        // Temporary floor — NEVER use items.length for homepage shuffle (looks like "15 van 15").
+        if (!catalogShuffle) {
+          setTotalItems(data.items.length)
+        }
         setCachedShopCatalog(
           clientCatalogSignature,
           { ...data, total: 0, skipTotal: true },

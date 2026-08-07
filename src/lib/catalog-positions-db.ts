@@ -215,20 +215,27 @@ export async function fetchHomepageShufflePageProductIds(
     return fetchNewestShopVisibleIds(limit, offset)
   }
 
-  // Happy path: one indexed pool read.
-  const fromPool = await fetchPrecomputedShuffleProductIds(scope, limit, offset)
-  if (fromPool.length >= limit) return fromPool
+  // Happy path: one indexed pool read (over-fetch so sold_out drift rarely shortens the page).
+  const fromPool = await fetchPrecomputedShuffleProductIds(
+    scope,
+    Math.min(limit + 24, limit * 2),
+    offset
+  )
+  if (fromPool.length >= limit) return fromPool.slice(0, limit)
 
   if (fromPool.length > 0) {
     // Last partial pool page — pad from newest head (OFFSET 0), one extra query.
-    const tail = await fetchNewestShopVisibleIds(limit - fromPool.length + 8, 0)
+    const tail = await fetchNewestShopVisibleIds(limit - fromPool.length + 32, 0)
     return mergeUniqueIds(fromPool, tail, limit)
   }
 
   // Past the dense pool: continue with a SMALL beyond-pool offset (not absolute page offset).
   const validPool = await countValidPrecomputedShuffleProducts(scope)
   const beyond = Math.max(0, offset - validPool)
-  return fetchNewestShopVisibleIds(limit, beyond)
+  const page = await fetchNewestShopVisibleIds(limit + 24, beyond)
+  if (page.length >= limit) return page.slice(0, limit)
+  const head = await fetchNewestShopVisibleIds(limit * 3, 0)
+  return mergeUniqueIds(page, head, limit)
 }
 
 /**
@@ -241,7 +248,8 @@ export async function fillShopVisibleProductIds(
 ): Promise<string[]> {
   if (need <= 0) return []
   const exclude = new Set(excludeIds.filter(Boolean))
-  const batch = await fetchNewestShopVisibleIds(Math.max(need * 3, 48), 0)
+  // Pull a wide newest window so excludes from the current page don't leave us short.
+  const batch = await fetchNewestShopVisibleIds(Math.max(need * 4, 96), 0)
   const out: string[] = []
   for (const id of batch) {
     if (exclude.has(id)) continue
