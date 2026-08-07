@@ -5,7 +5,7 @@
  *
  * Prefer shop-visible products with a sales price (price > 0) in the pool,
  * then fill with unpriced shop-visible products. Weighted shuffle keeps priced
- * items at the front for homepage pages 1–10.
+ * items at the front so homepage page 1 is sales-priced.
  */
 import { ensureEnvLoaded } from '@/lib/ensure-env'
 import { queryDb, resetDbPool } from '@/lib/db'
@@ -15,8 +15,7 @@ import {
   replaceCatalogScopePositions,
 } from '@/lib/catalog-positions-db'
 import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
-
-const SHOP_SHUFFLE_PAGE_CACHE_NS = 'shop-shuffle-page'
+import { SHOP_CATALOG_PAGE_CACHE_NS } from '@/lib/shop-catalog-cache'
 
 const SHOP_VISIBLE_SQL = `
   p.status = 'active'
@@ -93,8 +92,8 @@ async function main() {
   console.log(
     `Stored ${written} homepage shuffle positions (${pricedCount} priced, ${written - pricedCount} unpriced).`
   )
-  invalidateCachedNamespace(SHOP_SHUFFLE_PAGE_CACHE_NS)
-  console.log('Cleared in-process homepage shuffle page cache.')
+  invalidateCachedNamespace(SHOP_CATALOG_PAGE_CACHE_NS)
+  console.log('Cleared in-process homepage catalog page cache.')
 }
 
 main()

@@ -83,6 +83,8 @@ export async function loadInitialShopCatalog(
   if (tag) params.set('tag', tag)
   if (search) params.set('search', search)
   if (mode === 'new') params.set('mode', 'new')
+  // Let the grid load first; week total comes from cache or a parallel countOnly.
+  if (mode === 'new') params.set('skipTotal', '1')
   if (
     options?.shuffle &&
     mode === 'all' &&

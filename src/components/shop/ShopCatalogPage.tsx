@@ -385,7 +385,15 @@ function ShopCatalogPageContent({
         for (const item of data.items) {
           if (!seen.has(item.id)) merged.push(item)
         }
-        return merged
+        const knownTotal =
+          !data.skipTotal && typeof data.total === 'number' && data.total > 0
+            ? data.total
+            : totalItemsRef.current || totalItems
+        const cap =
+          knownTotal > 0
+            ? itemsOnCatalogPage(knownTotal, currentPage)
+            : CATALOG_PAGE_SIZE
+        return merged.slice(0, cap)
       })
       // skipTotal payloads use total=0 as a placeholder — never wipe the real count.
       if (!data.skipTotal && typeof data.total === 'number' && data.total > 0) {
@@ -805,7 +813,16 @@ function ShopCatalogPageContent({
     }
 
     const applyCatalogPage = (data: CatalogProductsPage) => {
-      setProducts(Array.isArray(data.items) ? data.items : [])
+      const rawItems = Array.isArray(data.items) ? data.items : []
+      const knownTotal =
+        !data.skipTotal && typeof data.total === 'number' && data.total > 0
+          ? data.total
+          : totalItemsRef.current
+      const pageCap =
+        knownTotal > 0
+          ? itemsOnCatalogPage(knownTotal, pageToLoad)
+          : CATALOG_PAGE_SIZE
+      setProducts(rawItems.slice(0, pageCap))
       // skipTotal payloads use total=0 as a placeholder — never treat that as the real count.
       // Never cache a total from totalItemsRef (can be the previous filter) or page size.
       if (!data.skipTotal && typeof data.total === 'number' && data.total >= 0) {

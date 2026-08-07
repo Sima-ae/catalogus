@@ -143,6 +143,7 @@ import SidebarWelcomeTitle from '@/components/layout/SidebarWelcomeTitle'
 import SidebarCategories from '@/components/layout/SidebarCategories'
 import { useI18n } from '@/lib/i18n-context'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
+import { prefetchShopCatalogFilter } from '@/lib/shop-catalog-client-cache'
 import {
   HomeIcon,
   CubeIcon,
@@ -209,6 +210,7 @@ function NavLink({
   theme,
   label,
   onNavigate,
+  onPrefetch,
   variant = 'default',
 }: {
   item: { href: string; icon: any }
@@ -218,6 +220,7 @@ function NavLink({
   theme: string
   label: string
   onNavigate?: () => void
+  onPrefetch?: () => void
   variant?: 'default' | 'compact'
 }) {
   const isCompact = variant === 'compact'
@@ -227,6 +230,8 @@ function NavLink({
     <Link
       href={localizedAppPath(pathname, item.href)}
       onClick={onNavigate}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
       className={`flex items-center transition-colors ${
         isCompact
           ? `gap-2 px-2 py-1 rounded-md text-xs font-medium tracking-tight ${
@@ -339,6 +344,11 @@ export default function Sidebar({
             isCollapsed={false}
             theme={theme}
             onNavigate={close}
+            onPrefetch={
+              item.href === '/new'
+                ? () => prefetchShopCatalogFilter({ page: 1, mode: 'new' })
+                : undefined
+            }
           />
         ))}
       </nav>

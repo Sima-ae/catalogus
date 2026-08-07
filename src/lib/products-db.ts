@@ -62,11 +62,8 @@ import {
   catalogPositionJoin,
   catalogPositionsExistForScope,
   fetchHomepageShufflePageProductIds,
-  fetchRandomizedHomepageShufflePageProductIds,
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
-  isHomepagePricedBiasOffset,
-  weightedShuffleCandidates,
 } from '@/lib/catalog-positions-db'
 import { getCatalogWeekRange } from '@/lib/catalog'
 import { getCachedValue, invalidateCachedNamespace, peekCachedValue } from '@/lib/server-ttl-cache'
@@ -802,11 +799,12 @@ const SHOP_SUBCATEGORY_TTL_MS = 1_800_000
 const PRODUCT_COUNT_BUCKETS_TTL_MS = 1_800_000
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
-/** Homepage shuffle: short shared TTL so concurrent visitors share one DB/pool hit. */
-const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = 45_000
+/** Homepage shuffle uses the nightly precomputed order — same TTL as other catalog pages. */
+const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = SHOP_CATALOG_PAGE_TTL_MS
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
 const NEW_PRODUCTS_WEEK_TOTAL_TTL_MS = 300_000
-const SHUFFLE_CANDIDATE_POOL_SIZE = 800
+/** Fallback when catalog_product_positions is empty — fetch a priced-first window. */
+const SHUFFLE_FALLBACK_WINDOW = 2_400
 
 async function loadActiveProductCountBuckets(options?: {
   brand?: string
@@ -832,8 +830,8 @@ async function loadActiveProductCountBuckets(options?: {
               `SELECT p.category_id AS category_id, COUNT(*) AS total
                FROM products p
                WHERE p.status = 'active'
-                 AND COALESCE(p.sold_out, 0) = 0
-                 AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
+                 AND p.sold_out = 0
+                 AND p.image_url IS NOT NULL AND p.image_url <> ''
                  AND p.brand_id = ?
                  AND p.category_id IS NOT NULL
                  AND TRIM(CAST(p.category_id AS CHAR)) != ''
@@ -855,8 +853,8 @@ async function loadActiveProductCountBuckets(options?: {
           `SELECT p.category_id AS category_id, COUNT(*) AS total
            FROM products p
            WHERE p.status = 'active'
-             AND COALESCE(p.sold_out, 0) = 0
-             AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
+             AND p.sold_out = 0
+             AND p.image_url IS NOT NULL AND p.image_url <> ''
              AND p.category_id IS NOT NULL
              AND p.category_id != ''
            GROUP BY p.category_id`
@@ -871,8 +869,8 @@ async function loadActiveProductCountBuckets(options?: {
           `SELECT LOWER(TRIM(COALESCE(p.category, ''))) AS legacy_name, COUNT(*) AS total
            FROM products p
            WHERE p.status = 'active'
-             AND COALESCE(p.sold_out, 0) = 0
-             AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
+             AND p.sold_out = 0
+             AND p.image_url IS NOT NULL AND p.image_url <> ''
              AND (${PRODUCT_CATEGORY_ID_UNSET_SQL})
              AND TRIM(COALESCE(p.category, '')) != ''
            GROUP BY legacy_name`
@@ -1062,8 +1060,11 @@ export async function getShopCatalogProductTotal(
   return 0
 }
 
-/** Pre-warm count buckets on shop boot so first category click is fast. */
+/** Pre-warm count buckets on first shop catalog API hit so /new + category clicks are fast. */
+let catalogCountWarmStarted = false
 export function warmShopCatalogCountCaches(): void {
+  if (catalogCountWarmStarted) return
+  catalogCountWarmStarted = true
   void loadActiveProductCountBuckets()
   void getCachedActiveProductTotal()
   void getCachedNewProductsWeekTotal()
@@ -1605,9 +1606,9 @@ export async function listActiveProducts(): Promise<never> {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
+  warmShopCatalogCountCaches()
   const cacheKey = shopCatalogPageCacheKey(query)
-  // Homepage shuffle used to bypass cache (fresh random every hit) — that stampeded
-  // MariaDB under concurrent visitors. Short TTL keeps variety while sharing work.
+  // Homepage shuffle uses the nightly precomputed order (stable between rebuilds).
   const ttlMs = isCatalogShuffleEligible(query)
     ? SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS
     : SHOP_CATALOG_PAGE_TTL_MS
@@ -1654,8 +1655,8 @@ async function getCachedActiveProductTotal(): Promise<number> {
       const rows = await queryDb<{ total: number }[]>(
         `SELECT COUNT(*) AS total FROM products p
          WHERE p.status = 'active'
-           AND COALESCE(p.sold_out, 0) = 0
-           AND NULLIF(TRIM(p.image_url), '') IS NOT NULL`
+           AND p.sold_out = 0
+           AND p.image_url IS NOT NULL AND p.image_url <> ''`
       )
       return Number(rows[0]?.total ?? 0)
     }
@@ -1672,10 +1673,13 @@ async function getCachedNewProductsWeekTotal(): Promise<number> {
       const rows = await queryDb<{ total: number }[]>(
         `SELECT COUNT(*) AS total FROM products p
          WHERE p.status = 'active'
-           AND COALESCE(p.sold_out, 0) = 0
-           AND NULLIF(TRIM(p.image_url), '') IS NOT NULL
+           AND p.sold_out = 0
+           AND p.image_url IS NOT NULL AND p.image_url <> ''
            AND p.created_at >= ? AND p.created_at < ?`,
-        [start.toISOString().slice(0, 19).replace('T', ' '), end.toISOString().slice(0, 19).replace('T', ' ')]
+        [
+          start.toISOString().slice(0, 19).replace('T', ' '),
+          end.toISOString().slice(0, 19).replace('T', ' '),
+        ]
       )
       return Number(rows[0]?.total ?? 0)
     }
@@ -1707,8 +1711,6 @@ async function countShopCatalogProducts(
   )
 }
 
-type ShuffleCandidate = { id: string; price: number }
-
 async function fetchShuffledActiveProductIds(
   fromClause: string,
   whereSql: string,
@@ -1716,36 +1718,28 @@ async function fetchShuffledActiveProductIds(
   limit: number,
   offset: number
 ): Promise<string[]> {
-  // Pages 1–10: prefer sales-priced products, then weighted-shuffle a random-feeling page.
-  if (isHomepagePricedBiasOffset(offset)) {
-    const priced = await queryDb<ShuffleCandidate[]>(
-      `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
-       AND COALESCE(p.price, 0) > 0
-       ORDER BY p.created_at DESC LIMIT ?`,
-      [...params, SHUFFLE_CANDIDATE_POOL_SIZE]
-    )
-    let poolRows = priced
-    if (poolRows.length < limit) {
-      const unpriced = await queryDb<ShuffleCandidate[]>(
-        `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
-         AND COALESCE(p.price, 0) <= 0
-         ORDER BY p.created_at DESC LIMIT ?`,
-        [...params, Math.max(limit - poolRows.length, SHUFFLE_CANDIDATE_POOL_SIZE - poolRows.length)]
-      )
-      poolRows = [...poolRows, ...unpriced]
-    }
-    if (!poolRows.length) return []
-    const shuffled = weightedShuffleCandidates(poolRows)
-    return shuffled.slice(0, limit).map((row) => row.id)
-  }
-
-  const poolRows = await queryDb<ShuffleCandidate[]>(
-    `SELECT p.id, COALESCE(p.price, 0) AS price ${fromClause} ${whereSql}
-     ORDER BY p.created_at DESC LIMIT ?`,
-    [...params, SHUFFLE_CANDIDATE_POOL_SIZE]
+  // Stable fallback when the nightly shuffle table is empty: priced products first,
+  // then unpriced, both by created_at — no per-request randomization.
+  const priced = await queryDb<{ id: string }[]>(
+    `SELECT p.id ${fromClause} ${whereSql}
+     AND COALESCE(p.price, 0) > 0
+     ORDER BY p.created_at DESC
+     LIMIT ?`,
+    [...params, SHUFFLE_FALLBACK_WINDOW]
   )
-  const shuffled = weightedShuffleCandidates(poolRows)
-  return shuffled.slice(offset, offset + limit).map((row) => row.id)
+  const need = Math.max(0, SHUFFLE_FALLBACK_WINDOW - priced.length)
+  const unpriced =
+    need > 0
+      ? await queryDb<{ id: string }[]>(
+          `SELECT p.id ${fromClause} ${whereSql}
+           AND COALESCE(p.price, 0) <= 0
+           ORDER BY p.created_at DESC
+           LIMIT ?`,
+          [...params, need]
+        )
+      : []
+  const ordered = [...priced, ...unpriced].map((row) => String(row.id))
+  return ordered.slice(offset, offset + limit)
 }
 
 async function loadActiveProductsPaginatedFromDb(
@@ -1831,24 +1825,21 @@ async function loadActiveProductsPaginatedFromDb(
     ? ' FORCE INDEX (idx_products_status_category_created)'
     : useIndexedBrandListing
       ? ' FORCE INDEX (idx_products_status_brand_created)'
-      : ''
+      : query.mode === 'new' && !joinSql
+        ? ' FORCE INDEX (idx_products_status_created)'
+        : ''
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
       if (usePrecomputedShuffle) {
-        const ids = isHomepagePricedBiasOffset(offset)
-          ? await fetchRandomizedHomepageShufflePageProductIds(
-              HOMEPAGE_SHUFFLE_SCOPE,
-              HOMEPAGE_SHUFFLE_POOL_SIZE,
-              limit,
-              offset
-            )
-          : await fetchHomepageShufflePageProductIds(
-              HOMEPAGE_SHUFFLE_SCOPE,
-              HOMEPAGE_SHUFFLE_POOL_SIZE,
-              limit,
-              offset
-            )
+        // Stable nightly order (priced-first). Do not re-randomize per request —
+        // that made the homepage flicker and broke pagination fill (>24 items).
+        const ids = await fetchHomepageShufflePageProductIds(
+          HOMEPAGE_SHUFFLE_SCOPE,
+          HOMEPAGE_SHUFFLE_POOL_SIZE,
+          limit,
+          offset
+        )
         if (!ids.length) return []
         return fetchProductRowsByIds(ids, { catalog: true })
       }
@@ -1878,7 +1869,9 @@ async function loadActiveProductsPaginatedFromDb(
     const image = String(row.image_url ?? '').trim()
     return Boolean(image)
   })
-  const items = serializeProductRowsSync(inStockRows, brandSkuPrefixes)
+  // Hard cap — never exceed the requested page size (load-more merge safety).
+  const cappedRows = inStockRows.slice(0, limit)
+  const items = serializeProductRowsSync(cappedRows, brandSkuPrefixes)
 
   let total = 0
   let responseSkipTotal = true
@@ -1887,8 +1880,19 @@ async function loadActiveProductsPaginatedFromDb(
     total = await getCachedActiveProductTotal()
     responseSkipTotal = false
   } else if (query.mode === 'new') {
-    total = await getCachedNewProductsWeekTotal()
-    responseSkipTotal = false
+    // Prefer a warm cache hit so the product grid is not blocked by COUNT(*).
+    // Client already sends skipTotal=1 + a parallel countOnly when needed.
+    const peeked = peekCachedValue<number>(NEW_PRODUCTS_WEEK_TOTAL_CACHE_NS, 'week')
+    if (peeked != null) {
+      total = peeked
+      responseSkipTotal = false
+    } else if (query.skipTotal) {
+      void getCachedNewProductsWeekTotal()
+      responseSkipTotal = true
+    } else {
+      total = await getCachedNewProductsWeekTotal()
+      responseSkipTotal = false
+    }
   } else {
     const peekTotal = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
     if (peekTotal != null) {

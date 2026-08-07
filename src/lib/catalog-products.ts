@@ -280,10 +280,12 @@ export function buildActiveCatalogFilters(
   // Shop catalog: hide out-of-stock (sold_out) — including auto-marked when
   // Yupoo/supplier album or images are gone. Also hide rows with no primary
   // image (cleared Yupoo URLs) so blank cards never appear in the grid.
+  // Prefer sargable predicates so (status, created_at) / category indexes can be used
+  // — TRIM()/COALESCE() in WHERE forced full scans on /new and large categories.
   // Admin/pricelist keep their own filters.
   if (!options.includeInactiveForPricelist) {
-    where.push('COALESCE(p.sold_out, 0) = 0')
-    where.push(`NULLIF(TRIM(p.image_url), '') IS NOT NULL`)
+    where.push('p.sold_out = 0')
+    where.push(`p.image_url IS NOT NULL AND p.image_url <> ''`)
   }
   if (query.mode === 'new') {
     const { start, end } = getCatalogWeekRange()

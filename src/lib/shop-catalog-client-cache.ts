@@ -19,8 +19,8 @@ const catalogInflight = new Map<string, Promise<CatalogProductsPage | null>>()
 
 /** How long a cached catalog page is served without a network round-trip. */
 export const SHOP_CATALOG_CACHE_TTL_MS = 2 * 60 * 1000
-/** Shorter TTL for randomized homepage order — still avoids repeat fetches on back-nav. */
-export const SHOP_CATALOG_SHUFFLE_CACHE_TTL_MS = 90 * 1000
+/** Homepage shuffle is a stable nightly order — same client TTL as other catalog pages. */
+export const SHOP_CATALOG_SHUFFLE_CACHE_TTL_MS = SHOP_CATALOG_CACHE_TTL_MS
 
 export type ShopCatalogFilterPrefetch = {
   page?: number

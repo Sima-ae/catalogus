@@ -95,7 +95,7 @@ export async function loadLayoutBootstrapData(locale: Locale): Promise<LayoutBoo
   }
 
   // Do NOT warm catalog count buckets / nav tree here — layout runs on every HTML
-  // response (including 404s and bots). Warm on first shop-nav / catalog API hit instead.
+  // response (including 404s and bots). Warm on first shop catalog API hit instead.
 
   return { categoryMessages, tagMessages, shopBootstrap, tickerMessages, categoryRows, bootstrapDegraded }
 }
