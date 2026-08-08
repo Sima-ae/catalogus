@@ -59,8 +59,29 @@ export async function removeProductsFromCatalogPositions(
   }
 }
 
-/** After marking sold out in the shop: purge positions + coalesce cache wipe. */
+/** After marking sold out on Super Clones: drop from both shops, including 1-1.club. */
 export async function hideSoldOutProductsFromShop(productIds: string[]): Promise<void> {
-  await removeProductsFromCatalogPositions(productIds)
-  scheduleInvalidateShopCatalogCaches()
+  const ids = Array.from(new Set(productIds.map((id) => String(id || '').trim()).filter(Boolean)))
+  if (!ids.length) return
+
+  const placeholders = ids.map(() => '?').join(', ')
+  // Featured-only host (1-1.club) keys off products.featured — clear it when OOS
+  // so PDPs and grids cannot keep serving the product after Super Clones marks it out.
+  try {
+    await queryDb(
+      `UPDATE products
+       SET featured = 0,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id IN (${placeholders})
+         AND COALESCE(sold_out, 0) <> 0
+         AND COALESCE(featured, 0) <> 0`,
+      ids
+    )
+  } catch {
+    // featured column is required on current schema; ignore on ancient DBs.
+  }
+
+  await removeProductsFromCatalogPositions(ids)
+  // Immediate bust (not coalesced): 1-1.club must stop listing OOS products right away.
+  invalidateShopCatalogCaches()
 }

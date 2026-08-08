@@ -510,7 +510,7 @@ export default function AdminProductsPage() {
   const loadProductStats = useCallback(async () => {
     if (!user) return
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 12_000)
+    const timeout = setTimeout(() => controller.abort(), 8_000)
     setStatsLoading(true)
     try {
       const res = await fetch(appPath('/api/products?page=1&limit=1&scope=admin&statsOnly=1'), {
@@ -523,11 +523,11 @@ export default function AdminProductsPage() {
       const data = await parseJsonResponse<
         { dashboardStats?: ProductDashboardStats } | Product[]
       >(res)
-      if (isCatalogProductsPage(data)) {
-        setProductStats(data.dashboardStats ?? null)
+      if (isCatalogProductsPage(data) && data.dashboardStats) {
+        setProductStats(data.dashboardStats)
       }
     } catch {
-      // Stats cards are non-blocking
+      // Stats cards are non-blocking — keep previous numbers if any
     } finally {
       clearTimeout(timeout)
       setStatsLoading(false)
@@ -561,7 +561,11 @@ export default function AdminProductsPage() {
       }) + '&scope=admin&includeStats=0'
 
     try {
-      const listRes = await fetch(listUrl, { headers, cache: 'no-store' })
+      const listRes = await fetch(listUrl, {
+        headers,
+        credentials: 'include',
+        cache: 'no-store',
+      })
 
       const listData = await parseJsonResponse<
         { error?: string; items?: Product[]; dashboardStats?: ProductDashboardStats } | Product[]
@@ -580,7 +584,7 @@ export default function AdminProductsPage() {
       setError(e instanceof Error ? e.message : 'Failed to load')
       setProducts([])
       setTotalItems(0)
-      setProductStats(null)
+      // Do not clear productStats — list failures must not wipe the status cards
     } finally {
       setLoading(false)
     }

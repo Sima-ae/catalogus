@@ -38,11 +38,8 @@ import {
   buildAdminProductFilledPricelistPriceSql,
   buildAdminProductOutOfStockPricelistSql,
 } from '@/lib/pricelist-list-query'
-import { isCuratedSupplierPricelist, resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
-import {
-  PLATFORM_PRICELIST_OWNER_ID,
-  SELLER_PRICE_LATEST_ROW_ORDER_SQL,
-} from '@/lib/pricelist-constants'
+import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
+import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
 import {
   serializeAdminListProductRow,
   serializeCatalogProductRow,
@@ -257,10 +254,23 @@ const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
 const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
 const CATALOG_LISTING_SELECT_CACHE_KEY = '__catalogusCatalogListingSelectSql'
 
-const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v3'
+const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v4'
 const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 60_000
-/** Cap pricelist OOS aggregation so status cards never hang the admin UI. */
-const PRODUCT_DASHBOARD_OOS_TIMEOUT_MS = 4_000
+/** Hard cap for the whole stats payload — cards must never hang the admin UI. */
+const PRODUCT_DASHBOARD_STATS_TIMEOUT_MS = 3_500
+/** Cap pricelist OOS aggregation inside stats. */
+const PRODUCT_DASHBOARD_OOS_TIMEOUT_MS = 1_500
+
+const EMPTY_PRODUCT_DASHBOARD_STATS: ProductDashboardStats = {
+  total: 0,
+  active: 0,
+  draft: 0,
+  inactive: 0,
+  trash: 0,
+  importDrafts: 0,
+  outOfStock: 0,
+  soldOut: 0,
+}
 
 function invalidateProductDashboardStatsCache() {
   invalidateCachedNamespace(PRODUCT_DASHBOARD_STATS_CACHE_NS)
@@ -2571,48 +2581,59 @@ export async function listProductsPaginatedAdmin(
 
 /** Aggregate product counts for admin dashboard cards. */
 export async function getProductDashboardStats(): Promise<ProductDashboardStats> {
-  return getCachedValue(
+  const warm = peekCachedValue<ProductDashboardStats>(
     PRODUCT_DASHBOARD_STATS_CACHE_NS,
-    'all',
-    PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS,
-    loadProductDashboardStatsFromDb
+    'all'
   )
+  if (warm) return warm
+
+  // Never wait forever on a stuck singleflight/DB queue — cards must paint.
+  const loaded = await withTimeout(
+    getCachedValue(
+      PRODUCT_DASHBOARD_STATS_CACHE_NS,
+      'all',
+      PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS,
+      loadProductDashboardStatsFromDb
+    ),
+    PRODUCT_DASHBOARD_STATS_TIMEOUT_MS,
+    null
+  )
+
+  if (loaded) return loaded
+
+  // Timed out: drop stuck inflight so the next request can retry.
+  invalidateProductDashboardStatsCache()
+  return EMPTY_PRODUCT_DASHBOARD_STATS
 }
 
 async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats> {
-  const rows = await queryDb<{ status: string; count: number; import_drafts: number }[]>(
-    `SELECT
-       status,
-       COUNT(*) AS count,
-       SUM(CASE WHEN source_album_id IS NOT NULL AND source_album_id != '' THEN 1 ELSE 0 END) AS import_drafts
-     FROM products
-     GROUP BY status`
+  // Keep this cheap: COUNT(*) GROUP BY status only (no SUM/CASE over 150k rows).
+  const rows = await queryDb<{ status: string; count: number }[]>(
+    `SELECT status, COUNT(*) AS count FROM products GROUP BY status`
   )
 
   let active = 0
   let draft = 0
   let inactive = 0
   let trash = 0
-  let importDrafts = 0
 
   for (const row of rows) {
     const count = Number(row.count ?? 0)
     const status = String(row.status || '').toLowerCase()
     if (status === 'active') active = count
-    else if (status === 'draft') {
-      draft = count
-      importDrafts = Number(row.import_drafts ?? 0)
-    } else if (status === 'inactive') inactive = count
+    else if (status === 'draft') draft = count
+    else if (status === 'inactive') inactive = count
     else if (status === 'trash') trash = count
   }
 
-  const [outOfStock, soldOut] = await Promise.all([
+  const [soldOut, outOfStock, importDrafts] = await Promise.all([
+    countAdminProductsSoldOut(),
     withTimeout(
       countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID),
       PRODUCT_DASHBOARD_OOS_TIMEOUT_MS,
       0
     ),
-    countAdminProductsSoldOut(),
+    withTimeout(countAdminImportDrafts(), PRODUCT_DASHBOARD_OOS_TIMEOUT_MS, 0),
   ])
 
   return {
@@ -2652,40 +2673,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
 }
 
 /**
- * Count pricelist OOS from seller_product_prices (price-first), not EXISTS/LEFT JOIN
- * over every product — the latter scans ~150k rows and can stall the admin stats cards.
+ * Fast dashboard OOS count from seller_product_prices (no ROW_NUMBER / full-catalog join).
+ * Approximate vs curated “latest row” semantics — good enough for the admin badge.
  */
 async function countAdminProductsOutOfStock(listOwnerId: string): Promise<number> {
   if (!listOwnerId) return 0
 
   try {
-    if (isCuratedSupplierPricelist(listOwnerId)) {
-      const safeOwnerId = listOwnerId.replace(/'/g, "''")
-      const rows = await queryDb<{ total: number }[]>(
-        `SELECT COUNT(*) AS total
-         FROM (
-           SELECT ranked.product_id, ranked.unit_price, ranked.stock_status, ranked.out_of_stock
-           FROM (
-             SELECT product_id, unit_price, stock_status, COALESCE(out_of_stock, 0) AS out_of_stock,
-                    ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
-             FROM seller_product_prices
-             WHERE list_owner_id = '${safeOwnerId}'
-           ) ranked
-           WHERE ranked.rn = 1
-         ) latest_list_price
-         INNER JOIN products p ON p.id = latest_list_price.product_id AND p.status <> 'trash'
-         WHERE (
-           COALESCE(latest_list_price.stock_status, '') IN ('out', 'temporary')
-           OR (
-             COALESCE(latest_list_price.stock_status, '') = ''
-             AND COALESCE(latest_list_price.out_of_stock, 0) <> 0
-             AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
-           )
-         )`
-      )
-      return Number(rows[0]?.total ?? 0)
-    }
-
     const rows = await queryDb<{ total: number }[]>(
       `SELECT COUNT(DISTINCT spp.product_id) AS total
        FROM seller_product_prices spp
@@ -2717,6 +2711,18 @@ async function countAdminProductsSoldOut(): Promise<number> {
     `SELECT COUNT(*) AS total
      FROM products p
      WHERE p.status <> 'trash' AND COALESCE(p.sold_out, 0) <> 0`
+  )
+  return Number(rows[0]?.total ?? 0)
+}
+
+/** Draft products that still have a Yupoo/source album id (import drafts). */
+async function countAdminImportDrafts(): Promise<number> {
+  const rows = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(*) AS total
+     FROM products
+     WHERE status = 'draft'
+       AND source_album_id IS NOT NULL
+       AND source_album_id != ''`
   )
   return Number(rows[0]?.total ?? 0)
 }

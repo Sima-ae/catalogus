@@ -47,6 +47,10 @@ function isProductFeaturedFlag(value: unknown): boolean {
   return value === true || value === 1 || value === '1'
 }
 
+function isProductSoldOutFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
+}
+
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
@@ -86,10 +90,11 @@ export async function GET(
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       }
 
-      // Featured-only hosts (e.g. www.1-1.club) must not leak the full catalog.
+      // Featured-only hosts (e.g. www.1-1.club) must not leak the full catalog
+      // or keep serving products that are out of stock on Super Clones.
       if (
         resolveStoreModeFromHeaders(request.headers) === 'featured' &&
-        !isProductFeaturedFlag(product.featured)
+        (!isProductFeaturedFlag(product.featured) || isProductSoldOutFlag(product.sold_out))
       ) {
         return NextResponse.json({ error: 'Product not found' }, { status: 404 })
       }

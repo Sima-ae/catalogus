@@ -29,6 +29,15 @@ function isProductFeaturedFlag(value: unknown): boolean {
   return value === true || value === 1 || value === '1'
 }
 
+function isProductSoldOutFlag(value: unknown): boolean {
+  return value === true || value === 1 || value === '1'
+}
+
+/** 1-1.club: only featured, in-stock products. */
+function isVisibleOnFeaturedStore(product: Record<string, unknown>): boolean {
+  return isProductFeaturedFlag(product.featured) && !isProductSoldOutFlag(product.sold_out)
+}
+
 function productDescription(
   product: Record<string, unknown>,
   name: string,
@@ -58,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       })
     }
 
-    if (storeMode === 'featured' && !isProductFeaturedFlag(product.featured)) {
+    if (storeMode === 'featured' && !isVisibleOnFeaturedStore(product)) {
       return withNoIndexMetadata({
         title: seo.siteName,
         description: seo.tagline,
@@ -148,7 +157,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   if (resolveStoreModeFromHeaders(headers()) === 'featured') {
     const product = await getProductById(params.id)
-    if (!product || !isProductFeaturedFlag(product.featured)) {
+    if (!product || !isVisibleOnFeaturedStore(product as Record<string, unknown>)) {
       notFound()
     }
   }
