@@ -142,6 +142,7 @@ import ShopCatalogBadge from '@/components/shop/ShopCatalogBadge'
 import SidebarWelcomeTitle from '@/components/layout/SidebarWelcomeTitle'
 import SidebarCategories from '@/components/layout/SidebarCategories'
 import { useI18n } from '@/lib/i18n-context'
+import { useSiteBrand } from '@/lib/site-brand-context'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 import { prefetchShopCatalogFilter } from '@/lib/shop-catalog-client-cache'
 import {
@@ -298,6 +299,13 @@ export default function Sidebar({
   const { theme } = useTheme()
   const { isSuperAdmin, loading: authLoading } = useAuth()
   const { t } = useI18n()
+  const brand = useSiteBrand()
+  const year = new Date().getFullYear()
+  const copyrightText =
+    brand.footerCopyright.trim() ||
+    (brand.storeMode === 'featured'
+      ? `1-1 Club © ${year}`
+      : APP_COPYRIGHT)
 
   const bottomNavigation = bottomNavigationBase.filter(
     (item) => !item.superAdminOnly || (!authLoading && isSuperAdmin)
@@ -392,7 +400,7 @@ export default function Sidebar({
         }`}
       >
         <p>
-          <b>{APP_COPYRIGHT}</b>
+          <b>{copyrightText}</b>
         </p>
       </div>
     </div>

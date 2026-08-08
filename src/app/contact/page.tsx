@@ -5,6 +5,7 @@ import ShopPageShell from '@/components/shop/ShopPageShell'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 import { APP_NAME, APP_COPYRIGHT } from '@/lib/brand'
+import { useSiteBrand } from '@/lib/site-brand-context'
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from '@/lib/site-settings'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
 import { useI18n } from '@/lib/i18n-context'
@@ -27,6 +28,10 @@ const FAQ_KEYS = [
 export default function ContactPage() {
   const { theme } = useTheme()
   const { t } = useI18n()
+  const brand = useSiteBrand()
+  const copyright =
+    brand.footerCopyright.trim() ||
+    (brand.storeMode === 'featured' ? `1-1 Club © ${new Date().getFullYear()}` : APP_COPYRIGHT)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -191,7 +196,7 @@ export default function ContactPage() {
         </section>
       </div>
 
-      <p className={`mt-10 text-center text-xs ${muted}`}>{APP_COPYRIGHT}</p>
+      <p className={`mt-10 text-center text-xs ${muted}`}>{copyright}</p>
     </ShopPageShell>
   )
 }

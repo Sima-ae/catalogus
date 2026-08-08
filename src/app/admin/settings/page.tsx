@@ -115,8 +115,26 @@ export default function AdminSettingsPage() {
               placeholder="Leave empty for localized default (Catalog 2026 / Catalogus 2026, …)"
             />
             <p className={`mt-1 text-xs ${t.muted}`}>
-              Used in page titles and SEO when set. Leave blank to use the translated catalog
-              badge per language (e.g. Catalogus 2026 in Dutch).
+              Used in SEO description and as part of the default tab title when homepage title is
+              empty. Leave blank to use the translated catalog badge per language.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="homepage_title" className="form-label">
+              Homepage page title
+            </label>
+            <input
+              id="homepage_title"
+              type="text"
+              value={settings.homepage_title}
+              onChange={(e) => updateField('homepage_title', e.target.value)}
+              className="input w-full"
+              placeholder="e.g. Super Clones — Catalog 2026"
+              maxLength={200}
+            />
+            <p className={`mt-1 text-xs ${t.muted}`}>
+              Browser tab title for the homepage. Leave empty to use “Site name — tagline”.
             </p>
           </div>
 

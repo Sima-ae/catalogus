@@ -54,6 +54,7 @@ const withDbBrand = applyHostBrandToBootstrap(
   {
     featured_site_name: 'Club One',
     featured_site_tagline: 'Picks',
+    featured_homepage_title: 'Club One Home',
     featured_footer_menu: 'Line A\nLine B',
     featured_footer_copyright: 'Club One © {year}',
     featured_logo_path: '/images/brand/featured/default.png',

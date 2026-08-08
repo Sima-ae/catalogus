@@ -168,8 +168,27 @@ export default function FeaturedBrandSettings() {
               value={settings.featured_site_tagline}
               onChange={(e) => updateField('featured_site_tagline', e.target.value)}
               className="input w-full"
-              placeholder="Shown in titles / SEO on 1-1.club"
+              placeholder="SEO description / fallback title segment"
             />
+          </div>
+
+          <div>
+            <label htmlFor="featured_homepage_title" className="form-label">
+              Homepage page title
+            </label>
+            <input
+              id="featured_homepage_title"
+              type="text"
+              value={settings.featured_homepage_title}
+              onChange={(e) => updateField('featured_homepage_title', e.target.value)}
+              className="input w-full"
+              placeholder="e.g. 1-1 Club"
+              maxLength={200}
+            />
+            <p className={`mt-1 text-xs ${t.muted}`}>
+              Browser tab title for the 1-1.club homepage. Leave empty to use “Site name — tagline”
+              (currently shows something like “1-1 Club — Featured picks”).
+            </p>
           </div>
 
           <div className="space-y-3">

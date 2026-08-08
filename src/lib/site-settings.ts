@@ -4,6 +4,7 @@ import { DEFAULT_SITE_TAGLINE } from '@/lib/site-tagline'
 export const SETTING_KEYS = [
   'site_name',
   'site_tagline',
+  'homepage_title',
   'support_email',
   'currency',
   'tax_rate',
@@ -16,6 +17,7 @@ export type SiteSettings = Record<SettingKey, string>
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   site_name: APP_NAME,
   site_tagline: DEFAULT_SITE_TAGLINE,
+  homepage_title: '',
   support_email: '',
   currency: 'EUR',
   tax_rate: '0',

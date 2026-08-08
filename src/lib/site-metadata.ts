@@ -22,6 +22,8 @@ import {
 export type SiteSeo = {
   siteName: string
   tagline: string
+  /** When set, used as the homepage browser tab title instead of "name — tagline". */
+  homepageTitle: string
 }
 
 const SITE_SEO_CACHE_NS = 'site-seo'
@@ -39,6 +41,7 @@ export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise
       return {
         siteName: settings.site_name?.trim() || APP_NAME,
         tagline: resolveSiteTagline(locale, settings.site_tagline),
+        homepageTitle: settings.homepage_title?.trim() || '',
       }
     })
 
@@ -54,12 +57,14 @@ export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise
         return {
           siteName: display.site_name,
           tagline: display.site_tagline.trim() || base.tagline,
+          homepageTitle: display.homepage_title,
         }
       } catch {
         if (hostBrand) {
           return {
             siteName: hostBrand.site_name,
             tagline: hostBrand.site_tagline?.trim() || base.tagline,
+            homepageTitle: '',
           }
         }
       }
@@ -67,6 +72,7 @@ export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise
       return {
         siteName: hostBrand.site_name,
         tagline: hostBrand.site_tagline?.trim() || base.tagline,
+        homepageTitle: base.homepageTitle,
       }
     }
     return base
@@ -75,17 +81,21 @@ export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise
       return {
         siteName: hostBrand.site_name,
         tagline: hostBrand.site_tagline?.trim() || resolveSiteTagline(locale),
+        homepageTitle: '',
       }
     }
     return {
       siteName: APP_NAME,
       tagline: resolveSiteTagline(locale),
+      homepageTitle: '',
     }
   }
 })
 
-/** Default browser tab title: "Site name — tagline" */
-export function formatDefaultTitle({ siteName, tagline }: SiteSeo): string {
+/** Default browser tab title: custom homepage title, else "Site name — tagline". */
+export function formatDefaultTitle({ siteName, tagline, homepageTitle }: SiteSeo): string {
+  const custom = homepageTitle?.trim()
+  if (custom) return custom
   if (tagline) return `${siteName} — ${tagline}`
   return siteName
 }

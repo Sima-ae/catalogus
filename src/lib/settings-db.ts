@@ -35,7 +35,9 @@ export async function upsertSettings(updates: Partial<SiteSettings>) {
     value:
       key === 'site_tagline'
         ? normalizeSiteTaglineForStorage(String(updates[key] ?? ''))
-        : String(updates[key] ?? '').trim(),
+        : key === 'homepage_title'
+          ? String(updates[key] ?? '').trim().slice(0, 200)
+          : String(updates[key] ?? '').trim(),
   }))
 
   if (!entries.length) return listSettings()

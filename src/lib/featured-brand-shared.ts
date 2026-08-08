@@ -4,6 +4,7 @@ import { resolveHostSiteBrand } from '@/lib/store-host'
 export const FEATURED_BRAND_KEYS = [
   'featured_site_name',
   'featured_site_tagline',
+  'featured_homepage_title',
   'featured_footer_menu',
   'featured_footer_copyright',
   'featured_logo_path',
@@ -17,6 +18,7 @@ export type FeaturedBrandSettings = Record<FeaturedBrandKey, string>
 export const DEFAULT_FEATURED_BRAND_SETTINGS: FeaturedBrandSettings = {
   featured_site_name: '1-1 Club',
   featured_site_tagline: '',
+  featured_homepage_title: '',
   featured_footer_menu: '',
   featured_footer_copyright: '1-1 Club © {year}',
   featured_logo_path: '',
@@ -42,6 +44,7 @@ export function resolveFeaturedDisplayBrand(
 ): {
   site_name: string
   site_tagline: string
+  homepage_title: string
   footer_menu: string
   footer_copyright: string
   logo_path: string
@@ -54,6 +57,7 @@ export function resolveFeaturedDisplayBrand(
     DEFAULT_FEATURED_BRAND_SETTINGS.featured_site_name
   const site_tagline =
     featured.featured_site_tagline.trim() || envBrand?.site_tagline?.trim() || ''
+  const homepage_title = featured.featured_homepage_title.trim()
   const footer_menu = featured.featured_footer_menu.trim()
   const footer_copyright =
     featured.featured_footer_copyright.trim() ||
@@ -65,6 +69,7 @@ export function resolveFeaturedDisplayBrand(
   return {
     site_name,
     site_tagline,
+    homepage_title,
     footer_menu,
     footer_copyright,
     logo_path,
@@ -80,6 +85,12 @@ export function formatFooterCopyright(template: string, year: number): string {
 
 export function clampFeaturedBrandValue(key: FeaturedBrandKey, value: string): string {
   const max =
-    key.includes('logo') ? 500 : key === 'featured_footer_menu' ? 2000 : 600
+    key.includes('logo')
+      ? 500
+      : key === 'featured_footer_menu'
+        ? 2000
+        : key === 'featured_homepage_title'
+          ? 200
+          : 600
   return String(value ?? '').trim().slice(0, max)
 }
