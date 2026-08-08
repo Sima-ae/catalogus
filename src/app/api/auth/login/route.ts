@@ -51,13 +51,18 @@ export async function POST(request: NextRequest) {
   ) => {
     if (role !== 'admin') return res
     const session = await createAdminSessionToken(userId, userEmail)
-    if (session) {
-      res.cookies.set(
-        ADMIN_SESSION_COOKIE,
-        session.token,
-        getAdminSessionCookieOptions(session.maxAge)
+    if (!session) {
+      console.error('Admin login succeeded but session cookie could not be created')
+      return NextResponse.json(
+        { error: 'Signed in, but admin session could not be created. Check server secrets.' },
+        { status: 500 }
       )
     }
+    res.cookies.set(
+      ADMIN_SESSION_COOKIE,
+      session.token,
+      getAdminSessionCookieOptions(session.maxAge)
+    )
     return res
   }
 

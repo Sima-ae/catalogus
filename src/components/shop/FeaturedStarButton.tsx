@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { StarIcon } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { useAuth } from '@/lib/auth-local'
@@ -35,8 +34,7 @@ export default function FeaturedStarButton({
   onSaved,
 }: Props) {
   const { t } = useI18n()
-  const router = useRouter()
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth()
+  const { user, isAdmin, loading: authLoading } = useAuth()
   const [busy, setBusy] = useState(false)
   const [localFeatured, setLocalFeatured] = useState(featured)
   const [error, setError] = useState('')
@@ -76,17 +74,6 @@ export default function FeaturedStarButton({
         body: JSON.stringify({ productIds: [productId], featured: next }),
       })
       const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
-      if (res.status === 401 || res.status === 403) {
-        setLocalFeatured(previous)
-        setError(t('product.featured.authRequired'))
-        try {
-          await signOut()
-        } catch {
-          // ignore
-        }
-        router.push(appPath('/login'))
-        return
-      }
       if (!res.ok) {
         throw new Error(data.error || t('product.featured.error'))
       }

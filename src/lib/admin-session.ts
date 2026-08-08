@@ -5,7 +5,7 @@
 import type { NextRequest } from 'next/server'
 
 export const ADMIN_SESSION_COOKIE = 'rcc_admin_session'
-const SESSION_MAX_AGE_SEC = 60 * 60 * 12
+const SESSION_MAX_AGE_SEC = 60 * 60 * 12 * 7 // 7 days — catalog admins stay signed in
 
 const textEncoder = new TextEncoder()
 
@@ -60,6 +60,52 @@ async function signPayload(payload: string): Promise<string | null> {
   return bytesToBase64Url(sig)
 }
 
+type SessionClaims = { userId: string; email: string; exp: number }
+
+/** v2 JSON payload — emails may contain dots (broke the old v1 dotted format). */
+function encodeV2Payload(claims: SessionClaims): string {
+  return JSON.stringify({
+    v: 2,
+    userId: claims.userId,
+    email: claims.email,
+    exp: claims.exp,
+  })
+}
+
+function parseSessionPayload(payload: string): SessionClaims | null {
+  const raw = String(payload || '').trim()
+  if (!raw) return null
+
+  // Preferred: v2 JSON
+  if (raw.startsWith('{')) {
+    try {
+      const data = JSON.parse(raw) as {
+        v?: number
+        userId?: unknown
+        email?: unknown
+        exp?: unknown
+      }
+      if (data.v !== 2) return null
+      const userId = String(data.userId ?? '').trim()
+      const email = String(data.email ?? '').trim().toLowerCase()
+      const exp = Number(data.exp) || 0
+      if (!userId || !email || !exp) return null
+      return { userId, email, exp }
+    } catch {
+      return null
+    }
+  }
+
+  // Legacy v1: `v1.<userId>.<email>.<exp>` — email often contains `.` (e.g. @superclones.cloud)
+  const parts = raw.split('.')
+  if (parts[0] !== 'v1' || parts.length < 4) return null
+  const userId = parts[1]?.trim() || ''
+  const exp = Number.parseInt(parts[parts.length - 1] || '0', 10) || 0
+  const email = parts.slice(2, -1).join('.').trim().toLowerCase()
+  if (!userId || !email || !exp) return null
+  return { userId, email, exp }
+}
+
 export async function createAdminSessionToken(
   userId: string,
   email: string
@@ -69,7 +115,7 @@ export async function createAdminSessionToken(
   if (!id || !mail) return null
   const maxAge = SESSION_MAX_AGE_SEC
   const exp = Math.floor(Date.now() / 1000) + maxAge
-  const payload = `v1.${id}.${mail}.${exp}`
+  const payload = encodeV2Payload({ userId: id, email: mail, exp })
   const sig = await signPayload(payload)
   if (!sig) return null
   return { token: `${stringToBase64Url(payload)}.${sig}`, maxAge }
@@ -93,13 +139,10 @@ export async function verifyAdminSessionToken(
   }
   const expected = await signPayload(payload)
   if (!expected || !timingSafeEqualString(expected, sig)) return null
-  const parts = payload.split('.')
-  if (parts.length !== 4 || parts[0] !== 'v1') return null
-  const userId = parts[1]?.trim() || ''
-  const email = parts[2]?.trim().toLowerCase() || ''
-  const exp = Number.parseInt(parts[3] || '0', 10) || 0
-  if (!userId || !email || !exp || Math.floor(Date.now() / 1000) > exp) return null
-  return { userId, email }
+  const claims = parseSessionPayload(payload)
+  if (!claims) return null
+  if (Math.floor(Date.now() / 1000) > claims.exp) return null
+  return { userId: claims.userId, email: claims.email }
 }
 
 export function getAdminSessionCookieOptions(maxAge: number) {
