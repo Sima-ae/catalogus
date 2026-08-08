@@ -54,8 +54,11 @@ export function localizedPathFromWindow(path: string, locale: string): string {
   return localizedPath(normalized, locale)
 }
 
-export function resolveLocaleFromCookie(value: string | null | undefined): Locale {
-  return isLocale(value) ? value : DEFAULT_LOCALE
+export function resolveLocaleFromCookie(
+  value: string | null | undefined,
+  fallback: Locale = DEFAULT_LOCALE
+): Locale {
+  return isLocale(value) ? value : fallback
 }
 
 /** Match an app route ignoring an optional locale prefix (/nl/product → /product). */

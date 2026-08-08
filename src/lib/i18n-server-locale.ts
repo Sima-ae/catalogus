@@ -1,5 +1,7 @@
 import { cookies, headers } from 'next/headers'
-import { DEFAULT_LOCALE, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
+import { isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
+import { defaultLocaleForStoreMode } from '@/lib/i18n-locale-registry'
+import { resolveRequestHostname, resolveStoreModeFromHost } from '@/lib/store-host'
 
 export async function getServerLocale(): Promise<Locale> {
   const cookieStore = cookies()
@@ -8,5 +10,6 @@ export async function getServerLocale(): Promise<Locale> {
   const rawLocale = cookieStore.get(LOCALE_COOKIE)?.value
   if (isLocale(fromPath)) return fromPath
   if (isLocale(rawLocale)) return rawLocale
-  return DEFAULT_LOCALE
+  const hostname = resolveRequestHostname(headerStore)
+  return defaultLocaleForStoreMode(resolveStoreModeFromHost(hostname))
 }

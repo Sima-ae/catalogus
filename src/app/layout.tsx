@@ -8,7 +8,8 @@ import LayoutBootstrapGate from '@/components/layout/LayoutBootstrapGate'
 import { buildRootMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
 import { cookies, headers } from 'next/headers'
-import { DEFAULT_LOCALE, getMessages, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
+import { getMessages, isLocale, LOCALE_COOKIE, type Locale } from '@/lib/i18n'
+import { defaultLocaleForStoreMode } from '@/lib/i18n-locale-registry'
 import {
   getLightLayoutBootstrapData,
   loadLayoutBootstrapData,
@@ -30,17 +31,18 @@ export default async function RootLayout({
 }) {
   const cookieStore = cookies()
   const headerStore = headers()
+  const hostname = resolveRequestHostname(headerStore)
+  const storeMode = resolveStoreModeFromHost(hostname)
+  const featuredStorefront = storeMode === 'featured'
   const fromPath = headerStore.get('x-catalogus-locale')
   const rawLocale = cookieStore.get(LOCALE_COOKIE)?.value
   const locale: Locale = isLocale(fromPath)
     ? fromPath
     : isLocale(rawLocale)
       ? rawLocale
-      : DEFAULT_LOCALE
+      : defaultLocaleForStoreMode(storeMode)
   const messages = getMessages(locale)
   const light = headerStore.get(CATALOGUS_LIGHT_HEADER) === '1'
-  const hostname = resolveRequestHostname(headerStore)
-  const featuredStorefront = resolveStoreModeFromHost(hostname) === 'featured'
   const layoutBootstrap = light
     ? getLightLayoutBootstrapData(locale, hostname)
     : await loadLayoutBootstrapData(locale, hostname)

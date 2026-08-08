@@ -54,6 +54,20 @@ const LOCALE_GRID: LocaleMeta[] = [
 
 export const LOCALE_REGISTRY: readonly LocaleMeta[] = LOCALE_GRID
 
+/**
+ * 1-1.club language picker: English first, Dutch second, then the same remaining
+ * order as Super Clones / catalogus.
+ */
+const FEATURED_LOCALE_GRID: LocaleMeta[] = (() => {
+  const en = LOCALE_GRID.find((l) => l.code === 'en')
+  const nl = LOCALE_GRID.find((l) => l.code === 'nl')
+  const rest = LOCALE_GRID.filter((l) => l.code !== 'en' && l.code !== 'nl')
+  if (!en || !nl) return LOCALE_GRID
+  return [en, nl, ...rest]
+})()
+
+export const FEATURED_LOCALE_REGISTRY: readonly LocaleMeta[] = FEATURED_LOCALE_GRID
+
 /** Rows in the 3-column language picker grid. */
 export const LOCALE_PICKER_ROWS = Math.ceil(LOCALE_GRID.length / 3)
 
@@ -61,7 +75,23 @@ export const SUPPORTED_LOCALES = LOCALE_REGISTRY.map((l) => l.code) as readonly 
 
 export type Locale = (typeof LOCALE_REGISTRY)[number]['code']
 
+/** Super Clones / catalogus default URL slug. */
 export const DEFAULT_LOCALE: Locale = 'nl'
+
+/** Featured storefront (1-1.club) default URL slug. */
+export const FEATURED_DEFAULT_LOCALE: Locale = 'en'
+
+export function defaultLocaleForStoreMode(
+  mode: 'default' | 'featured' | null | undefined
+): Locale {
+  return mode === 'featured' ? FEATURED_DEFAULT_LOCALE : DEFAULT_LOCALE
+}
+
+export function localeRegistryForStoreMode(
+  mode: 'default' | 'featured' | null | undefined
+): readonly LocaleMeta[] {
+  return mode === 'featured' ? FEATURED_LOCALE_REGISTRY : LOCALE_REGISTRY
+}
 
 const byCode = new Map(LOCALE_REGISTRY.map((l) => [l.code, l]))
 const bySlug = new Map(LOCALE_REGISTRY.map((l) => [l.slug, l]))

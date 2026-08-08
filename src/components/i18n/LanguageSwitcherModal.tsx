@@ -10,15 +10,18 @@ import { useI18n } from '@/lib/i18n-context'
 import { useLanguagePicker } from '@/lib/language-picker-context'
 import { type Locale } from '@/lib/i18n'
 import {
-  LOCALE_REGISTRY,
   LOCALE_PICKER_ROWS,
   getLocaleNativeName,
+  localeRegistryForStoreMode,
 } from '@/lib/i18n-locale-registry'
 import { localizedPath, parseLocaleFromPathname } from '@/lib/i18n-routing'
+import { useSiteBrand } from '@/lib/site-brand-context'
 
 export default function LanguageSwitcherModal() {
   const { open, closePicker } = useLanguagePicker()
   const { locale, setLocale, t } = useI18n()
+  const { storeMode } = useSiteBrand()
+  const localeRegistry = localeRegistryForStoreMode(storeMode)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -104,7 +107,7 @@ export default function LanguageSwitcherModal() {
               gridTemplateRows: `repeat(${LOCALE_PICKER_ROWS}, minmax(2rem, auto))`,
             }}
           >
-            {LOCALE_REGISTRY.map(({ code }) => {
+            {localeRegistry.map(({ code }) => {
               const label = getLocaleNativeName(code)
               const active = code === locale
               return (

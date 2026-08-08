@@ -25,7 +25,8 @@ export type LocalePathResolution =
  */
 export function resolveLocalePathRouting(
   pathname: string,
-  cookieLocaleRaw?: string | null
+  cookieLocaleRaw?: string | null,
+  fallbackLocale: Locale = DEFAULT_LOCALE
 ): LocalePathResolution {
   const { locale: pathLocale, pathnameWithoutLocale } = parseLocaleFromPathname(pathname)
   if (pathLocale) {
@@ -36,7 +37,7 @@ export function resolveLocalePathRouting(
     }
   }
 
-  const cookieLocale = resolveLocaleFromCookie(cookieLocaleRaw)
+  const cookieLocale = resolveLocaleFromCookie(cookieLocaleRaw, fallbackLocale)
   return {
     action: 'redirect',
     locale: cookieLocale,

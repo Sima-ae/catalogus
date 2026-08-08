@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDbErrorMessage } from '@/lib/db-errors'
-import { DEFAULT_LOCALE, isLocale, type Locale } from '@/lib/i18n'
+import { isLocale, type Locale } from '@/lib/i18n'
+import { defaultLocaleForStoreMode } from '@/lib/i18n-locale-registry'
 import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { loadShopBootstrap, applyHostBrandToBootstrap } from '@/lib/shop-bootstrap'
@@ -13,11 +14,13 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const storeScope = resolveStoreModeFromHeaders(request.headers)
   const localeParam = request.nextUrl.searchParams.get('locale')
-  const locale: Locale = isLocale(localeParam) ? localeParam : DEFAULT_LOCALE
+  const locale: Locale = isLocale(localeParam)
+    ? localeParam
+    : defaultLocaleForStoreMode(storeScope)
 
   try {
-    const storeScope = resolveStoreModeFromHeaders(request.headers)
     const hostname = resolveRequestHostname(request.headers)
     const [categoryMessages, tagMessages, bootstrapRaw, tickerMessages, featuredBrand] =
       await Promise.all([

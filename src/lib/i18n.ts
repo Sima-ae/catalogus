@@ -61,7 +61,11 @@ import { getFeaturedCatalogCtaMessages } from '@/lib/i18n-featured-catalog-cta'
 export {
   SUPPORTED_LOCALES,
   DEFAULT_LOCALE,
+  FEATURED_DEFAULT_LOCALE,
   LOCALE_REGISTRY,
+  FEATURED_LOCALE_REGISTRY,
+  defaultLocaleForStoreMode,
+  localeRegistryForStoreMode,
   getLocaleMeta,
   getLocaleFlag,
   getLocaleNativeName,

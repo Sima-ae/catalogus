@@ -38,8 +38,10 @@ import {
   CATALOGUS_STORE_HEADER,
   isFeaturedOnlyHost,
   resolveRequestHostname,
+  resolveStoreModeFromHost,
   siteAccessAppliesToHost,
 } from '@/lib/store-host'
+import { defaultLocaleForStoreMode } from '@/lib/i18n-locale-registry'
 
 const GATE_PATH = '/site-access-gate'
 const LOCALE_HEADER = 'x-catalogus-locale'
@@ -101,7 +103,16 @@ function applyResolvedLocaleRouting(
   options?: { light?: boolean }
 ): NextResponse {
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value
-  const resolved = resolveLocalePathRouting(request.nextUrl.pathname, cookieLocale)
+  const host =
+    resolveRequestHostname(request.headers) || request.nextUrl.hostname
+  const fallbackLocale = defaultLocaleForStoreMode(
+    resolveStoreModeFromHost(host)
+  )
+  const resolved = resolveLocalePathRouting(
+    request.nextUrl.pathname,
+    cookieLocale,
+    fallbackLocale
+  )
   const light = options?.light === true
 
   if (resolved.action === 'rewrite') {
