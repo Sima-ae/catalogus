@@ -12,16 +12,20 @@ export const dynamic = 'force-dynamic'
  * competing with live RAND()/shuffle SQL under traffic (was a 503 source).
  */
 export default async function HomePage({
-  searchParams,
+  searchParams: _searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const sp = await searchParams
+  // Await so Next still treats this as a dynamic searchParams page, but do not
+  // embed ?page= into the client signature (that aborted in-flight page fetches).
+  await _searchParams
   const storeMode = resolveStoreModeFromHeaders(headers())
   const featuredOnly = storeMode === 'featured'
-  const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', {
-    shuffle: true,
-  })
+  const initialCatalogSignature = buildShopCatalogSignature(
+    { category: 'All', subcategory: 'All', nested: 'All', brand: 'All', page: '1' },
+    'all',
+    { shuffle: true }
+  )
 
   const initialCategoryNav = await listShopCategoryNavTree({ featuredOnly }).catch(() => [])
 

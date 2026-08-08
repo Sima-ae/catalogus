@@ -184,6 +184,13 @@ function ShopCatalogPageContent({
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
   const prevFilterRef = useRef<string | null>(null)
   const catalogLoadGenRef = useRef(0)
+  /** SSR hydrate signature — read in the load effect without putting page in deps. */
+  const initialCatalogSignatureRef = useRef(initialCatalogSignature)
+  const initialCatalogRef = useRef(initialCatalog)
+  initialCatalogRef.current = initialCatalog
+  if (initialCatalog) {
+    initialCatalogSignatureRef.current = initialCatalogSignature
+  }
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const listingScrollKey = catalogListingKey(pathname ?? '', searchParams)
@@ -243,7 +250,9 @@ function ShopCatalogPageContent({
       loadingNestedSubcategories && categoryMayHaveNestedSubcategories,
     needsNestedSubcategoryPick: effectiveNeedsNestedSubcategoryPick,
   })
-  const filterSignature = `${activeCategory}|${activeSubcategory}|${effectiveNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}|${catalogBrowseDeferred ? 'deferred' : 'ready'}`
+  // Real filter keys only — do not include browse-deferred, or flipping ready→deferred
+  // resets ?page= and restarts the load loop on category pages.
+  const filterSignature = `${activeCategory}|${activeSubcategory}|${effectiveNestedSubcategory}|${filterBrand}|${filterTag}|${debouncedSearch}|${config.mode}`
 
   const catalogMode = config.mode === 'new' ? 'new' : 'all'
 
@@ -671,6 +680,17 @@ function ShopCatalogPageContent({
     invalidateShopCatalogCache()
   }
 
+  /** Broken-image OOS: soft-hide only — never shrink totals / bust cache / open load-more. */
+  const handleProductUnavailable = (productId: string) => {
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? { ...p, sold_out: true, image_url: p.image_url ? '' : p.image_url }
+          : p
+      )
+    )
+  }
+
   const handleProductQuickEditSaved = (saved: ProductQuickEditSaved) => {
     const activeBrand = filterBrand.trim()
     const matchesBrandFilter =
@@ -903,15 +923,20 @@ function ShopCatalogPageContent({
       }
     }
 
-    if (reloadToken === 0 && initialCatalog && initialCatalogSignature === clientCatalogSignature) {
-      applyCatalogPage(initialCatalog)
+    const ssrCatalog = initialCatalogRef.current
+    if (
+      reloadToken === 0 &&
+      ssrCatalog &&
+      initialCatalogSignatureRef.current === clientCatalogSignature
+    ) {
+      applyCatalogPage(ssrCatalog)
       clearLoadingFlags()
       setError(null)
       // If SSR skipped or floored the total (e.g. old payload), resolve the real count.
       if (
         catalogMode === 'new' &&
-        (initialCatalog.skipTotal ||
-          !(typeof initialCatalog.total === 'number' && initialCatalog.total > initialCatalog.items.length))
+        (ssrCatalog.skipTotal ||
+          !(typeof ssrCatalog.total === 'number' && ssrCatalog.total > ssrCatalog.items.length))
       ) {
         void fetchCatalogJson(buildCatalogTotalUrl())
           .then((payload) => {
@@ -1065,8 +1090,8 @@ function ShopCatalogPageContent({
     filterSignature,
     filterBrand,
     filterTag,
-    initialCatalog,
-    initialCatalogSignature,
+    // Do NOT depend on initialCatalogSignature — homepage embeds ?page= in it and
+    // would abort+restart the in-flight page fetch on every Next click.
     isFeaturedOnlyHost,
     reloadToken,
     setCurrentPage,
@@ -1424,7 +1449,7 @@ function ShopCatalogPageContent({
                 onPageChange={handlePageChange}
                 onBeyondLastPage={isFeaturedOnlyHost ? openFullCatalogModal : undefined}
                 onProductDeleted={handleProductDeleted}
-                onProductUnavailable={handleProductDeleted}
+                onProductUnavailable={handleProductUnavailable}
                 onProductQuickEditSaved={handleProductQuickEditSaved}
                 onProductFeaturedSaved={handleProductFeaturedSaved}
                 onReorder={isAdmin ? handleReorder : undefined}

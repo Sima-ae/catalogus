@@ -25,6 +25,23 @@ export function invalidateShopCatalogCaches(): void {
   invalidateCachedNamespace(SHOP_SUBCATEGORY_CACHE_NS)
 }
 
+/**
+ * Coalesce busts from broken-image / proxy OOS storms — one purge per window
+ * instead of wiping Redis on every album death (was a major pagination CPU spike).
+ */
+let catalogCacheInvalidateTimer: ReturnType<typeof setTimeout> | null = null
+const CATALOG_CACHE_INVALIDATE_COALESCE_MS = 20_000
+
+export function scheduleInvalidateShopCatalogCaches(
+  delayMs = CATALOG_CACHE_INVALIDATE_COALESCE_MS
+): void {
+  if (catalogCacheInvalidateTimer) return
+  catalogCacheInvalidateTimer = setTimeout(() => {
+    catalogCacheInvalidateTimer = null
+    invalidateShopCatalogCaches()
+  }, delayMs)
+}
+
 /** Remove products from precomputed homepage shuffle positions. */
 export async function removeProductsFromCatalogPositions(
   productIds: string[]
@@ -42,8 +59,8 @@ export async function removeProductsFromCatalogPositions(
   }
 }
 
-/** After marking sold out in the shop: purge positions + caches. */
+/** After marking sold out in the shop: purge positions + coalesce cache wipe. */
 export async function hideSoldOutProductsFromShop(productIds: string[]): Promise<void> {
   await removeProductsFromCatalogPositions(productIds)
-  invalidateShopCatalogCaches()
+  scheduleInvalidateShopCatalogCaches()
 }

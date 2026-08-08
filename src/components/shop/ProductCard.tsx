@@ -60,7 +60,7 @@ interface ProductCardProps {
 function ProductCard({
   product,
   onDeleted,
-  onUnavailable,
+  onUnavailable: _onUnavailable,
   onQuickEditSaved,
   onFeaturedSaved,
   imagePriority = false,
@@ -87,6 +87,8 @@ function ProductCard({
   const mainImage = catalogCardImageSrc(product.image_url, product.source_url)
 
   // Blank cards (cleared Yupoo images) never fire <Image onError> — report once.
+  // Soft-hide only: do not notify the parent grid (that used to shrink the page,
+  // open load-more holes, and thrash pagination on superclones).
   useEffect(() => {
     if (mainImage) return
     reportProductSourceUnavailable(product.id)
@@ -161,6 +163,9 @@ function ProductCard({
 
   const showAskPriceBadge = cardPriceLabel === null
 
+  // Blank / sold-out stay out of the grid. Broken images keep the card shell
+  // (admins still see edit/delete) but do not notify the parent — that cascade
+  // opened load-more holes and thrashed pagination on superclones.
   if (!mainImage || product.sold_out) {
     return null
   }
@@ -201,7 +206,8 @@ function ProductCard({
                 onError={() => {
                   setImageFailed(true)
                   reportProductSourceUnavailable(product.id)
-                  onUnavailable?.(product.id)
+                  // Keep sold-out reporting; do not call onUnavailable — parent
+                  // delete/cache-bust caused next-page reload loops on superclones.
                 }}
               />
             ) : null}
