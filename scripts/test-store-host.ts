@@ -46,6 +46,25 @@ assert.equal(brand!.site_tagline, 'Featured picks')
 
 const bootstrap = applyHostBrandToBootstrap(getDefaultShopBootstrap('nl'), 'www.1-1.club')
 assert.equal(bootstrap.site_name, '1-1 Club')
+assert.equal(bootstrap.footer_copyright, '1-1 Club © {year}')
+
+const withDbBrand = applyHostBrandToBootstrap(
+  getDefaultShopBootstrap('nl'),
+  'www.1-1.club',
+  {
+    featured_site_name: 'Club One',
+    featured_site_tagline: 'Picks',
+    featured_footer_menu: 'Line A\nLine B',
+    featured_footer_copyright: 'Club One © {year}',
+    featured_logo_path: '/images/brand/featured/default.png',
+    featured_logo_path_white: '',
+  }
+)
+assert.equal(withDbBrand.site_name, 'Club One')
+assert.equal(withDbBrand.site_tagline, 'Picks')
+assert.equal(withDbBrand.footer_menu, 'Line A\nLine B')
+assert.equal(withDbBrand.logo_path, '/images/brand/featured/default.png')
+assert.equal(withDbBrand.logo_path_white, '/images/brand/featured/default.png')
 
 const featuredQuery: CatalogProductsQuery = {
   page: 1,
@@ -53,7 +72,7 @@ const featuredQuery: CatalogProductsQuery = {
   featuredOnly: true,
   shuffle: true,
 }
-assert.equal(isCatalogShuffleEligible(featuredQuery), false)
+assert.equal(isCatalogShuffleEligible(featuredQuery), true)
 const { whereSql, params } = buildActiveCatalogFilters(featuredQuery)
 assert.ok(whereSql.includes('p.featured = 1'))
 assert.ok(Array.isArray(params))

@@ -9,7 +9,7 @@ import {
   catalogPageBaseOffset,
   CATALOG_PAGE_SIZE,
   isCatalogShuffleEligible,
-  isFeaturedStableShuffle,
+  isFeaturedLiveShuffle,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
@@ -1741,8 +1741,11 @@ export async function listActiveProductsPaginated(
     warmShopCatalogCountCaches()
   }
   const cacheKey = shopCatalogPageCacheKey(query)
-  // Homepage shuffle uses a stable order (Super Clones: nightly positions; 1-1.club: CRC32 id).
-  // Cache normally — pages must not reshuffle on their own or on every refresh.
+  // 1-1.club homepage: never cache RAND() results — must re-roll on every refresh.
+  if (isFeaturedLiveShuffle(query)) {
+    return loadActiveProductsPaginatedFromDb(query)
+  }
+  // Super Clones homepage shuffle uses the nightly precomputed order (stable between rebuilds).
   const ttlMs = isCatalogShuffleEligible(query)
     ? SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS
     : SHOP_CATALOG_PAGE_TTL_MS
@@ -1939,14 +1942,14 @@ async function loadActiveProductsPaginatedFromDb(
   const limit = query.limit
   const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
   const shuffle = isCatalogShuffleEligible(query)
-  const featuredStableShuffle = isFeaturedStableShuffle(query)
+  const featuredLiveShuffle = isFeaturedLiveShuffle(query)
 
   let joinSql = ''
   let orderSql = 'p.created_at DESC'
   let scopeParam: string | null = null
   let usePrecomputedShuffle = false
 
-  if (shuffle && !featuredStableShuffle) {
+  if (shuffle && !featuredLiveShuffle) {
     usePrecomputedShuffle =
       (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
     if (usePrecomputedShuffle) {
@@ -1992,17 +1995,17 @@ async function loadActiveProductsPaginatedFromDb(
       }
 
       let ids: string[] = []
-      if (featuredStableShuffle) {
-        // Deterministic “random” order — same on every refresh (no auto reshuffle).
+      if (featuredLiveShuffle) {
+        // Live random order — different on every refresh (page 1 only).
         const fromClause = await catalogListingFromSqlForQuery({
           needsCategoryJoin,
           needsBrandJoin,
         })
         const idRows = await queryDb<{ id: string }[]>(
           `SELECT p.id ${fromClause}${forceIndexSql} ${whereSql}
-           ORDER BY CRC32(p.id) ASC, p.id ASC
-           LIMIT ? OFFSET ?`,
-          [...idParams, Math.max(limit + 48, CATALOG_PAGE_SIZE), Math.max(0, offset)]
+           ORDER BY RAND()
+           LIMIT ?`,
+          [...idParams, Math.max(limit + 48, CATALOG_PAGE_SIZE)]
         )
         ids = idRows.map((row) => String(row.id)).filter(Boolean)
       } else if (usePrecomputedShuffle) {
@@ -2031,7 +2034,7 @@ async function loadActiveProductsPaginatedFromDb(
       }
 
       // Do not fill featured shuffle from the full Super Clones catalog.
-      if (collected.length < limit && !featuredStableShuffle) {
+      if (collected.length < limit && !featuredLiveShuffle) {
         const fillIds = await fillShopVisibleProductIds(
           Array.from(seen),
           limit - collected.length + 24
@@ -2072,7 +2075,7 @@ async function loadActiveProductsPaginatedFromDb(
   let responseSkipTotal = true
 
   if (shuffle) {
-    if (featuredStableShuffle || query.featuredOnly) {
+    if (featuredLiveShuffle || query.featuredOnly) {
       // Featured host: total = featured count only (never the full Super Clones catalog).
       total = await countShopCatalogProducts(
         await catalogListingFromSqlForQuery({ needsCategoryJoin, needsBrandJoin }),

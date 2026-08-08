@@ -12,7 +12,12 @@ import {
   resolveHostSiteBrand,
   resolveRequestHostname,
   resolveRequestOrigin,
+  resolveStoreModeFromHost,
 } from '@/lib/store-host'
+import {
+  loadFeaturedBrandSettings,
+  resolveFeaturedDisplayBrand,
+} from '@/lib/featured-brand'
 
 export type SiteSeo = {
   siteName: string
@@ -25,6 +30,7 @@ const SITE_SEO_TTL_MS = 120_000
 /** Site name + localized tagline (optional DB override + per-host brand). */
 export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise<SiteSeo> => {
   const hostname = resolveRequestHostname(headers())
+  const storeMode = resolveStoreModeFromHost(hostname)
   const hostBrand = resolveHostSiteBrand(hostname)
 
   try {
@@ -35,7 +41,29 @@ export const getSiteSeo = cache(async (locale: Locale = DEFAULT_LOCALE): Promise
         tagline: resolveSiteTagline(locale, settings.site_tagline),
       }
     })
-    if (hostBrand) {
+
+    if (storeMode === 'featured') {
+      try {
+        const featured = await getCachedValue(
+          'featured-brand',
+          'seo',
+          SITE_SEO_TTL_MS,
+          () => loadFeaturedBrandSettings()
+        )
+        const display = resolveFeaturedDisplayBrand(featured, hostname)
+        return {
+          siteName: display.site_name,
+          tagline: display.site_tagline.trim() || base.tagline,
+        }
+      } catch {
+        if (hostBrand) {
+          return {
+            siteName: hostBrand.site_name,
+            tagline: hostBrand.site_tagline?.trim() || base.tagline,
+          }
+        }
+      }
+    } else if (hostBrand) {
       return {
         siteName: hostBrand.site_name,
         tagline: hostBrand.site_tagline?.trim() || base.tagline,

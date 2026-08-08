@@ -2,9 +2,9 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { APP_LOGO_PATH, APP_LOGO_PATH_WHITE, APP_LOGO_PATH_WHITE_CENTERED, APP_NAME } from '@/lib/brand'
 import { appPath } from '@/lib/paths'
 import { useTheme } from '@/lib/theme'
+import { useSiteBrand } from '@/lib/site-brand-context'
 
 type BrandLogoSize = 'default' | 'dashboard'
 
@@ -15,7 +15,7 @@ type BrandLogoProps = {
   size?: BrandLogoSize
   /**
    * Sidebars on a dark background (admin dashboards, shop in dark mode).
-   * Uses /WEBLOGO-TEXT-WHITE.png; otherwise /WEBLOGO-TEXT-BLACK.png.
+   * Uses white logo variant; otherwise default logo.
    */
   dashboardSidebar?: boolean
   /** Site access gate only — centered white logo asset */
@@ -40,26 +40,27 @@ export default function BrandLogo({
   priority = false,
 }: BrandLogoProps) {
   const { theme } = useTheme()
+  const brand = useSiteBrand()
   const dims = SIZE_PX[size]
   const imgHeight = compact ? 40 : dims.height
 
   // Homepage/catalog: white logo in dark mode; admin sidebars always use white on dark UI
   const useWhiteLogo = dashboardSidebar || theme === 'dark'
   const src = centered
-    ? APP_LOGO_PATH_WHITE_CENTERED
+    ? brand.logoPathWhiteCentered
     : useWhiteLogo
-      ? APP_LOGO_PATH_WHITE
-      : APP_LOGO_PATH
+      ? brand.logoPathWhite
+      : brand.logoPath
 
   const img = (
     <Image
       key={src}
       src={src}
-      alt={APP_NAME}
+      alt={brand.siteName}
       width={compact ? 48 : dims.width}
       height={compact ? 40 : dims.height}
       priority={priority}
-      // Serve public PNGs directly — avoids Next optimizer re-fetch (Node UA) issues.
+      // Serve public PNGs / uploaded brand assets directly — avoids Next optimizer issues.
       unoptimized
       className={`w-auto object-contain ${centered ? 'object-center' : 'object-left'} ${
         compact

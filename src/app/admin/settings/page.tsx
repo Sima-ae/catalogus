@@ -6,6 +6,7 @@ import CatalogModeSettings from '@/components/admin/CatalogModeSettings'
 import ProductCardDisplaySettings from '@/components/admin/ProductCardDisplaySettings'
 import SiteAccessSettings from '@/components/admin/SiteAccessSettings'
 import SiteTickerMessagesAdmin from '@/components/admin/SiteTickerMessagesAdmin'
+import FeaturedBrandSettings from '@/components/admin/FeaturedBrandSettings'
 import { appPath } from '@/lib/paths'
 import type { SiteSettings } from '@/lib/site-settings'
 import { DEFAULT_SITE_SETTINGS } from '@/lib/site-settings'
@@ -74,7 +75,12 @@ export default function AdminSettingsPage() {
         <p className={t.muted}>Loading...</p>
       ) : (
         <form onSubmit={handleSubmit} className="card max-w-2xl space-y-6">
-          <h2 className="card-section-title">Store settings</h2>
+          <div>
+            <h2 className="card-section-title">Store settings — Super Clones</h2>
+            <p className={`mt-1 text-sm ${t.muted}`}>
+              Default storefront (superclones.cloud). 1-1.club has its own branding card below.
+            </p>
+          </div>
           {error && <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>}
           {saved && (
             <p className="text-gray-900 dark:text-primary-400 text-sm font-medium">
@@ -167,6 +173,8 @@ export default function AdminSettingsPage() {
           </button>
         </form>
       )}
+
+      <FeaturedBrandSettings />
     </AdminPageShell>
   )
 }

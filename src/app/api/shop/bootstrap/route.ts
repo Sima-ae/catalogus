@@ -4,6 +4,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from '@/lib/i18n'
 import { getCategoryTranslationMessages } from '@/lib/category-translations-db'
 import { getTagTranslationMessages } from '@/lib/tag-translations-db'
 import { loadShopBootstrap, applyHostBrandToBootstrap } from '@/lib/shop-bootstrap'
+import { loadFeaturedBrandSettings } from '@/lib/featured-brand'
 import { listActiveSiteTickerMessagesForLocale } from '@/lib/site-ticker-db'
 import { CATALOG_METADATA_CACHE_CONTROL, jsonCached } from '@/lib/http-cache'
 import { resolveRequestHostname, resolveStoreModeFromHeaders } from '@/lib/store-host'
@@ -17,18 +18,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const storeScope = resolveStoreModeFromHeaders(request.headers)
-    const [categoryMessages, tagMessages, bootstrapRaw, tickerMessages] = await Promise.all([
-      getCategoryTranslationMessages(locale),
-      getTagTranslationMessages(locale),
-      loadShopBootstrap(locale),
-      listActiveSiteTickerMessagesForLocale(locale, storeScope),
-    ])
-    const bootstrap = applyHostBrandToBootstrap(
-      bootstrapRaw,
-      resolveRequestHostname(request.headers)
-    )
+    const hostname = resolveRequestHostname(request.headers)
+    const [categoryMessages, tagMessages, bootstrapRaw, tickerMessages, featuredBrand] =
+      await Promise.all([
+        getCategoryTranslationMessages(locale),
+        getTagTranslationMessages(locale),
+        loadShopBootstrap(locale),
+        listActiveSiteTickerMessagesForLocale(locale, storeScope),
+        storeScope === 'featured' ? loadFeaturedBrandSettings() : Promise.resolve(null),
+      ])
+    const bootstrap = applyHostBrandToBootstrap(bootstrapRaw, hostname, featuredBrand)
     return jsonCached(
-      { categoryMessages, tagMessages, bootstrap, tickerMessages },
+      { categoryMessages, tagMessages, bootstrap, tickerMessages, storeMode: storeScope },
       CATALOG_METADATA_CACHE_CONTROL
     )
   } catch (error) {

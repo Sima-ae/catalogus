@@ -10,6 +10,14 @@ export type ShopBootstrap = {
   currency: string
   site_name: string
   site_tagline: string
+  /** Optional footer menu / blurb above copyright (plain text; newlines kept). */
+  footer_menu: string
+  /** Empty = use i18n `footer.copyright`. May include `{year}`. */
+  footer_copyright: string
+  /** Custom header logo URL (light backgrounds). Empty = default Super Clones asset. */
+  logo_path: string
+  /** Custom header logo URL (dark backgrounds). Empty = falls back to logo_path / default. */
+  logo_path_white: string
 }
 
 export type LayoutBootstrapData = {
@@ -21,6 +29,8 @@ export type LayoutBootstrapData = {
   categoryRows: CategoryTreeRow[]
   /** True when server could not load shop settings from DB (client may retry). */
   bootstrapDegraded: boolean
+  /** Request host store mode (default = Super Clones, featured = 1-1.club). */
+  storeMode: 'default' | 'featured'
 }
 
 export function getDefaultShopBootstrap(locale: Locale): ShopBootstrap {
@@ -30,5 +40,9 @@ export function getDefaultShopBootstrap(locale: Locale): ShopBootstrap {
     currency: DEFAULT_SHOP_CURRENCY,
     site_name: 'Catalogus',
     site_tagline: resolveSiteTagline(locale, ''),
+    footer_menu: '',
+    footer_copyright: '',
+    logo_path: '',
+    logo_path_white: '',
   }
 }

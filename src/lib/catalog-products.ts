@@ -689,21 +689,21 @@ export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
 
   if (!unfilteredHomepage) return false
 
-  // 1-1.club + Super Clones: stable shuffle (does not change on refresh / by itself).
+  // 1-1.club: live RAND() on the first page only (re-rolls on every refresh).
+  if (query.featuredOnly) {
+    return (query.page ?? 1) <= 1
+  }
+
+  // Super Clones: nightly precomputed shuffle (stable across pages / refreshes).
   return true
 }
 
 /**
- * Featured-only storefront shuffle — deterministic order (CRC32 of id), not live RAND().
- * Same products/order on every refresh until the featured set changes.
+ * Featured-only first page — live RAND(), not the Super Clones position table.
+ * Changes on every hard refresh; does not auto-refresh by itself.
  */
-export function isFeaturedStableShuffle(query: CatalogProductsQuery): boolean {
-  return Boolean(query.featuredOnly) && isCatalogShuffleEligible(query)
-}
-
-/** @deprecated Use isFeaturedStableShuffle */
 export function isFeaturedLiveShuffle(query: CatalogProductsQuery): boolean {
-  return isFeaturedStableShuffle(query)
+  return Boolean(query.featuredOnly) && isCatalogShuffleEligible(query)
 }
 
 /** Prefer priced products (~60%) while keeping unpriced items in the mix. */

@@ -12,8 +12,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Homepage: never SSR the shuffled Super Clones catalog (shuffle pool can be heavy).
- * Featured hosts (1-1.club): SSR a stable shuffled first page (max 24).
- * Neither storefront auto-refreshes or reshuffles the homepage on its own.
+ * Featured hosts (1-1.club): SSR a live-random first page (max 24) — re-rolls on refresh.
  */
 export default async function HomePage({
   searchParams,

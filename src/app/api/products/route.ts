@@ -129,9 +129,15 @@ export async function GET(request: NextRequest) {
 
       // Featured hosts: return featured rows + featured total only — do not COUNT the full catalog.
       const result = await listActiveProductsPaginated(paginatedQuery)
-      const cacheControl = paginatedQuery.shuffle
-        ? 'public, max-age=15, s-maxage=45, stale-while-revalidate=120'
-        : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300'
+      const liveFeaturedShuffle =
+        paginatedQuery.featuredOnly === true &&
+        paginatedQuery.shuffle === true &&
+        (paginatedQuery.page ?? 1) <= 1
+      const cacheControl = liveFeaturedShuffle
+        ? 'private, no-store'
+        : paginatedQuery.shuffle
+          ? 'public, max-age=15, s-maxage=45, stale-while-revalidate=120'
+          : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300'
       return NextResponse.json(result, {
         headers: {
           'Cache-Control': cacheControl,

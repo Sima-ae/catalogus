@@ -261,6 +261,9 @@ function ShopCatalogPageContent({
     !filterTag &&
     !debouncedSearch.trim()
 
+  /** 1-1.club homepage: skip client cache so a hard refresh re-randomizes. */
+  const skipCatalogClientCache = isFeaturedOnlyHost && catalogShuffle && currentPage <= 1
+
   // Homepage shuffle always returns a full page from the API — never mid-page top-ups
   // (those used odd offsets and made "showing X–Y" look wrong).
   const hasMoreOnPage =
@@ -809,6 +812,7 @@ function ShopCatalogPageContent({
     const clientCatalogSignature = shopCatalogClientSignature(fetchFilters)
 
     const patchCachedTotal = (total: number) => {
+      if (skipCatalogClientCache) return
       if (!(total > 0)) return
       const existing = getCachedShopCatalog(clientCatalogSignature)
       if (!existing?.items?.length) return
@@ -845,7 +849,7 @@ function ShopCatalogPageContent({
       if (!data.skipTotal && typeof data.total === 'number' && data.total >= 0) {
         totalItemsRef.current = data.total
         setTotalItems(data.total)
-        if (data.total > 0 || data.items.length === 0) {
+        if (!skipCatalogClientCache && (data.total > 0 || data.items.length === 0)) {
           setCachedShopCatalog(
             clientCatalogSignature,
             {
@@ -862,21 +866,25 @@ function ShopCatalogPageContent({
         if (!catalogShuffle) {
           setTotalItems(data.items.length)
         }
-        setCachedShopCatalog(
-          clientCatalogSignature,
-          { ...data, total: 0, skipTotal: true },
-          { shuffle: catalogShuffle }
-        )
+        if (!skipCatalogClientCache) {
+          setCachedShopCatalog(
+            clientCatalogSignature,
+            { ...data, total: 0, skipTotal: true },
+            { shuffle: catalogShuffle }
+          )
+        }
       } else if (data.items.length > 0) {
-        setCachedShopCatalog(
-          clientCatalogSignature,
-          {
-            ...data,
-            total: totalItemsRef.current > 0 ? totalItemsRef.current : 0,
-            skipTotal: totalItemsRef.current <= 0 ? true : undefined,
-          },
-          { shuffle: catalogShuffle }
-        )
+        if (!skipCatalogClientCache) {
+          setCachedShopCatalog(
+            clientCatalogSignature,
+            {
+              ...data,
+              total: totalItemsRef.current > 0 ? totalItemsRef.current : 0,
+              skipTotal: totalItemsRef.current <= 0 ? true : undefined,
+            },
+            { shuffle: catalogShuffle }
+          )
+        }
       }
 
       // Featured host: empty page after Next → upgrade CTA, then return to last valid page.
@@ -923,16 +931,26 @@ function ShopCatalogPageContent({
     }
 
     const prefetched =
-      reloadToken === 0 ? consumePrefetchedShopCatalog(fetchFilters) : null
+      !skipCatalogClientCache && reloadToken === 0
+        ? consumePrefetchedShopCatalog(fetchFilters)
+        : null
     const cachedFromStore =
-      reloadToken === 0 ? getCachedShopCatalog(clientCatalogSignature) : undefined
+      !skipCatalogClientCache && reloadToken === 0
+        ? getCachedShopCatalog(clientCatalogSignature)
+        : undefined
     const cached = prefetched ?? cachedFromStore ?? null
     const cacheFresh =
       prefetched != null ||
       (cachedFromStore != null && isShopCatalogCacheFresh(clientCatalogSignature))
     const cacheHasTrustedTotal = isShopCatalogCacheTotalTrusted(cached)
 
-    if (cacheFresh && cached && cached.items.length > 0 && cacheHasTrustedTotal) {
+    if (
+      !skipCatalogClientCache &&
+      cacheFresh &&
+      cached &&
+      cached.items.length > 0 &&
+      cacheHasTrustedTotal
+    ) {
       applyCatalogPage(cached)
       clearLoadingFlags()
       setError(null)
@@ -1052,6 +1070,7 @@ function ShopCatalogPageContent({
     isFeaturedOnlyHost,
     reloadToken,
     setCurrentPage,
+    skipCatalogClientCache,
     buildCatalogFetchUrl,
     buildCatalogTotalUrl,
   ])

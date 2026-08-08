@@ -18,6 +18,7 @@ import {
   type LayoutBootstrapData,
   type ShopBootstrap,
 } from '@/lib/shop-bootstrap-shared'
+import { SiteBrandProvider } from '@/lib/site-brand-context'
 import { TickerMessagesProvider } from '@/lib/ticker-messages-context'
 import type { Locale } from '@/lib/i18n'
 import {
@@ -127,6 +128,10 @@ export default function LayoutBootstrapGate({
         categoryMessages={categoryMessages}
         tagMessages={tagMessages}
       >
+      <SiteBrandProvider
+        bootstrap={shopBootstrap}
+        storeMode={initialData.storeMode ?? (featuredStorefront ? 'featured' : 'default')}
+      >
       <Suspense fallback={<BootstrapLoading text={loadingText} />}>
         <SiteAccessGuard>
           <LanguagePickerProvider>
@@ -151,6 +156,7 @@ export default function LayoutBootstrapGate({
           </LanguagePickerProvider>
         </SiteAccessGuard>
       </Suspense>
+      </SiteBrandProvider>
       </I18nProvider>
     </TickerMessagesProvider>
   )
