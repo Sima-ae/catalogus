@@ -6,6 +6,7 @@ import type { ProductQuickEditSaved } from '@/components/shop/ProductCardBrandEd
 import type { ProductFeaturedSaved } from '@/components/shop/FeaturedStarButton'
 import { catalogGridClassName } from '@/components/shop/CatalogPagination'
 import type { Product } from '@/lib/types'
+import { isCatalogGridVisibleProduct } from '@/lib/catalog-grid-visible'
 
 const HOLD_MS = 180
 const MOVE_CANCEL_PX = 8
@@ -50,14 +51,14 @@ export default function SortableProductGrid({
   onProductQuickEditSaved,
   onProductFeaturedSaved,
 }: Props) {
-  const [ordered, setOrdered] = useState(products)
+  const [ordered, setOrdered] = useState(() => products.filter(isCatalogGridVisibleProduct))
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const suppressClickRef = useRef(false)
 
   useEffect(() => {
-    setOrdered(products)
+    setOrdered(products.filter(isCatalogGridVisibleProduct))
   }, [products])
 
   const clearDrag = useCallback(() => {
@@ -172,6 +173,8 @@ export default function SortableProductGrid({
       className={`${catalogGridClassName} ${saving ? 'opacity-60 pointer-events-none' : ''}`}
     >
       {ordered.map((product, index) => {
+        if (!isCatalogGridVisibleProduct(product)) return null
+
         const isDragging = draggingId === product.id
         const isOver = overId === product.id && draggingId != null && !isDragging
 

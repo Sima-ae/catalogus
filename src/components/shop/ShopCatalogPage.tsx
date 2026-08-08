@@ -37,6 +37,7 @@ import { prefetchShopSubcategories } from '@/lib/use-shop-subcategory'
 import { prefetchShopCategoryTaxonomy, hydrateShopCategoryNav } from '@/lib/shop-categories-client'
 import type { ShopCategoryNavNode } from '@/lib/shop-category-nav'
 import { categoryHasBrowseChildren } from '@/lib/shop-catalog-navigation'
+import { isCatalogGridVisibleProduct } from '@/lib/catalog-grid-visible'
 import {
   consumeCatalogNavState,
   restoreCatalogScroll,
@@ -167,6 +168,8 @@ function ShopCatalogPageContent({
   const [loading, setLoading] = useState(!initialCatalog)
   const [pageLoading, setPageLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  /** Rows fetched from the API for this page (includes soft-removed OOS) — drives top-up offset. */
+  const [pageFetchedCount, setPageFetchedCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const { currentPage, setCurrentPage } = useShopCatalogPage()
   const [reloadToken, setReloadToken] = useState(0)
@@ -273,13 +276,18 @@ function ShopCatalogPageContent({
   /** 1-1.club homepage: skip client cache so a hard refresh re-randomizes. */
   const skipCatalogClientCache = isFeaturedOnlyHost && catalogShuffle && currentPage <= 1
 
-  // Homepage shuffle always returns a full page from the API — never mid-page top-ups
-  // (those used odd offsets and made "showing X–Y" look wrong).
+  // Homepage shuffle always returns a full page from the API — never mid-page top-ups.
+  // Otherwise top up until the grid shows a full page of *visible* cards (max 24).
+  const visibleProductCount = useMemo(
+    () => products.filter(isCatalogGridVisibleProduct).length,
+    [products]
+  )
   const hasMoreOnPage =
     !catalogShuffle &&
-    products.length > 0 &&
-    products.length < itemsOnCurrentPage &&
-    !pageLoading
+    !pageLoading &&
+    visibleProductCount > 0 &&
+    visibleProductCount < itemsOnCurrentPage &&
+    pageFetchedCount < Math.max(0, totalItems - catalogPageBaseOffset(currentPage))
 
   const buildCatalogFetchUrl = useCallback(
     (pageToLoad: number, rowOffset: number) =>
@@ -379,22 +387,32 @@ function ShopCatalogPageContent({
     if (catalogShuffle || loadingMore || pageLoading) return
 
     const loaded = productsRef.current
+    const visible = loaded.filter(isCatalogGridVisibleProduct).length
+    const pageCap = itemsOnCatalogPage(totalItems, currentPage)
+    if (visible >= pageCap) return
+
     const baseOffset = catalogPageBaseOffset(currentPage)
-    const remainingOnPage = itemsOnCatalogPage(totalItems, currentPage) - loaded.length
-    if (remainingOnPage <= 0) return
+    const fetched = Math.max(pageFetchedCount, loaded.length)
+    if (fetched >= Math.max(0, totalItems - baseOffset)) return
 
     setLoadingMore(true)
     try {
       const data: unknown = await fetchCatalogJson(
-        buildCatalogFetchUrl(currentPage, baseOffset + loaded.length)
+        buildCatalogFetchUrl(currentPage, baseOffset + fetched)
       )
       if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
 
+      const batch = Array.isArray(data.items) ? data.items : []
+      setPageFetchedCount((prev) => prev + batch.length)
+
       setProducts((prev) => {
         const seen = new Set(prev.map((p) => p.id))
-        const merged = [...prev]
-        for (const item of data.items) {
-          if (!seen.has(item.id)) merged.push(item)
+        const merged = prev.filter(isCatalogGridVisibleProduct)
+        for (const item of batch) {
+          if (seen.has(item.id)) continue
+          if (!isCatalogGridVisibleProduct(item)) continue
+          seen.add(item.id)
+          merged.push(item)
         }
         const knownTotal =
           !data.skipTotal && typeof data.total === 'number' && data.total > 0
@@ -406,7 +424,6 @@ function ShopCatalogPageContent({
             : CATALOG_PAGE_SIZE
         return merged.slice(0, cap)
       })
-      // skipTotal payloads use total=0 as a placeholder — never wipe the real count.
       if (!data.skipTotal && typeof data.total === 'number' && data.total > 0) {
         setTotalItems(data.total)
         totalItemsRef.current = data.total
@@ -419,7 +436,15 @@ function ShopCatalogPageContent({
     } finally {
       setLoadingMore(false)
     }
-  }, [buildCatalogFetchUrl, catalogShuffle, currentPage, loadingMore, pageLoading, totalItems])
+  }, [
+    buildCatalogFetchUrl,
+    catalogShuffle,
+    currentPage,
+    loadingMore,
+    pageFetchedCount,
+    pageLoading,
+    totalItems,
+  ])
 
   const beginInstantFilterFeedback = useCallback(() => {
     // Keep the previous grid visible under the overlay — clearing caused empty flashes
@@ -680,14 +705,9 @@ function ShopCatalogPageContent({
     invalidateShopCatalogCache()
   }
 
-  /** Broken-image / blank OOS: soft-hide in this page only — never shrink totals
-   *  or bust the client catalog cache (that reopened load-more storms). */
+  /** Broken-image / blank OOS: drop from this page grid and top up (keep totals stable). */
   const handleProductUnavailable = (productId: string) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === productId ? { ...p, sold_out: true, image_url: '' } : p
-      )
-    )
+    setProducts((prev) => prev.filter((p) => p.id !== productId))
   }
 
   const handleProductQuickEditSaved = (saved: ProductQuickEditSaved) => {
@@ -780,6 +800,12 @@ function ShopCatalogPageContent({
     setCurrentPage,
   ])
 
+  /** Fill sparse pages after OOS/blank hides — keep up to 24 visible cards. */
+  useEffect(() => {
+    if (!hasMoreOnPage || loadingMore || pageLoading || loading) return
+    void loadMoreProducts()
+  }, [hasMoreOnPage, loadMoreProducts, loading, loadingMore, pageLoading])
+
   useEffect(() => {
     let cancelled = false
     const loadGen = ++catalogLoadGenRef.current
@@ -791,6 +817,7 @@ function ShopCatalogPageContent({
     if (filtersChanged && currentPage !== 1) {
       totalItemsRef.current = 0
       setTotalItems(0)
+      setPageFetchedCount(0)
       prevFilterRef.current = filterSignature
       setCurrentPage(1)
       return () => {
@@ -803,6 +830,7 @@ function ShopCatalogPageContent({
     if (filtersChanged) {
       totalItemsRef.current = 0
       setTotalItems(0)
+      setPageFetchedCount(0)
     }
 
     const clearLoadingFlags = () => {
@@ -866,7 +894,14 @@ function ShopCatalogPageContent({
         : knownTotal > 0
           ? itemsOnCatalogPage(knownTotal, pageToLoad)
           : CATALOG_PAGE_SIZE
-      setProducts(rawItems.slice(0, pageCap))
+      const pageSlice = rawItems.slice(0, pageCap)
+      setPageFetchedCount(pageSlice.length)
+      // Drop blank/sold_out rows from the live grid; top-up fills to pageCap.
+      setProducts(
+        catalogShuffle
+          ? pageSlice
+          : pageSlice.filter(isCatalogGridVisibleProduct)
+      )
       // skipTotal payloads use total=0 as a placeholder — never treat that as the real count.
       // Never cache a total from totalItemsRef (can be the previous filter) or page size.
       if (!data.skipTotal && typeof data.total === 'number' && data.total >= 0) {
