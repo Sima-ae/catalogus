@@ -49,6 +49,19 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         )
       }
+      const statsOnly = request.nextUrl.searchParams.get('statsOnly') === '1'
+      if (statsOnly) {
+        const dashboardStats = await getProductDashboardStats()
+        return NextResponse.json({
+          items: [],
+          total: dashboardStats.total,
+          page: 1,
+          pageSize: 0,
+          totalPages: 1,
+          dashboardStats,
+        })
+      }
+
       const includeStats = request.nextUrl.searchParams.get('includeStats') !== '0'
       const [result, dashboardStats] = await Promise.all([
         listProductsPaginatedAdmin(adminQuery.page, adminQuery.limit, {

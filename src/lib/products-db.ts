@@ -38,8 +38,11 @@ import {
   buildAdminProductFilledPricelistPriceSql,
   buildAdminProductOutOfStockPricelistSql,
 } from '@/lib/pricelist-list-query'
-import { resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
-import { PLATFORM_PRICELIST_OWNER_ID } from '@/lib/pricelist-constants'
+import { isCuratedSupplierPricelist, resolvePricelistOwnerId } from '@/lib/pricelist-pages-db'
+import {
+  PLATFORM_PRICELIST_OWNER_ID,
+  SELLER_PRICE_LATEST_ROW_ORDER_SQL,
+} from '@/lib/pricelist-constants'
 import {
   serializeAdminListProductRow,
   serializeCatalogProductRow,
@@ -254,8 +257,10 @@ const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
 const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
 const CATALOG_LISTING_SELECT_CACHE_KEY = '__catalogusCatalogListingSelectSql'
 
-const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v2'
-const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 30_000
+const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v3'
+const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 60_000
+/** Cap pricelist OOS aggregation so status cards never hang the admin UI. */
+const PRODUCT_DASHBOARD_OOS_TIMEOUT_MS = 4_000
 
 function invalidateProductDashboardStatsCache() {
   invalidateCachedNamespace(PRODUCT_DASHBOARD_STATS_CACHE_NS)
@@ -2602,7 +2607,11 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
   }
 
   const [outOfStock, soldOut] = await Promise.all([
-    countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID),
+    withTimeout(
+      countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID),
+      PRODUCT_DASHBOARD_OOS_TIMEOUT_MS,
+      0
+    ),
     countAdminProductsSoldOut(),
   ])
 
@@ -2618,17 +2627,79 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
   }
 }
 
-async function countAdminProductsOutOfStock(listOwnerId: string): Promise<number> {
-  try {
-    const fragment = buildAdminProductOutOfStockPricelistSql(listOwnerId)
-    if (!fragment) return 0
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      resolve(fallback)
+    }, ms)
+    promise
+      .then((value) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(value)
+      })
+      .catch(() => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(fallback)
+      })
+  })
+}
 
-    const fromWithJoin = `FROM products p${fragment.joinSql}`
-    const whereSql = `WHERE p.status <> 'trash' AND ${fragment.whereSql}`
+/**
+ * Count pricelist OOS from seller_product_prices (price-first), not EXISTS/LEFT JOIN
+ * over every product — the latter scans ~150k rows and can stall the admin stats cards.
+ */
+async function countAdminProductsOutOfStock(listOwnerId: string): Promise<number> {
+  if (!listOwnerId) return 0
+
+  try {
+    if (isCuratedSupplierPricelist(listOwnerId)) {
+      const safeOwnerId = listOwnerId.replace(/'/g, "''")
+      const rows = await queryDb<{ total: number }[]>(
+        `SELECT COUNT(*) AS total
+         FROM (
+           SELECT ranked.product_id, ranked.unit_price, ranked.stock_status, ranked.out_of_stock
+           FROM (
+             SELECT product_id, unit_price, stock_status, COALESCE(out_of_stock, 0) AS out_of_stock,
+                    ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY ${SELLER_PRICE_LATEST_ROW_ORDER_SQL}) AS rn
+             FROM seller_product_prices
+             WHERE list_owner_id = '${safeOwnerId}'
+           ) ranked
+           WHERE ranked.rn = 1
+         ) latest_list_price
+         INNER JOIN products p ON p.id = latest_list_price.product_id AND p.status <> 'trash'
+         WHERE (
+           COALESCE(latest_list_price.stock_status, '') IN ('out', 'temporary')
+           OR (
+             COALESCE(latest_list_price.stock_status, '') = ''
+             AND COALESCE(latest_list_price.out_of_stock, 0) <> 0
+             AND (latest_list_price.unit_price IS NULL OR latest_list_price.unit_price <= 0)
+           )
+         )`
+      )
+      return Number(rows[0]?.total ?? 0)
+    }
 
     const rows = await queryDb<{ total: number }[]>(
-      `SELECT COUNT(DISTINCT p.id) AS total ${fromWithJoin} ${whereSql}`,
-      fragment.params
+      `SELECT COUNT(DISTINCT spp.product_id) AS total
+       FROM seller_product_prices spp
+       INNER JOIN products p ON p.id = spp.product_id AND p.status <> 'trash'
+       WHERE spp.list_owner_id = ?
+         AND (
+           spp.stock_status IN ('out', 'temporary')
+           OR (
+             COALESCE(spp.stock_status, '') = ''
+             AND COALESCE(spp.out_of_stock, 0) <> 0
+             AND (spp.unit_price IS NULL OR spp.unit_price <= 0)
+           )
+         )`,
+      [listOwnerId]
     )
     return Number(rows[0]?.total ?? 0)
   } catch (error) {
@@ -3106,13 +3177,21 @@ export async function bulkSetProductsFeatured(
   const ids = Array.from(new Set(productIds.map((id) => String(id || '').trim()).filter(Boolean)))
   if (!ids.length) return 0
   const placeholders = ids.map(() => '?').join(', ')
+  const flag = featured ? 1 : 0
   const result = await queryDb<{ affectedRows?: number }>(
     `UPDATE products SET featured = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
-    [featured ? 1 : 0, ...ids]
+    [flag, ...ids]
   )
+  // Confirm write even when MariaDB reports 0 affectedRows (value already matched).
+  const confirm = await queryDb<{ total: number }[]>(
+    `SELECT COUNT(*) AS total FROM products WHERE id IN (${placeholders}) AND featured = ?`,
+    [...ids, flag]
+  )
+  const confirmed = Number(confirm[0]?.total ?? 0)
   invalidateProductDashboardStatsCache()
+  // Immediate bust — featured toggles must appear on 1-1.club without waiting for coalesce.
   invalidateShopCatalogCaches()
-  return Number(result?.affectedRows ?? 0)
+  return Math.max(Number(result?.affectedRows ?? 0), confirmed)
 }
 
 export async function bulkUpdateProductStatus(

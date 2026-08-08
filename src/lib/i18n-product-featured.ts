@@ -6,6 +6,7 @@ export type ProductFeaturedMessageKey =
   | 'product.featured.clearAria'
   | 'product.featured.clearTitle'
   | 'product.featured.error'
+  | 'product.featured.authRequired'
 
 type ProductFeaturedMessages = Record<ProductFeaturedMessageKey, string>
 
@@ -15,9 +16,10 @@ const EN: ProductFeaturedMessages = {
   'product.featured.clearAria': 'Remove featured status',
   'product.featured.clearTitle': 'Remove featured (1-1.club)',
   'product.featured.error': 'Could not update featured status',
+  'product.featured.authRequired': 'Please sign in again to set featured',
 }
 
-const BY_LOCALE: Partial<Record<Locale, ProductFeaturedMessages>> = {
+const BY_LOCALE: Partial<Record<Locale, Partial<ProductFeaturedMessages>>> = {
   en: EN,
   nl: {
     'product.featured.setAria': 'Zet Uitgelicht op 1-1.club',
@@ -25,6 +27,7 @@ const BY_LOCALE: Partial<Record<Locale, ProductFeaturedMessages>> = {
     'product.featured.clearAria': 'Uitgelicht status verwijderen',
     'product.featured.clearTitle': 'Uitgelicht wissen (1-1.club)',
     'product.featured.error': 'Uitgelicht status kon niet worden bijgewerkt',
+    'product.featured.authRequired': 'Log opnieuw in om Uitgelicht te zetten',
   },
   de: {
     'product.featured.setAria': 'Als Empfohlen auf 1-1.club setzen',
@@ -288,5 +291,5 @@ const BY_LOCALE: Partial<Record<Locale, ProductFeaturedMessages>> = {
 }
 
 export function getProductFeaturedMessages(locale: Locale): ProductFeaturedMessages {
-  return BY_LOCALE[locale] ?? EN
+  return { ...EN, ...(BY_LOCALE[locale] ?? {}) }
 }

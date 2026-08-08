@@ -400,6 +400,7 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [productStats, setProductStats] = useState<ProductDashboardStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
@@ -508,10 +509,15 @@ export default function AdminProductsPage() {
 
   const loadProductStats = useCallback(async () => {
     if (!user) return
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12_000)
+    setStatsLoading(true)
     try {
-      const res = await fetch(appPath('/api/products?page=1&limit=1&scope=admin'), {
+      const res = await fetch(appPath('/api/products?page=1&limit=1&scope=admin&statsOnly=1'), {
         headers: adminAuthHeaders(user),
+        credentials: 'include',
         cache: 'no-store',
+        signal: controller.signal,
       })
       if (!res.ok) return
       const data = await parseJsonResponse<
@@ -522,6 +528,9 @@ export default function AdminProductsPage() {
       }
     } catch {
       // Stats cards are non-blocking
+    } finally {
+      clearTimeout(timeout)
+      setStatsLoading(false)
     }
   }, [user])
 
@@ -613,6 +622,9 @@ export default function AdminProductsPage() {
       soldOut: 0,
     }
   }, [productStats])
+
+  const statValue = (n: number): string | number =>
+    statsLoading && !productStats ? '…' : n
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1)
   const safePage = Math.min(Math.max(1, currentPage), totalPages)
@@ -772,6 +784,8 @@ export default function AdminProductsPage() {
           ...adminAuthHeaders(user),
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
+        cache: 'no-store',
         body: JSON.stringify({ productIds: ids, featured }),
       })
       const data = await parseJsonResponse<{ error?: string; updated?: number }>(res)
@@ -1195,7 +1209,7 @@ export default function AdminProductsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">
         <StatCard
           title={tr('admin.products.statTotal')}
-          value={stats.total}
+          value={statValue(stats.total)}
           icon={<CubeIcon className="w-6 h-6 text-white" />}
           accentColor="bg-primary-500"
           active={statusFilter === 'all'}
@@ -1204,7 +1218,7 @@ export default function AdminProductsPage() {
         />
         <StatCard
           title={tr('admin.products.statPublished')}
-          value={stats.active}
+          value={statValue(stats.active)}
           icon={<CheckCircleIcon className="w-6 h-6 text-white" />}
           accentColor="bg-green-500"
           active={statusFilter === 'active'}
@@ -1213,7 +1227,7 @@ export default function AdminProductsPage() {
         />
         <StatCard
           title={tr('admin.products.statDraft')}
-          value={stats.draft}
+          value={statValue(stats.draft)}
           icon={<DocumentTextIcon className="w-6 h-6 text-white" />}
           accentColor="bg-amber-500"
           active={statusFilter === 'draft'}
@@ -1222,7 +1236,7 @@ export default function AdminProductsPage() {
         />
         <StatCard
           title={tr('admin.products.statInactive')}
-          value={stats.inactive}
+          value={statValue(stats.inactive)}
           icon={<NoSymbolIcon className="w-6 h-6 text-white" />}
           accentColor="bg-gray-500"
           active={statusFilter === 'inactive'}
@@ -1231,7 +1245,7 @@ export default function AdminProductsPage() {
         />
         <StatCard
           title={tr('admin.products.statOutOfStock')}
-          value={stats.outOfStock ?? 0}
+          value={statValue(stats.outOfStock ?? 0)}
           icon={<ArchiveBoxXMarkIcon className="w-6 h-6 text-white" />}
           accentColor="bg-rose-500"
           active={outOfStockFilter}
@@ -1240,7 +1254,7 @@ export default function AdminProductsPage() {
         />
         <StatCard
           title={tr('admin.products.statSoldOut')}
-          value={stats.soldOut ?? 0}
+          value={statValue(stats.soldOut ?? 0)}
           icon={<EyeSlashIcon className="w-6 h-6 text-white" />}
           accentColor="bg-orange-600"
           active={soldOutFilter}
@@ -1249,7 +1263,7 @@ export default function AdminProductsPage() {
         />
         <StatCard
           title={tr('admin.products.statTrash')}
-          value={stats.trash ?? 0}
+          value={statValue(stats.trash ?? 0)}
           icon={<TrashIcon className="w-6 h-6 text-white" />}
           accentColor="bg-red-600"
           href={appPath('/admin/trash')}
@@ -1382,7 +1396,7 @@ export default function AdminProductsPage() {
         <p className={`text-sm ${t.muted}`}>
           {formatMessage(tr('admin.products.matchingSummary'), {
             matching: totalItems,
-            total: stats.total,
+            total: statValue(stats.total),
           })}
           {statusFilter !== 'all' && (
             <> · {tr('admin.products.filterStatusPrefix')}: {statusLabel(statusFilter, tr)}</>

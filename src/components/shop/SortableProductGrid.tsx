@@ -87,7 +87,8 @@ export default function SortableProductGrid({
     if (!reorderEnabled || saving) return
     if (e.button !== 0) return
     const target = e.target as HTMLElement
-    if (target.closest('button, a, input, textarea, select')) return
+    // Never start a drag from interactive controls (featured star, trash, links).
+    if (target.closest('button, a, input, textarea, select, [data-no-reorder]')) return
 
     const holdTimer = window.setTimeout(() => {
       if (!dragRef.current || dragRef.current.id !== productId) return
@@ -188,15 +189,19 @@ export default function SortableProductGrid({
             onPointerUp={(e) => void onPointerUp(e)}
             onPointerCancel={onPointerCancel}
             onClickCapture={(e) => {
+              const target = e.target as HTMLElement
+              if (target.closest('button, a, input, textarea, select, [data-no-reorder]')) {
+                return
+              }
               if (suppressClickRef.current || draggingId) {
                 e.preventDefault()
                 e.stopPropagation()
               }
             }}
-            className={`relative cursor-grab transition-shadow duration-150 active:cursor-grabbing touch-none ${
-              isDragging ? 'z-20 scale-[0.98] opacity-55 shadow-lg' : ''
+            className={`relative cursor-grab transition-shadow duration-150 active:cursor-grabbing ${
+              isDragging ? 'z-20 scale-[0.98] opacity-55 shadow-lg touch-none' : ''
             } ${isOver ? 'ring-2 ring-primary-500 ring-offset-2 rounded-xl' : ''}`}
-            style={{ touchAction: 'none' }}
+            style={isDragging ? { touchAction: 'none' } : { touchAction: 'pan-y' }}
           >
             <ProductCard
               product={product}

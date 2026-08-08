@@ -55,6 +55,8 @@ export default function ProductCardDeleteButton({
           ...adminAuthHeaders(user),
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
+        cache: 'no-store',
         body: JSON.stringify({ productIds: [productId] }),
       })
       const data = await parseJsonResponse<{ error?: string }>(res)
