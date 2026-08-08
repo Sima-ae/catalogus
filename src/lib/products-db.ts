@@ -642,7 +642,7 @@ async function fetchProductRowsByIds(
 ): Promise<Record<string, unknown>[]> {
   if (!ids.length) return []
   const select = options?.catalog
-    ? await catalogProductSelectSql()
+    ? await catalogListingSelectSql()
     : options?.adminList
       ? await adminProductSelectSql()
       : await productSelectSql()
@@ -1913,13 +1913,12 @@ async function loadActiveProductsPaginatedFromDb(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
   const searchActive = Boolean(query.search?.trim())
-  const [categories, hasBrandsTable, brandId, brandSkuPrefixes, listingSelect] =
+  const [categories, hasBrandsTable, brandId, brandSkuPrefixes] =
     await Promise.all([
       loadActiveCategories(),
       brandsTableExists(),
       resolveCatalogQueryBrandId(query.brand),
       getBrandSkuPrefixes(),
-      catalogListingSelectSql(),
     ])
   const useFulltext = searchActive ? await productsFulltextSearchAvailable() : false
   const categoryFilter = resolveShopCategoryFilter(categories, {

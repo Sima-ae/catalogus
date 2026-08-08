@@ -117,11 +117,14 @@ export function resolveHostSiteBrand(
   return map.get(host) ?? null
 }
 
+/** Prefer connection Host over client-spoofable X-Forwarded-Host. */
 export function resolveRequestHostname(
   headers: Headers | { get(name: string): string | null }
 ): string {
   return normalizeHostname(
-    headers.get('x-forwarded-host')?.split(',')[0]?.trim() || headers.get('host')
+    headers.get('host') ||
+      headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
+      ''
   )
 }
 

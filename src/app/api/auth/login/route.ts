@@ -5,6 +5,13 @@ import { isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
 import { isSuperAdminUser } from '@/lib/user-roles'
 import { isDbConnectionError } from '@/lib/db'
 import { logDbRouteError } from '@/lib/db-route-log'
+import { clientIp } from '@/lib/request-client-ip'
+import { isRateLimitedIp } from '@/lib/bot-traffic'
+import {
+  ADMIN_SESSION_COOKIE,
+  createAdminSessionToken,
+  getAdminSessionCookieOptions,
+} from '@/lib/admin-session'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -20,6 +27,14 @@ type DbUser = {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = clientIp(request)
+  if (isRateLimitedIp(`login:${ip}`, 10, 60_000)) {
+    return NextResponse.json(
+      { error: 'Too many sign-in attempts. Try again in a minute.' },
+      { status: 429 }
+    )
+  }
+
   const body = await request.json()
   const email = String(body?.email || '').trim().toLowerCase()
   const password = String(body?.password || '')
@@ -28,16 +43,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
   }
 
+  const attachSession = async (
+    res: NextResponse,
+    userId: string,
+    userEmail: string,
+    role: string
+  ) => {
+    if (role !== 'admin') return res
+    const session = await createAdminSessionToken(userId, userEmail)
+    if (session) {
+      res.cookies.set(
+        ADMIN_SESSION_COOKIE,
+        session.token,
+        getAdminSessionCookieOptions(session.maxAge)
+      )
+    }
+    return res
+  }
+
   // Dev fallback first (no DB needed when AUTH_DEV_FALLBACK=true)
   if (isDevAuthEnabled()) {
     const devUser = await tryDevLogin(email, password)
     if (devUser) {
-      return NextResponse.json({
+      const res = NextResponse.json({
         user: {
           ...devUser,
           badge_rating: null,
         },
       })
+      return attachSession(res, devUser.id, devUser.email, devUser.role)
     }
   }
 
@@ -65,7 +99,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -75,6 +109,7 @@ export async function POST(request: NextRequest) {
         badge_rating: user.badge_rating != null ? Number(user.badge_rating) : null,
       },
     })
+    return attachSession(res, user.id, user.email, user.role)
   } catch (error) {
     logDbRouteError('Login error', error)
 

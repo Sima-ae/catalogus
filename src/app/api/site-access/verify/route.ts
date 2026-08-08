@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const config = await getSiteAccessConfig()
     if (!config.required) {
       const res = NextResponse.json({ unlocked: true, sessionActive: true })
-      applySiteAccessCookies(res, { required: false, version: config.version })
+      await applySiteAccessCookies(res, { required: false, version: config.version })
       return res
     }
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     const res = NextResponse.json({ unlocked: true, sessionActive: true })
-    applySiteAccessCookies(
+    await applySiteAccessCookies(
       res,
       { required: true, version: config.version },
       unlock ?? undefined

@@ -7,9 +7,11 @@ export const SITE_ACCESS_ACTIVE_COOKIE = 'rcc_site_active'
 /** HttpOnly signed site-access code identifier (for quote/chat attribution). */
 export const SITE_ACCESS_CODE_COOKIE = 'rcc_site_code'
 
-/** Non-secret hints for Edge middleware (synced from DB on verify/status/check). */
+/** Non-secret UI hints (not used for middleware unlock decisions alone). */
 export const SITE_ACCESS_META_REQUIRED = 'rcc_sa_required'
 export const SITE_ACCESS_META_VERSION = 'rcc_sa_ver'
+/** HttpOnly signed meta — middleware trusts this for gate on/off. */
+export const SITE_ACCESS_META_TOKEN = 'rcc_sa_meta'
 
 const SESSION_MAX_AGE_SEC = 60 * 60 * 12
 const REMEMBER_MAX_AGE_SEC = 60 * 60 * 24 * 30
@@ -337,8 +339,46 @@ export function getSiteAccessMetaCookieOptions() {
   }
 }
 
-/** Attach unlock + meta cookies so middleware can validate without a self-fetch. */
-export function applySiteAccessCookies(
+export async function createSiteAccessMetaToken(
+  required: boolean,
+  version: number
+): Promise<string | null> {
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365
+  const payload = `meta.v1.${required ? 1 : 0}.${version}.${exp}`
+  const sig = await signPayload(payload)
+  if (!sig) return null
+  return `${stringToBase64Url(payload)}.${sig}`
+}
+
+export async function verifySiteAccessMetaToken(
+  token: string | null | undefined
+): Promise<{ required: boolean; version: number } | null> {
+  const raw = String(token ?? '').trim()
+  if (!raw || !getCookieSecret()) return null
+  const dot = raw.indexOf('.')
+  if (dot === -1) return null
+  const payloadB64 = raw.slice(0, dot)
+  const sig = raw.slice(dot + 1)
+  if (!payloadB64 || !sig) return null
+  let payload = ''
+  try {
+    payload = base64UrlToString(payloadB64)
+  } catch {
+    return null
+  }
+  const expected = await signPayload(payload)
+  if (!expected || !timingSafeEqualString(expected, sig)) return null
+  const parts = payload.split('.')
+  if (parts.length !== 5 || parts[0] !== 'meta' || parts[1] !== 'v1') return null
+  const required = parts[2] === '1'
+  const version = Number.parseInt(parts[3] || '0', 10) || 0
+  const exp = Number.parseInt(parts[4] || '0', 10) || 0
+  if (!exp || Math.floor(Date.now() / 1000) > exp) return null
+  return { required, version }
+}
+
+/** Attach unlock + signed meta so middleware can validate without a self-fetch. */
+export async function applySiteAccessCookies(
   res: { cookies: { set: (name: string, value: string, options?: object) => void } },
   meta: SiteAccessMeta,
   unlock?: { token: string; maxAge: number }
@@ -350,6 +390,15 @@ export function applySiteAccessCookies(
     metaOpts
   )
   res.cookies.set(SITE_ACCESS_META_VERSION, String(meta.version), metaOpts)
+
+  const signedMeta = await createSiteAccessMetaToken(meta.required, meta.version)
+  if (signedMeta) {
+    res.cookies.set(
+      SITE_ACCESS_META_TOKEN,
+      signedMeta,
+      getSiteAccessCookieOptions(60 * 60 * 24 * 365)
+    )
+  }
 
   if (unlock) {
     res.cookies.set(

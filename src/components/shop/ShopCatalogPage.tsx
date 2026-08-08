@@ -163,7 +163,7 @@ function ShopCatalogPageContent({
       selectedNestedSubcategory: effectiveNestedSubcategory,
     },
   })
-  const { searchQuery, setSearchQuery, debouncedSearch, searchPending } = useShopSearch()
+  const { searchQuery, setSearchQuery, debouncedSearch } = useShopSearch()
   const [loading, setLoading] = useState(!initialCatalog)
   const [pageLoading, setPageLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -295,8 +295,8 @@ function ShopCatalogPageContent({
         search: debouncedSearch || undefined,
         mode: catalogMode === 'new' ? 'new' : undefined,
         shuffle: catalogShuffle ? true : undefined,
-        // Featured hosts: include the tiny featured COUNT in the same response (no second trip / no full catalog).
-        skipTotal: isFeaturedOnlyHost ? false : true,
+        // Include totals in-band on Super Clones too — avoids a second countOnly trip.
+        skipTotal: false,
       }),
     [
       activeCategory,
@@ -680,13 +680,12 @@ function ShopCatalogPageContent({
     invalidateShopCatalogCache()
   }
 
-  /** Broken-image OOS: soft-hide only — never shrink totals / bust cache / open load-more. */
+  /** Broken-image / blank OOS: soft-hide in this page only — never shrink totals
+   *  or bust the client catalog cache (that reopened load-more storms). */
   const handleProductUnavailable = (productId: string) => {
     setProducts((prev) =>
       prev.map((p) =>
-        p.id === productId
-          ? { ...p, sold_out: true, image_url: p.image_url ? '' : p.image_url }
-          : p
+        p.id === productId ? { ...p, sold_out: true, image_url: '' } : p
       )
     )
   }
@@ -787,15 +786,19 @@ function ShopCatalogPageContent({
     const filtersChanged =
       prevFilterRef.current !== null && prevFilterRef.current !== filterSignature
 
-    // Load page 1 immediately when filters change — do not early-return (that aborted the
-    // in-flight request and left pageLoading/filterNavigating stuck at the 88% overlay).
-    const pageToLoad = filtersChanged ? 1 : currentPage
+    // Load page 1 when filters change — reset page first and skip this run so
+    // the URL/page update does not abort an in-flight page-1 fetch.
     if (filtersChanged && currentPage !== 1) {
       totalItemsRef.current = 0
       setTotalItems(0)
+      prevFilterRef.current = filterSignature
       setCurrentPage(1)
+      return () => {
+        cancelled = true
+      }
     }
 
+    const pageToLoad = currentPage
     prevFilterRef.current = filterSignature
     if (filtersChanged) {
       totalItemsRef.current = 0
@@ -1246,7 +1249,7 @@ function ShopCatalogPageContent({
   const muted = isDark ? 'text-gray-400' : 'text-gray-600'
   const catalogFetching =
     !catalogBrowseDeferred &&
-    (loading || pageLoading || searchPending || filterNavigating)
+    (loading || pageLoading || filterNavigating)
   const showCatalogLoadingOverlay =
     !catalogBrowseDeferred && !showBrowsePrompt && catalogFetching
 

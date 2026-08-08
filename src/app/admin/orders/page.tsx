@@ -14,6 +14,8 @@ import {
 import { useAppTheme } from '@/lib/theme-classes'
 import { formatPrice } from '@/lib/format-price'
 import { appPath } from '@/lib/paths'
+import { useAuth } from '@/lib/auth-local'
+import { adminAuthHeaders } from '@/lib/admin-fetch'
 
 type Order = {
   id: string
@@ -36,14 +38,20 @@ const PAGE_SIZE = 50
 
 export default function AdminOrdersPage() {
   const t = useAppTheme()
+  const { user } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [totalItems, setTotalItems] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!user) return
     setLoading(true)
-    fetch(appPath(`/api/orders?page=${currentPage}&limit=${PAGE_SIZE}`))
+    fetch(appPath(`/api/orders?page=${currentPage}&limit=${PAGE_SIZE}`), {
+      headers: adminAuthHeaders(user),
+      credentials: 'include',
+      cache: 'no-store',
+    })
       .then((r) => r.json())
       .then((d: OrdersPage | Order[]) => {
         if (d && typeof d === 'object' && 'items' in d && Array.isArray(d.items)) {
@@ -55,7 +63,7 @@ export default function AdminOrdersPage() {
         }
       })
       .finally(() => setLoading(false))
-  }, [currentPage])
+  }, [currentPage, user])
 
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE) || 1)
   const safePage = Math.min(Math.max(1, currentPage), totalPages)

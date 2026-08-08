@@ -24,7 +24,7 @@ export async function GET(request: Request) {
         allowed: true,
         version: 0,
       })
-      applySiteAccessCookies(res, { required: false, version: 0 })
+      await applySiteAccessCookies(res, { required: false, version: 0 })
       return res
     }
 
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       allowed,
       version: config.version,
     })
-    applySiteAccessCookies(res, {
+    await applySiteAccessCookies(res, {
       required: config.required,
       version: config.version,
     })
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Site access check error:', error)
     const res = NextResponse.json({ required: false, allowed: true, version: 0 })
-    applySiteAccessCookies(res, { required: false, version: 0 })
+    await applySiteAccessCookies(res, { required: false, version: 0 })
     return res
   }
 }

@@ -151,8 +151,16 @@ export default function AdminDashboard() {
       const headers = adminAuthHeaders(user)
       const [latestRes, ordersRes, ordersSummaryRes, usersRes] = await Promise.all([
         fetch(appPath('/api/products?page=1&limit=10&scope=admin'), { headers, cache: 'no-store' }),
-        fetch(appPath(`/api/orders?limit=${RECENT_ORDERS}`), { cache: 'no-store' }),
-        fetch(appPath('/api/orders?summary=1'), { cache: 'no-store' }),
+        fetch(appPath(`/api/orders?limit=${RECENT_ORDERS}`), {
+          headers,
+          credentials: 'include',
+          cache: 'no-store',
+        }),
+        fetch(appPath('/api/orders?summary=1'), {
+          headers,
+          credentials: 'include',
+          cache: 'no-store',
+        }),
         fetch(appPath('/api/admin/users?count=1'), { headers, cache: 'no-store' }),
       ])
 

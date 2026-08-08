@@ -22,20 +22,18 @@ export function getDbErrorMessage(error: unknown, fallback = 'Database operation
     )
   }
 
-  if (isDbAccessDenied(error)) {
+  if (isDbAccessDenied(error) || isDbConnectionError(error)) {
     if (isProductionApp()) {
-      return 'The shop cannot reach the database. Check DATABASE_URL in .env on the server (CyberPanel DB password).'
+      return 'The shop is temporarily unavailable. Please try again shortly.'
     }
-    return 'Database access denied — wrong user or password in .env DATABASE_URL.'
-  }
-
-  if (isDbConnectionError(error)) {
-    if (isProductionApp()) {
-      return 'The shop cannot reach MariaDB on this server. Ensure MariaDB is running and DATABASE_URL uses 127.0.0.1.'
+    if (isDbAccessDenied(error)) {
+      return 'Database access denied — wrong user or password in .env DATABASE_URL.'
     }
     return 'Database is not available. Run npm run db:tunnel in another terminal, then restart the app.'
   }
 
+  // Never leak raw SQL / stack / paths to clients in production.
+  if (isProductionApp()) return fallback
   if (error instanceof Error && error.message) return error.message
   return fallback
 }

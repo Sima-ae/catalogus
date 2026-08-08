@@ -1,9 +1,9 @@
 /**
- * Fire-and-forget: tell the server a Yupoo image failed to load so the
- * product can be re-checked and marked sold out when the album is gone.
+ * Fire-and-forget: tell the server a product image failed / is blank so the
+ * product can be re-checked and marked sold out when the source is gone.
  *
- * Debounced: a single onError (or blank card before paint) must not race
- * a still-loading image into an OOS mark.
+ * Debounced: a single onError must not race a still-loading image into an OOS mark.
+ * Blank cards (no image URL) report sooner — they already failed the shop filter intent.
  */
 import { appPath } from '@/lib/paths'
 
@@ -12,8 +12,13 @@ const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 /** Wait before telling the server — slow CDN / first-paint errors are common. */
 const CONFIRM_DELAY_MS = 4_000
+/** Blank image_url cards are already broken — report faster. */
+const BLANK_CONFIRM_DELAY_MS = 500
 
-export function reportProductSourceUnavailable(productId: string): void {
+export function reportProductSourceUnavailable(
+  productId: string,
+  options?: { blank?: boolean }
+): void {
   const id = String(productId || '').trim()
   if (!id || typeof window === 'undefined') return
   if (reported.has(id)) return
@@ -30,6 +35,7 @@ export function reportProductSourceUnavailable(productId: string): void {
 
   if (pendingTimers.has(id)) return
 
+  const delay = options?.blank ? BLANK_CONFIRM_DELAY_MS : CONFIRM_DELAY_MS
   const timer = setTimeout(() => {
     pendingTimers.delete(id)
     if (reported.has(id)) return
@@ -54,7 +60,7 @@ export function reportProductSourceUnavailable(productId: string): void {
         // ignore
       }
     })
-  }, CONFIRM_DELAY_MS)
+  }, delay)
 
   pendingTimers.set(id, timer)
 }

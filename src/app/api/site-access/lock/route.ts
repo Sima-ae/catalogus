@@ -16,7 +16,7 @@ export async function POST() {
     const config = await getSiteAccessConfig()
     const res = NextResponse.json({ locked: true })
     clearSiteAccessActiveCookie(res)
-    applySiteAccessCookies(res, {
+    await applySiteAccessCookies(res, {
       required: config.required,
       version: config.version,
     })

@@ -6,6 +6,10 @@ import { isDbConnectionError } from '@/lib/db'
 import { getDbErrorMessage } from '@/lib/db-errors'
 import { getDevUserByIdAndEmail, isDevAuthEnabled, tryDevLogin } from '@/lib/dev-auth'
 import { isSuperAdminUser } from '@/lib/user-roles'
+import {
+  readAdminSessionCookie,
+  verifyAdminSessionToken,
+} from '@/lib/admin-session'
 
 type DbUser = {
   id: string
@@ -60,16 +64,17 @@ type AdminActor = {
   isSuperAdmin: boolean
 }
 
-/** Verify logged-in admin from client auth headers (admin layout + localStorage session). */
+/** Verify logged-in admin from HttpOnly session cookie (set at login). */
 export async function verifyAdminActor(
   request: NextRequest
 ): Promise<{ ok: true; actor: AdminActor } | { ok: false; status: number; error: string }> {
-  const userId = request.headers.get('x-catalogus-user-id')?.trim()
-  const email = request.headers.get('x-catalogus-user-email')?.trim().toLowerCase()
-
-  if (!userId || !email) {
+  const session = await verifyAdminSessionToken(readAdminSessionCookie(request))
+  if (!session) {
     return { ok: false, status: 401, error: 'Admin authentication required' }
   }
+
+  const userId = session.userId
+  const email = session.email
 
   try {
     let rows: DbUser[]

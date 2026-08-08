@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { clearCatalogNavState } from '@/lib/catalog-scroll-restore'
 import {
   isShopCatalogPath,
@@ -10,9 +10,12 @@ import {
   shopCatalogBasePath,
 } from '@/lib/shop-catalog-url'
 
-/** Catalog list page synced to ?page= (survives browser back/forward). */
+/**
+ * Catalog list page synced to ?page=.
+ * Page-only updates use history.replaceState so Next does not re-run RSC
+ * (homepage nav SSR) on every Next click — keeps catalog snappy.
+ */
 export function useShopCatalogPage() {
-  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -21,12 +24,21 @@ export function useShopCatalogPage() {
     [searchParams]
   )
 
-  /** Optimistic page — pricelist-style instant updates while URL catches up. */
   const [page, setPage] = useState(urlPage)
 
   useEffect(() => {
     setPage(urlPage)
   }, [urlPage])
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (typeof window === 'undefined') return
+      const params = new URLSearchParams(window.location.search)
+      setPage(parseCatalogPageParam(params))
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const setCurrentPage = useCallback(
     (nextPage: number) => {
@@ -42,9 +54,11 @@ export function useShopCatalogPage() {
       const qs = params.toString()
       const href = qs ? `${basePath}?${qs}` : basePath
 
-      router.replace(href, { scroll: false })
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(window.history.state, '', href)
+      }
     },
-    [pathname, router, searchParams]
+    [pathname, searchParams]
   )
 
   return { currentPage: page, setCurrentPage }

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         unlocked: true,
         sessionActive: true,
       })
-      applySiteAccessCookies(res, { required: false, version: 0 })
+      await applySiteAccessCookies(res, { required: false, version: 0 })
       return res
     }
 
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       unlocked,
       sessionActive,
     })
-    applySiteAccessCookies(res, {
+    await applySiteAccessCookies(res, {
       required: config.required,
       version: config.version,
     })
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       unlocked: true,
       sessionActive: true,
     })
-    applySiteAccessCookies(res, { required: false, version: 0 })
+    await applySiteAccessCookies(res, { required: false, version: 0 })
     return res
   }
 }

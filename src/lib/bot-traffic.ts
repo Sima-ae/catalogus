@@ -199,7 +199,8 @@ const GENERIC_BOT_RE =
 
 export function isLikelyBotUserAgent(userAgent: string | null | undefined): boolean {
   const raw = String(userAgent ?? '').trim()
-  if (!raw) return true
+  // Empty UA: treat as a privacy browser / proxy, not a bot (empty used to 404 the shop).
+  if (!raw) return false
   const ua = raw.toLowerCase()
   if (BOT_UA_SNIPPETS.some((snippet) => ua.includes(snippet))) return true
   if (GENERIC_BOT_RE.test(ua)) return true

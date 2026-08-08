@@ -60,7 +60,7 @@ interface ProductCardProps {
 function ProductCard({
   product,
   onDeleted,
-  onUnavailable: _onUnavailable,
+  onUnavailable,
   onQuickEditSaved,
   onFeaturedSaved,
   imagePriority = false,
@@ -86,13 +86,13 @@ function ProductCard({
 
   const mainImage = catalogCardImageSrc(product.image_url, product.source_url)
 
-  // Blank cards (cleared Yupoo images) never fire <Image onError> — report once.
-  // Soft-hide only: do not notify the parent grid (that used to shrink the page,
-  // open load-more holes, and thrash pagination on superclones).
+  // Blank cards never fire <Image onError> — hide + report once.
+  // Soft parent update (sold_out) so the grid packs; do not shrink page totals.
   useEffect(() => {
-    if (mainImage) return
-    reportProductSourceUnavailable(product.id)
-  }, [mainImage, product.id])
+    if (mainImage || product.sold_out) return
+    onUnavailable?.(product.id)
+    reportProductSourceUnavailable(product.id, { blank: true })
+  }, [mainImage, onUnavailable, product.id, product.sold_out])
 
   const shopProductOptions = useMemo(
     () => getShopProductOptions(product.product_options),
@@ -163,10 +163,9 @@ function ProductCard({
 
   const showAskPriceBadge = cardPriceLabel === null
 
-  // Blank / sold-out stay out of the grid. Broken images keep the card shell
-  // (admins still see edit/delete) but do not notify the parent — that cascade
-  // opened load-more holes and thrashed pagination on superclones.
-  if (!mainImage || product.sold_out) {
+  // Hide blank, sold-out, and broken-image cards from the shop grid.
+  // Parent soft-marks sold_out without changing totals (avoids load-more thrash).
+  if (!mainImage || product.sold_out || imageFailed) {
     return null
   }
 
@@ -205,9 +204,8 @@ function ProductCard({
                 unoptimized={shouldUnoptimizeProductImage(mainImage)}
                 onError={() => {
                   setImageFailed(true)
+                  onUnavailable?.(product.id)
                   reportProductSourceUnavailable(product.id)
-                  // Keep sold-out reporting; do not call onUnavailable — parent
-                  // delete/cache-bust caused next-page reload loops on superclones.
                 }}
               />
             ) : null}

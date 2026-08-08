@@ -3,10 +3,12 @@ import type { NextRequest } from 'next/server'
 import {
   SITE_ACCESS_COOKIE,
   SITE_ACCESS_META_REQUIRED,
+  SITE_ACCESS_META_TOKEN,
   SITE_ACCESS_META_VERSION,
   applySiteAccessCookies,
   getCookieSecret,
   peekUnlockTokenVersion,
+  verifySiteAccessMetaToken,
   verifyUnlockToken,
 } from '@/lib/site-access-cookie'
 
@@ -48,7 +50,9 @@ const LOCALE_HEADER = 'x-catalogus-locale'
 
 function withStoreModeHeaders(request: NextRequest, base?: Headers): Headers {
   const headers = new Headers(base ?? request.headers)
-  if (isFeaturedOnlyHost(request.nextUrl.hostname)) {
+  const host =
+    resolveRequestHostname(request.headers) || request.nextUrl.hostname
+  if (isFeaturedOnlyHost(host)) {
     headers.set(CATALOGUS_STORE_HEADER, CATALOGUS_STORE_FEATURED)
   }
   return headers
@@ -187,22 +191,51 @@ async function resolveSiteAccess(request: NextRequest): Promise<{
   setMeta: boolean
 }> {
   // Public featured storefronts (1-1.club) — never require site password.
+  // Prefer Host header (vhost) over nextUrl.hostname (can be 127.0.0.1 behind OLS).
   const host =
     resolveRequestHostname(request.headers) || request.nextUrl.hostname
   if (!siteAccessAppliesToHost(host)) {
     return { required: false, allowed: true, version: 0, setMeta: true }
   }
 
-  const requiredFlag = request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value
-  if (requiredFlag === '0') {
-    return { required: false, allowed: true, version: 0, setMeta: false }
-  }
-
-  const metaVersion =
-    Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '', 10) || 0
   const unlock = request.cookies.get(SITE_ACCESS_COOKIE)?.value
   const secretOk = Boolean(getCookieSecret())
+  const signedMeta = await verifySiteAccessMetaToken(
+    request.cookies.get(SITE_ACCESS_META_TOKEN)?.value
+  )
 
+  // Signed meta only — ignore forgeable rcc_sa_required=0 cookies.
+  if (signedMeta && !signedMeta.required) {
+    return {
+      required: false,
+      allowed: true,
+      version: signedMeta.version,
+      setMeta: false,
+    }
+  }
+
+  if (signedMeta?.required) {
+    if (!secretOk || !unlock) {
+      return {
+        required: true,
+        allowed: false,
+        version: signedMeta.version,
+        setMeta: false,
+      }
+    }
+    const allowed = await verifyUnlockToken(unlock, signedMeta.version)
+    return {
+      required: true,
+      allowed,
+      version: signedMeta.version,
+      setMeta: false,
+    }
+  }
+
+  // Legacy unsigned meta=1 still accepted until clients refresh signed meta.
+  const requiredFlag = request.cookies.get(SITE_ACCESS_META_REQUIRED)?.value
+  const metaVersion =
+    Number.parseInt(request.cookies.get(SITE_ACCESS_META_VERSION)?.value || '', 10) || 0
   if (requiredFlag === '1') {
     if (!secretOk || !unlock) {
       return { required: true, allowed: false, version: metaVersion, setMeta: false }
@@ -218,16 +251,15 @@ async function resolveSiteAccess(request: NextRequest): Promise<{
     return { required: true, allowed, version, setMeta: true }
   }
 
-  // Locked by default until the gate (or status API) sets meta cookies.
-  // Gate page is the only place that may hit MariaDB for site-access config.
+  // Locked by default until the gate (or status API) sets signed meta cookies.
   return { required: true, allowed: false, version: 0, setMeta: false }
 }
 
-function attachSiteAccessMeta(
+async function attachSiteAccessMeta(
   response: NextResponse,
   meta: { required: boolean; version: number }
-): NextResponse {
-  applySiteAccessCookies(response, {
+): Promise<NextResponse> {
+  await applySiteAccessCookies(response, {
     required: meta.required,
     version: meta.version,
   })
@@ -333,7 +365,9 @@ export async function middleware(request: NextRequest) {
   // Public share PDP assets (yupoo-image / catalog-mode) stay uncapped so a
   // locked visitor’s gallery is not mistaken for “no image”.
   // Featured-only hosts (1-1.club) have no unlock cookie — treat like unlocked shoppers.
-  const featuredHost = isFeaturedOnlyHost(request.nextUrl.hostname)
+  const featuredHost = isFeaturedOnlyHost(
+    resolveRequestHostname(request.headers) || request.nextUrl.hostname
+  )
   if (
     isBotBlockedApiPath(pathname) &&
     !hasUnlock &&
@@ -417,7 +451,7 @@ export async function middleware(request: NextRequest) {
 
   const access = await resolveSiteAccess(request)
 
-  const withMeta = (response: NextResponse) => {
+  const withMeta = async (response: NextResponse) => {
     if (access.setMeta) {
       return attachSiteAccessMeta(response, {
         required: access.required,
@@ -438,31 +472,31 @@ export async function middleware(request: NextRequest) {
       // Locale-prefixed gate (/nl/site-access-gate) must rewrite like other pages.
       const { locale: gateLocale } = parseLocaleFromPathname(pathname)
       if (gateLocale) {
-        return finish(withMeta(withLightLocaleRouting(request)))
+        return finish(await withMeta(withLightLocaleRouting(request)))
       }
-      return finish(withMeta(withLightHeader(request)))
+      return finish(await withMeta(withLightHeader(request)))
     }
 
     if (pathname.startsWith('/api/')) {
       return finish(
-        withMeta(
+        await withMeta(
           NextResponse.json({ error: 'Site access password required' }, { status: 401 })
         )
       )
     }
 
     if (isPricelistSharePath(pathname, request.nextUrl.searchParams.get('owner'))) {
-      return finish(withMeta(withLightLocaleRouting(request)))
+      return finish(await withMeta(withLightLocaleRouting(request)))
     }
 
     if (isPublicProductPath(pathname)) {
-      return finish(withMeta(withLightLocaleRouting(request)))
+      return finish(await withMeta(withLightLocaleRouting(request)))
     }
 
     const gate = request.nextUrl.clone()
     gate.pathname = GATE_PATH
     gate.searchParams.set('from', pathname + search)
-    const res = withMeta(NextResponse.redirect(gate))
+    const res = await withMeta(NextResponse.redirect(gate))
     const { locale: fromLocale } = parseLocaleFromPathname(pathname)
     if (fromLocale) {
       res.cookies.set(LOCALE_COOKIE, fromLocale, {
@@ -476,10 +510,10 @@ export async function middleware(request: NextRequest) {
 
   if (!access.required || access.allowed) {
     const localeResponse = applyLocaleRouting(request)
-    return finish(withMeta(localeResponse ?? nextWithStore(request)))
+    return finish(await withMeta(localeResponse ?? nextWithStore(request)))
   }
 
-  return finish(withMeta(nextWithStore(request)))
+  return finish(await withMeta(nextWithStore(request)))
 }
 
 export const config = {

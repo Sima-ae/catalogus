@@ -53,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch(appPath('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       })
 
@@ -74,6 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     localStorage.removeItem(STORAGE_KEY)
     setUser(null)
+    try {
+      await fetch(appPath('/api/auth/logout'), { method: 'POST', credentials: 'include' })
+    } catch {
+      // best-effort cookie clear
+    }
   }
 
   const value = useMemo(() => {
