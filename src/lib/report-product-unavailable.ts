@@ -1,3 +1,10 @@
+/**
+ * Fire-and-forget: tell the server a Yupoo image failed to load so the
+ * product can be re-checked and marked sold out when the album is gone.
+ *
+ * Debounced: a single onError (or blank card before paint) must not race
+ * a still-loading image into an OOS mark.
+ */
 import { appPath } from '@/lib/paths'
 
 const reported = new Set<string>()
@@ -6,13 +13,6 @@ const pendingTimers = new Map<string, ReturnType<typeof setTimeout>>()
 /** Wait before telling the server — slow CDN / first-paint errors are common. */
 const CONFIRM_DELAY_MS = 4_000
 
-/**
- * Fire-and-forget: tell the server a Yupoo image failed to load so the
- * product can be re-checked and marked sold out when the album is gone.
- *
- * Debounced: a single onError (or blank card before paint) must not race
- * a still-loading image into an OOS mark.
- */
 export function reportProductSourceUnavailable(productId: string): void {
   const id = String(productId || '').trim()
   if (!id || typeof window === 'undefined') return

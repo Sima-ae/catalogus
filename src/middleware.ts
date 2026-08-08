@@ -321,9 +321,12 @@ export async function middleware(request: NextRequest) {
   // Bots without a scrape token already got 404 above.
   // Public share PDP assets (yupoo-image / catalog-mode) stay uncapped so a
   // locked visitor’s gallery is not mistaken for “no image”.
+  // Featured-only hosts (1-1.club) have no unlock cookie — treat like unlocked shoppers.
+  const featuredHost = isFeaturedOnlyHost(request.nextUrl.hostname)
   if (
     isBotBlockedApiPath(pathname) &&
     !hasUnlock &&
+    !featuredHost &&
     !isPublicShareAssetApiPath(pathname) &&
     isRateLimitedIp(`anon-api:${clientIp(request)}`, 40, 60_000)
   ) {
@@ -337,7 +340,7 @@ export async function middleware(request: NextRequest) {
 
   // Optional marketing hosts: watches.example.com → ?category=WATCHES when unset.
   // Featured-only hosts (1-1.club) skip category injection — catalog is featured set.
-  const hostCategory = isFeaturedOnlyHost(request.nextUrl.hostname)
+  const hostCategory = featuredHost
     ? null
     : resolveCategoryForHost(request.nextUrl.hostname)
   if (

@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
 
   // Only mark sold out when Yupoo explicitly served the unavailable placeholder
   // for every candidate. Transient network / timeout / non-ok responses alone
-  // must not hide products from the catalog.
+  // must not hide products from the catalog. Lookups are debounced + concurrency-capped.
   if (sawUnavailablePayload && !sawTransientFailure) {
     queueMarkUnavailable(
       remoteUrl,

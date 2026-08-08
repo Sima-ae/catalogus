@@ -832,7 +832,8 @@ async function loadActiveProductCountBuckets(options?: {
     idsOnly: options?.idsOnly,
     featuredOnly: options?.featuredOnly,
   })
-  return getCachedValue(
+  // Store as a plain object so Redis JSON round-trips correctly (Map → {}).
+  const raw = await getCachedValue(
     PRODUCT_COUNT_BUCKETS_NS,
     cacheKey,
     PRODUCT_COUNT_BUCKETS_TTL_MS,
@@ -866,10 +867,10 @@ async function loadActiveProductCountBuckets(options?: {
               if (!id) continue
               buckets.set(`id:${id}`, Number(row.total ?? 0))
             }
-            return buckets
+            return Object.fromEntries(buckets)
           }
           // Unknown brand filter — empty buckets (never fall through to global counts).
-          return buckets
+          return {}
         }
 
         const idRows = await queryDb<{ category_id: string; total: number }[]>(
@@ -889,7 +890,7 @@ async function loadActiveProductCountBuckets(options?: {
           buckets.set(`id:${id}`, Number(row.total ?? 0))
         }
 
-        if (options?.idsOnly) return buckets
+        if (options?.idsOnly) return Object.fromEntries(buckets)
 
         const legacyRows = await queryDb<{ legacy_name: string; total: number }[]>(
           `SELECT LOWER(TRIM(COALESCE(p.category, ''))) AS legacy_name, COUNT(*) AS total
@@ -907,7 +908,7 @@ async function loadActiveProductCountBuckets(options?: {
           if (!legacy) continue
           buckets.set(`legacy:${legacy}`, Number(row.total ?? 0))
         }
-        return buckets
+        return Object.fromEntries(buckets)
       }
 
       const needsBrandJoinFallback = Boolean(brandFilter && hasBrandsTable)
@@ -943,9 +944,28 @@ async function loadActiveProductCountBuckets(options?: {
         if (!key || key === 'legacy:') continue
         buckets.set(key, Number(row.total ?? 0))
       }
-      return buckets
+      return Object.fromEntries(buckets)
     }
   )
+
+  return coerceCountBucketsMap(raw)
+}
+
+function coerceCountBucketsMap(value: unknown): Map<string, number> {
+  if (value instanceof Map) {
+    const out = new Map<string, number>()
+    value.forEach((v, k) => {
+      out.set(String(k), Number(v) || 0)
+    })
+    return out
+  }
+  const out = new Map<string, number>()
+  if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out.set(k, Number(v) || 0)
+    }
+  }
+  return out
 }
 
 function sumCategoryFilterCounts(
@@ -1032,10 +1052,12 @@ function peekProductCountBuckets(options?: {
   idsOnly?: boolean
   featuredOnly?: boolean
 }): Map<string, number> | undefined {
-  return peekCachedValue<Map<string, number>>(
+  const raw = peekCachedValue<unknown>(
     PRODUCT_COUNT_BUCKETS_NS,
     productCountBucketsCacheKey({ ...options, idsOnly: options?.idsOnly ?? true })
   )
+  if (raw === undefined) return undefined
+  return coerceCountBucketsMap(raw)
 }
 
 /** Instant total when count buckets are already warm — never runs SQL. */
@@ -1128,7 +1150,7 @@ export async function getFullShopCatalogProductTotal(): Promise<number> {
   return getCachedActiveProductTotal()
 }
 
-/** Pre-warm count buckets on first shop catalog API hit so /new + category clicks are fast. */
+/** Pre-warm count buckets — call only from explicit nav/menu/count paths, never from product listing. */
 let catalogCountWarmStarted = false
 let featuredCatalogCountWarmStarted = false
 
@@ -1734,16 +1756,18 @@ export async function listActiveProducts(): Promise<never> {
 export async function listActiveProductsPaginated(
   query: CatalogProductsQuery
 ): Promise<CatalogProductsPage> {
-  if (query.featuredOnly) {
-    // Do not contend with the first featured page query (full-catalog warm is skipped entirely).
-    setImmediate(() => warmShopCatalogCountCaches({ featuredOnly: true }))
-  } else {
-    warmShopCatalogCountCaches()
-  }
+  // Do not kick off background COUNT/GROUP BY warmers here — that burned CPU
+  // continuously under traffic. Caches fill on real nav/menu/count requests.
   const cacheKey = shopCatalogPageCacheKey(query)
-  // 1-1.club homepage: never cache RAND() results — must re-roll on every refresh.
+  // 1-1.club homepage: short TTL + singleflight so concurrent visitors share one
+  // RAND() result (prevents MariaDB stampedes / 503s) while still re-rolling often.
   if (isFeaturedLiveShuffle(query)) {
-    return loadActiveProductsPaginatedFromDb(query)
+    return getCachedValue(
+      SHOP_CATALOG_PAGE_CACHE_NS,
+      `${cacheKey}|live-rand`,
+      8_000,
+      () => loadActiveProductsPaginatedFromDb(query)
+    )
   }
   // Super Clones homepage shuffle uses the nightly precomputed order (stable between rebuilds).
   const ttlMs = isCatalogShuffleEligible(query)

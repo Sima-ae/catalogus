@@ -86,22 +86,26 @@ async function fetchCatalogJsonOnce(
   return request
 }
 
-/** Fetch catalog JSON with timeout + one retry on 503/429 (MariaDB pool pressure). */
+/** Fetch catalog JSON with timeout + retries on 503/429 (MariaDB pool pressure). */
 export async function fetchCatalogJson(
   url: string,
   options?: { signal?: AbortSignal; timeoutMs?: number }
 ): Promise<unknown> {
-  try {
-    return await fetchCatalogJsonOnce(url, options)
-  } catch (err) {
-    if (options?.signal?.aborted || isAbortError(err)) throw err
-    if (!isRetryableCatalogHttpError(err)) throw err
-    await sleep(500)
-    if (options?.signal?.aborted) {
-      throw new DOMException('Aborted', 'AbortError')
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await fetchCatalogJsonOnce(url, options)
+    } catch (err) {
+      lastError = err
+      if (options?.signal?.aborted || isAbortError(err)) throw err
+      if (!isRetryableCatalogHttpError(err) || attempt >= 2) throw err
+      await sleep(400 * (attempt + 1) + Math.floor(Math.random() * 250))
+      if (options?.signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError')
+      }
     }
-    return fetchCatalogJsonOnce(url, options)
   }
+  throw lastError
 }
 
 export function isCatalogFetchAbortError(err: unknown): boolean {

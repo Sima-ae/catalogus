@@ -50,13 +50,14 @@ function createPool() {
     uri: resolveDatabaseUrl(),
     waitForConnections: true,
     connectionLimit: limit,
-    maxIdle: Math.min(limit, 4),
-    queueLimit: 50,
+    maxIdle: Math.min(limit, 8),
+    // Prefer waiting briefly over hard-failing shop requests under burst traffic.
+    queueLimit: 120,
     timezone: 'Z',
     decimalNumbers: true,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
-    connectTimeout: 15000,
+    connectTimeout: 12_000,
     idleTimeout: 30_000,
   })
 }
@@ -97,11 +98,12 @@ export function isDbTooManyConnections(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false
   const code = (err as { code?: string }).code
   const errno = (err as { errno?: number }).errno
-  const message = err instanceof Error ? err.message : ''
+  const message = err instanceof Error ? err.message : String(err ?? '')
   return (
     code === 'ER_CON_COUNT_ERROR' ||
     errno === 1040 ||
-    /too many connections/i.test(message)
+    /too many connections/i.test(message) ||
+    /queue limit reached/i.test(message)
   )
 }
 
@@ -141,7 +143,7 @@ export async function queryDb<T = unknown>(
       lastError = err
 
       if (isDbTooManyConnections(err) && attempt < 2) {
-        await sleep(300 * (attempt + 1))
+        await sleep(400 * (attempt + 1) + Math.floor(Math.random() * 200))
         continue
       }
 

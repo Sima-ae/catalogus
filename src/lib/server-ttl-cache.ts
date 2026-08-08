@@ -35,6 +35,7 @@ function redisKey(namespace: string, key: string): string {
 /**
  * Shared TTL cache for read-heavy server data (categories, catalog pages, site access).
  * Uses Redis when REDIS_URL is set; always keeps an in-process layer for hot hits.
+ * On loader failure, returns a soft-expired in-memory value when available (stale-on-error).
  */
 export async function getCachedValue<T>(
   namespace: string,
@@ -65,12 +66,24 @@ export async function getCachedValue<T>(
         }
       }
 
-      const value = await loader()
-      store.set(key, { value, expiresAt: Date.now() + ttlMs })
-      if (isRedisCacheEnabled()) {
-        void redisSetJson(redisKey(namespace, key), value, ttlMs)
+      try {
+        const value = await loader()
+        store.set(key, { value, expiresAt: Date.now() + ttlMs })
+        if (isRedisCacheEnabled()) {
+          void redisSetJson(redisKey(namespace, key), value, ttlMs)
+        }
+        return value
+      } catch (err) {
+        // Serve soft-expired memory value rather than failing the whole shop request.
+        if (hit) {
+          store.set(key, {
+            value: hit.value,
+            expiresAt: Date.now() + Math.min(30_000, Math.max(5_000, Math.floor(ttlMs / 10))),
+          })
+          return hit.value as T
+        }
+        throw err
       }
-      return value
     } finally {
       inflight.delete(pendingKey)
     }

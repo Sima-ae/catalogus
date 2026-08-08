@@ -13,6 +13,28 @@ import { isYupooPasswordGateHtml } from '@/lib/yupoo/session'
 const recentlyMarked = new Map<string, number>()
 const MARK_DEBOUNCE_MS = 10 * 60 * 1000
 const CHECK_DEBOUNCE_MS = 30 * 60 * 1000
+/** Cap concurrent heavy lookup UPDATEs from image-proxy storms. */
+let markLookupInFlight = 0
+const MARK_LOOKUP_MAX = 2
+const MARK_LOOKUP_QUEUE: Array<() => void> = []
+
+async function withMarkLookupSlot<T>(fn: () => Promise<T>): Promise<T | null> {
+  if (markLookupInFlight >= MARK_LOOKUP_MAX) {
+    // Drop excess proxy-driven lookups rather than queueing forever (avoids 503s).
+    if (MARK_LOOKUP_QUEUE.length > 20) return null
+    await new Promise<void>((resolve) => {
+      MARK_LOOKUP_QUEUE.push(resolve)
+    })
+  }
+  markLookupInFlight += 1
+  try {
+    return await fn()
+  } finally {
+    markLookupInFlight -= 1
+    const next = MARK_LOOKUP_QUEUE.shift()
+    if (next) next()
+  }
+}
 
 function peekDebounced(key: string, ttlMs = MARK_DEBOUNCE_MS): boolean {
   const now = Date.now()
@@ -120,25 +142,31 @@ export async function markProductsSoldOutBySourceUrl(
     // keep raw
   }
 
-  const rows = await queryDb<{ id: string }[]>(
-    `SELECT id FROM products
-     WHERE status IN ('active', 'draft')
-       AND source_url IS NOT NULL
-       AND (
-         source_url = ?
-         OR source_url LIKE CONCAT(?, '%')
-         OR ? LIKE CONCAT(SUBSTRING_INDEX(source_url, '?', 1), '%')
-       )
-       AND (
-         COALESCE(sold_out, 0) = 0
-         OR COALESCE(image_url, '') LIKE '%yupoo.com%'
-         OR COALESCE(gallery_images, '') LIKE '%yupoo.com%'
-       )
-     LIMIT 50`,
-    [url, originPath, url]
-  )
-  const ids = rows.map((r) => String(r.id))
-  const result = await markProductsSoldOutUnavailable(ids, reason)
+  const slotted = await withMarkLookupSlot(async () => {
+    // Prefer equality / prefix on indexed-friendly source_url — avoid
+    // `? LIKE CONCAT(SUBSTRING_INDEX(...))` full scans that exhaust the pool.
+    const rows = await queryDb<{ id: string }[]>(
+      `SELECT id FROM products
+       WHERE status IN ('active', 'draft')
+         AND source_url IS NOT NULL
+         AND (
+           source_url = ?
+           OR source_url LIKE CONCAT(?, '?%')
+           OR source_url LIKE CONCAT(?, '&%')
+         )
+         AND (
+           COALESCE(sold_out, 0) = 0
+           OR COALESCE(image_url, '') LIKE '%yupoo.com%'
+           OR COALESCE(gallery_images, '') LIKE '%yupoo.com%'
+         )
+       LIMIT 50`,
+      [url, originPath, originPath]
+    )
+    return rows.map((r) => String(r.id))
+  })
+  if (!slotted) return { marked: 0, ids: [] }
+
+  const result = await markProductsSoldOutUnavailable(slotted, reason)
   if (result.ids.length) touchDebounced(`src:${url}`)
   return result
 }
@@ -155,24 +183,27 @@ export async function markProductsSoldOutByImageUrl(
     .replace(/\/(large|medium|small|big|thumb|square|origin|original)\.(jpe?g|png|webp|gif)(\?.*)?$/i, '/')
     .replace(/\?.*$/, '')
 
-  const rows = await queryDb<{ id: string }[]>(
-    `SELECT id FROM products
-     WHERE status IN ('active', 'draft')
-       AND (
-         image_url = ?
-         OR image_url LIKE CONCAT(?, '%')
-         OR gallery_images LIKE ?
-       )
-       AND (
-         COALESCE(sold_out, 0) = 0
-         OR COALESCE(image_url, '') LIKE '%yupoo.com%'
-         OR COALESCE(gallery_images, '') LIKE '%yupoo.com%'
-       )
-     LIMIT 50`,
-    [url, stem, `%${stem}%`]
-  )
-  const ids = rows.map((r) => String(r.id))
-  const result = await markProductsSoldOutUnavailable(ids, reason)
+  const slotted = await withMarkLookupSlot(async () => {
+    const rows = await queryDb<{ id: string }[]>(
+      `SELECT id FROM products
+       WHERE status IN ('active', 'draft')
+         AND (
+           image_url = ?
+           OR image_url LIKE CONCAT(?, '%')
+         )
+         AND (
+           COALESCE(sold_out, 0) = 0
+           OR COALESCE(image_url, '') LIKE '%yupoo.com%'
+           OR COALESCE(gallery_images, '') LIKE '%yupoo.com%'
+         )
+       LIMIT 50`,
+      [url, stem]
+    )
+    return rows.map((r) => String(r.id))
+  })
+  if (!slotted) return { marked: 0, ids: [] }
+
+  const result = await markProductsSoldOutUnavailable(slotted, reason)
   if (result.ids.length) touchDebounced(`img:${url}`)
   return result
 }

@@ -1,18 +1,15 @@
 import { headers } from 'next/headers'
 import ShopCatalogPage from '@/components/shop/ShopCatalogPage'
-import {
-  buildShopCatalogSignature,
-  loadInitialShopCatalog,
-  shouldServerRenderShopCatalog,
-} from '@/lib/shop-catalog-ssr'
+import { buildShopCatalogSignature } from '@/lib/shop-catalog-ssr'
 import { listShopCategoryNavTree } from '@/lib/products-db'
 import { resolveStoreModeFromHeaders } from '@/lib/store-host'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Homepage: never SSR the shuffled Super Clones catalog (shuffle pool can be heavy).
- * Featured hosts (1-1.club): SSR a live-random first page (max 24) — re-rolls on refresh.
+ * Homepage: never SSR the product grid.
+ * Client fetch keeps Super Clones + 1-1.club first paint light and avoids
+ * competing with live RAND()/shuffle SQL under traffic (was a 503 source).
  */
 export default async function HomePage({
   searchParams,
@@ -25,17 +22,8 @@ export default async function HomePage({
   const initialCatalogSignature = buildShopCatalogSignature(sp, 'all', {
     shuffle: true,
   })
-  const shouldSsrCatalog = featuredOnly && shouldServerRenderShopCatalog(sp)
 
-  const [initialCatalog, initialCategoryNav] = await Promise.all([
-    shouldSsrCatalog
-      ? loadInitialShopCatalog(sp, 'all', {
-          featuredOnly: true,
-          shuffle: true,
-        }).catch(() => null)
-      : Promise.resolve(null),
-    listShopCategoryNavTree({ featuredOnly }).catch(() => []),
-  ])
+  const initialCategoryNav = await listShopCategoryNavTree({ featuredOnly }).catch(() => [])
 
   return (
     <ShopCatalogPage
@@ -51,7 +39,7 @@ export default async function HomePage({
         shuffleCatalog: true,
         featuredStorefront: featuredOnly,
       }}
-      initialCatalog={initialCatalog}
+      initialCatalog={null}
       initialCatalogSignature={initialCatalogSignature}
       initialCategoryNav={initialCategoryNav}
     />

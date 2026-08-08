@@ -108,7 +108,7 @@ export async function GET(
     }
 
     // Re-check Yupoo albums on PDP load so deleted supplier pages go OOS
-    // without waiting for the batch scanner / image-proxy hit.
+    // without waiting for the batch scanner. Debounced per product.
     if (access.kind === 'public') {
       const sourceUrl =
         payload.source_url != null ? String(payload.source_url) : ''

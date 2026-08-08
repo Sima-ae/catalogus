@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
         paginatedQuery.shuffle === true &&
         (paginatedQuery.page ?? 1) <= 1
       const cacheControl = liveFeaturedShuffle
-        ? 'private, no-store'
+        ? 'private, max-age=0, s-maxage=8, stale-while-revalidate=30'
         : paginatedQuery.shuffle
           ? 'public, max-age=15, s-maxage=45, stale-while-revalidate=120'
           : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300'

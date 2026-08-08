@@ -18,11 +18,15 @@ User=root
 Group=root
 WorkingDirectory=/var/www/superclones.cloud
 Environment=NODE_ENV=production
+# Do not bash-source .env — HOST_SITE_BRAND values with spaces break `set -a . ./.env`.
 EnvironmentFile=-/var/www/superclones.cloud/.env
 # Modest batch so CPU stays calm; timer runs often enough to catch deletions.
-ExecStart=/bin/bash -c 'set -a && [ -f .env ] && . ./.env && set +a && exec npx tsx scripts/mark-unavailable-source-products.ts --apply --limit=400 --concurrency=2 --delay-ms=600'
+ExecStart=/usr/bin/npx tsx scripts/mark-unavailable-source-products.ts --apply --limit=200 --concurrency=1 --delay-ms=800
 Nice=10
-CPUQuota=40%
+CPUQuota=25%
+# Prevent a hung scan from holding MariaDB connections for days.
+TimeoutStartSec=45min
+TimeoutStopSec=30
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=catalogus-mark-unavailable
