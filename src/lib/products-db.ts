@@ -254,7 +254,7 @@ const CATALOG_FROM_CACHE_KEY = '__catalogusCatalogFromSql'
 const CATALOG_SELECT_CACHE_KEY = '__catalogusCatalogSelectSql'
 const CATALOG_LISTING_SELECT_CACHE_KEY = '__catalogusCatalogListingSelectSql'
 
-const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v4'
+const PRODUCT_DASHBOARD_STATS_CACHE_NS = 'product-dashboard-stats-v5'
 const PRODUCT_DASHBOARD_STATS_CACHE_TTL_MS = 60_000
 /** Hard cap for the whole stats payload — cards must never hang the admin UI. */
 const PRODUCT_DASHBOARD_STATS_TIMEOUT_MS = 3_500
@@ -2607,12 +2607,11 @@ export async function getProductDashboardStats(): Promise<ProductDashboardStats>
 }
 
 async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats> {
-  // Keep this cheap: COUNT(*) GROUP BY status only (no SUM/CASE over 150k rows).
+  // Status breakdown for draft / inactive / trash (cheap GROUP BY).
   const rows = await queryDb<{ status: string; count: number }[]>(
     `SELECT status, COUNT(*) AS count FROM products GROUP BY status`
   )
 
-  let active = 0
   let draft = 0
   let inactive = 0
   let trash = 0
@@ -2620,13 +2619,14 @@ async function loadProductDashboardStatsFromDb(): Promise<ProductDashboardStats>
   for (const row of rows) {
     const count = Number(row.count ?? 0)
     const status = String(row.status || '').toLowerCase()
-    if (status === 'active') active = count
-    else if (status === 'draft') draft = count
+    if (status === 'draft') draft = count
     else if (status === 'inactive') inactive = count
     else if (status === 'trash') trash = count
   }
 
-  const [soldOut, outOfStock, importDrafts] = await Promise.all([
+  // “Gepubliceerd” must match the Super Clones homepage total (same shop-visible rules).
+  const [active, soldOut, outOfStock, importDrafts] = await Promise.all([
+    getFullShopCatalogProductTotal(),
     countAdminProductsSoldOut(),
     withTimeout(
       countAdminProductsOutOfStock(PLATFORM_PRICELIST_OWNER_ID),
