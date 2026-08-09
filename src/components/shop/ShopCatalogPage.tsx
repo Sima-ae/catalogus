@@ -273,8 +273,9 @@ function ShopCatalogPageContent({
     !filterTag &&
     !debouncedSearch.trim()
 
-  /** Homepage page 1: skip client cache so a hard refresh re-randomizes (both hosts). */
-  const skipCatalogClientCache = catalogShuffle && currentPage <= 1
+  /** 1-1.club homepage only: skip client cache so hard refresh re-randomizes.
+   * Super Clones keeps client cache so All/category/brand clicks stay snappy. */
+  const skipCatalogClientCache = isFeaturedOnlyHost && catalogShuffle && currentPage <= 1
 
   // Homepage shuffle always returns a full page from the API — never mid-page top-ups.
   // Otherwise top up until the grid shows a full page of *visible* cards (max 24).
@@ -402,6 +403,11 @@ function ShopCatalogPageContent({
       if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
 
       const batch = Array.isArray(data.items) ? data.items : []
+      // Empty batch: stop top-up loops (inflated totals / end of filter).
+      if (batch.length === 0) {
+        setPageFetchedCount(Math.max(0, totalItems - baseOffset))
+        return
+      }
       setPageFetchedCount((prev) => prev + batch.length)
 
       setProducts((prev) => {

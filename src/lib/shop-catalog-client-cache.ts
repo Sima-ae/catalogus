@@ -110,7 +110,9 @@ async function fetchShopCatalogPage(
     search: filters.search || undefined,
     mode: filters.mode === 'new' ? 'new' : undefined,
     shuffle: filters.shuffle ? true : undefined,
-    skipTotal: true,
+    // Match the real catalog fetch so prefetch can satisfy the trusted-total
+    // fast path (skipTotal:true never warms a usable cache entry for navigation).
+    skipTotal: false,
   })
 
   const response = await fetch(url, { method: 'GET' })

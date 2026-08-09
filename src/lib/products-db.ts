@@ -1152,14 +1152,34 @@ export async function getShopCatalogProductTotal(
 
   const peek = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
   if (peek != null) return peek
-  const resolved = await resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query)
-  if (resolved != null) return resolved
+
+  if (query.featuredOnly) {
+    // 1-1.club: await featured buckets (small).
+    const resolved = await resolveShopCatalogTotalFromBuckets(
+      categories,
+      categoryFilter,
+      query
+    )
+    if (resolved != null) return resolved
+  } else {
+    // Super Clones: warm global buckets in the background; never block countOnly
+    // on a cold full-catalog GROUP BY — COUNT this filter instead.
+    void resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query).catch(
+      () => undefined
+    )
+    if (query.mode === 'new') return getCachedNewProductsWeekTotal()
+    if (!query.category || query.category === 'All') {
+      if (!query.brand || query.brand === 'All') {
+        return getCachedActiveProductTotal()
+      }
+    }
+    return countActiveProductsForCatalogQuery(query)
+  }
+
   if (query.mode === 'new') return getCachedNewProductsWeekTotal()
   if (!query.category || query.category === 'All') {
     if (!query.brand || query.brand === 'All') {
-      return query.featuredOnly
-        ? getCachedFeaturedProductTotal()
-        : getCachedActiveProductTotal()
+      return getCachedFeaturedProductTotal()
     }
   }
   return 0
@@ -2010,15 +2030,20 @@ async function loadActiveProductsPaginatedFromDb(
 
   const idParams = scopeParam ? [scopeParam, ...params] : params
 
-  const forceIndexSql = useIndexedCategoryListing
-    ? ' FORCE INDEX (idx_products_status_category_created)'
-    : useIndexedBrandListing
-      ? ' FORCE INDEX (idx_products_status_brand_created)'
-      : query.featuredOnly && !joinSql && !searchActive && !query.tag?.trim()
-        ? ' FORCE INDEX (idx_products_featured_shop)'
-        : query.mode === 'new' && !joinSql
-          ? ' FORCE INDEX (idx_products_status_created)'
-          : ''
+  // When category + brand are both set, do not FORCE INDEX — the wrong pick
+  // (category vs brand) can turn WATCHES×brand into a multi-second filesort.
+  const forceIndexSql =
+    useIndexedCategoryListing && useIndexedBrandListing
+      ? ''
+      : useIndexedCategoryListing
+        ? ' FORCE INDEX (idx_products_status_category_created)'
+        : useIndexedBrandListing
+          ? ' FORCE INDEX (idx_products_status_brand_created)'
+          : query.featuredOnly && !joinSql && !searchActive && !query.tag?.trim()
+            ? ' FORCE INDEX (idx_products_featured_shop)'
+            : query.mode === 'new' && !joinSql
+              ? ' FORCE INDEX (idx_products_status_created)'
+              : ''
 
   async function fetchPageProductRows(): Promise<Record<string, unknown>[]> {
     if (shuffle) {
@@ -2154,13 +2179,13 @@ async function loadActiveProductsPaginatedFromDb(
       responseSkipTotal = false
     }
   } else {
-    // Category/brand pages: always return a trusted total in the SAME response
-    // (peek warm idsOnly buckets, otherwise await). Stops client countOnly stampedes.
+    // Category/brand pages: prefer warm idsOnly buckets (same as the menu).
     const peekTotal = peekShopCatalogTotalFromBuckets(categories, categoryFilter, query)
     if (peekTotal != null) {
       total = peekTotal
       responseSkipTotal = false
-    } else {
+    } else if (query.featuredOnly) {
+      // 1-1.club: small catalog — await buckets, then COUNT if needed.
       const resolved = await resolveShopCatalogTotalFromBuckets(
         categories,
         categoryFilter,
@@ -2170,6 +2195,24 @@ async function loadActiveProductsPaginatedFromDb(
         total = resolved
         responseSkipTotal = false
       } else if (!query.skipTotal) {
+        total = await countShopCatalogProducts(
+          await catalogListingFromSqlForQuery({ needsCategoryJoin, needsBrandJoin }),
+          joinSql,
+          whereSql,
+          idParams,
+          false
+        )
+        responseSkipTotal = false
+      }
+    } else {
+      // Super Clones: never block the grid on a cold full-catalog GROUP BY.
+      // Warm buckets in the background; COUNT this filter only (indexed).
+      void resolveShopCatalogTotalFromBuckets(
+        categories,
+        categoryFilter,
+        query
+      ).catch(() => undefined)
+      if (!query.skipTotal) {
         total = await countShopCatalogProducts(
           await catalogListingFromSqlForQuery({ needsCategoryJoin, needsBrandJoin }),
           joinSql,
