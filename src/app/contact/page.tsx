@@ -4,7 +4,7 @@ import { useEffect, useState, FormEvent, useMemo, type ComponentType } from 'rea
 import ShopPageShell from '@/components/shop/ShopPageShell'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
-import { APP_NAME, APP_COPYRIGHT } from '@/lib/brand'
+import { APP_NAME, APP_COPYRIGHT, FEATURED_APP_NAME, FEATURED_APP_COPYRIGHT } from '@/lib/brand'
 import { useSiteBrand } from '@/lib/site-brand-context'
 import { DEFAULT_SITE_SETTINGS, type SiteSettings } from '@/lib/site-settings'
 import { parseSettingsResponse } from '@/lib/parse-settings-response'
@@ -31,7 +31,7 @@ export default function ContactPage() {
   const brand = useSiteBrand()
   const copyright =
     brand.footerCopyright.trim() ||
-    (brand.storeMode === 'featured' ? `1-1 Club © ${new Date().getFullYear()}` : APP_COPYRIGHT)
+    (brand.storeMode === 'featured' ? FEATURED_APP_COPYRIGHT : APP_COPYRIGHT)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -39,7 +39,11 @@ export default function ContactPage() {
   const [message, setMessage] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  const siteName = settings.site_name || APP_NAME
+  // Prefer host brand (1-1 Club on featured) over Super Clones settings.site_name.
+  const siteName =
+    brand.storeMode === 'featured'
+      ? brand.siteName.trim() || FEATURED_APP_NAME
+      : settings.site_name?.trim() || brand.siteName.trim() || APP_NAME
 
   useEffect(() => {
     fetch(appPath('/api/settings/public'))
@@ -60,7 +64,11 @@ export default function ContactPage() {
     ? 'bg-dark-700 border-dark-600 text-white placeholder-gray-500'
     : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
 
-  const supportEmail = settings.support_email?.trim()
+  // 1-1.club uses its own support address; Super Clones keeps Admin → Settings email.
+  const supportEmail =
+    brand.storeMode === 'featured'
+      ? 'info@1-1.club'
+      : settings.support_email?.trim() || ''
 
   const faqItems = useMemo(
     () => FAQ_KEYS.map((item) => ({ q: t(item.q), a: t(item.a) })),

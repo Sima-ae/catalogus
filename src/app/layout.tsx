@@ -3,7 +3,6 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/lib/theme'
 import { AuthProvider } from '@/lib/auth-local'
-import ContentProtection from '@/components/ContentProtection'
 import LayoutBootstrapGate from '@/components/layout/LayoutBootstrapGate'
 import { buildRootMetadata } from '@/lib/site-metadata'
 import { getServerLocale } from '@/lib/i18n-server-locale'
@@ -62,7 +61,6 @@ export default async function RootLayout({
       </head>
       <body className={`${inter.className} app-protected transition-colors duration-200`}>
         <AuthProvider>
-          <ContentProtection />
           <ThemeProvider>
             <LayoutBootstrapGate
               locale={locale}

@@ -8,6 +8,9 @@ export const APP_LOGO_WATERMARK_PATH = '/WEBLOGO-TEXT-WHITE-TRANSPARENT.png'
 /** @deprecated Use BrandLogo / APP_LOGO_PATH */
 export const APP_LOGO_MARK = 'SC'
 export const APP_COPYRIGHT = 'Super Clones © 2026'
+/** Featured-only storefront (www.1-1.club). */
+export const FEATURED_APP_NAME = '1-1 Club'
+export const FEATURED_APP_COPYRIGHT = '1-1 Club © 2026'
 export const APP_DEFAULT_AUTHOR = 'Super Clones'
 export const APP_DEFAULT_AUTHOR_ICON = 'S'
 /** Shown when a product has no version set (product page meta, etc.). */

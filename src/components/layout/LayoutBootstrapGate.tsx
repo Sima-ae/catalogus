@@ -20,6 +20,7 @@ import {
 } from '@/lib/shop-bootstrap-shared'
 import { SiteBrandProvider } from '@/lib/site-brand-context'
 import { TickerMessagesProvider } from '@/lib/ticker-messages-context'
+import ContentProtection from '@/components/ContentProtection'
 import type { Locale } from '@/lib/i18n'
 import {
   hydrateShopCategoryRows,
@@ -132,6 +133,7 @@ export default function LayoutBootstrapGate({
         bootstrap={shopBootstrap}
         storeMode={initialData.storeMode ?? (featuredStorefront ? 'featured' : 'default')}
       >
+      <ContentProtection />
       <Suspense fallback={<BootstrapLoading text={loadingText} />}>
         <SiteAccessGuard>
           <LanguagePickerProvider>

@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useTheme } from '@/lib/theme'
 import { useI18n } from '@/lib/i18n-context'
 import { useSiteBrand } from '@/lib/site-brand-context'
+import { APP_COPYRIGHT, FEATURED_APP_COPYRIGHT } from '@/lib/brand'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
 export default function AppFooter({ showLanguageSwitcher = true }: { showLanguageSwitcher?: boolean }) {
@@ -14,7 +15,10 @@ export default function AppFooter({ showLanguageSwitcher = true }: { showLanguag
 
   const year = useMemo(() => new Date().getFullYear(), [])
   const copyright =
-    brand.footerCopyright.trim() || t('footer.copyright', { year })
+    brand.footerCopyright.trim() ||
+    (brand.storeMode === 'featured'
+      ? FEATURED_APP_COPYRIGHT.replace('2026', String(year))
+      : t('footer.copyright', { year }) || APP_COPYRIGHT)
   const menuLines = brand.footerMenu
     ? brand.footerMenu.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
     : []

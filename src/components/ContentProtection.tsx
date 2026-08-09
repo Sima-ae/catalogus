@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-local'
-import { APP_COPYRIGHT } from '@/lib/brand'
+import { APP_COPYRIGHT, FEATURED_APP_COPYRIGHT } from '@/lib/brand'
+import { useSiteBrand } from '@/lib/site-brand-context'
 
 type MenuState = { x: number; y: number } | null
 
@@ -20,6 +21,10 @@ function useProtectionActive(): boolean {
 
 export default function ContentProtection() {
   const protectionActive = useProtectionActive()
+  const brand = useSiteBrand()
+  const copyright =
+    brand.footerCopyright.trim() ||
+    (brand.storeMode === 'featured' ? FEATURED_APP_COPYRIGHT : APP_COPYRIGHT)
   const [menu, setMenu] = useState<MenuState>(null)
 
   const closeMenu = useCallback(() => setMenu(null), [])
@@ -93,7 +98,7 @@ export default function ContentProtection() {
           role="status"
           aria-live="polite"
         >
-          {APP_COPYRIGHT}
+          {copyright}
         </div>
       )}
     </>
