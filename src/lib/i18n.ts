@@ -133,6 +133,9 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     // Footer
     'footer.copyright': 'Super Clones © {year}',
 
+    // Content protection (custom right-click menu)
+    'protection.openInNewTab': 'Open in new tab',
+
     // Password gates (siteAccess.* also in i18n-gate-messages.ts overlay)
     'password.correctLoading': 'The password is correct! Loading...',
 
@@ -390,6 +393,9 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
 
     // Footer
     'footer.copyright': 'Super Clones © {year}',
+
+    // Content protection (custom right-click menu)
+    'protection.openInNewTab': 'Openen in nieuw tabblad',
 
     // Password gates
     'password.correctLoading': 'Het wachtwoord is correct! Aan het laden...',
