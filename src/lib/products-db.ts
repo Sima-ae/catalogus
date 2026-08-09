@@ -9,7 +9,9 @@ import {
   catalogPageBaseOffset,
   CATALOG_PAGE_SIZE,
   isCatalogShuffleEligible,
+  isDefaultLiveShuffle,
   isFeaturedLiveShuffle,
+  isLiveCatalogShuffle,
   PRODUCT_CATEGORY_ID_UNSET_SQL,
   type AdminProductFilterOptions,
   type AdminProductStatusFilter,
@@ -63,6 +65,7 @@ import {
   catalogPositionJoin,
   catalogPositionsExistForScope,
   fetchHomepageShufflePageProductIds,
+  fetchRandomHomepageShuffleProductIds,
   fillShopVisibleProductIds,
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
@@ -828,8 +831,10 @@ const SHOP_SUBCATEGORY_TTL_MS = 1_800_000
 const PRODUCT_COUNT_BUCKETS_TTL_MS = 1_800_000
 const SHOP_CATALOG_COUNT_TTL_MS = 300_000
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
-/** Homepage shuffle uses the nightly precomputed order — same TTL as other catalog pages. */
+/** Deeper Super Clones shuffle pages use the nightly precomputed order. */
 const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = SHOP_CATALOG_PAGE_TTL_MS
+/** First-page live shuffle (Super Clones + 1-1.club) — short TTL, re-rolls often. */
+const SHOP_CATALOG_LIVE_SHUFFLE_TTL_MS = 8_000
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
 const NEW_PRODUCTS_WEEK_TOTAL_TTL_MS = 300_000
 
@@ -1774,17 +1779,17 @@ export async function listActiveProductsPaginated(
   // Do not kick off background COUNT/GROUP BY warmers here — that burned CPU
   // continuously under traffic. Caches fill on real nav/menu/count requests.
   const cacheKey = shopCatalogPageCacheKey(query)
-  // 1-1.club homepage: short TTL + singleflight so concurrent visitors share one
-  // RAND() result (prevents MariaDB stampedes / 503s) while still re-rolling often.
-  if (isFeaturedLiveShuffle(query)) {
+  // Homepage page 1 (both hosts): short TTL + singleflight so concurrent visitors
+  // share one RAND() result (prevents MariaDB stampedes / 503s) while still re-rolling often.
+  if (isLiveCatalogShuffle(query)) {
     return getCachedValue(
       SHOP_CATALOG_PAGE_CACHE_NS,
       `${cacheKey}|live-rand`,
-      8_000,
+      SHOP_CATALOG_LIVE_SHUFFLE_TTL_MS,
       () => loadActiveProductsPaginatedFromDb(query)
     )
   }
-  // Super Clones homepage shuffle uses the nightly precomputed order (stable between rebuilds).
+  // Super Clones deeper shuffle pages use the nightly precomputed order.
   const ttlMs = isCatalogShuffleEligible(query)
     ? SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS
     : SHOP_CATALOG_PAGE_TTL_MS
@@ -1981,13 +1986,15 @@ async function loadActiveProductsPaginatedFromDb(
   const offset = query.offset ?? (query.page - 1) * CATALOG_PAGE_SIZE
   const shuffle = isCatalogShuffleEligible(query)
   const featuredLiveShuffle = isFeaturedLiveShuffle(query)
+  const defaultLiveShuffle = isDefaultLiveShuffle(query)
 
   let joinSql = ''
   let orderSql = 'p.created_at DESC'
   let scopeParam: string | null = null
   let usePrecomputedShuffle = false
 
-  if (shuffle && !featuredLiveShuffle) {
+  // Live first-page shuffles skip the position join; deeper Super Clones pages use it.
+  if (shuffle && !featuredLiveShuffle && !defaultLiveShuffle) {
     usePrecomputedShuffle =
       (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
     if (usePrecomputedShuffle) {
@@ -2034,7 +2041,7 @@ async function loadActiveProductsPaginatedFromDb(
 
       let ids: string[] = []
       if (featuredLiveShuffle) {
-        // Live random order — different on every refresh (page 1 only).
+        // 1-1.club: live random over featured rows — different on every refresh.
         const fromClause = await catalogListingFromSqlForQuery({
           needsCategoryJoin,
           needsBrandJoin,
@@ -2046,6 +2053,12 @@ async function loadActiveProductsPaginatedFromDb(
           [...idParams, Math.max(limit + 48, CATALOG_PAGE_SIZE)]
         )
         ids = idRows.map((row) => String(row.id)).filter(Boolean)
+      } else if (defaultLiveShuffle) {
+        // Super Clones homepage: live random from the ~10k pool (not full-catalog RAND).
+        ids = await fetchRandomHomepageShuffleProductIds(
+          HOMEPAGE_SHUFFLE_SCOPE,
+          limit + 48
+        )
       } else if (usePrecomputedShuffle) {
         ids = await fetchHomepageShufflePageProductIds(
           HOMEPAGE_SHUFFLE_SCOPE,

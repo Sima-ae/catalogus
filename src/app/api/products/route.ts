@@ -26,6 +26,7 @@ import {
   parseCatalogProductsQuery,
   MAX_ADMIN_PRODUCTS_PAGE_SIZE,
   CATALOG_PAGE_SIZE,
+  isLiveCatalogShuffle,
 } from '@/lib/catalog-products'
 import { omitProductInternalPricing } from '@/lib/product-serialize'
 import { resolveStoreModeFromHeaders } from '@/lib/store-host'
@@ -142,11 +143,8 @@ export async function GET(request: NextRequest) {
 
       // Featured hosts: return featured rows + featured total only — do not COUNT the full catalog.
       const result = await listActiveProductsPaginated(paginatedQuery)
-      const liveFeaturedShuffle =
-        paginatedQuery.featuredOnly === true &&
-        paginatedQuery.shuffle === true &&
-        (paginatedQuery.page ?? 1) <= 1
-      const cacheControl = liveFeaturedShuffle
+      const liveShuffle = isLiveCatalogShuffle(paginatedQuery)
+      const cacheControl = liveShuffle
         ? 'private, max-age=0, s-maxage=8, stale-while-revalidate=30'
         : paginatedQuery.shuffle
           ? 'public, max-age=15, s-maxage=45, stale-while-revalidate=120'

@@ -273,8 +273,8 @@ function ShopCatalogPageContent({
     !filterTag &&
     !debouncedSearch.trim()
 
-  /** 1-1.club homepage: skip client cache so a hard refresh re-randomizes. */
-  const skipCatalogClientCache = isFeaturedOnlyHost && catalogShuffle && currentPage <= 1
+  /** Homepage page 1: skip client cache so a hard refresh re-randomizes (both hosts). */
+  const skipCatalogClientCache = catalogShuffle && currentPage <= 1
 
   // Homepage shuffle always returns a full page from the API — never mid-page top-ups.
   // Otherwise top up until the grid shows a full page of *visible* cards (max 24).
@@ -316,7 +316,6 @@ function ShopCatalogPageContent({
       effectiveNestedSubcategory,
       filterBrand,
       filterTag,
-      isFeaturedOnlyHost,
     ]
   )
 

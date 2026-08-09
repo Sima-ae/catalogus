@@ -694,7 +694,7 @@ export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
     return (query.page ?? 1) <= 1
   }
 
-  // Super Clones: nightly precomputed shuffle (stable across pages / refreshes).
+  // Super Clones: page 1 live-random; deeper pages use the precomputed pool.
   return true
 }
 
@@ -704,6 +704,23 @@ export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
  */
 export function isFeaturedLiveShuffle(query: CatalogProductsQuery): boolean {
   return Boolean(query.featuredOnly) && isCatalogShuffleEligible(query)
+}
+
+/**
+ * Super Clones unfiltered first page — live random (re-rolls on refresh).
+ * Deeper pages keep the nightly precomputed order for fast pagination.
+ */
+export function isDefaultLiveShuffle(query: CatalogProductsQuery): boolean {
+  return (
+    !query.featuredOnly &&
+    isCatalogShuffleEligible(query) &&
+    (query.page ?? 1) <= 1
+  )
+}
+
+/** Either storefront's live first-page shuffle (short TTL, no sticky client cache). */
+export function isLiveCatalogShuffle(query: CatalogProductsQuery): boolean {
+  return isFeaturedLiveShuffle(query) || isDefaultLiveShuffle(query)
 }
 
 /** Prefer priced products (~60%) while keeping unpriced items in the mix. */

@@ -198,6 +198,42 @@ function mergeUniqueIds(primary: string[], extra: string[], limit: number): stri
 }
 
 /**
+ * Live-random first homepage page from the ~10k precomputed pool.
+ * RAND() only scans the pool (not the full catalog) — cheap and different each call.
+ */
+export async function fetchRandomHomepageShuffleProductIds(
+  scope: string,
+  limit: number
+): Promise<string[]> {
+  if (limit <= 0) return []
+  if (!(await catalogPositionsExistForScope(scope))) {
+    // Rare: pool not built yet — random window over newest shop-visible rows.
+    const window = Math.max(limit * 40, 2_000)
+    const newest = await fetchNewestShopVisibleIds(window, 0)
+    if (newest.length <= limit) return newest
+    for (let i = newest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = newest[i]!
+      newest[i] = newest[j]!
+      newest[j] = tmp
+    }
+    return newest.slice(0, limit)
+  }
+
+  const rows = await queryDb<{ id: string }[]>(
+    `SELECT p.id
+     FROM ${TABLE} cpp
+     INNER JOIN products p ON p.id = cpp.product_id
+       AND ${SHOP_VISIBLE_PREDICATE}
+     WHERE cpp.scope = ?
+     ORDER BY RAND()
+     LIMIT ?`,
+    [scope, Math.min(limit + 24, limit * 2)]
+  )
+  return rows.map((row) => String(row.id)).filter(Boolean)
+}
+
+/**
  * Dense homepage pages — at most 2 SQL round-trips.
  * Page 1 = offset 0 … page N = offset (N-1)*24.
  *
