@@ -132,6 +132,7 @@ export type AdminMessageKey =
   | 'admin.products.zeroDraftPurchasePricesDone'
   | 'admin.products.zeroDraftPurchasePricesFailed'
   | 'adminProducts.col.product'
+  | 'adminProducts.col.featured'
   | 'adminProducts.col.sku'
   | 'adminProducts.col.category'
   | 'adminProducts.col.brand'
@@ -307,6 +308,7 @@ const EN: AdminMessages = {
     'Purchase price set to €0 on {total} concept product(s) ({cleared} had a non-zero price).',
   'admin.products.zeroDraftPurchasePricesFailed': "Failed to zero concept purchase prices",
   'adminProducts.col.product': "Product",
+  'adminProducts.col.featured': "1-1.club",
   'adminProducts.col.sku': "SKU",
   'adminProducts.col.category': "Category",
   'adminProducts.col.brand': "Brand",
@@ -481,6 +483,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.zeroDraftPurchasePricesDone':
     'Inkoopprijs op €0 gezet voor {total} conceptproduct(en) ({cleared} hadden een prijs > €0).',
   'admin.products.zeroDraftPurchasePricesFailed': "Inkoopprijs op nul zetten mislukt",
+  'adminProducts.col.featured': "1-1.club",
   'adminProducts.col.category': "Categorie",
   'adminProducts.col.brand': "Merk",
   'adminProducts.col.price': "Prijs",
@@ -586,6 +589,7 @@ const BY_LOCALE: Partial<Record<Locale, Partial<AdminMessages>>> = {
   'admin.products.bulkPublishFailed': "Massenveröffentlichung fehlgeschlagen",
   'admin.products.bulkEditFailed': "Massenbearbeitung fehlgeschlagen",
   'adminProducts.col.product': "Produkt",
+  'adminProducts.col.featured': "1-1.club",
   'adminProducts.col.category': "Kategorie",
   'adminProducts.col.brand': "Marke",
   'adminProducts.col.price': "Preis",

@@ -50,6 +50,7 @@ import DuplicateProductsModal, {
 import UnavailableSourcesScanModal from '@/components/admin/UnavailableSourcesScanModal'
 import ProductLabelPill from '@/components/admin/ProductLabelPill'
 import AdminProductSalePriceCell from '@/components/admin/AdminProductSalePriceCell'
+import FeaturedStarButton from '@/components/shop/FeaturedStarButton'
 import CatalogPagination from '@/components/shop/CatalogPagination'
 import PricelistTargetSelector, { useAdminPricelistTargetSlug } from '@/components/admin/PricelistTargetSelector'
 import { getCategoryPickerLabel, getTopCategoryLabel } from '@/lib/i18n-categories'
@@ -157,8 +158,9 @@ const adminProductsMoneyCol = 'whitespace-nowrap tabular-nums text-xs px-1'
 const adminProductsColgroup = (
   <colgroup>
     <col className="w-9" />
-    <col className="w-[24%]" />
-    <col className="w-[12%]" />
+    <col className="w-[22%]" />
+    <col className="w-11" />
+    <col className="w-[11%]" />
     <col className="w-[8%]" />
     <col className="w-[9%]" />
     <col className="w-[8%]" />
@@ -191,6 +193,16 @@ function AdminProductsTableColumnsHeader({
         />
       </AdminTh>
       <AdminTh>{tr('adminProducts.col.product')}</AdminTh>
+      <AdminTh className="px-1 text-center">
+        <span className="sr-only">{tr('adminProducts.col.featured')}</span>
+        <span
+          aria-hidden
+          title={tr('adminProducts.col.featured')}
+          className="text-[10px] font-semibold uppercase tracking-wide"
+        >
+          1-1
+        </span>
+      </AdminTh>
       <AdminTh className="px-2">{tr('adminProducts.col.sku')}</AdminTh>
       <AdminTh className="px-2">{tr('adminProducts.col.category')}</AdminTh>
       <AdminTh className="px-2">{tr('adminProducts.col.brand')}</AdminTh>
@@ -442,6 +454,10 @@ export default function AdminProductsPage() {
 
   const handleProductSalePriceSaved = useCallback((productId: string, price: number) => {
     setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, price } : p)))
+  }, [])
+
+  const handleProductFeaturedSaved = useCallback((productId: string, featured: boolean) => {
+    setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, featured } : p)))
   }, [])
 
   const adminHeaders = useMemo(
@@ -1540,6 +1556,17 @@ export default function AdminProductsPage() {
                       {p.name}
                     </Link>
                   </div>
+                </AdminTd>
+                <AdminTd className="px-1 align-middle text-center">
+                  <FeaturedStarButton
+                    productId={p.id}
+                    featured={Boolean(p.featured)}
+                    size="sm"
+                    variant="plain"
+                    onSaved={({ productId, featured }) =>
+                      handleProductFeaturedSaved(productId, featured)
+                    }
+                  />
                 </AdminTd>
                 <AdminTd className="px-2 align-top">
                   <span

@@ -18,6 +18,8 @@ type Props = {
   productId: string
   featured?: boolean
   size?: 'sm' | 'md'
+  /** overlay = shop card (dark circle); plain = admin table */
+  variant?: 'overlay' | 'plain'
   className?: string
   onSaved?: (saved: ProductFeaturedSaved) => void
 }
@@ -30,6 +32,7 @@ export default function FeaturedStarButton({
   productId,
   featured = false,
   size = 'md',
+  variant = 'overlay',
   className = '',
   onSaved,
 }: Props) {
@@ -47,6 +50,7 @@ export default function FeaturedStarButton({
 
   const iconClass = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6'
   const on = localFeatured
+  const plain = variant === 'plain'
 
   const stopCardGesture = (e: React.SyntheticEvent) => {
     e.stopPropagation()
@@ -86,9 +90,17 @@ export default function FeaturedStarButton({
     }
   }
 
+  const buttonClass = plain
+    ? on
+      ? `rounded-md p-1 text-amber-500 hover:text-amber-600 transition-colors disabled:opacity-50 touch-manipulation ${className}`
+      : `rounded-md p-1 text-gray-400 hover:text-amber-500 dark:text-gray-500 dark:hover:text-amber-400 transition-colors disabled:opacity-50 touch-manipulation ${className}`
+    : on
+      ? `rounded-full p-1.5 bg-black hover:bg-black text-white transition-colors disabled:opacity-50 touch-manipulation ${className}`
+      : `rounded-full p-1.5 bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-50 touch-manipulation ${className}`
+
   return (
     <div
-      className="relative"
+      className="relative inline-flex"
       data-no-reorder
       onPointerDown={stopCardGesture}
       onTouchStart={stopCardGesture}
@@ -99,11 +111,7 @@ export default function FeaturedStarButton({
         onPointerDown={stopCardGesture}
         onTouchStart={stopCardGesture}
         disabled={busy}
-        className={
-          on
-            ? `rounded-full p-1.5 bg-black hover:bg-black text-white transition-colors disabled:opacity-50 touch-manipulation ${className}`
-            : `rounded-full p-1.5 bg-black/50 hover:bg-black/70 text-white transition-colors disabled:opacity-50 touch-manipulation ${className}`
-        }
+        className={buttonClass}
         aria-label={on ? t('product.featured.clearAria') : t('product.featured.setAria')}
         title={
           error
@@ -122,7 +130,7 @@ export default function FeaturedStarButton({
         )}
       </button>
       {error ? (
-        <span className="pointer-events-none absolute bottom-full right-0 mb-1 max-w-[11rem] rounded bg-red-600 px-2 py-1 text-[10px] font-medium leading-tight text-white shadow-lg">
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 w-max max-w-[11rem] -translate-x-1/2 rounded bg-red-600 px-2 py-1 text-[10px] font-medium leading-tight text-white shadow-lg">
           {error}
         </span>
       ) : null}
