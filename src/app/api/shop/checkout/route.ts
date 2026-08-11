@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
     const cancelUrl = `${origin}${appPath('/checkout')}?canceled=1`
 
     const stripe = getStripe()
+    // Omit payment_method_types so Stripe Checkout uses methods enabled in the Dashboard
+    // (hardcoding paypal/ideal fails when those are not activated for the account).
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
       customer_email: email,
@@ -83,7 +85,6 @@ export async function POST(request: NextRequest) {
         orderNumber: order.orderNumber,
         storeMode,
       },
-      payment_method_types: ['card', 'ideal', 'bancontact', 'paypal'],
       billing_address_collection: 'required',
       shipping_address_collection: {
         allowed_countries: [
@@ -138,6 +139,18 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('[shop/checkout]', error)
-    return NextResponse.json({ error: 'Failed to start checkout' }, { status: 500 })
+    const stripeMessage =
+      error &&
+      typeof error === 'object' &&
+      'type' in error &&
+      (error as { type?: string }).type?.startsWith('Stripe') &&
+      'message' in error &&
+      typeof (error as { message?: unknown }).message === 'string'
+        ? String((error as { message: string }).message)
+        : null
+    return NextResponse.json(
+      { error: stripeMessage || 'Failed to start checkout' },
+      { status: 500 }
+    )
   }
 }
