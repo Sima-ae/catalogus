@@ -21,7 +21,7 @@ import { catalogDetailImageSrc, shouldUnoptimizeProductImage } from '@/lib/produ
 import ProductImageWatermark from '@/components/shop/ProductImageWatermark'
 import ProductRibbon from '@/components/shop/ProductRibbon'
 import ProductNewBadge from '@/components/shop/ProductNewBadge'
-import { useCatalogMode } from '@/lib/catalog-mode-context'
+import { useShopCommerce } from '@/hooks/use-shop-commerce'
 import { useAuth } from '@/lib/auth-local'
 import ProductEditModal from '@/components/admin/ProductEditModal'
 import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
@@ -96,7 +96,10 @@ export default function ProductPageClient() {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [headerSearch, setHeaderSearch] = useState('')
   const { mobileOpen, open, close } = useMobileSidebar()
-  const { catalogMode } = useCatalogMode()
+  const unitPriceForCommerce = shopProductHasOptions(product?.productOptions ?? null)
+    ? displayPrices.price
+    : (product?.price ?? 0)
+  const { showAddToCart, checkoutAllowed } = useShopCommerce(unitPriceForCommerce)
   const { isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
   const canEditProduct = !authLoading && (isAdmin || isSuperAdmin)
   const [editOpen, setEditOpen] = useState(false)
@@ -350,7 +353,7 @@ export default function ProductPageClient() {
   }
 
   const handleAddToCart = async () => {
-    if (!product) return
+    if (!product || !showAddToCart) return
 
     const hasOptions = shopProductHasOptions(product.productOptions)
     const needsOptions = hasOptions && !allOptionsSelected(shopProductOptions, selectedOptions)
@@ -803,7 +806,7 @@ export default function ProductPageClient() {
                 <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
                   {t('product.reviewsCount', { count: product.reviewCount })}
                 </span>
-                {!catalogMode && (
+                {checkoutAllowed && (
                   <>
                     <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>•</span>
                     <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
@@ -890,7 +893,7 @@ export default function ProductPageClient() {
               </div>
             ) : null}
 
-            {!catalogMode && (
+            {checkoutAllowed && (
             <div className="grid grid-cols-2 gap-4">
               <div className={`rounded-lg p-4 border ${
                 theme === 'dark'
@@ -949,7 +952,7 @@ export default function ProductPageClient() {
             </div>
 
             {/* Size, license, and cart */}
-            {!catalogMode && (
+            {showAddToCart && (
             <div className={`rounded-lg p-6 border ${
               theme === 'dark' 
                 ? 'bg-dark-800 border-dark-700' 

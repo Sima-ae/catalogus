@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCart } from '@/lib/cart'
-import { useCatalogMode } from '@/lib/catalog-mode-context'
+import { useShopCommerce } from '@/hooks/use-shop-commerce'
 import { useTheme } from '@/lib/theme'
 import { appPath } from '@/lib/paths'
 
@@ -18,11 +18,11 @@ export default function ShopCartHeaderButton({
   className,
   title = 'Shopping Cart',
 }: Props) {
-  const { catalogMode } = useCatalogMode()
+  const { checkoutAllowed } = useShopCommerce()
   const { state: cartState } = useCart()
   const { theme } = useTheme()
 
-  if (catalogMode) return null
+  if (!checkoutAllowed) return null
 
   const count = badgeCount ?? cartState.itemCount
   const isDark = theme === 'dark'

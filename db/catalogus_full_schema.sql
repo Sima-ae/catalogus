@@ -429,6 +429,7 @@ CREATE TABLE IF NOT EXISTS orders (
   currency VARCHAR(8) NULL DEFAULT 'EUR',
   payment_method VARCHAR(64) NULL,
   payment_status VARCHAR(32) NULL,
+  stripe_session_id VARCHAR(255) NULL,
   status VARCHAR(32) NOT NULL DEFAULT 'pending',
   tracking_number VARCHAR(255) NULL,
   notes TEXT NULL,
@@ -437,6 +438,7 @@ CREATE TABLE IF NOT EXISTS orders (
   PRIMARY KEY (id),
   KEY idx_orders_customer_id (customer_id),
   KEY idx_orders_created_at (created_at),
+  UNIQUE KEY uq_orders_stripe_session_id (stripe_session_id),
   CONSTRAINT fk_orders_customer
     FOREIGN KEY (customer_id) REFERENCES user_profiles(id)
     ON DELETE SET NULL

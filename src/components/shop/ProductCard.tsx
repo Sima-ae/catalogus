@@ -7,8 +7,8 @@ import { Product } from '@/lib/types'
 import { saveCatalogNavState } from '@/lib/catalog-scroll-restore'
 import { catalogListingKey, isShopCatalogPath, parseCatalogPageParam } from '@/lib/shop-catalog-url'
 import { useLocalizedPath } from '@/lib/use-localized-path'
-import { useCatalogMode } from '@/lib/catalog-mode-context'
 import { useProductCardDisplay } from '@/lib/product-card-display-context'
+import { useShopCommerce } from '@/hooks/use-shop-commerce'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import AskPriceButton from '@/components/shop/AskPriceButton'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
@@ -70,7 +70,6 @@ function ProductCard({
   const localizedPath = useLocalizedPath()
   const { addItem, isInCart, getItemQuantity } = useCart()
   const { theme } = useTheme()
-  const { catalogMode } = useCatalogMode()
   const { showCardDetails: cardDetailsSetting } = useProductCardDisplay()
   const { user, isAdmin, loading: authLoading } = useAuth()
   const showCardDetails =
@@ -102,11 +101,14 @@ function ProductCard({
   const singleFixedOption = isSingleFixedProductOption(product.product_options)
   const { selected: selectedOptions, setSelected: setSelectedOptions, displayPrices } =
     useProductOptionSelection(product.price, product.original_price, shopProductOptions)
+  const unitPrice = hasOptions ? displayPrices.price : product.price
+  const { showAddToCart } = useShopCommerce(unitPrice)
   const productOptionKey = hasOptions
     ? Object.values(selectedOptions).filter(Boolean).join('|')
     : undefined
-  
+
   const handleAddToCart = async () => {
+    if (!showAddToCart) return
     if (hasOptions && !allOptionsSelected(shopProductOptions, selectedOptions)) {
       setOptionError(t('product.select.options'))
       return
@@ -344,8 +346,14 @@ function ProductCard({
             />
           ) : null}
         </div>
-        {!catalogMode ? (
+        </div>
+        ) : null}
+
+        {showAddToCart ? (
           <div className="pt-1">
+            {optionError && !showCardDetails ? (
+              <p className="text-red-500 text-xs mb-1">{optionError}</p>
+            ) : null}
             {inCart ? (
               <button
                 type="button"
@@ -366,8 +374,6 @@ function ProductCard({
               </button>
             )}
           </div>
-        ) : null}
-        </div>
         ) : null}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react'
 import { CART_STORAGE_KEY, LEGACY_CART_STORAGE_KEY } from '@/lib/brand'
+import { productIsPurchasable } from '@/lib/shop-commerce'
 
 export interface CartItem {
   id: string
@@ -42,6 +43,25 @@ function normalizeCartItem(item: CartItem): CartItem {
   }
 }
 
+/** Drop zero-price / invalid lines — cart is for Stripe-purchasable items only. */
+function filterPurchasableItems(items: CartItem[]): CartItem[] {
+  return items
+    .map((item) => normalizeCartItem(item))
+    .filter(
+      (item) =>
+        productIsPurchasable(item.price) &&
+        Number.isFinite(item.quantity) &&
+        item.quantity > 0
+    )
+}
+
+function totalsFromItems(items: CartItem[]): Pick<CartState, 'total' | 'itemCount'> {
+  return {
+    total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+  }
+}
+
 interface CartState {
   items: CartItem[]
   total: number
@@ -65,93 +85,48 @@ function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case 'ADD_ITEM': {
       const line = normalizeCartItem(action.payload as CartItem)
-      const existingItem = state.items.find(item => item.id === line.id)
-      
+      if (!productIsPurchasable(line.price)) {
+        return state
+      }
+      const existingItem = state.items.find((item) => item.id === line.id)
+
       if (existingItem) {
-        // Update quantity if item already exists
-        const updatedItems = state.items.map(item =>
+        const updatedItems = state.items.map((item) =>
           item.id === line.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
-        
-        const newTotal = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-        const newItemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0)
-        
-        return {
-          ...state,
-          items: updatedItems,
-          total: newTotal,
-          itemCount: newItemCount,
-        }
-      } else {
-        // Add new item
-        const newItem = { ...line, quantity: 1 }
-        const newItems = [...state.items, newItem]
-        const newTotal = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-        const newItemCount = newItems.reduce((sum, item) => sum + item.quantity, 0)
-        
-        return {
-          ...state,
-          items: newItems,
-          total: newTotal,
-          itemCount: newItemCount,
-        }
+        return { ...state, items: updatedItems, ...totalsFromItems(updatedItems) }
       }
-    }
-    
-    case 'REMOVE_ITEM': {
-      const updatedItems = state.items.filter(item => item.id !== action.payload)
-      const newTotal = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const newItemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0)
-      
-      return {
-        ...state,
-        items: updatedItems,
-        total: newTotal,
-        itemCount: newItemCount,
-      }
-    }
-    
-    case 'UPDATE_QUANTITY': {
-      const updatedItems = state.items.map(item =>
-        item.id === action.payload.id
-          ? { ...item, quantity: Math.max(0, action.payload.quantity) }
-          : item
-      ).filter(item => item.quantity > 0) // Remove items with 0 quantity
-      
-      const newTotal = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const newItemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0)
-      
-      return {
-        ...state,
-        items: updatedItems,
-        total: newTotal,
-        itemCount: newItemCount,
-      }
-    }
-    
-    case 'CLEAR_CART':
-      return {
-        ...state,
-        items: [],
-        total: 0,
-        itemCount: 0,
-      }
-    
-    case 'LOAD_CART': {
-      const items = action.payload.map((item) => normalizeCartItem(item))
-      const newTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-      const newItemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
-      return {
-        ...state,
-        items,
-        total: newTotal,
-        itemCount: newItemCount,
-      }
+      const newItems = [...state.items, { ...line, quantity: 1 }]
+      return { ...state, items: newItems, ...totalsFromItems(newItems) }
     }
-    
+
+    case 'REMOVE_ITEM': {
+      const updatedItems = state.items.filter((item) => item.id !== action.payload)
+      return { ...state, items: updatedItems, ...totalsFromItems(updatedItems) }
+    }
+
+    case 'UPDATE_QUANTITY': {
+      const updatedItems = state.items
+        .map((item) =>
+          item.id === action.payload.id
+            ? { ...item, quantity: Math.max(0, action.payload.quantity) }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+      return { ...state, items: updatedItems, ...totalsFromItems(updatedItems) }
+    }
+
+    case 'CLEAR_CART':
+      return { ...state, items: [], total: 0, itemCount: 0 }
+
+    case 'LOAD_CART': {
+      const items = filterPurchasableItems(action.payload)
+      return { ...state, items, ...totalsFromItems(items) }
+    }
+
     default:
       return state
   }
@@ -163,8 +138,14 @@ interface CartContextType {
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
   clearCart: () => void
-  isInCart: (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => boolean
-  getItemQuantity: (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => number
+  isInCart: (
+    productId: string,
+    opts?: { size?: string; color?: string; product_option?: string }
+  ) => boolean
+  getItemQuantity: (
+    productId: string,
+    opts?: { size?: string; color?: string; product_option?: string }
+  ) => number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -173,7 +154,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, initialState)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Load cart from localStorage on mount
   useEffect(() => {
     try {
       const savedCart =
@@ -189,7 +169,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Save cart to localStorage whenever state changes
   useEffect(() => {
     if (isInitialized) {
       try {
@@ -200,9 +179,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [state.items, isInitialized])
 
-  const addItem = (item: Omit<CartItem, 'quantity' | 'id'> & { id?: string; productId?: string }) => {
+  const addItem = (
+    item: Omit<CartItem, 'quantity' | 'id'> & { id?: string; productId?: string }
+  ) => {
     const productId = item.productId || item.id
     if (!productId) return
+    if (!productIsPurchasable(item.price)) return
     const line = normalizeCartItem({
       ...item,
       id: item.id || productId,
@@ -222,7 +204,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     dispatch({ type: 'CLEAR_CART' })
-    // Also clear from localStorage
     try {
       localStorage.removeItem(CART_STORAGE_KEY)
       localStorage.removeItem(LEGACY_CART_STORAGE_KEY)
@@ -231,27 +212,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const isInCart = (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => {
+  const isInCart = (
+    productId: string,
+    opts?: { size?: string; color?: string; product_option?: string }
+  ) => {
     const lineId = buildCartLineId(productId, opts?.size, opts?.color, opts?.product_option)
-    return state.items.some(item => item.id === lineId)
+    return state.items.some((item) => item.id === lineId)
   }
 
-  const getItemQuantity = (productId: string, opts?: { size?: string; color?: string; product_option?: string }) => {
+  const getItemQuantity = (
+    productId: string,
+    opts?: { size?: string; color?: string; product_option?: string }
+  ) => {
     const lineId = buildCartLineId(productId, opts?.size, opts?.color, opts?.product_option)
-    const item = state.items.find(item => item.id === lineId)
+    const item = state.items.find((row) => row.id === lineId)
     return item ? item.quantity : 0
   }
 
   return (
-    <CartContext.Provider value={{
-      state,
-      addItem,
-      removeItem,
-      updateQuantity,
-      clearCart,
-      isInCart,
-      getItemQuantity,
-    }}>
+    <CartContext.Provider
+      value={{
+        state,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+        isInCart,
+        getItemQuantity,
+      }}
+    >
       {children}
     </CartContext.Provider>
   )

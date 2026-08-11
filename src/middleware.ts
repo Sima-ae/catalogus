@@ -169,7 +169,11 @@ function isChatApi(pathname: string): boolean {
 }
 
 function isPublicApi(pathname: string): boolean {
-  return pathname === '/api/health/db'
+  return (
+    pathname === '/api/health/db' ||
+    pathname === '/api/shop/webhook' ||
+    pathname.startsWith('/api/shop/webhook/')
+  )
 }
 
 function clientIp(request: NextRequest): string {

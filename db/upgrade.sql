@@ -740,3 +740,11 @@ ALTER TABLE site_ticker_messages
 
 ALTER TABLE site_ticker_messages
   ADD INDEX IF NOT EXISTS idx_site_ticker_scope_active_sort (store_scope, is_active, sort_order);
+
+-- Stripe Checkout Session id for shop orders (webhook reconciliation)
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS stripe_session_id VARCHAR(255) NULL AFTER payment_status;
+
+ALTER TABLE orders
+  ADD UNIQUE INDEX IF NOT EXISTS uq_orders_stripe_session_id (stripe_session_id);
+
