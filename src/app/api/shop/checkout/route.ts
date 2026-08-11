@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 
 type CheckoutBody = {
   items?: { productId?: string; quantity?: number }[]
-  customer?: { name?: string; email?: string; phone?: string }
+  customer?: { name?: string; email?: string; phone?: string; company?: string }
 }
 
 function isValidEmail(email: string): boolean {
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     const name = String(body?.customer?.name ?? '').trim()
     const email = String(body?.customer?.email ?? '').trim().toLowerCase()
     const phone = String(body?.customer?.phone ?? '').trim() || undefined
+    const company = String(body?.customer?.company ?? '').trim() || undefined
     const rawItems = Array.isArray(body?.items) ? body!.items! : []
 
     if (name.length < 2 || name.length > 120) {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const order = await createPendingShopOrder({
-      customer: { name, email, phone },
+      customer: { name, email, phone, company },
       lines: resolved.lines,
       subtotal: resolved.subtotal,
       storeMode,

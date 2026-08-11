@@ -48,7 +48,7 @@ export default function Header() {
             <Squares2X2Icon className="w-6 h-6" />
           </button>
           
-          <ShopCartHeaderButton className="relative p-2 rounded-lg hover:bg-dark-700 transition-colors text-gray-100" />
+          <ShopCartHeaderButton />
           
           <Link href="/seller" className="btn-primary">
             Become a seller

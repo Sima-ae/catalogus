@@ -1,64 +1,92 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Sidebar, { SidebarMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
-import { ArrowLeftIcon, CreditCardIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { QuantityStepper } from '@/components/shop/QuantityStepper'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
 import { useAuth } from '@/lib/auth-local'
+import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
-import { formatPrice } from '@/lib/format-price'
 import { productIsPurchasable } from '@/lib/shop-commerce'
+import { formatShopEuro, splitInclusiveVat } from '@/lib/shop-vat'
 import { useCatalogModeRedirect } from '@/lib/use-catalog-mode-redirect'
 
 function CheckoutPageInner() {
   const { blocked } = useCatalogModeRedirect()
-  const { state: cartState } = useCart()
+  const { state: cartState, removeItem, updateQuantity } = useCart()
   const { theme } = useTheme()
   const { user } = useAuth()
+  const { locale } = useI18n()
   const searchParams = useSearchParams()
   const { mobileOpen, open, close } = useMobileSidebar()
+  const isDark = theme === 'dark'
+  const nl = locale === 'nl'
   const canceled = searchParams.get('canceled') === '1'
 
-  const purchasableItems = useMemo(
+  const items = useMemo(
     () => cartState.items.filter((item) => productIsPurchasable(item.price)),
     [cartState.items]
   )
-  const cartTotal = useMemo(
-    () => purchasableItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [purchasableItems]
+  const totalIncl = useMemo(
+    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [items]
   )
+  const euros = splitInclusiveVat(totalIncl)
 
-  const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    email: user?.email || '',
-    phone: '',
-  })
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState(user?.email || '')
+  const [company, setCompany] = useState('')
+  const [phone, setPhone] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stripeReady, setStripeReady] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (user?.email) {
-      setCustomerInfo((prev) => ({ ...prev, email: user.email || prev.email }))
-    }
+    if (user?.email) setEmail(user.email)
   }, [user?.email])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(appPath('/api/shop/status'))
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setStripeReady(Boolean(data?.ready))
+      })
+      .catch(() => {
+        if (!cancelled) setStripeReady(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (blocked) return null
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setCustomerInfo((prev) => ({ ...prev, [name]: value }))
-  }
+  const pageBg = isDark ? 'bg-dark-900' : 'bg-gray-50'
+  const card =
+    isDark
+      ? 'rounded-2xl border border-dark-700/70 bg-dark-800/60'
+      : 'rounded-2xl border border-gray-200/80 bg-white/80'
+  const aside =
+    isDark
+      ? 'h-fit space-y-4 rounded-2xl border border-dark-700/70 bg-dark-800/40 p-6'
+      : 'h-fit space-y-4 rounded-2xl border border-gray-200/80 bg-gray-100/50 p-6'
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500'
+  const text = isDark ? 'text-white' : 'text-gray-900'
+  const inputClass = `h-11 w-full rounded-xl border px-3 outline-none transition focus:border-primary-500 ${
+    isDark
+      ? 'border-dark-600 bg-dark-900 text-white'
+      : 'border-gray-200 bg-white text-gray-900'
+  }`
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!purchasableItems.length || isSubmitting) return
-
+    if (!items.length || isSubmitting || stripeReady === false) return
     setIsSubmitting(true)
     setError(null)
     try {
@@ -67,11 +95,12 @@ function CheckoutPageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer: {
-            name: customerInfo.name.trim(),
-            email: customerInfo.email.trim(),
-            phone: customerInfo.phone.trim() || undefined,
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone.trim() || undefined,
+            company: company.trim() || undefined,
           },
-          items: purchasableItems.map((item) => ({
+          items: items.map((item) => ({
             productId: item.productId || item.id.split('::')[0],
             quantity: item.quantity,
           })),
@@ -79,288 +108,236 @@ function CheckoutPageInner() {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok || !data?.url) {
-        throw new Error(data?.error || 'Failed to start checkout')
+        throw new Error(data?.error || (nl ? 'Afrekenen mislukt' : 'Failed to start checkout'))
       }
       window.location.href = String(data.url)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start checkout')
+      setError(err instanceof Error ? err.message : nl ? 'Afrekenen mislukt' : 'Failed to start checkout')
       setIsSubmitting(false)
     }
   }
 
-  if (purchasableItems.length === 0) {
-    return (
-      <div
-        className={`flex min-h-screen transition-colors duration-200 ${
-          theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-        } overflow-x-hidden`}
+  const emptyState = (
+    <div className={`${aside} p-10 text-center`}>
+      <p className={muted}>{nl ? 'Uw winkelwagen is leeg.' : 'Your cart is empty.'}</p>
+      <Link
+        href={appPath('/')}
+        className="btn-primary mt-6 inline-flex rounded-2xl px-5 py-2.5 text-sm font-medium"
       >
-        <Sidebar open={mobileOpen} onClose={close} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <AppStickyHeader
-            title="Checkout"
-            showSocialProof
-            leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
-            actions={<ShopHeroHeaderActions />}
-          />
-          <main
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
-              theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-            }`}
-          >
-            <div className="text-center px-4">
-              <h2
-                className={`text-2xl font-bold mb-2 transition-colors ${
-                  theme === 'dark' ? 'text-white' : 'text-gray-900'
-                }`}
-              >
-                Your cart is empty
-              </h2>
-              <p
-                className={`mb-6 transition-colors ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                }`}
-              >
-                Add priced products to your cart before checking out.
-              </p>
-              <Link href="/" className="btn-primary inline-flex items-center space-x-2">
-                <ArrowLeftIcon className="w-5 h-5" />
-                <span>Continue Shopping</span>
-              </Link>
-            </div>
-          </main>
-        </div>
+        {nl ? 'Verder winkelen' : 'Continue shopping'}
+      </Link>
+    </div>
+  )
+
+  const summaryLines = (
+    <ul className="space-y-4">
+      {items.map((item) => (
+        <li
+          key={item.id}
+          className={`space-y-2 border-b pb-4 last:border-0 ${
+            isDark ? 'border-dark-600/60' : 'border-gray-200/70'
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <p className={`text-sm font-medium leading-snug ${text}`}>{item.name}</p>
+            <button
+              type="button"
+              onClick={() => removeItem(item.id)}
+              className={`shrink-0 text-xs underline-offset-2 hover:underline ${muted}`}
+            >
+              {nl ? 'Verwijderen' : 'Remove'}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <QuantityStepper
+              value={item.quantity}
+              onChange={(next) => updateQuantity(item.id, next)}
+            />
+            <span className={`text-sm font-semibold ${text}`}>
+              {formatShopEuro(item.price * item.quantity, locale)}
+            </span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+
+  const totalsDl = (
+    <dl
+      className={`space-y-2 border-t pt-4 text-sm ${
+        isDark ? 'border-dark-600' : 'border-gray-200'
+      }`}
+    >
+      <div className="flex justify-between gap-4">
+        <dt className={muted}>{nl ? 'Subtotaal excl. BTW' : 'Subtotal excl. VAT'}</dt>
+        <dd className={text}>{formatShopEuro(euros.excl, locale)}</dd>
       </div>
-    )
-  }
+      <div className="flex justify-between gap-4">
+        <dt className={muted}>{nl ? 'BTW 21%' : 'VAT 21%'}</dt>
+        <dd className={text}>{formatShopEuro(euros.vat, locale)}</dd>
+      </div>
+      <div className="flex justify-between gap-4 text-base font-semibold">
+        <dt className={text}>{nl ? 'Totaal incl. BTW' : 'Total incl. VAT'}</dt>
+        <dd className={text}>{formatShopEuro(euros.incl, locale)}</dd>
+      </div>
+    </dl>
+  )
 
   return (
-    <div
-      className={`flex min-h-screen transition-colors duration-200 ${
-        theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-      } overflow-x-hidden`}
-    >
+    <div className={`flex min-h-screen overflow-x-hidden transition-colors duration-200 ${pageBg}`}>
       <Sidebar open={mobileOpen} onClose={close} />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <AppStickyHeader
-          title="Checkout"
+          title={nl ? 'Afrekenen' : 'Checkout'}
           showSocialProof
-          leading={
-            <>
-              <SidebarMenuButton open={mobileOpen} onOpen={open} />
-              <Link
-                href="/cart"
-                className={`transition-colors shrink-0 ${
-                  theme === 'dark'
-                    ? 'text-gray-400 hover:text-white'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <ArrowLeftIcon className="w-6 h-6" />
-              </Link>
-            </>
-          }
+          leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
           actions={<ShopHeroHeaderActions />}
         />
 
-        <main
-          className={`flex-1 p-4 sm:p-6 overflow-x-hidden transition-colors duration-200 ${
-            theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-          }`}
-        >
-          <div className="max-w-6xl mx-auto">
+        <main className={`flex-1 transition-colors duration-200 ${pageBg}`}>
+          <div className="mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-14">
+            <h1 className={`text-3xl font-semibold tracking-tight md:text-4xl ${text}`}>
+              {nl ? 'Afrekenen' : 'Checkout'}
+            </h1>
+            <p className={`mt-2 max-w-2xl ${muted}`}>
+              {nl
+                ? 'Een account aanmaken is niet verplicht. Vul uw gegevens in en betaal veilig online via Stripe.'
+                : 'Creating an account is not required. Enter your details and pay securely online via Stripe.'}
+            </p>
+
             {canceled ? (
               <div
-                className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-                  theme === 'dark'
+                className={`mt-6 rounded-xl border px-4 py-3 text-sm ${
+                  isDark
                     ? 'border-amber-700/50 bg-amber-950/40 text-amber-200'
                     : 'border-amber-200 bg-amber-50 text-amber-800'
                 }`}
               >
-                Payment was canceled. You can try again when ready.
+                {nl
+                  ? 'Betaling geannuleerd. U kunt het opnieuw proberen wanneer u klaar bent.'
+                  : 'Payment was canceled. You can try again when ready.'}
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <form onSubmit={handlePay} className="space-y-6">
-                <div
-                  className={`rounded-lg p-6 border transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-dark-800 border-dark-700'
-                      : 'bg-white border-gray-200'
-                  }`}
+            <div className="mt-8">
+              {items.length === 0 ? (
+                emptyState
+              ) : (
+                <form
+                  onSubmit={handlePay}
+                  className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]"
                 >
-                  <h2
-                    className={`text-xl font-semibold mb-4 transition-colors ${
-                      theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}
-                  >
-                    Contact details
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${
-                          theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                        }`}
-                      >
-                        Full name *
+                  <div className="space-y-6">
+                    <div className={`space-y-4 p-6 ${card}`}>
+                      <h2 className={`text-xl font-semibold ${text}`}>
+                        {nl ? 'Uw gegevens' : 'Your details'}
+                      </h2>
+                      <p className={`text-sm ${muted}`}>
+                        {nl
+                          ? 'Wij gebruiken alle gegevens uitsluitend voor bevestiging en de factuur.'
+                          : 'We use your details only for confirmation and the invoice.'}
+                      </p>
+                      <label className="block space-y-1.5 text-sm">
+                        <span className={text}>{nl ? 'Naam' : 'Name'}</span>
+                        <input
+                          required
+                          minLength={2}
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className={inputClass}
+                          autoComplete="name"
+                        />
                       </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={customerInfo.name}
-                        onChange={handleInputChange}
-                        required
-                        minLength={2}
-                        className={`w-full px-3 py-2 rounded-lg border transition-colors ${
-                          theme === 'dark'
-                            ? 'bg-dark-700 border-dark-600 text-white focus:border-primary-500'
-                            : 'bg-white border-gray-300 text-gray-900 focus:border-primary-500'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${
-                          theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                        }`}
-                      >
-                        Email *
+                      <label className="block space-y-1.5 text-sm">
+                        <span className={text}>E-mail</span>
+                        <input
+                          required
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={inputClass}
+                          autoComplete="email"
+                        />
                       </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={customerInfo.email}
-                        onChange={handleInputChange}
-                        required
-                        className={`w-full px-3 py-2 rounded-lg border transition-colors ${
-                          theme === 'dark'
-                            ? 'bg-dark-700 border-dark-600 text-white focus:border-primary-500'
-                            : 'bg-white border-gray-300 text-gray-900 focus:border-primary-500'
-                        }`}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        className={`block text-sm font-medium mb-2 ${
-                          theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
-                        }`}
-                      >
-                        Phone (optional)
+                      <label className="block space-y-1.5 text-sm">
+                        <span className={text}>
+                          {nl ? 'Bedrijf (optioneel)' : 'Company (optional)'}
+                        </span>
+                        <input
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                          className={inputClass}
+                          autoComplete="organization"
+                        />
                       </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={customerInfo.phone}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 rounded-lg border transition-colors ${
-                          theme === 'dark'
-                            ? 'bg-dark-700 border-dark-600 text-white focus:border-primary-500'
-                            : 'bg-white border-gray-300 text-gray-900 focus:border-primary-500'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className={`rounded-lg p-6 border transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-dark-800 border-dark-700'
-                      : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-start gap-3 mb-4">
-                    <ShieldCheckIcon className="w-6 h-6 text-primary-500 shrink-0" />
-                    <p
-                      className={`text-sm ${
-                        theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                      }`}
-                    >
-                      You will complete payment securely on Stripe. Shipping address is collected
-                      there.
-                    </p>
-                  </div>
-                  {error ? <p className="text-red-500 text-sm mb-3">{error}</p> : null}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full btn-primary py-3 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-                  >
-                    <CreditCardIcon className="w-5 h-5" />
-                    {isSubmitting ? 'Redirecting…' : `Pay ${formatPrice(cartTotal)} with Stripe`}
-                  </button>
-                </div>
-              </form>
-
-              <div>
-                <div
-                  className={`rounded-lg p-6 border sticky top-28 lg:top-32 transition-colors ${
-                    theme === 'dark'
-                      ? 'bg-dark-800 border-dark-700'
-                      : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <h2
-                    className={`text-xl font-bold mb-4 transition-colors ${
-                      theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}
-                  >
-                    Order summary
-                  </h2>
-                  <ul className="space-y-4 mb-6">
-                    {purchasableItems.map((item) => (
-                      <li key={item.id} className="flex gap-3">
-                        <div className="relative w-16 h-16 rounded-md overflow-hidden bg-gray-100 shrink-0">
-                          {item.image_url ? (
-                            <Image
-                              src={item.image_url}
-                              alt={item.name}
-                              fill
-                              className="object-contain"
-                              sizes="64px"
-                            />
-                          ) : null}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className={`text-sm font-medium line-clamp-2 ${
-                              theme === 'dark' ? 'text-white' : 'text-gray-900'
-                            }`}
-                          >
-                            {item.name}
-                          </p>
-                          <p
-                            className={`text-xs ${
-                              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                            }`}
-                          >
-                            Qty {item.quantity} · {formatPrice(item.price)}
-                          </p>
-                        </div>
-                        <span
-                          className={`text-sm font-medium shrink-0 ${
-                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                      <label className="block space-y-1.5 text-sm">
+                        <span className={text}>
+                          {nl ? 'Telefoon (optioneel)' : 'Phone (optional)'}
+                        </span>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className={inputClass}
+                          autoComplete="tel"
+                        />
+                      </label>
+                      {error ? <p className="text-sm text-red-500">{error}</p> : null}
+                      {stripeReady === false ? (
+                        <p
+                          className={`rounded-xl border px-3 py-2 text-sm ${
+                            isDark
+                              ? 'border-amber-700/40 bg-amber-950/30 text-amber-200'
+                              : 'border-amber-200 bg-amber-50 text-amber-800'
                           }`}
                         >
-                          {formatPrice(item.price * item.quantity)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div
-                    className={`border-t pt-3 flex justify-between text-lg font-bold ${
-                      theme === 'dark'
-                        ? 'border-dark-600 text-white'
-                        : 'border-gray-300 text-gray-900'
-                    }`}
-                  >
-                    <span>Total</span>
-                    <span>{formatPrice(cartTotal)}</span>
+                          {nl
+                            ? 'Betalen is tijdelijk niet beschikbaar.'
+                            : 'Payments are temporarily unavailable.'}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className={`space-y-3 p-6 lg:hidden ${card}`}>
+                      <h2 className={`text-lg font-semibold ${text}`}>
+                        {nl ? 'Overzicht' : 'Order summary'}
+                      </h2>
+                      {summaryLines}
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  <aside className={aside}>
+                    <h2 className={`text-xl font-semibold ${text}`}>
+                      {nl ? 'Overzicht' : 'Order summary'}
+                    </h2>
+                    <div className="hidden lg:block">{summaryLines}</div>
+                    {totalsDl}
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || stripeReady === false}
+                      className="btn-primary mt-2 flex w-full items-center justify-center rounded-2xl py-3 text-base font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isSubmitting
+                        ? nl
+                          ? 'Doorsturen…'
+                          : 'Redirecting…'
+                        : nl
+                          ? 'Betalen'
+                          : 'Pay'}
+                    </button>
+                    <Link
+                      href={appPath('/cart')}
+                      className={`flex w-full items-center justify-center rounded-xl py-2.5 text-sm font-medium transition ${
+                        isDark
+                          ? 'text-gray-300 hover:bg-dark-700 hover:text-white'
+                          : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                      }`}
+                    >
+                      {nl ? 'Terug naar winkelwagen' : 'Back to shopping cart'}
+                    </Link>
+                  </aside>
+                </form>
+              )}
             </div>
           </div>
         </main>

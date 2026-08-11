@@ -5,16 +5,21 @@ import Link from 'next/link'
 import Sidebar, { SidebarMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
 import AppStickyHeader from '@/components/layout/AppStickyHeader'
 import ShopHeroHeaderActions from '@/components/shop/ShopHeroHeaderActions'
-import { ArrowLeftIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { ShieldCheckIcon } from '@heroicons/react/24/outline'
 import { useCart } from '@/lib/cart'
 import { useTheme } from '@/lib/theme'
+import { useI18n } from '@/lib/i18n-context'
 import { useCatalogModeRedirect } from '@/lib/use-catalog-mode-redirect'
+import { appPath } from '@/lib/paths'
 
 export default function CheckoutSuccessPage() {
   const { blocked } = useCatalogModeRedirect()
   const { clearCart } = useCart()
   const { theme } = useTheme()
+  const { locale } = useI18n()
   const { mobileOpen, open, close } = useMobileSidebar()
+  const isDark = theme === 'dark'
+  const nl = locale === 'nl'
 
   useEffect(() => {
     clearCart()
@@ -22,50 +27,48 @@ export default function CheckoutSuccessPage() {
 
   if (blocked) return null
 
+  const pageBg = isDark ? 'bg-dark-900' : 'bg-gray-50'
+  const text = isDark ? 'text-white' : 'text-gray-900'
+  const muted = isDark ? 'text-gray-400' : 'text-gray-500'
+
   return (
-    <div
-      className={`flex min-h-screen transition-colors duration-200 ${
-        theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-      } overflow-x-hidden`}
-    >
+    <div className={`flex min-h-screen overflow-x-hidden transition-colors duration-200 ${pageBg}`}>
       <Sidebar open={mobileOpen} onClose={close} />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <AppStickyHeader
-          title="Checkout"
+          title={nl ? 'Afrekenen' : 'Checkout'}
           showSocialProof
           leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
           actions={<ShopHeroHeaderActions />}
         />
-        <main
-          className={`flex-1 flex items-center justify-center p-4 transition-colors duration-200 ${
-            theme === 'dark' ? 'bg-dark-900' : 'bg-gray-50'
-          }`}
-        >
-          <div className="text-center max-w-md">
+        <main className={`flex flex-1 items-center justify-center p-4 ${pageBg}`}>
+          <div
+            className={`w-full max-w-md rounded-2xl border p-10 text-center ${
+              isDark
+                ? 'border-dark-700/70 bg-dark-800/60'
+                : 'border-gray-200/80 bg-white/80'
+            }`}
+          >
             <div
-              className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${
-                theme === 'dark' ? 'bg-green-800' : 'bg-green-100'
+              className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full ${
+                isDark ? 'bg-green-900/40' : 'bg-green-100'
               }`}
             >
-              <ShieldCheckIcon className="w-12 h-12 text-green-500" />
+              <ShieldCheckIcon className="h-8 w-8 text-green-500" />
             </div>
-            <h2
-              className={`text-2xl font-bold mb-2 transition-colors ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}
-            >
-              Payment successful
-            </h2>
-            <p
-              className={`mb-6 transition-colors ${
-                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-              }`}
-            >
-              Thank you for your purchase. You will receive a confirmation email shortly.
+            <h1 className={`text-2xl font-semibold tracking-tight ${text}`}>
+              {nl ? 'Betaling gelukt' : 'Payment successful'}
+            </h1>
+            <p className={`mt-3 ${muted}`}>
+              {nl
+                ? 'Bedankt voor uw aankoop. U ontvangt binnenkort een bevestiging per e-mail.'
+                : 'Thank you for your purchase. You will receive a confirmation email shortly.'}
             </p>
-            <Link href="/" className="btn-primary inline-flex items-center space-x-2">
-              <ArrowLeftIcon className="w-5 h-5" />
-              <span>Continue Shopping</span>
+            <Link
+              href={appPath('/')}
+              className="btn-primary mt-8 inline-flex rounded-2xl px-5 py-2.5 text-sm font-medium"
+            >
+              {nl ? 'Verder winkelen' : 'Continue shopping'}
             </Link>
           </div>
         </main>

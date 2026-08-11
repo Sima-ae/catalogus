@@ -12,6 +12,7 @@ export type ShopCheckoutCustomer = {
   name: string
   email: string
   phone?: string
+  company?: string
 }
 
 export type ResolvedCheckoutLine = {
@@ -133,7 +134,10 @@ export async function createPendingShopOrder(input: {
   const orderId = randomUUID()
   const orderNumber = makeOrderNumber()
   const total = input.subtotal
-  const notes = JSON.stringify({ storeMode: input.storeMode })
+  const notes = JSON.stringify({
+    storeMode: input.storeMode,
+    ...(input.customer.company ? { company: input.customer.company } : {}),
+  })
 
   await queryDb(
     `INSERT INTO orders (
