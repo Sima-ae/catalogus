@@ -11,6 +11,9 @@ import { useProductCardDisplay } from '@/lib/product-card-display-context'
 import { useShopCommerce } from '@/hooks/use-shop-commerce'
 import { formatPrice, isZeroPrice } from '@/lib/format-price'
 import AskPriceButton from '@/components/shop/AskPriceButton'
+import AddedToCartDialog, {
+  type AddedToCartProduct,
+} from '@/components/shop/AddedToCartDialog'
 import { catalogCardDescription } from '@/lib/yupoo/import-text'
 import {
   catalogCardImageSrc,
@@ -78,6 +81,8 @@ function ProductCard({
   const [isAdding, setIsAdding] = useState(false)
   const [optionError, setOptionError] = useState<string | null>(null)
   const [imageFailed, setImageFailed] = useState(false)
+  const [addedOpen, setAddedOpen] = useState(false)
+  const [addedProduct, setAddedProduct] = useState<AddedToCartProduct | null>(null)
 
   useEffect(() => {
     setImageFailed(false)
@@ -122,14 +127,25 @@ function ProductCard({
             .map(([group, value]) => `${group}: ${value}`)
             .join(', ')
         : ''
+      const lineName = optionSummary ? `${product.name} (${optionSummary})` : product.name
+      const linePrice = hasOptions ? displayPrices.price : product.price
       addItem({
         productId: product.id,
-        name: optionSummary ? `${product.name} (${optionSummary})` : product.name,
-        price: hasOptions ? displayPrices.price : product.price,
+        name: lineName,
+        price: linePrice,
         original_price: hasOptions ? displayPrices.original_price ?? undefined : product.original_price,
         image_url: product.image_url,
         product_option: productOptionKey,
       })
+      const nextQty = getItemQuantity(product.id, { product_option: productOptionKey }) + 1
+      setAddedProduct({
+        id: product.id,
+        name: lineName,
+        price: linePrice,
+        image_url: product.image_url,
+        quantity: nextQty,
+      })
+      setAddedOpen(true)
     } finally {
       setIsAdding(false)
     }
@@ -361,7 +377,9 @@ function ProductCard({
                 disabled={isAdding}
                 className="btn-primary w-full text-xs py-2 bg-green-600 hover:bg-green-700"
               >
-                {isAdding ? 'Adding...' : `In Cart (${quantity})`}
+                {isAdding
+                  ? t('product.addingToCart')
+                  : t('product.inCart', { count: quantity })}
               </button>
             ) : (
               <button
@@ -370,12 +388,18 @@ function ProductCard({
                 disabled={isAdding}
                 className="btn-primary w-full text-xs py-2"
               >
-                {isAdding ? 'Adding...' : 'Add to Cart'}
+                {isAdding ? t('product.addingToCart') : t('product.addToCart')}
               </button>
             )}
           </div>
         ) : null}
       </div>
+
+      <AddedToCartDialog
+        open={addedOpen}
+        product={addedProduct}
+        onClose={() => setAddedOpen(false)}
+      />
     </div>
   )
 }

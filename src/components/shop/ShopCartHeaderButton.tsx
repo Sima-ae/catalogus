@@ -32,7 +32,7 @@ export default function ShopCartHeaderButton({
   const { checkoutAllowed } = useShopCommerce()
   const { state: cartState } = useCart()
   const { theme } = useTheme()
-  const { locale } = useI18n()
+  const { t, locale } = useI18n()
   const pathname = usePathname()
   const isDark = theme === 'dark'
   const rootRef = useRef<HTMLDivElement>(null)
@@ -112,7 +112,7 @@ export default function ShopCartHeaderButton({
     closeTimer.current = setTimeout(() => setOpen(false), CLOSE_DELAY_MS)
   }
 
-  const ariaLabel = title || (locale === 'nl' ? 'Winkelwagen' : 'Shopping cart')
+  const ariaLabel = title || t('product.goToCart')
   const cartHref = appPath('/cart')
   const checkoutHref = appPath('/checkout')
 
@@ -141,7 +141,7 @@ export default function ShopCartHeaderButton({
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}
                 >
-                  {locale === 'nl' ? 'Winkelwagen' : 'Cart'}
+                  {t('product.cartTitle')}
                 </p>
               </div>
 
@@ -151,7 +151,7 @@ export default function ShopCartHeaderButton({
                     isDark ? 'text-gray-400' : 'text-gray-500'
                   }`}
                 >
-                  {locale === 'nl' ? 'Uw winkelwagen is leeg.' : 'Your cart is empty.'}
+                  {t('product.emptyCart')}
                 </p>
               ) : (
                 <>
@@ -233,14 +233,14 @@ export default function ShopCartHeaderButton({
                           : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50'
                       }`}
                     >
-                      {locale === 'nl' ? 'Ga naar winkelwagen' : 'Go to cart'}
+                      {t('product.goToCart')}
                     </Link>
                     <Link
                       href={checkoutHref}
                       onClick={() => setOpen(false)}
                       className="btn-primary inline-flex h-9 w-full items-center justify-center rounded-xl text-sm font-medium"
                     >
-                      {locale === 'nl' ? 'Afrekenen' : 'Go to checkout'}
+                      {t('product.toCheckout')}
                     </Link>
                   </div>
                 </>

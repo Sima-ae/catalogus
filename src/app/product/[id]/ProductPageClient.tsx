@@ -28,6 +28,9 @@ import { APP_DEFAULT_PRODUCT_VERSION } from '@/lib/brand'
 import PricelistStarButton from '@/components/pricelist/PricelistStarButton'
 import FeaturedStarButton from '@/components/shop/FeaturedStarButton'
 import ProductCardDeleteButton from '@/components/shop/ProductCardDeleteButton'
+import AddedToCartDialog, {
+  type AddedToCartProduct,
+} from '@/components/shop/AddedToCartDialog'
 import ProductOptionSelector, {
   ProductFixedOptionDisplay,
 } from '@/components/shop/ProductOptionSelector'
@@ -92,6 +95,8 @@ export default function ProductPageClient() {
   const [variantError, setVariantError] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
+  const [addedOpen, setAddedOpen] = useState(false)
+  const [addedProduct, setAddedProduct] = useState<AddedToCartProduct | null>(null)
   const [reviews, setReviews] = useState<ProductReview[]>([])
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [headerSearch, setHeaderSearch] = useState('')
@@ -391,16 +396,29 @@ export default function ProductPageClient() {
     setVariantError(null)
     setIsAdding(true)
     try {
-      addItem({
-        productId: product.id,
-        name: optionSummary ? `${product.name} (${optionSummary})` : product.name,
-        price: hasOptions ? optionPrice : (selectedLicenseOption?.price ?? product.price),
-        original_price: hasOptions ? optionOriginal ?? undefined : product.original_price,
+      const lineName = optionSummary ? `${product.name} (${optionSummary})` : product.name
+      const linePrice = hasOptions ? optionPrice : (selectedLicenseOption?.price ?? product.price)
+      const addCount = Math.max(1, Math.min(99, quantity))
+      for (let i = 0; i < addCount; i++) {
+        addItem({
+          productId: product.id,
+          name: lineName,
+          price: linePrice,
+          original_price: hasOptions ? optionOriginal ?? undefined : product.original_price,
+          image_url: product.image_url,
+          size: selectedSize || undefined,
+          color: selectedColor || undefined,
+          product_option: productOptionKey,
+        })
+      }
+      setAddedProduct({
+        id: product.id,
+        name: lineName,
+        price: linePrice,
         image_url: product.image_url,
-        size: selectedSize || undefined,
-        color: selectedColor || undefined,
-        product_option: productOptionKey,
+        quantity: addCount,
       })
+      setAddedOpen(true)
     } finally {
       setIsAdding(false)
     }
@@ -496,6 +514,11 @@ export default function ProductPageClient() {
         onSaved={() => {
           void reloadProduct()
         }}
+      />
+      <AddedToCartDialog
+        open={addedOpen}
+        product={addedProduct}
+        onClose={() => setAddedOpen(false)}
       />
 
       <Sidebar open={mobileOpen} onClose={close} />
