@@ -57,6 +57,7 @@ import { getContactMessages } from '@/lib/i18n-contact'
 import { getCategoryExtraMessages } from '@/lib/i18n-category-extra'
 import { getChatMessages } from '@/lib/i18n-chat'
 import { getFeaturedCatalogCtaMessages } from '@/lib/i18n-featured-catalog-cta'
+import { getAddedDialogMessages } from '@/lib/i18n-added-dialog'
 
 export {
   SUPPORTED_LOCALES,
@@ -236,7 +237,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'product.cartTitle': 'Cart',
     'product.emptyCart': 'Your cart is empty.',
     'product.toCheckout': 'Go to checkout',
-    'product.addedDialog.title': 'Added to cart',
+    'product.addedDialog.title': 'Added',
     'product.addedDialog.subtitle': 'Your item is ready for checkout.',
     'product.addedDialog.close': 'Close',
     'product.quantity': 'Quantity:',
@@ -506,7 +507,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'product.cartTitle': 'Winkelwagen',
     'product.emptyCart': 'Uw winkelwagen is leeg.',
     'product.toCheckout': 'Afrekenen',
-    'product.addedDialog.title': 'Toegevoegd aan winkelwagen',
+    'product.addedDialog.title': 'Toegevoegd',
     'product.addedDialog.subtitle': 'Uw product is klaar om af te rekenen.',
     'product.addedDialog.close': 'Sluiten',
     'product.quantity': 'Aantal:',
@@ -686,6 +687,7 @@ export function getMessages(locale: Locale): Messages {
     ...getCategoryExtraMessages(locale),
     ...getChatMessages(locale),
     ...getFeaturedCatalogCtaMessages(locale),
+    ...getAddedDialogMessages(locale),
   }
 }
 
