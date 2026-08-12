@@ -18,17 +18,11 @@ import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 const CLOSE_DELAY_MS = 180
 
 type Props = {
-  /** Override badge count (e.g. current product qty on product page). */
-  badgeCount?: number
   className?: string
   title?: string
 }
 
-export default function ShopCartHeaderButton({
-  badgeCount,
-  className,
-  title,
-}: Props) {
+export default function ShopCartHeaderButton({ className, title }: Props) {
   const { checkoutAllowed } = useShopCommerce()
   const { state: cartState } = useCart()
   const { theme } = useTheme()
@@ -92,7 +86,7 @@ export default function ShopCartHeaderButton({
     () => cartState.items.filter((item) => productIsPurchasable(item.price)),
     [cartState.items]
   )
-  const count = badgeCount ?? (mounted ? items.reduce((sum, i) => sum + i.quantity, 0) : 0)
+  const count = mounted ? items.reduce((sum, i) => sum + i.quantity, 0) : 0
   const totalIncl = useMemo(
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items]

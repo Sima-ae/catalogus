@@ -8,14 +8,8 @@ import ThemeToggleButton from '@/components/theme/ThemeToggleButton'
 import ShopCartHeaderButton from '@/components/shop/ShopCartHeaderButton'
 import LanguageSwitcher from '@/components/i18n/LanguageSwitcher'
 
-type ShopHeroHeaderActionsProps = {
-  /** Override cart badge (e.g. on product page). */
-  cartBadgeCount?: number
-}
-
 /** Theme, cart, and register actions for the sticky header third column — single row. */
-export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps = {}) {
-  const { cartBadgeCount } = props
+export default function ShopHeroHeaderActions() {
   const { theme } = useTheme()
   const { isAdmin } = useAuth()
   const isDark = theme === 'dark'
@@ -48,7 +42,7 @@ export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps 
           </svg>
         </Link>
       ) : null}
-      <ShopCartHeaderButton badgeCount={cartBadgeCount} />
+      <ShopCartHeaderButton />
     </div>
   )
 }

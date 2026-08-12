@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useReducer, ReactNode, useEffect, useState } from 'react'
+import { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useState } from 'react'
 import { CART_STORAGE_KEY, LEGACY_CART_STORAGE_KEY } from '@/lib/brand'
 import { productIsPurchasable } from '@/lib/shop-commerce'
 
@@ -150,34 +150,80 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
+function readStoredCartItems(): CartItem[] {
+  try {
+    const savedCart =
+      localStorage.getItem(CART_STORAGE_KEY) ?? localStorage.getItem(LEGACY_CART_STORAGE_KEY)
+    if (!savedCart) return []
+    const cartData = JSON.parse(savedCart)
+    return Array.isArray(cartData) ? cartData : []
+  } catch (error) {
+    console.error('Error loading cart from localStorage:', error)
+    return []
+  }
+}
+
+function storedCartSignature(items: CartItem[]): string {
+  return JSON.stringify(filterPurchasableItems(items))
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, initialState)
   const [isInitialized, setIsInitialized] = useState(false)
+  const stateItemsRef = useRef(state.items)
+  stateItemsRef.current = state.items
 
   useEffect(() => {
-    try {
-      const savedCart =
-        localStorage.getItem(CART_STORAGE_KEY) ?? localStorage.getItem(LEGACY_CART_STORAGE_KEY)
-      if (savedCart) {
-        const cartData = JSON.parse(savedCart)
-        dispatch({ type: 'LOAD_CART', payload: cartData })
-      }
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error)
-    } finally {
-      setIsInitialized(true)
-    }
+    dispatch({ type: 'LOAD_CART', payload: readStoredCartItems() })
+    setIsInitialized(true)
   }, [])
 
   useEffect(() => {
-    if (isInitialized) {
-      try {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.items))
-      } catch (error) {
-        console.error('Error saving cart to localStorage:', error)
+    if (!isInitialized) return
+    try {
+      const next = JSON.stringify(state.items)
+      if (localStorage.getItem(CART_STORAGE_KEY) !== next) {
+        localStorage.setItem(CART_STORAGE_KEY, next)
       }
+    } catch (error) {
+      console.error('Error saving cart to localStorage:', error)
     }
   }, [state.items, isInitialized])
+
+  // Keep cart in sync across browser tabs / windows.
+  useEffect(() => {
+    if (!isInitialized) return
+
+    const syncFromStorage = () => {
+      const stored = readStoredCartItems()
+      if (storedCartSignature(stored) === storedCartSignature(stateItemsRef.current)) return
+      dispatch({ type: 'LOAD_CART', payload: stored })
+    }
+
+    // storage events only fire in *other* tabs; focus/visibility catch stale tabs.
+    const onStorage = (event: StorageEvent) => {
+      if (
+        event.key !== null &&
+        event.key !== CART_STORAGE_KEY &&
+        event.key !== LEGACY_CART_STORAGE_KEY
+      ) {
+        return
+      }
+      syncFromStorage()
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') syncFromStorage()
+    }
+
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', syncFromStorage)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', syncFromStorage)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [isInitialized])
 
   const addItem = (
     item: Omit<CartItem, 'quantity' | 'id'> & { id?: string; productId?: string }

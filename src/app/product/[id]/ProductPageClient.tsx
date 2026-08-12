@@ -512,7 +512,7 @@ export default function ProductPageClient() {
             )
           }}
           leading={<SidebarMenuButton open={mobileOpen} onOpen={open} />}
-          actions={<ShopHeroHeaderActions cartBadgeCount={quantityInCart} />}
+          actions={<ShopHeroHeaderActions />}
         />
 
         {canEditProduct ? (
