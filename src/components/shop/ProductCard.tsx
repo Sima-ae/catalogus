@@ -249,7 +249,7 @@ function ProductCard({
         </div>
       </Link>
 
-      <div className="absolute top-2 right-2 z-20">
+      <div className="absolute top-2 left-2 z-20">
         <ProductCardBrandEditButton
           productId={product.id}
           productName={product.name}
@@ -259,15 +259,7 @@ function ProductCard({
         />
       </div>
 
-      <div className="absolute bottom-2 left-2 z-20">
-        <ProductCardDeleteButton
-          productId={product.id}
-          productName={product.name}
-          size="sm"
-          onDeleted={() => onDeleted?.(product.id)}
-        />
-      </div>
-      <div className="absolute bottom-2 right-2 z-20">
+      <div className="absolute top-2 right-2 z-20">
         {!authLoading && isAdmin ? (
           <FeaturedStarButton
             productId={product.id}
@@ -278,6 +270,15 @@ function ProductCard({
         ) : (
           <PricelistStarButton productId={product.id} size="sm" />
         )}
+      </div>
+
+      <div className="absolute bottom-2 left-2 z-20">
+        <ProductCardDeleteButton
+          productId={product.id}
+          productName={product.name}
+          size="sm"
+          onDeleted={() => onDeleted?.(product.id)}
+        />
       </div>
       
       <div className="space-y-2">
