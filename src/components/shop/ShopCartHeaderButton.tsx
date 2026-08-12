@@ -152,7 +152,7 @@ export default function ShopCartHeaderButton({ className, title }: Props) {
                 </p>
               ) : (
                 <>
-                  <ul className="max-h-72 space-y-2 overflow-y-auto">
+                  <ul className="max-h-[min(36rem,70vh)] space-y-2 overflow-y-auto">
                     {items.map((item) => (
                       <li
                         key={item.id}
