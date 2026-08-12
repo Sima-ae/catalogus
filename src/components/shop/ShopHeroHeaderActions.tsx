@@ -21,7 +21,7 @@ export default function ShopHeroHeaderActions(props: ShopHeroHeaderActionsProps 
   const isDark = theme === 'dark'
 
   return (
-    <div className="flex flex-nowrap items-center justify-end gap-1.5 lg:gap-2 w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+    <div className="flex flex-nowrap items-center justify-end gap-1.5 lg:gap-2 w-full min-w-0 overflow-visible">
       <div className="order-first shrink-0 lg:order-none">
         <LanguageSwitcher compact iconOnlyOnMobile />
       </div>

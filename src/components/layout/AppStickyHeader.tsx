@@ -99,7 +99,7 @@ export default function AppStickyHeader({
                   />
                 </div>
                 <div
-                  className={`shrink-0 min-w-0 md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
+                  className={`shrink-0 min-w-0 overflow-visible md:border-l md:pl-4 lg:pl-5 flex flex-col justify-center ${borderClass}`}
                 >
                   {actions}
                 </div>
