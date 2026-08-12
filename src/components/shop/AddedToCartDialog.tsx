@@ -113,9 +113,9 @@ export default function AddedToCartDialog({ open, product, onClose }: Props) {
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-sm font-semibold leading-snug">{product.name}</p>
             <p className={`mt-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              {qty} × {formatShopEuro(product.price, locale)}
+              {qty}×
             </p>
-            <p className="mt-2 text-base font-semibold tabular-nums">
+            <p className="mt-1 text-base font-semibold tabular-nums">
               {formatShopEuro(product.price * qty, locale)}
             </p>
           </div>

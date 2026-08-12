@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Sidebar, { SidebarMenuButton, useMobileSidebar } from '@/components/layout/Sidebar'
@@ -14,6 +15,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { appPath } from '@/lib/paths'
 import { productIsPurchasable } from '@/lib/shop-commerce'
 import { formatShopEuro, splitInclusiveVat } from '@/lib/shop-vat'
+import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
 import { useCatalogModeRedirect } from '@/lib/use-catalog-mode-redirect'
 
 function CheckoutPageInner() {
@@ -134,28 +136,47 @@ function CheckoutPageInner() {
       {items.map((item) => (
         <li
           key={item.id}
-          className={`space-y-2 border-b pb-4 last:border-0 ${
+          className={`flex gap-3 border-b pb-4 last:border-0 ${
             isDark ? 'border-dark-600/60' : 'border-gray-200/70'
           }`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <p className={`text-sm font-medium leading-snug ${text}`}>{item.name}</p>
-            <button
-              type="button"
-              onClick={() => removeItem(item.id)}
-              className={`shrink-0 text-xs underline-offset-2 hover:underline ${muted}`}
-            >
-              {nl ? 'Verwijderen' : 'Remove'}
-            </button>
+          <div
+            className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-xl ${
+              isDark ? 'bg-dark-700' : 'bg-gray-200'
+            }`}
+          >
+            {item.image_url ? (
+              <Image
+                src={item.image_url}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="56px"
+                unoptimized={shouldUnoptimizeProductImage(item.image_url)}
+              />
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <QuantityStepper
-              value={item.quantity}
-              onChange={(next) => updateQuantity(item.id, next)}
-            />
-            <span className={`text-sm font-semibold ${text}`}>
-              {formatShopEuro(item.price * item.quantity, locale)}
-            </span>
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <p className={`text-sm font-medium leading-snug ${text}`}>{item.name}</p>
+              <button
+                type="button"
+                onClick={() => removeItem(item.id)}
+                className={`shrink-0 text-xs underline-offset-2 hover:underline ${muted}`}
+              >
+                {nl ? 'Verwijderen' : 'Remove'}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <QuantityStepper
+                size="sm"
+                value={item.quantity}
+                onChange={(next) => updateQuantity(item.id, next)}
+              />
+              <span className={`text-sm font-semibold ${text}`}>
+                {formatShopEuro(item.price * item.quantity, locale)}
+              </span>
+            </div>
           </div>
         </li>
       ))}
