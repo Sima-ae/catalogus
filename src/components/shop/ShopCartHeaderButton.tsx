@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ShoppingBagIcon } from '@heroicons/react/24/outline'
+import { ShoppingBagIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { useCart } from '@/lib/cart'
 import { useShopCommerce } from '@/hooks/use-shop-commerce'
 import { useTheme } from '@/lib/theme'
@@ -14,6 +14,7 @@ import { appPath } from '@/lib/paths'
 import { productIsPurchasable } from '@/lib/shop-commerce'
 import { formatShopEuro, splitInclusiveVat } from '@/lib/shop-vat'
 import { shouldUnoptimizeProductImage } from '@/lib/product-image-url'
+import { QuantityStepper } from '@/components/shop/QuantityStepper'
 
 const CLOSE_DELAY_MS = 180
 
@@ -24,7 +25,7 @@ type Props = {
 
 export default function ShopCartHeaderButton({ className, title }: Props) {
   const { checkoutAllowed } = useShopCommerce()
-  const { state: cartState } = useCart()
+  const { state: cartState, updateQuantity, removeItem } = useCart()
   const { theme } = useTheme()
   const { t, locale } = useI18n()
   const pathname = usePathname()
@@ -35,6 +36,7 @@ export default function ShopCartHeaderButton({ className, title }: Props) {
   const [desktop, setDesktop] = useState(false)
   const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nl = locale === 'nl'
 
   useEffect(() => setMounted(true), [])
 
@@ -109,6 +111,7 @@ export default function ShopCartHeaderButton({ className, title }: Props) {
   const ariaLabel = title || t('product.goToCart')
   const cartHref = appPath('/cart')
   const checkoutHref = appPath('/checkout')
+  const removeLabel = nl ? 'Verwijderen' : 'Remove'
 
   const panel =
     mounted && open && desktop && panelPos
@@ -123,7 +126,7 @@ export default function ShopCartHeaderButton({ className, title }: Props) {
             onMouseLeave={scheduleClose}
           >
             <div
-              className={`w-[min(92vw,20rem)] rounded-2xl border p-3 shadow-xl backdrop-blur-xl ${
+              className={`w-[min(92vw,22rem)] rounded-2xl border p-3 shadow-xl backdrop-blur-xl ${
                 isDark
                   ? 'border-dark-600/70 bg-dark-900/95'
                   : 'border-gray-200/80 bg-white/95'
@@ -149,53 +152,77 @@ export default function ShopCartHeaderButton({ className, title }: Props) {
                 </p>
               ) : (
                 <>
-                  <ul className="max-h-64 space-y-2 overflow-y-auto">
+                  <ul className="max-h-72 space-y-2 overflow-y-auto">
                     {items.map((item) => (
                       <li
                         key={item.id}
-                        className={`flex gap-2.5 rounded-xl p-2 ${
+                        className={`rounded-xl p-2 ${
                           isDark ? 'bg-dark-800/80' : 'bg-gray-100/80'
                         }`}
                       >
-                        <div
-                          className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-lg ${
-                            isDark ? 'bg-dark-700' : 'bg-gray-200'
-                          }`}
-                        >
-                          {item.image_url ? (
-                            <Image
-                              src={item.image_url}
-                              alt=""
-                              fill
-                              className="object-cover"
-                              sizes="44px"
-                              unoptimized={shouldUnoptimizeProductImage(item.image_url)}
-                            />
-                          ) : null}
+                        <div className="flex gap-2.5">
+                          <div
+                            className={`relative h-11 w-11 shrink-0 overflow-hidden rounded-lg ${
+                              isDark ? 'bg-dark-700' : 'bg-gray-200'
+                            }`}
+                          >
+                            {item.image_url ? (
+                              <Image
+                                src={item.image_url}
+                                alt=""
+                                fill
+                                className="object-cover"
+                                sizes="44px"
+                                unoptimized={shouldUnoptimizeProductImage(item.image_url)}
+                              />
+                            ) : null}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start gap-2">
+                              <p
+                                className={`min-w-0 flex-1 truncate text-sm font-medium leading-snug ${
+                                  isDark ? 'text-white' : 'text-gray-900'
+                                }`}
+                              >
+                                {item.name}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => removeItem(item.id)}
+                                className={`shrink-0 rounded-md p-1 transition ${
+                                  isDark
+                                    ? 'text-gray-500 hover:bg-dark-700 hover:text-red-400'
+                                    : 'text-gray-400 hover:bg-white hover:text-red-600'
+                                }`}
+                                aria-label={removeLabel}
+                                title={removeLabel}
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </div>
+                            <p
+                              className={`mt-0.5 text-xs ${
+                                isDark ? 'text-gray-400' : 'text-gray-500'
+                              }`}
+                            >
+                              {formatShopEuro(item.price, locale)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
+                        <div className="mt-2 flex items-center justify-between gap-2 pl-[3.25rem]">
+                          <QuantityStepper
+                            size="sm"
+                            value={item.quantity}
+                            onChange={(next) => updateQuantity(item.id, next)}
+                          />
                           <p
-                            className={`truncate text-sm font-medium leading-snug ${
+                            className={`shrink-0 text-sm font-semibold tabular-nums ${
                               isDark ? 'text-white' : 'text-gray-900'
                             }`}
                           >
-                            {item.name}
-                          </p>
-                          <p
-                            className={`mt-0.5 text-xs ${
-                              isDark ? 'text-gray-400' : 'text-gray-500'
-                            }`}
-                          >
-                            {item.quantity}× {formatShopEuro(item.price, locale)}
+                            {formatShopEuro(item.price * item.quantity, locale)}
                           </p>
                         </div>
-                        <p
-                          className={`shrink-0 text-sm font-semibold tabular-nums ${
-                            isDark ? 'text-white' : 'text-gray-900'
-                          }`}
-                        >
-                          {formatShopEuro(item.price * item.quantity, locale)}
-                        </p>
                       </li>
                     ))}
                   </ul>
@@ -206,7 +233,7 @@ export default function ShopCartHeaderButton({ className, title }: Props) {
                     }`}
                   >
                     <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                      {locale === 'nl' ? 'Totaal incl. BTW' : 'Total incl. VAT'}
+                      {nl ? 'Totaal incl. BTW' : 'Total incl. VAT'}
                     </span>
                     <span
                       className={`font-semibold tabular-nums ${
