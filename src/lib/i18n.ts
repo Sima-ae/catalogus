@@ -500,7 +500,7 @@ const MESSAGES: Partial<Record<Locale, Messages>> = {
     'product.addedToCart': '✓ Toegevoegd aan winkelwagen',
     'product.quantityInCart': 'Aantal in winkelwagen: {count}',
     'product.viewCart': 'Bekijk winkelwagen',
-    'product.goToCart': 'Ga naar winkelwagen',
+    'product.goToCart': 'Naar winkelwagen',
     'product.continueShopping': 'Verder winkelen',
     'product.inCart': 'In winkelwagen ({count})',
     'product.cartTitle': 'Winkelwagen',
