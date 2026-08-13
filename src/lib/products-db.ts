@@ -67,6 +67,8 @@ import {
   fetchHomepageShufflePageProductIds,
   fetchRandomHomepageShuffleProductIds,
   fillShopVisibleProductIds,
+  FEATURED_SHUFFLE_POOL_SIZE,
+  FEATURED_SHUFFLE_SCOPE,
   HOMEPAGE_SHUFFLE_POOL_SIZE,
   HOMEPAGE_SHUFFLE_SCOPE,
 } from '@/lib/catalog-positions-db'
@@ -2012,13 +2014,16 @@ async function loadActiveProductsPaginatedFromDb(
   let orderSql = 'p.created_at DESC'
   let scopeParam: string | null = null
   let usePrecomputedShuffle = false
+  const shuffleScope = query.featuredOnly ? FEATURED_SHUFFLE_SCOPE : HOMEPAGE_SHUFFLE_SCOPE
+  const shufflePoolSize = query.featuredOnly
+    ? FEATURED_SHUFFLE_POOL_SIZE
+    : HOMEPAGE_SHUFFLE_POOL_SIZE
 
-  // Live first-page shuffles skip the position join; deeper Super Clones pages use it.
+  // Live first-page shuffles skip the position join; deeper pages use it.
   if (shuffle && !featuredLiveShuffle && !defaultLiveShuffle) {
-    usePrecomputedShuffle =
-      (await catalogPositionsExistForScope(HOMEPAGE_SHUFFLE_SCOPE)) === true
+    usePrecomputedShuffle = (await catalogPositionsExistForScope(shuffleScope)) === true
     if (usePrecomputedShuffle) {
-      const positionJoin = await catalogPositionJoin(HOMEPAGE_SHUFFLE_SCOPE)
+      const positionJoin = await catalogPositionJoin(shuffleScope)
       joinSql = positionJoin.joinSql
       orderSql = positionJoin.orderSql
       scopeParam = positionJoin.scopeParam
@@ -2086,8 +2091,8 @@ async function loadActiveProductsPaginatedFromDb(
         )
       } else if (usePrecomputedShuffle) {
         ids = await fetchHomepageShufflePageProductIds(
-          HOMEPAGE_SHUFFLE_SCOPE,
-          HOMEPAGE_SHUFFLE_POOL_SIZE,
+          shuffleScope,
+          shufflePoolSize,
           limit + 48,
           offset
         )
@@ -2110,7 +2115,7 @@ async function loadActiveProductsPaginatedFromDb(
       }
 
       // Do not fill featured shuffle from the full Super Clones catalog.
-      if (collected.length < limit && !featuredLiveShuffle) {
+      if (collected.length < limit && !featuredLiveShuffle && !query.featuredOnly) {
         const fillIds = await fillShopVisibleProductIds(
           Array.from(seen),
           limit - collected.length + 24

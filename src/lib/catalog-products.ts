@@ -689,21 +689,20 @@ export function isCatalogShuffleEligible(query: CatalogProductsQuery): boolean {
 
   if (!unfilteredHomepage) return false
 
-  // 1-1.club: live RAND() on the first page only (re-rolls on every refresh).
-  if (query.featuredOnly) {
-    return (query.page ?? 1) <= 1
-  }
-
-  // Super Clones: page 1 live-random; deeper pages use the precomputed pool.
+  // Both hosts: page 1 live-random; deeper pages use the precomputed shuffle pool.
   return true
 }
 
 /**
- * Featured-only first page — live RAND(), not the Super Clones position table.
+ * Featured-only first page — live RAND(), not the position table.
  * Changes on every hard refresh; does not auto-refresh by itself.
  */
 export function isFeaturedLiveShuffle(query: CatalogProductsQuery): boolean {
-  return Boolean(query.featuredOnly) && isCatalogShuffleEligible(query)
+  return (
+    Boolean(query.featuredOnly) &&
+    isCatalogShuffleEligible(query) &&
+    (query.page ?? 1) <= 1
+  )
 }
 
 /**

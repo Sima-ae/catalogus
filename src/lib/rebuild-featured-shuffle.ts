@@ -1,27 +1,17 @@
-#!/usr/bin/env npx tsx
-/**
- * Precompute weighted-random homepage product order in catalog_product_positions.
- * Run nightly via cron: npm run db:rebuild-homepage-shuffle
- *
- * Prefer shop-visible products with a sales price (price > 0) in the pool,
- * then fill with unpriced shop-visible products. Weighted shuffle keeps priced
- * items at the front so homepage page 1 is sales-priced.
- */
-import { ensureEnvLoaded } from '@/lib/ensure-env'
-import { queryDb, resetDbPool } from '@/lib/db'
+import { queryDb } from '@/lib/db'
 import {
-  HOMEPAGE_SHUFFLE_POOL_SIZE,
-  HOMEPAGE_SHUFFLE_SCOPE,
+  FEATURED_SHUFFLE_POOL_SIZE,
+  FEATURED_SHUFFLE_SCOPE,
   replaceCatalogScopePositions,
 } from '@/lib/catalog-positions-db'
-import { rebuildFeaturedShufflePositions } from '@/lib/rebuild-featured-shuffle'
 import { invalidateCachedNamespace } from '@/lib/server-ttl-cache'
 import { SHOP_CATALOG_PAGE_CACHE_NS } from '@/lib/shop-catalog-cache'
 
 const SHOP_VISIBLE_SQL = `
   p.status = 'active'
   AND p.sold_out = 0
-  AND p.image_url IS NOT NULL AND p.image_url <> ''`
+  AND p.image_url IS NOT NULL AND p.image_url <> ''
+  AND p.featured = 1`
 
 type Candidate = { id: string; price: number }
 
@@ -44,10 +34,9 @@ function weightedShuffle(items: Candidate[]): Candidate[] {
   })
 }
 
-async function main() {
-  ensureEnvLoaded()
-
-  console.log(`Rebuilding homepage shuffle scope "${HOMEPAGE_SHUFFLE_SCOPE}"…`)
+/** Rebuild precomputed shuffle order for featured storefront (1-1.club). */
+export async function rebuildFeaturedShufflePositions(): Promise<number> {
+  console.log(`Rebuilding featured shuffle scope "${FEATURED_SHUFFLE_SCOPE}"…`)
 
   const priced = await queryDb<Candidate[]>(
     `SELECT p.id, COALESCE(p.price, 0) AS price
@@ -56,14 +45,14 @@ async function main() {
        AND COALESCE(p.price, 0) > 0
      ORDER BY p.created_at DESC
      LIMIT ?`,
-    [HOMEPAGE_SHUFFLE_POOL_SIZE]
+    [FEATURED_SHUFFLE_POOL_SIZE]
   )
 
   shuffleInPlace(priced)
-  const pool: Candidate[] = priced.slice(0, HOMEPAGE_SHUFFLE_POOL_SIZE)
+  const pool: Candidate[] = priced.slice(0, FEATURED_SHUFFLE_POOL_SIZE)
 
-  if (pool.length < HOMEPAGE_SHUFFLE_POOL_SIZE) {
-    const need = HOMEPAGE_SHUFFLE_POOL_SIZE - pool.length
+  if (pool.length < FEATURED_SHUFFLE_POOL_SIZE) {
+    const need = FEATURED_SHUFFLE_POOL_SIZE - pool.length
     const unpriced = await queryDb<Candidate[]>(
       `SELECT p.id, COALESCE(p.price, 0) AS price
        FROM products p
@@ -78,30 +67,22 @@ async function main() {
   }
 
   if (!pool.length) {
-    console.log('No shop-visible products — cleared shuffle positions.')
-    await replaceCatalogScopePositions(HOMEPAGE_SHUFFLE_SCOPE, [])
-    return
+    console.log('No featured shop-visible products — cleared featured shuffle positions.')
+    await replaceCatalogScopePositions(FEATURED_SHUFFLE_SCOPE, [])
+    invalidateCachedNamespace(SHOP_CATALOG_PAGE_CACHE_NS)
+    return 0
   }
 
   const shuffled = weightedShuffle(pool)
   const pricedCount = shuffled.filter((row) => row.price > 0).length
   const written = await replaceCatalogScopePositions(
-    HOMEPAGE_SHUFFLE_SCOPE,
+    FEATURED_SHUFFLE_SCOPE,
     shuffled.map((row) => row.id)
   )
 
   console.log(
-    `Stored ${written} homepage shuffle positions (${pricedCount} priced, ${written - pricedCount} unpriced).`
+    `Stored ${written} featured shuffle positions (${pricedCount} priced, ${written - pricedCount} unpriced).`
   )
   invalidateCachedNamespace(SHOP_CATALOG_PAGE_CACHE_NS)
-  console.log('Cleared in-process homepage catalog page cache.')
-
-  await rebuildFeaturedShufflePositions()
+  return written
 }
-
-main()
-  .catch((err) => {
-    console.error(err)
-    process.exit(1)
-  })
-  .finally(() => resetDbPool())

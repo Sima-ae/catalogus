@@ -4,8 +4,12 @@ const TABLE = 'catalog_product_positions'
 
 /** Precomputed weighted-random homepage order (rebuilt nightly). */
 export const HOMEPAGE_SHUFFLE_SCOPE = 'global-shuffle'
+/** Precomputed weighted-random order for featured storefront (1-1.club). */
+export const FEATURED_SHUFFLE_SCOPE = 'featured-shuffle'
 /** Featured products in the precomputed homepage shuffle pool; catalog total stays full size. */
 export const HOMEPAGE_SHUFFLE_POOL_SIZE = 10_000
+/** Max featured products stored in the featured shuffle pool. */
+export const FEATURED_SHUFFLE_POOL_SIZE = 10_000
 
 type GlobalSchema = typeof globalThis & {
   __catalogPositionsTableExists?: Promise<boolean>

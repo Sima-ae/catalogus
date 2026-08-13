@@ -20,6 +20,7 @@ import {
 import {
   buildActiveCatalogFilters,
   isCatalogShuffleEligible,
+  isFeaturedLiveShuffle,
   type CatalogProductsQuery,
 } from '@/lib/catalog-products'
 
@@ -74,6 +75,9 @@ const featuredQuery: CatalogProductsQuery = {
   shuffle: true,
 }
 assert.equal(isCatalogShuffleEligible(featuredQuery), true)
+assert.equal(isCatalogShuffleEligible({ ...featuredQuery, page: 2 }), true)
+assert.equal(isFeaturedLiveShuffle(featuredQuery), true)
+assert.equal(isFeaturedLiveShuffle({ ...featuredQuery, page: 2 }), false)
 const { whereSql, params } = buildActiveCatalogFilters(featuredQuery)
 assert.ok(whereSql.includes('p.featured = 1'))
 assert.ok(Array.isArray(params))
