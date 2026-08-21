@@ -168,7 +168,6 @@ export default function PricelistPageClient() {
     removeItem,
     bulkRemove,
     bulkUpdate,
-    fetchSelectionProductIds,
     canEditPrices,
     currentOwnerLabel,
     isGuest,
@@ -205,7 +204,6 @@ export default function PricelistPageClient() {
   } | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkWorking, setBulkWorking] = useState(false)
-  const [selectionLoading, setSelectionLoading] = useState(false)
   const [bulkMessage, setBulkMessage] = useState<string | null>(null)
   const [bulkPriceOpen, setBulkPriceOpen] = useState(false)
   const [bulkShippingOpen, setBulkShippingOpen] = useState(false)
@@ -331,34 +329,51 @@ export default function PricelistPageClient() {
     [items]
   )
 
+  const isVirtualBulkSelection = bulkSelectionScope !== 'explicit'
+  const selectedCount =
+    bulkSelectionScope === 'allMissing'
+      ? missingPriceCount
+      : bulkSelectionScope === 'filtered'
+        ? total
+        : selectedIds.size
+  const selectedIdsForUi = useMemo(() => {
+    if (!isVirtualBulkSelection) return selectedIds
+    return new Set(selectableOnPage.map((row) => row.product_id))
+  }, [isVirtualBulkSelection, selectedIds, selectableOnPage])
   const allOnPageSelected =
     selectableOnPage.length > 0 &&
-    selectableOnPage.every((row) => selectedIds.has(row.product_id))
-  const someOnPageSelected = selectableOnPage.some((row) => selectedIds.has(row.product_id))
-  const allFilteredSelected = total > 0 && selectedIds.size >= total
+    selectableOnPage.every((row) => selectedIdsForUi.has(row.product_id))
+  const someOnPageSelected = selectableOnPage.some((row) => selectedIdsForUi.has(row.product_id))
+  const allFilteredSelected = total > 0 && selectedCount >= total
 
-  const bulkFilterScope = useMemo((): PricelistBulkFilterScope | undefined => {
-    if (!allFilteredSelected) return undefined
-    return {
+  const currentFilterScope = useMemo(
+    (): PricelistBulkFilterScope => ({
       search: listQuery.search,
       category: listQuery.category,
       subcategory: listQuery.subcategory,
+      nested: listQuery.nested,
       brand: listQuery.brand,
       missingPricesOnly: listQuery.missingPricesOnly,
       filledPricesOnly: listQuery.filledPricesOnly,
       outOfStockOnly: listQuery.outOfStockOnly,
-    }
-  }, [allFilteredSelected, listQuery])
+    }),
+    [listQuery]
+  )
 
   const resolveBulkApplyToFilters = useCallback((): PricelistBulkFilterScope | undefined => {
     if (bulkSelectionScope === 'allMissing') {
       return { missingPricesOnly: true }
     }
-    if (bulkSelectionScope === 'filtered' && bulkFilterScope) {
-      return bulkFilterScope
+    if (bulkSelectionScope === 'filtered') {
+      return currentFilterScope
     }
     return undefined
-  }, [bulkSelectionScope, bulkFilterScope])
+  }, [bulkSelectionScope, currentFilterScope])
+
+  const clearBulkSelection = useCallback(() => {
+    setSelectedIds(new Set())
+    setBulkSelectionScope('explicit')
+  }, [])
 
   const toBulkItems = (productIds: Iterable<string>): PricelistBulkItem[] =>
     Array.from(productIds).map((productId) => ({ productId }))
@@ -387,6 +402,14 @@ export default function PricelistPageClient() {
     : Array.from(selectedIds)
 
   const toggleSelect = (productId: string) => {
+    if (isVirtualBulkSelection) {
+      const next = new Set(selectableOnPage.map((row) => row.product_id))
+      if (next.has(productId)) next.delete(productId)
+      else next.add(productId)
+      setBulkSelectionScope('explicit')
+      setSelectedIds(next)
+      return
+    }
     setBulkSelectionScope('explicit')
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -399,7 +422,7 @@ export default function PricelistPageClient() {
   const toggleSelectAllPage = () => {
     setBulkSelectionScope('explicit')
     setSelectedIds((prev) => {
-      const next = new Set(prev)
+      const next = isVirtualBulkSelection ? new Set<string>() : new Set(prev)
       if (allOnPageSelected) {
         for (const row of selectableOnPage) next.delete(row.product_id)
       } else {
@@ -409,35 +432,20 @@ export default function PricelistPageClient() {
     })
   }
 
-  const selectAllFiltered = async () => {
-    setSelectionLoading(true)
+  /** Select by filter scope — do not download every product id (that payload exceeds proxy limits). */
+  const selectAllFiltered = () => {
     setBulkMessage(null)
-    try {
-      const productIds = await fetchSelectionProductIds('filtered')
-      setBulkSelectionScope('filtered')
-      setSelectedIds(new Set(productIds))
-    } catch (e) {
-      setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
-    } finally {
-      setSelectionLoading(false)
-    }
+    setSelectedIds(new Set())
+    setBulkSelectionScope('filtered')
   }
 
-  const selectAllMissing = async () => {
-    setSelectionLoading(true)
+  const selectAllMissing = () => {
     setBulkMessage(null)
-    try {
-      const productIds = await fetchSelectionProductIds('allMissing')
-      setBulkSelectionScope('allMissing')
+    setSelectedIds(new Set())
+    setBulkSelectionScope('allMissing')
+    if (quickFilter !== 'missing' && missingPriceCount > 0) {
       preserveSelectionRef.current = true
-      setSelectedIds(new Set(productIds))
-      if (quickFilter !== 'missing' && productIds.length > 0) {
-        setQuickFilter('missing')
-      }
-    } catch (e) {
-      setBulkMessage(e instanceof Error ? e.message : t('pricelist.bulk.failed'))
-    } finally {
-      setSelectionLoading(false)
+      setQuickFilter('missing')
     }
   }
 
@@ -452,7 +460,7 @@ export default function PricelistPageClient() {
         applyToFilters ? [] : toBulkItems(selectedIds),
         { stockStatus, applyToFilters }
       )
-      setSelectedIds(new Set())
+      clearBulkSelection()
       if (result.skipped > 0) {
         setBulkMessage(
           formatMessage(t('pricelist.bulk.partial'), {
@@ -481,7 +489,7 @@ export default function PricelistPageClient() {
         applyToFilters ? [] : toBulkItems(selectedIds),
         { applyToFilters }
       )
-      setSelectedIds(new Set())
+      clearBulkSelection()
       if (result.skipped > 0) {
         setBulkMessage(
           formatMessage(t('pricelist.bulk.partial'), {
@@ -511,7 +519,7 @@ export default function PricelistPageClient() {
         { unitPrice, applyToFilters }
       )
       setBulkPriceOpen(false)
-      setSelectedIds(new Set())
+      clearBulkSelection()
       if (result.skipped > 0) {
         setBulkMessage(
           formatMessage(t('pricelist.bulk.partial'), {
@@ -541,7 +549,7 @@ export default function PricelistPageClient() {
         { shippingCost, applyToFilters }
       )
       setBulkShippingOpen(false)
-      setSelectedIds(new Set())
+      clearBulkSelection()
       if (result.skipped > 0) {
         setBulkMessage(
           formatMessage(t('pricelist.bulk.partial'), {
@@ -579,7 +587,7 @@ export default function PricelistPageClient() {
         applyToFilters ? [] : toBulkItems(selectedIds),
         applyToFilters
       )
-      setSelectedIds(new Set())
+      clearBulkSelection()
       if (result.failed > 0) {
         setBulkMessage(
           formatMessage(t('pricelist.bulk.partial'), {
@@ -833,17 +841,17 @@ export default function PricelistPageClient() {
           <CatalogPagination {...paginationProps} />
           {enableBulkSelect ? (
             <PricelistBulkActionsBar
-              selectedCount={selectedIds.size}
+              selectedCount={selectedCount}
               filteredCount={total}
               missingCount={missingPriceCount}
               allOnPageSelected={allOnPageSelected}
               allFilteredSelected={allFilteredSelected}
-              busy={bulkWorking || selectionLoading}
+              busy={bulkWorking}
               isDark={isDark}
               onSelectAllPage={toggleSelectAllPage}
               onSelectAllFiltered={selectAllFiltered}
               onSelectAllMissing={selectAllMissing}
-              onClearSelection={() => setSelectedIds(new Set())}
+              onClearSelection={clearBulkSelection}
               onSetOutOfStock={() => void runBulkStockStatus('out')}
               onSetTemporarilyOutOfStock={() => void runBulkStockStatus('temporary')}
               onClearForPricing={() => void runBulkClearForPricing()}
@@ -856,7 +864,7 @@ export default function PricelistPageClient() {
           <PricelistTable
             items={items}
             enableBulkSelect={enableBulkSelect}
-            selectedIds={selectedIds}
+            selectedIds={selectedIdsForUi}
             onToggleSelect={toggleSelect}
             onToggleSelectAllPage={toggleSelectAllPage}
             allOnPageSelected={allOnPageSelected}

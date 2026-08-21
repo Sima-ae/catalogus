@@ -21,6 +21,7 @@ export type PricelistBulkFilterScope = {
   search?: string
   category?: string
   subcategory?: string
+  nested?: string
   brand?: string
   missingPricesOnly?: boolean
   filledPricesOnly?: boolean
@@ -194,37 +195,6 @@ export function usePricelist(
       }
     }
   }, [user, ownerId, ownerQuery, listQuery])
-
-  const fetchSelectionProductIds = useCallback(
-    async (scope: 'filtered' | 'allMissing'): Promise<string[]> => {
-      if (!ownerId) return []
-      const owner =
-        ownerQuery === PRICELIST_OWNER_QUERY_PLATFORM
-          ? PRICELIST_OWNER_QUERY_PLATFORM
-          : ownerId
-      const qs = buildPricelistItemsQueryString({
-        owner,
-        idsOnly: true,
-        search: scope === 'filtered' ? listQuery?.search : undefined,
-        category: scope === 'filtered' ? listQuery?.category : undefined,
-        subcategory: scope === 'filtered' ? listQuery?.subcategory : undefined,
-        nested: scope === 'filtered' ? listQuery?.nested : undefined,
-        brand: scope === 'filtered' ? listQuery?.brand : undefined,
-        missingPricesOnly: scope === 'allMissing' ? true : listQuery?.missingPricesOnly,
-        filledPricesOnly: scope === 'filtered' ? listQuery?.filledPricesOnly : undefined,
-        outOfStockOnly: scope === 'filtered' ? listQuery?.outOfStockOnly : undefined,
-      })
-      const res = await fetch(appPath(`/api/pricelist/items?${qs}`), {
-        headers: user ? catalogAuthHeaders(user) : {},
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to load selection')
-      return Array.isArray(data.productIds) ? data.productIds.map(String) : []
-    },
-    [user, ownerId, ownerQuery, listQuery]
-  )
 
   const fetchExportItems = useCallback(async (): Promise<PricelistRow[]> => {
     if (!ownerId) return []
@@ -551,7 +521,6 @@ export function usePricelist(
     canManageItems,
     currentOwnerLabel,
     reload: loadItems,
-    fetchSelectionProductIds,
     fetchExportItems,
     accessMode,
     isGuest,
