@@ -43,6 +43,7 @@
     "db:set-ar-factory-shipping": "tsx scripts/set-ar-factory-shipping-cost.ts",
     "db:sync-category-translations": "tsx scripts/sync-category-translations.ts",
     "db:apply-catalog-performance": "tsx scripts/apply-catalog-performance-upgrades.ts",
+    "db:show-processlist": "tsx scripts/show-db-processlist.ts",
     "db:backfill-product-taxonomy-ids": "tsx scripts/backfill-product-taxonomy-ids.ts",
     "db:rebuild-homepage-shuffle": "tsx scripts/rebuild-homepage-shuffle-positions.ts",
     "db:rebuild-featured-shuffle": "tsx scripts/rebuild-featured-shuffle-positions.ts",
@@ -70,7 +71,8 @@
     "db:mark-unavailable-sources": "tsx scripts/mark-unavailable-source-products.ts",
     "db:sync-inactive-pricelist-stock": "tsx scripts/sync-inactive-pricelist-stock.ts",
     "test:parse-album-date": "tsx scripts/test-parse-album-date.ts",
-    "test:vps-cpu-guards": "tsx scripts/test-vps-cpu-guards.ts"
+    "test:vps-cpu-guards": "tsx scripts/test-vps-cpu-guards.ts",
+    "test:pricelist-list-query": "tsx scripts/test-pricelist-list-query.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",

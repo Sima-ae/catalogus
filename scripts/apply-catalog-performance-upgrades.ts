@@ -64,6 +64,17 @@ async function main() {
     console.log('idx_products_status_brand_created already exists.')
   }
 
+  if (!(await indexExists('seller_product_prices', 'idx_seller_prices_list_product_updated'))) {
+    console.log('Adding idx_seller_prices_list_product_updated…')
+    await queryDb(
+      `ALTER TABLE seller_product_prices
+       ADD KEY idx_seller_prices_list_product_updated (list_owner_id, product_id, updated_at)`
+    )
+    console.log('Pricelist latest-price index created.')
+  } else {
+    console.log('idx_seller_prices_list_product_updated already exists.')
+  }
+
   console.log('Done.')
 }
 

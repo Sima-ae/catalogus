@@ -49,11 +49,18 @@ echo "=== Catalogus process model (should be ONE next start, not PM2 cluster) ==
 ps aux | grep -E '[n]ext-server|[n]ode.*next' | head -10 || true
 echo ""
 
-echo "=== MariaDB threads (if mysql client available) ==="
-if command -v mysql >/dev/null 2>&1; then
-  mysql -e "SHOW FULL PROCESSLIST;" 2>/dev/null | head -40 || echo "  (mysql client failed — check .env credentials)"
+echo "=== MariaDB threads for supe_r_clones_cloud ==="
+APP_DIR="${APP_DIR:-/var/www/superclones.cloud}"
+if [[ -f "$APP_DIR/.env" ]] && command -v npx >/dev/null 2>&1; then
+  (cd "$APP_DIR" && npx --yes tsx scripts/show-db-processlist.ts) || echo "  (processlist script failed — check .env credentials)"
+elif command -v mysql >/dev/null 2>&1; then
+  mysql -e "SHOW FULL PROCESSLIST;" 2>/dev/null | awk '
+    NR==1 { print; next }
+    BEGIN { IGNORECASE=1 }
+    $0 ~ /Copying to tmp table|Sorting result|Waiting for table lock|supe_r_clones_cloud/ { print }
+  ' | head -50 || echo "  (mysql client failed — check credentials)"
 else
-  echo "  mysql client not in PATH"
+  echo "  mysql client / tsx not available"
 fi
 echo ""
 
@@ -66,8 +73,8 @@ curl -sS -o /dev/null -w "catalogus :3001 health → HTTP %{http_code}\n" http:/
 curl -sS -o /dev/null -w "inkoop     :3000 → HTTP %{http_code}\n" http://127.0.0.1:3000/ 2>/dev/null || echo "nothing on :3000"
 echo ""
 echo "If CPU is 100% with no shop visitors:"
-echo "  1) Top process mysqld → SHOW FULL PROCESSLIST; KILL long queries; check scrapers in access log"
+echo "  1) Top process mysqld → npm run db:show-processlist ; KILL long Copying/Sorting/Lock queries"
 echo "  2) Top process node + import/backfill → pkill -f 'tsx scripts/' or stop catalogus-import-worker@*"
 echo "  3) Top process inkoop / PM2 on :3000 → that app shares this VPS; stop or move it"
 echo "  4) catalogus restart loop → journalctl -u catalogus -n 100"
-echo "  5) After deploy of idle-CPU fixes: middleware no longer self-fetches /api/site-access/check"
+echo "  5) After deploy: pricelist no longer runs 6 parallel ROW_NUMBER counts; pool no longer resets on timeouts"

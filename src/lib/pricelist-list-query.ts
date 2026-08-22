@@ -387,6 +387,62 @@ export function buildPricelistListSql(
   }
 }
 
+export type PricelistSummarySql = PricelistSqlFragment & {
+  missingSql: string | null
+  filledSql: string | null
+  outOfStockSql: string | null
+  extraParams: unknown[]
+}
+
+/**
+ * One latest-price join + CASE aggregates for all pricelist tab badges.
+ * Replaces four parallel ROW_NUMBER() COUNT queries that copied to tmp tables.
+ */
+export function buildPricelistSummarySql(
+  listOwnerId: string,
+  viewer: PricelistListViewer,
+  filters: Omit<
+    PricelistListFilterInput,
+    'missingPricesOnly' | 'filledPricesOnly' | 'outOfStockOnly'
+  >
+): PricelistSummarySql {
+  const where: string[] = ['pi.owner_user_id = ?']
+  const params: unknown[] = [listOwnerId]
+  const joins = { value: '' }
+  const extraParams: unknown[] = []
+  let missingSql: string | null = null
+  let filledSql: string | null = null
+  let outOfStockSql: string | null = null
+
+  appendCategoryFilter(where, params, filters.categoryFilter)
+  appendBrandFilter(where, params, filters.brand)
+  appendSearchFilter(where, params, filters.search)
+
+  const isCurated = isCuratedSupplierPricelist(listOwnerId)
+  if (viewer.role === 'seller') {
+    const missing = sellerMissingPriceSql(listOwnerId, viewer.userId)
+    const oos = sellerOutOfStockSql(listOwnerId, viewer.userId)
+    missingSql = missing.sql
+    outOfStockSql = oos.sql
+    extraParams.push(...missing.params, ...oos.params)
+  } else if ((viewer.role === 'admin' || viewer.role === 'guest') && isCurated) {
+    ensureCuratedPriceJoin(joins, listOwnerId)
+    missingSql = curatedMissingPriceSql()
+    filledSql = curatedFilledPriceSql()
+    outOfStockSql = curatedOutOfStockSql()
+  }
+
+  return {
+    joins: joins.value,
+    whereSql: `WHERE ${where.join(' AND ')}`,
+    params,
+    missingSql,
+    filledSql,
+    outOfStockSql,
+    extraParams,
+  }
+}
+
 export function buildPricelistFilledPriceCountSql(
   listOwnerId: string,
   viewer: PricelistListViewer,

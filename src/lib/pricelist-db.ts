@@ -29,12 +29,11 @@ import {
   type PricelistStockStatus,
 } from '@/lib/pricelist-stock-status'
 import {
-  buildPricelistFilledPriceCountSql,
   buildPricelistListSql,
-  buildPricelistMissingCountSql,
-  buildPricelistOutOfStockCountSql,
+  buildPricelistSummarySql,
   type PricelistListFilterInput,
   type PricelistListViewer,
+  type PricelistSummarySql,
 } from '@/lib/pricelist-list-query'
 import { PRICELIST_PAGE_SIZE, MAX_PRICELIST_PAGE_SIZE } from '@/lib/pricelist-constants'
 import { hideSoldOutProductsFromShop } from '@/lib/shop-catalog-cache'
@@ -1316,6 +1315,48 @@ async function countPricelistProductItems(
   return Number(rows[0]?.total ?? 0)
 }
 
+type PricelistSummaryCounts = {
+  totalOnPricelist: number
+  missingPriceCount: number
+  exportFilledCount: number
+  outOfStockCount: number
+}
+
+function caseSumSql(predicateSql: string | null): string {
+  if (!predicateSql) return '0'
+  return `COUNT(DISTINCT CASE WHEN ${predicateSql} THEN pi.id END)`
+}
+
+async function fetchPricelistSummaryCounts(
+  summary: PricelistSummarySql
+): Promise<PricelistSummaryCounts> {
+  const rows = await queryDb<
+    {
+      totalOnPricelist: number
+      missingPriceCount: number
+      exportFilledCount: number
+      outOfStockCount: number
+    }[]
+  >(
+    `SELECT
+       COUNT(DISTINCT pi.id) AS totalOnPricelist,
+       ${caseSumSql(summary.missingSql)} AS missingPriceCount,
+       ${caseSumSql(summary.filledSql)} AS exportFilledCount,
+       ${caseSumSql(summary.outOfStockSql)} AS outOfStockCount
+     ${PRICELIST_LIST_FROM}
+     ${summary.joins}
+     ${summary.whereSql}`,
+    [...summary.params, ...summary.extraParams]
+  )
+  const row = rows[0]
+  return {
+    totalOnPricelist: Number(row?.totalOnPricelist ?? 0),
+    missingPriceCount: Number(row?.missingPriceCount ?? 0),
+    exportFilledCount: Number(row?.exportFilledCount ?? 0),
+    outOfStockCount: Number(row?.outOfStockCount ?? 0),
+  }
+}
+
 /** Product IDs for bulk “select all” (same filters as the list UI, no hydration). */
 export async function listPricelistProductIds(
   listOwnerId: string,
@@ -1638,40 +1679,37 @@ export async function listPricelistPage(
 
   const listSql = buildPricelistListSql(listOwnerId, viewer, filters)
   const offset = (page - 1) * pageSize
-
-  const exportCountSql = buildPricelistFilledPriceCountSql(listOwnerId, viewer, {
+  const scopeFilters = {
     search: filters.search,
     categoryFilter: filters.categoryFilter,
     brand: filters.brand,
-  })
-  const missingCountSql = buildPricelistMissingCountSql(listOwnerId, viewer, {
-    search: filters.search,
-    categoryFilter: filters.categoryFilter,
-    brand: filters.brand,
-  })
-  const outOfStockCountSql = buildPricelistOutOfStockCountSql(listOwnerId, viewer, {
-    search: filters.search,
-    categoryFilter: filters.categoryFilter,
-    brand: filters.brand,
-  })
+  }
+  const hasScopeFilters = Boolean(
+    filters.search?.trim() ||
+      filters.categoryFilter ||
+      (filters.brand && filters.brand !== 'All')
+  )
+  const summarySql = buildPricelistSummarySql(listOwnerId, viewer, scopeFilters)
 
-  const baseSql = buildPricelistListSql(listOwnerId, viewer, {})
+  const [items, summary, unfilteredTotal] = await Promise.all([
+    fetchPricelistProductItems(listOwnerId, listSql, { limit: pageSize, offset }),
+    fetchPricelistSummaryCounts(summarySql),
+    hasScopeFilters
+      ? countPricelistProductItems(buildPricelistListSql(listOwnerId, viewer, {}))
+      : Promise.resolve(null),
+  ])
 
-  const [total, items, exportFilledCount, missingPriceCount, outOfStockCount, totalOnPricelist] =
-    await Promise.all([
-      countPricelistProductItems(listSql),
-      fetchPricelistProductItems(listOwnerId, listSql, { limit: pageSize, offset }),
-      exportCountSql
-        ? countPricelistProductItems(exportCountSql)
-        : Promise.resolve(0),
-      missingCountSql
-        ? countPricelistProductItems(missingCountSql)
-        : Promise.resolve(0),
-      outOfStockCountSql
-        ? countPricelistProductItems(outOfStockCountSql)
-        : Promise.resolve(0),
-      countPricelistProductItems(baseSql),
-    ])
+  const exportFilledCount = summary.exportFilledCount
+  const missingPriceCount = summary.missingPriceCount
+  const outOfStockCount = summary.outOfStockCount
+  const totalOnPricelist = unfilteredTotal ?? summary.totalOnPricelist
+  const total = filters.missingPricesOnly
+    ? missingPriceCount
+    : filters.filledPricesOnly
+      ? exportFilledCount
+      : filters.outOfStockOnly
+        ? outOfStockCount
+        : summary.totalOnPricelist
 
   const rows = await hydratePricelistRows(items, listOwnerId, viewer)
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1)

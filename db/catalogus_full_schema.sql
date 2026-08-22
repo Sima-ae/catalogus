@@ -364,6 +364,7 @@ CREATE TABLE IF NOT EXISTS seller_product_prices (
   PRIMARY KEY (list_owner_id, seller_id, product_id),
   KEY idx_seller_prices_product (product_id),
   KEY idx_seller_prices_list_product (list_owner_id, product_id),
+  KEY idx_seller_prices_list_product_updated (list_owner_id, product_id, updated_at),
   CONSTRAINT fk_seller_prices_product
     FOREIGN KEY (product_id) REFERENCES products(id)
     ON DELETE CASCADE

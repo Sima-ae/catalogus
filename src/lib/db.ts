@@ -43,23 +43,33 @@ export function resolveDatabaseUrl(): string {
   return `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}`
 }
 
+function attachPoolGuards(pool: mysql.Pool) {
+  pool.on('connection', (connection) => {
+    // MariaDB: kill runaway ROW_NUMBER / filesort queries instead of holding the pool.
+    // Unsupported on some MySQL builds — ignore the error.
+    connection.query('SET SESSION max_statement_time = 30', () => undefined)
+  })
+}
+
 function createPool() {
   ensureEnvLoaded()
   const limit = defaultConnectionLimit()
-  return mysql.createPool({
+  const pool = mysql.createPool({
     uri: resolveDatabaseUrl(),
     waitForConnections: true,
     connectionLimit: limit,
     maxIdle: Math.min(limit, 8),
-    // Prefer waiting briefly over hard-failing shop requests under burst traffic.
-    queueLimit: 120,
+    // Fail sooner than 120 queued checkouts — a full queue + retries aborted MariaDB connections.
+    queueLimit: 40,
     timezone: 'Z',
     decimalNumbers: true,
     enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
-    connectTimeout: 12_000,
-    idleTimeout: 30_000,
+    keepAliveInitialDelay: 20_000,
+    connectTimeout: 8_000,
+    idleTimeout: 90_000,
   })
+  attachPoolGuards(pool)
+  return pool
 }
 
 /** Close pool and clear global singleton (avoids duplicate pools on HMR / retries). */
@@ -126,7 +136,10 @@ function shouldResetPool(err: unknown): boolean {
   if (isDbTooManyConnections(err)) return false
   const message = err instanceof Error ? err.message : ''
   if (message.includes('Pool is closed')) return true
-  return isDbConnectionError(err)
+  const code = err && typeof err === 'object' ? (err as { code?: string }).code : undefined
+  // Do not destroy the whole pool on a single timed-out / aborted query.
+  // resetDbPool() used to abort every in-flight checkout and stampede MariaDB.
+  return code === 'ECONNREFUSED' || code === 'ER_BAD_DB_ERROR' || code === 'ENOTFOUND'
 }
 
 export async function queryDb<T = unknown>(

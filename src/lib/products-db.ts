@@ -835,8 +835,8 @@ const SHOP_CATALOG_COUNT_TTL_MS = 300_000
 const SHOP_CATALOG_PAGE_TTL_MS = 120_000
 /** Deeper Super Clones shuffle pages use the nightly precomputed order. */
 const SHOP_CATALOG_SHUFFLE_PAGE_TTL_MS = SHOP_CATALOG_PAGE_TTL_MS
-/** First-page live shuffle (Super Clones + 1-1.club) — short TTL, re-rolls often. */
-const SHOP_CATALOG_LIVE_SHUFFLE_TTL_MS = 8_000
+/** First-page live shuffle (Super Clones + 1-1.club). 8s re-rolled RAND() 24/7 under monitors. */
+const SHOP_CATALOG_LIVE_SHUFFLE_TTL_MS = 60_000
 const ACTIVE_PRODUCT_TOTAL_TTL_MS = 300_000
 const NEW_PRODUCTS_WEEK_TOTAL_TTL_MS = 300_000
 
@@ -1801,8 +1801,8 @@ export async function listActiveProductsPaginated(
   // Do not kick off background COUNT/GROUP BY warmers here — that burned CPU
   // continuously under traffic. Caches fill on real nav/menu/count requests.
   const cacheKey = shopCatalogPageCacheKey(query)
-  // Homepage page 1 (both hosts): short TTL + singleflight so concurrent visitors
-  // share one RAND() result (prevents MariaDB stampedes / 503s) while still re-rolling often.
+  // Homepage page 1 (both hosts): TTL + singleflight so concurrent visitors
+  // share one RAND() result (prevents MariaDB stampedes / 503s).
   if (isLiveCatalogShuffle(query)) {
     return getCachedValue(
       SHOP_CATALOG_PAGE_CACHE_NS,
