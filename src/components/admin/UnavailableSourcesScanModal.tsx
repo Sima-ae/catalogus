@@ -89,7 +89,7 @@ export default function UnavailableSourcesScanModal({
   const panelRef = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  const candidates = result?.candidates ?? []
+  const candidates = useMemo(() => result?.candidates ?? [], [result?.candidates])
 
   useEffect(() => {
     if (!result) {

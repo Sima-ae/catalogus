@@ -21,13 +21,12 @@ export type ShopCatalogBrowseDeferState = {
   needsNestedSubcategoryPick: boolean
 }
 
-/** Hold product queries only while subcategory menus are still resolving. */
+/**
+ * Parent categories list immediately with subcategory=All.
+ * Subcategory / nested pills resolve in parallel — never block the grid.
+ */
 export function shouldDeferShopCatalogProductLoad(
-  state: ShopCatalogBrowseDeferState
+  _state: ShopCatalogBrowseDeferState
 ): boolean {
-  if (state.searchActive) return false
-  // Do not block on needsSubcategoryPick / needsNestedSubcategoryPick — selecting a
-  // parent category (PERFUMES, CLOTHES, …) should list all products immediately; pills
-  // remain optional filters (All / specific).
-  return state.loadingSubcategories || state.loadingNestedSubcategories
+  return false
 }

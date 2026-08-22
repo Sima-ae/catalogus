@@ -68,6 +68,7 @@ export function AdminSortableTh({
   return (
     <th
       className={`py-3 px-4 font-semibold ${align === 'right' ? 'text-right' : 'text-left'} ${t.tableHead}`}
+      aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       <button
         type="button"
@@ -75,7 +76,6 @@ export function AdminSortableTh({
         className={`inline-flex items-center gap-1 rounded-md -mx-1 px-1 py-0.5 transition-colors ${
           active ? t.body : t.muted
         } hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60`}
-        aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
       >
         <span>{label}</span>
         {active ? (

@@ -47,7 +47,7 @@ function attachPoolGuards(pool: mysql.Pool) {
   pool.on('connection', (connection) => {
     // MariaDB: kill runaway ROW_NUMBER / filesort queries instead of holding the pool.
     // Unsupported on some MySQL builds — ignore the error.
-    connection.query('SET SESSION max_statement_time = 30', () => undefined)
+    void connection.query('SET SESSION max_statement_time = 30').catch(() => undefined)
   })
 }
 

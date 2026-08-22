@@ -153,7 +153,7 @@ export default function ChatSupplierPanel() {
         ))}
       </div>
     )
-  }, [messages])
+  }, [messages, localizeMessageBody])
 
   return (
     <>

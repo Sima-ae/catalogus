@@ -132,10 +132,11 @@ export default function ChatPanel() {
     }
   }, [open, conversationId, dequeueQuote, user, loadMessages, requestScrollToBottom])
 
+  const nextQueuedQuote = quoteQueue[0]
   useEffect(() => {
     if (!open || !conversationId || quoteQueue.length === 0) return
     void pumpQuoteQueue()
-  }, [open, conversationId, quoteQueue.length, quoteQueue[0], pumpQuoteQueue])
+  }, [open, conversationId, quoteQueue.length, nextQueuedQuote, pumpQuoteQueue])
 
   const sendingQuoteLabel = useMemo(() => {
     if (!sendingQuote) return null
@@ -174,7 +175,7 @@ export default function ChatPanel() {
         ))}
       </div>
     )
-  }, [messages])
+  }, [messages, localizeMessageBody])
 
   const sendMessage = async () => {
     if (!conversationId || !reply.trim() || sending) return

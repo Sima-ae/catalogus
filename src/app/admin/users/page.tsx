@@ -92,7 +92,10 @@ export default function AdminUsersPage() {
   const [sortKey, setSortKey] = useState<UserSortKey | null>(null)
   const [sortDir, setSortDir] = useState<UserSortDir>('asc')
 
-  const roleLabel = (key: RoleDisplayKey) => tr(`admin.users.role.${key}`)
+  const roleLabel = useCallback(
+    (key: RoleDisplayKey) => tr(`admin.users.role.${key}`),
+    [tr]
+  )
 
   const handleSort = (key: string) => {
     const nextKey = key as UserSortKey
@@ -124,7 +127,7 @@ export default function AdminUsersPage() {
   const sortedUsers = useMemo(() => {
     if (!sortKey) return filteredUsers
     return [...filteredUsers].sort((a, b) => compareUsers(a, b, sortKey, sortDir, roleLabel))
-  }, [filteredUsers, sortKey, sortDir, tr])
+  }, [filteredUsers, sortKey, sortDir, roleLabel])
 
   const hasActiveFilters = search.trim() !== '' || roleFilter !== 'all' || badgeFilter !== 'all'
 

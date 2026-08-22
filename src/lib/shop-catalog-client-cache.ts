@@ -122,6 +122,13 @@ async function fetchShopCatalogPage(
   return data
 }
 
+/** In-flight hover/click prefetch — reuse it instead of a second /api/products call. */
+export function getInflightShopCatalog(
+  filters: ShopCatalogFilterPrefetch
+): Promise<CatalogProductsPage | null> | null {
+  return catalogInflight.get(shopCatalogClientSignature(filters)) ?? null
+}
+
 /** Warm catalog cache on category/brand hover or click (parallel with navigation). */
 export function prefetchShopCatalogFilter(filters: ShopCatalogFilterPrefetch): void {
   const signature = shopCatalogClientSignature(filters)

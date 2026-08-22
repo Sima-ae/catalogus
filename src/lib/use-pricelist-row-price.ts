@@ -39,20 +39,15 @@ export function usePricelistRowPrice({
   const [savedFlash, setSavedFlash] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const priceSeed = editablePriceSeed(row)
+  const nextStockStatus = rowStockStatus(row)
+
   useEffect(() => {
-    const next = editablePriceSeed(row)
-    savedValueRef.current = next
-    setValue(next)
-    setStockStatus(rowStockStatus(row))
+    savedValueRef.current = priceSeed
+    setValue(priceSeed)
+    setStockStatus(nextStockStatus)
     setError(null)
-  }, [
-    row.product_id,
-    row.seller_unit_price,
-    row.display_unit_price,
-    row.seller_stock_status,
-    row.display_stock_status,
-    row.can_edit_price,
-  ])
+  }, [row.product_id, priceSeed, nextStockStatus])
 
   const handleSetStockStatus = useCallback(
     async (status: PricelistStockStatus) => {

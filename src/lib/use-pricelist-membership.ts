@@ -30,11 +30,11 @@ export function usePricelistMembership(productId: string, options?: Options) {
 
   const useBatch = Boolean(batch) && !ownerQuery && !assumedOnList
 
-  const membershipOwnerQuery = (): string => {
+  const membershipOwnerQuery = useCallback((): string => {
     if (ownerQuery) return ownerQuery
     if (user?.role === 'admin') return readAdminPricelistTargetSlug()
     return user?.id ?? ''
-  }
+  }, [ownerQuery, user])
 
   const load = useCallback(async () => {
     if (useBatch) return
@@ -60,7 +60,7 @@ export function usePricelistMembership(productId: string, options?: Options) {
     } finally {
       setLoading(false)
     }
-  }, [user, productId, canUse, assumedOnList, ownerQuery, useBatch])
+  }, [user, productId, canUse, assumedOnList, membershipOwnerQuery, useBatch])
 
   useEffect(() => {
     if (useBatch) {

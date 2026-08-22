@@ -289,32 +289,22 @@ function PricelistTableRow({
       ? formatPrice(row.seller_unit_price, { currencyCode: row.seller_currency || 'EUR' })
       : '—'
 
-  useEffect(() => {
-    const next = editablePriceSeed(row)
-    savedValueRef.current = next
-    setValue(next)
-    setStockStatus(rowStockStatus(row))
-    setError(null)
-  }, [
-    row.product_id,
-    row.seller_unit_price,
-    row.display_unit_price,
-    row.seller_stock_status,
-    row.display_stock_status,
-    row.can_edit_price,
-  ])
+  const priceSeed = editablePriceSeed(row)
+  const nextStockStatus = rowStockStatus(row)
+  const shippingSeed = editableShippingSeed(row)
 
   useEffect(() => {
-    const next = editableShippingSeed(row)
-    savedShippingRef.current = next
-    setShippingValue(next)
+    savedValueRef.current = priceSeed
+    setValue(priceSeed)
+    setStockStatus(nextStockStatus)
+    setError(null)
+  }, [row.product_id, priceSeed, nextStockStatus])
+
+  useEffect(() => {
+    savedShippingRef.current = shippingSeed
+    setShippingValue(shippingSeed)
     setShippingError(null)
-  }, [
-    row.product_id,
-    row.seller_shipping_cost,
-    row.display_shipping_cost,
-    row.can_edit_shipping,
-  ])
+  }, [row.product_id, shippingSeed])
 
   const displayPrice = row.display_stock_status
     ? null
@@ -475,7 +465,7 @@ function PricelistTableRow({
     } finally {
       setRequesting(false)
     }
-  }, [onRequestPriceEdit, row.product_id])
+  }, [onRequestPriceEdit, row.product_id, t])
 
   const handleApprove = useCallback(
     async (requestId: string) => {
@@ -490,7 +480,7 @@ function PricelistTableRow({
         setApprovingId(null)
       }
     },
-    [onApprovePriceEdit]
+    [onApprovePriceEdit, t]
   )
 
   const inputClass = `w-full min-w-[4.5rem] pl-7 pr-2 py-1 rounded border text-sm tabular-nums ${

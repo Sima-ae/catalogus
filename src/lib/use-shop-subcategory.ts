@@ -254,13 +254,7 @@ export function useShopSubcategory(selectedCategory: string): ShopSubcategoryHoo
     if (legacySubcategoryFromCategoryParam) return legacySubcategoryFromCategoryParam
     // Default to All so parent categories (e.g. PERFUMES) show products immediately.
     return 'All'
-  }, [
-    searchParams,
-    subcategoryOptions,
-    hasSubcategories,
-    legacySubcategoryFromCategoryParam,
-    loading,
-  ])
+  }, [searchParams, subcategoryOptions, legacySubcategoryFromCategoryParam, loading])
 
   const needsSubcategoryPick = false
 

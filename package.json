@@ -43,7 +43,7 @@
     "db:set-ar-factory-shipping": "tsx scripts/set-ar-factory-shipping-cost.ts",
     "db:sync-category-translations": "tsx scripts/sync-category-translations.ts",
     "db:apply-catalog-performance": "tsx scripts/apply-catalog-performance-upgrades.ts",
-    "db:show-processlist": "tsx scripts/show-db-processlist.ts",
+    "db:show-processlist": "node scripts/show-db-processlist.mjs",
     "db:backfill-product-taxonomy-ids": "tsx scripts/backfill-product-taxonomy-ids.ts",
     "db:rebuild-homepage-shuffle": "tsx scripts/rebuild-homepage-shuffle-positions.ts",
     "db:rebuild-featured-shuffle": "tsx scripts/rebuild-featured-shuffle-positions.ts",

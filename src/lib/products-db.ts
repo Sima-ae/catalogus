@@ -1164,11 +1164,8 @@ export async function getShopCatalogProductTotal(
     )
     if (resolved != null) return resolved
   } else {
-    // Super Clones: warm global buckets in the background; never block countOnly
-    // on a cold full-catalog GROUP BY — COUNT this filter instead.
-    void resolveShopCatalogTotalFromBuckets(categories, categoryFilter, query).catch(
-      () => undefined
-    )
+    // Super Clones: never kick off a full-catalog GROUP BY from countOnly.
+    // Nav/menu already warm idsOnly buckets; COUNT this filter instead.
     if (query.mode === 'new') return getCachedNewProductsWeekTotal()
     if (!query.category || query.category === 'All') {
       if (!query.brand || query.brand === 'All') {
@@ -2210,13 +2207,8 @@ async function loadActiveProductsPaginatedFromDb(
         responseSkipTotal = false
       }
     } else {
-      // Super Clones: never block the grid on a cold full-catalog GROUP BY.
-      // Warm buckets in the background; COUNT this filter only (indexed).
-      void resolveShopCatalogTotalFromBuckets(
-        categories,
-        categoryFilter,
-        query
-      ).catch(() => undefined)
+      // Super Clones: never start a full-catalog GROUP BY from the listing path.
+      // Nav/menu warm idsOnly buckets; this request only COUNTs the current filter.
       if (!query.skipTotal) {
         total = await countShopCatalogProducts(
           await catalogListingFromSqlForQuery({ needsCategoryJoin, needsBrandJoin }),

@@ -45,22 +45,32 @@ else
 fi
 echo ""
 
-echo "=== Catalogus process model (should be ONE next start, not PM2 cluster) ==="
-ps aux | grep -E '[n]ext-server|[n]ode.*next' | head -10 || true
+echo "=== Catalogus process model (should be ONE next start on :3001) ==="
+APP_DIR="${APP_DIR:-/var/www/superclones.cloud}"
+if systemctl is-active catalogus &>/dev/null; then
+  echo "  systemd catalogus: active"
+else
+  echo "  WARN: systemd catalogus is INACTIVE — a PM2 leftover may be serving :3001 instead"
+fi
+if command -v pm2 >/dev/null 2>&1 && pm2 pid catalogus &>/dev/null; then
+  echo "  WARN: PM2 process 'catalogus' is running — deploy/catalogus.service says do not use PM2"
+fi
+echo ""
+echo "  next-server cwd + listen ports (orphans from old deploys keep MariaDB connections open):"
+for pid in $(ps -eo pid=,args= | awk '/[n]ext-server/ { print $1 }'); do
+  cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null || echo '?')
+  ports=$(ss -lptn 2>/dev/null | awk -v p="pid=$pid" '$0 ~ p { print $4 }' | tr '\n' ' ')
+  printf "  PID %-8s cwd=%s  listen=%s\n" "$pid" "$cwd" "${ports:-?}"
+done
 echo ""
 
 echo "=== MariaDB threads for supe_r_clones_cloud ==="
-APP_DIR="${APP_DIR:-/var/www/superclones.cloud}"
-if [[ -f "$APP_DIR/.env" ]] && command -v npx >/dev/null 2>&1; then
+if [[ -f "$APP_DIR/scripts/show-db-processlist.mjs" && -f "$APP_DIR/.env" ]]; then
+  (cd "$APP_DIR" && node scripts/show-db-processlist.mjs) || echo "  (processlist script failed — check .env credentials)"
+elif [[ -f "$APP_DIR/scripts/show-db-processlist.ts" && -f "$APP_DIR/.env" ]] && command -v npx >/dev/null 2>&1; then
   (cd "$APP_DIR" && npx --yes tsx scripts/show-db-processlist.ts) || echo "  (processlist script failed — check .env credentials)"
-elif command -v mysql >/dev/null 2>&1; then
-  mysql -e "SHOW FULL PROCESSLIST;" 2>/dev/null | awk '
-    NR==1 { print; next }
-    BEGIN { IGNORECASE=1 }
-    $0 ~ /Copying to tmp table|Sorting result|Waiting for table lock|supe_r_clones_cloud/ { print }
-  ' | head -50 || echo "  (mysql client failed — check credentials)"
 else
-  echo "  mysql client / tsx not available"
+  echo "  processlist script not on this deploy yet. Run: node scripts/show-db-processlist.mjs"
 fi
 echo ""
 
@@ -73,8 +83,8 @@ curl -sS -o /dev/null -w "catalogus :3001 health → HTTP %{http_code}\n" http:/
 curl -sS -o /dev/null -w "inkoop     :3000 → HTTP %{http_code}\n" http://127.0.0.1:3000/ 2>/dev/null || echo "nothing on :3000"
 echo ""
 echo "If CPU is 100% with no shop visitors:"
-echo "  1) Top process mysqld → npm run db:show-processlist ; KILL long Copying/Sorting/Lock queries"
-echo "  2) Top process node + import/backfill → pkill -f 'tsx scripts/' or stop catalogus-import-worker@*"
-echo "  3) Top process inkoop / PM2 on :3000 → that app shares this VPS; stop or move it"
-echo "  4) catalogus restart loop → journalctl -u catalogus -n 100"
-echo "  5) After deploy: pricelist no longer runs 6 parallel ROW_NUMBER counts; pool no longer resets on timeouts"
+echo "  1) node scripts/show-db-processlist.mjs  → KILL long Copying/Sorting/Lock queries"
+echo "  2) Extra next-server PIDs (cwd not /var/www/superclones.cloud) are other apps or orphans"
+echo "  3) systemd catalogus should be the only catalogus; stop PM2 catalogus if systemd is used"
+echo "  4) Stop leftover import workers: pkill -f 'tsx scripts/' or catalogus-import-worker@*"
+echo "  5) inkoop-autos on :3000 and CyberCP scans also share this MariaDB"

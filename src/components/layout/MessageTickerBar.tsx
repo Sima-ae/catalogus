@@ -118,7 +118,7 @@ export default function MessageTickerBar() {
       ro.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [loopChunk])
+  }, [loopChunk, segment])
 
   if (!loaded) {
     return (

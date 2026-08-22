@@ -61,6 +61,7 @@ import { catalogSortScope } from '@/lib/catalog-sort-scope'
 import {
   consumePrefetchedShopCatalog,
   getCachedShopCatalog,
+  getInflightShopCatalog,
   invalidateShopCatalogCache,
   isShopCatalogCacheFresh,
   isShopCatalogCacheTotalTrusted,
@@ -187,6 +188,8 @@ function ShopCatalogPageContent({
   const [brandProductCount, setBrandProductCount] = useState<number | null>(null)
   const prevFilterRef = useRef<string | null>(null)
   const catalogLoadGenRef = useRef(0)
+  /** Extra /api/products top-ups after OOS/blank hides — cap so we never loop. */
+  const topUpAttemptsRef = useRef(0)
   /** SSR hydrate signature — read in the load effect without putting page in deps. */
   const initialCatalogSignatureRef = useRef(initialCatalogSignature)
   const initialCatalogRef = useRef(initialCatalog)
@@ -385,6 +388,7 @@ function ShopCatalogPageContent({
 
   const loadMoreProducts = useCallback(async () => {
     if (catalogShuffle || loadingMore || pageLoading) return
+    if (topUpAttemptsRef.current >= 2) return
 
     const loaded = productsRef.current
     const visible = loaded.filter(isCatalogGridVisibleProduct).length
@@ -395,6 +399,7 @@ function ShopCatalogPageContent({
     const fetched = Math.max(pageFetchedCount, loaded.length)
     if (fetched >= Math.max(0, totalItems - baseOffset)) return
 
+    topUpAttemptsRef.current += 1
     setLoadingMore(true)
     try {
       const data: unknown = await fetchCatalogJson(
@@ -490,20 +495,20 @@ function ShopCatalogPageContent({
       prefetchShopCategoryTaxonomy()
       if (category !== 'All') {
         prefetchShopSubcategories(category)
-        if (!categoryHasBrowseChildren(category)) {
-          beginFilterNavigation({
-            page: 1,
-            category,
-            mode: catalogMode,
-          })
-        }
-      } else if (config.shuffleCatalog) {
+        beginFilterNavigation({
+          page: 1,
+          category,
+          mode: catalogMode,
+        })
+      } else if (config.shuffleCatalog && !isFeaturedOnlyHost) {
+        // Super Clones All: prefetch the shuffled homepage. 1-1.club skips this
+        // so page 1 can live-randomize without a duplicate RAND() prefetch.
         beginFilterNavigation({
           page: 1,
           mode: catalogMode,
           shuffle: true,
         })
-      } else {
+      } else if (!config.shuffleCatalog) {
         beginFilterNavigation({
           page: 1,
           mode: catalogMode,
@@ -516,6 +521,7 @@ function ShopCatalogPageContent({
       beginInstantFilterFeedback,
       catalogMode,
       config.shuffleCatalog,
+      isFeaturedOnlyHost,
       setSelectedCategory,
     ]
   )
@@ -638,6 +644,7 @@ function ShopCatalogPageContent({
       selectedCategory,
       selectedSubcategory,
       selectedNestedSubcategory,
+      catalogShuffle,
     ]
   )
 
@@ -832,6 +839,7 @@ function ShopCatalogPageContent({
 
     const pageToLoad = currentPage
     prevFilterRef.current = filterSignature
+    topUpAttemptsRef.current = 0
     if (filtersChanged) {
       totalItemsRef.current = 0
       setTotalItems(0)
@@ -1060,6 +1068,30 @@ function ShopCatalogPageContent({
 
     async function loadProducts() {
       try {
+        // Re-check cache/inflight — prefetch may have finished after the sync check.
+        if (!skipCatalogClientCache) {
+          const lateCached = getCachedShopCatalog(clientCatalogSignature)
+          if (
+            lateCached &&
+            lateCached.items.length > 0 &&
+            isShopCatalogCacheFresh(clientCatalogSignature) &&
+            isShopCatalogCacheTotalTrusted(lateCached)
+          ) {
+            if (cancelled) return
+            applyCatalogPage(lateCached)
+            return
+          }
+          const inflight = getInflightShopCatalog(fetchFilters)
+          if (inflight) {
+            const prefetchedPage = await inflight
+            if (cancelled) return
+            if (prefetchedPage && isCatalogProductsPage(prefetchedPage)) {
+              applyCatalogPage(prefetchedPage)
+              return
+            }
+          }
+        }
+
         const url = buildCatalogFetchUrl(pageToLoad, catalogPageBaseOffset(pageToLoad))
         const data: unknown = await fetchCatalogJson(url, { signal: abortController.signal })
         if (!isCatalogProductsPage(data)) throw new Error('Invalid data format returned')
@@ -1104,19 +1136,20 @@ function ShopCatalogPageContent({
       }
     }
 
+    const dropOverlayIfStillCurrent = () => {
+      if (loadGen !== catalogLoadGenRef.current) return
+      setLoading(false)
+      setPageLoading(false)
+      setFilterNavigating(false)
+    }
+
     void loadProducts()
     return () => {
       cancelled = true
       abortController.abort()
       // If nothing replaced this load (unmount / stalled), drop the overlay so we
       // cannot stay stuck at 88% and keep hammering the VPS.
-      queueMicrotask(() => {
-        if (loadGen === catalogLoadGenRef.current) {
-          setLoading(false)
-          setPageLoading(false)
-          setFilterNavigating(false)
-        }
-      })
+      queueMicrotask(dropOverlayIfStillCurrent)
     }
   }, [
     activeCategory,
@@ -1329,15 +1362,22 @@ function ShopCatalogPageContent({
                 displayCategory={optimisticCategory ?? undefined}
                 onCategoryChange={handleCategoryChange}
                 onCategoryHover={(category) => {
-                  if (category === 'All') return
-                  prefetchShopSubcategories(category)
-                  if (!categoryHasBrowseChildren(category)) {
-                    prefetchShopCatalogFilter({
-                      page: 1,
-                      category,
-                      mode: catalogMode,
-                    })
+                  if (category === 'All') {
+                    if (config.shuffleCatalog && !isFeaturedOnlyHost) {
+                      prefetchShopCatalogFilter({
+                        page: 1,
+                        mode: catalogMode,
+                        shuffle: true,
+                      })
+                    }
+                    return
                   }
+                  prefetchShopSubcategories(category)
+                  prefetchShopCatalogFilter({
+                    page: 1,
+                    category,
+                    mode: catalogMode,
+                  })
                 }}
                 centered={config.centerCatalog}
               />

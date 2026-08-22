@@ -132,7 +132,7 @@ export default function AdminChatInbox() {
     if (selectedThread?.buyerLabel) return selectedThread.buyerLabel
     const fromQuote = quotes.find((q) => q.conversation_id === selectedId)
     return fromQuote?.buyerLabel ?? t('chat.admin.conversation')
-  }, [selectedQuote, selectedThread, quotes, selectedId])
+  }, [selectedQuote, selectedThread, quotes, selectedId, t])
 
   const fetchBuyerMessages = useCallback(
     async (since: string | null): Promise<MessageItem[]> => {
